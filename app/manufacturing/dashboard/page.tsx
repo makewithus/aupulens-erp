@@ -30,6 +30,7 @@ import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function ManufacturingDashboard() {
   const { data: session, status } = useSession();
@@ -37,122 +38,58 @@ export default function ManufacturingDashboard() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  // Manufacturing-specific parameters & OEE Telemetry
-  const manufacturingStats = {
-    oee: 87.1, // Overall Equipment Effectiveness
-    availability: 92.4,
-    performance: 95.1,
-    qualityRate: 99.2,
-    activeWorkOrders: 38,
-    demandPlanning: 14,
-    qcPending: 9,
-    reworkScrap: 3,
-    finishedThisMonth: 142,
-    totalBoms: 64,
-    activeWorkCenters: 8,
-    totalWorkCenters: 9,
-  };
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    oee: 0,
+    availability: 0,
+    performance: 0,
+    qualityRate: 0,
+    activeWorkOrders: 0,
+    demandPlanning: 0,
+    qcPending: 0,
+    reworkScrap: 0,
+    finishedThisMonth: 0,
+    totalBoms: 0,
+    activeWorkCenters: 0,
+    totalWorkCenters: 0,
+  });
+  const [productionStagesData, setProductionStagesData] = useState<any[]>([]);
+  const [workCenterLines, setWorkCenterLines] = useState<any[]>([]);
+  const [activeWorkOrdersList, setActiveWorkOrdersList] = useState<any[]>([]);
+  const [dailyOutputData, setDailyOutputData] = useState<any[]>([]);
 
-  const productionStagesData = [
-    { name: "In Production", value: 38 },
-    { name: "Material Reserved", value: 22 },
-    { name: "Planning & Forecast", value: 14 },
-    { name: "QC Inspection", value: 9 },
-    { name: "Rework / Scrap", value: 3 },
-  ];
-
-  const workCenterLines = [
-    {
-      name: "Line A: Precision CNC Milling",
-      status: "Operational",
-      load: 94,
-      product: "Alloy Housings",
-      operator: "Rajesh Sharma",
-      color: BRAND_COLORS.accent.green,
-    },
-    {
-      name: "Line B: High-Speed SMT Pick & Place",
-      status: "Operational",
-      load: 91,
-      product: "Logic Control Boards",
-      operator: "Amit Verma",
-      color: BRAND_COLORS.accent.blue,
-    },
-    {
-      name: "Line C: Robotic Final Assembly",
-      status: "Operational",
-      load: 97,
-      product: "Opto-Sensor Mk III",
-      operator: "Priya Nair",
-      color: BRAND_COLORS.accent.purple,
-    },
-    {
-      name: "Line D: Ultrasonic Cleaning & Testing",
-      status: "Maintenance",
-      load: 0,
-      product: "Scheduled Calibration",
-      operator: "Vikram Das",
-      color: BRAND_COLORS.accent.yellow,
-    },
-  ];
-
-  const activeWorkOrdersList = [
-    {
-      id: "MO-2026-0814",
-      product: "Industrial Controller Enclosure 480V",
-      bomRef: "BOM-ENC-480",
-      targetQty: "250 Units",
-      completedQty: "210 Units",
-      progress: 84,
-      workCenter: "Line A: CNC Milling",
-      dueDate: "Tomorrow, 18:00",
-      status: "In Production",
-    },
-    {
-      id: "MO-2026-0813",
-      product: "Opto-Sensor Core Module Mk III",
-      bomRef: "BOM-OPT-003",
-      targetQty: "500 Units",
-      completedQty: "500 Units",
-      progress: 100,
-      workCenter: "Line C: Final Assembly",
-      dueDate: "Today, 14:00",
-      status: "QC Pending",
-    },
-    {
-      id: "MO-2026-0812",
-      product: "High-Gain Microwave Feed Horn",
-      bomRef: "BOM-MW-102",
-      targetQty: "120 Units",
-      completedQty: "45 Units",
-      progress: 37,
-      workCenter: "Line B: SMT Mount",
-      dueDate: "24 Oct 2026",
-      status: "In Production",
-    },
-    {
-      id: "MO-2026-0811",
-      product: "Telemetry Power Supply Unit 24V",
-      bomRef: "BOM-PSU-024",
-      targetQty: "800 Units",
-      completedQty: "800 Units",
-      progress: 100,
-      workCenter: "Line D: Testing",
-      dueDate: "Yesterday",
-      status: "Finished",
-    },
-    {
-      id: "MO-2026-0810",
-      product: "Subsea Cable Hermetic Seal",
-      bomRef: "BOM-SEA-099",
-      targetQty: "80 Units",
-      completedQty: "65 Units",
-      progress: 81,
-      workCenter: "Line A: CNC Milling",
-      dueDate: "25 Oct 2026",
-      status: "Rework Required",
-    },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSummary() {
+      try {
+        const raw = await cachedFetch("/api/manufacturing/summary");
+        const res = raw.ok ? await raw.json() : null;
+        if (res?.success && isMounted) {
+          if (res.data?.manufacturingStats) {
+            setStats(res.data.manufacturingStats);
+          }
+          if (Array.isArray(res.data?.productionStagesData)) {
+            setProductionStagesData(res.data.productionStagesData);
+          }
+          if (Array.isArray(res.data?.workCenterLines)) {
+            setWorkCenterLines(res.data.workCenterLines);
+          }
+          if (Array.isArray(res.data?.recentOrders)) {
+            setActiveWorkOrdersList(res.data.recentOrders);
+          }
+          if (Array.isArray(res.data?.dailyOutput)) {
+            setDailyOutputData(res.data.dailyOutput);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load manufacturing summary:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadSummary();
+    return () => { isMounted = false; };
+  }, []);
 
   return (
     <DashboardLayout
@@ -245,11 +182,11 @@ export default function ManufacturingDashboard() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {manufacturingStats.oee}%
+                {stats.oee}%
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-purple-400 font-semibold">
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span>Exceeds 85% world-class standard</span>
+                <span>{stats.oee > 0 ? "Targeting world-class benchmark" : "No telemetry recorded yet"}</span>
               </div>
             </CardContent>
           </Card>
@@ -269,10 +206,10 @@ export default function ManufacturingDashboard() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {manufacturingStats.activeWorkOrders} in progress
+                {stats.activeWorkOrders} in progress
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
-                <span>{manufacturingStats.demandPlanning} in demand queue</span>
+                <span>{stats.demandPlanning} in demand queue</span>
               </div>
             </CardContent>
           </Card>
@@ -292,10 +229,10 @@ export default function ManufacturingDashboard() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-emerald-400">
-                {manufacturingStats.qualityRate}%
+                {stats.qualityRate}%
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-400 font-semibold">
-                <span>Only {manufacturingStats.reworkScrap} units requiring rework</span>
+                <span>{stats.reworkScrap} units requiring rework</span>
               </div>
             </CardContent>
           </Card>
@@ -315,10 +252,10 @@ export default function ManufacturingDashboard() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {manufacturingStats.activeWorkCenters} / {manufacturingStats.totalWorkCenters} Lines
+                {stats.activeWorkCenters} / {stats.totalWorkCenters} Lines
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-500 font-semibold">
-                <span>{manufacturingStats.totalBoms} active engineering BOMs</span>
+                <span>{stats.totalBoms} active engineering BOMs</span>
               </div>
             </CardContent>
           </Card>
@@ -362,6 +299,8 @@ export default function ManufacturingDashboard() {
                   height={340}
                   colorTheme="purple"
                   metricLabel="Completed Units"
+                  data={dailyOutputData}
+                  valueKey="count"
                   yAxisFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
                 />
               </CardContent>
@@ -385,11 +324,17 @@ export default function ManufacturingDashboard() {
                 </p>
               </CardHeader>
               <CardContent className="p-5 flex-1 flex flex-col justify-center items-center">
-                <CanvasPieChart
-                  data={productionStagesData}
-                  title="WIP Orders"
-                  colors={BRAND_ACCENT_PALETTE}
-                />
+                {productionStagesData.some((d) => d.value > 0) ? (
+                  <CanvasPieChart
+                    data={productionStagesData}
+                    title="WIP Orders"
+                    colors={BRAND_ACCENT_PALETTE}
+                  />
+                ) : (
+                  <div className="py-12 text-center text-xs text-muted-foreground">
+                    No active production orders across stages yet
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -414,35 +359,41 @@ export default function ManufacturingDashboard() {
                 </p>
               </CardHeader>
               <CardContent className="p-5 space-y-5">
-                {workCenterLines.map((line, idx) => (
-                  <div key={idx} className="space-y-1.5 border-b border-border/30 pb-3 last:border-b-0 last:pb-0">
-                    <div className="flex justify-between items-center text-xs">
-                      <div>
-                        <span className="font-semibold text-foreground block">{line.name}</span>
-                        <span className="text-[11px] text-muted-foreground">Product: {line.product}</span>
+                {workCenterLines.length > 0 ? (
+                  workCenterLines.map((line, idx) => (
+                    <div key={idx} className="space-y-1.5 border-b border-border/30 pb-3 last:border-b-0 last:pb-0">
+                      <div className="flex justify-between items-center text-xs">
+                        <div>
+                          <span className="font-semibold text-foreground block">{line.name}</span>
+                          <span className="text-[11px] text-muted-foreground">Product: {line.product}</span>
+                        </div>
+                        <div className="text-right">
+                          <span
+                            className="px-2 py-0.5 rounded text-[10px] font-bold inline-block mb-1"
+                            style={{
+                              backgroundColor: `${line.color}20`,
+                              color: line.color,
+                              border: `1px solid ${line.color}40`,
+                            }}
+                          >
+                            {line.status} ({line.load}%)
+                          </span>
+                          <div className="text-[10px] text-muted-foreground">{line.operator}</div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span
-                          className="px-2 py-0.5 rounded text-[10px] font-bold inline-block mb-1"
-                          style={{
-                            backgroundColor: `${line.color}20`,
-                            color: line.color,
-                            border: `1px solid ${line.color}40`,
-                          }}
-                        >
-                          {line.status} ({line.load}%)
-                        </span>
-                        <div className="text-[10px] text-muted-foreground">{line.operator}</div>
+                      <div className="h-2 w-full bg-border/40 overflow-hidden">
+                        <div
+                          className="h-full transition-all duration-500"
+                          style={{ width: `${line.load}%`, backgroundColor: line.color }}
+                        />
                       </div>
                     </div>
-                    <div className="h-2 w-full bg-border/40 overflow-hidden">
-                      <div
-                        className="h-full transition-all duration-500"
-                        style={{ width: `${line.load}%`, backgroundColor: line.color }}
-                      />
-                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center text-xs text-muted-foreground font-mono">
+                    No active work centers configured for this organization.
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </div>
@@ -486,48 +437,56 @@ export default function ManufacturingDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
-                      {activeWorkOrdersList.map((mo, i) => (
-                        <tr key={i} className="hover:bg-muted/10 transition-colors">
-                          <td className="p-3 pl-5">
-                            <div className="font-bold text-foreground">{mo.id}</div>
-                            <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">
-                              {mo.product}
-                            </div>
-                          </td>
-                          <td className="p-3 text-muted-foreground">{mo.workCenter}</td>
-                          <td className="p-3 font-semibold text-foreground">
-                            {mo.completedQty} / {mo.targetQty}
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 h-1.5 bg-border/40 overflow-hidden">
-                                <div
-                                  className="h-full bg-[#A77DFF]"
-                                  style={{ width: `${mo.progress}%` }}
-                                />
+                      {activeWorkOrdersList.length > 0 ? (
+                        activeWorkOrdersList.map((mo, i) => (
+                          <tr key={i} className="hover:bg-muted/10 transition-colors">
+                            <td className="p-3 pl-5">
+                              <div className="font-bold text-foreground">{mo.id}</div>
+                              <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                                {mo.product}
                               </div>
-                              <span className="text-[10px] text-muted-foreground">{mo.progress}%</span>
-                            </div>
-                          </td>
-                          <td className="p-3 pr-5 text-right">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "font-mono text-[10px]",
-                                mo.status === "In Production"
-                                  ? "border-purple-500/30 text-purple-600 dark:text-purple-400 bg-purple-500/10"
-                                  : mo.status === "Finished"
-                                  ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-                                  : mo.status === "QC Pending"
-                                  ? "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"
-                                  : "border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/10"
-                              )}
-                            >
-                              {mo.status}
-                            </Badge>
+                            </td>
+                            <td className="p-3 text-muted-foreground">{mo.workCenter}</td>
+                            <td className="p-3 font-semibold text-foreground">
+                              {mo.completedQty} / {mo.targetQty}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 h-1.5 bg-border/40 overflow-hidden">
+                                  <div
+                                    className="h-full bg-[#A77DFF]"
+                                    style={{ width: `${mo.progress}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground">{mo.progress}%</span>
+                              </div>
+                            </td>
+                            <td className="p-3 pr-5 text-right">
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "font-mono text-[10px]",
+                                  mo.status === "In Production"
+                                    ? "border-purple-500/30 text-purple-600 dark:text-purple-400 bg-purple-500/10"
+                                    : mo.status === "Finished"
+                                    ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                                    : mo.status === "QC Pending"
+                                    ? "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"
+                                    : "border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/10"
+                                )}
+                              >
+                                {mo.status}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-muted-foreground font-mono">
+                            No manufacturing orders found for this organization.
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>

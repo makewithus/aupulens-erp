@@ -103,10 +103,11 @@ export default function InventoryAnalyticsPage() {
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
   const [dateRange, setDateRange] = useState('30');
 
-  const [warehouses, setWarehouses] = useState<Warehouse[]>(DEMO_WAREHOUSES);
-  const [stockItems, setStockItems] = useState<StockItem[]>(DEMO_STOCK_ITEMS);
-  const [batches, setBatches] = useState<Batch[]>(DEMO_BATCHES);
-  const [orders, setOrders] = useState<Order[]>(DEMO_ORDERS);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [stockMoves, setStockMoves] = useState<any[]>([]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -120,36 +121,33 @@ export default function InventoryAnalyticsPage() {
     try {
       setIsLoading(true);
       
-      const [warehouseRes, stockRes, batchRes, orderRes] = await Promise.all([
+      const [warehouseRes, stockRes, batchRes, orderRes, movesRes] = await Promise.all([
         cachedFetch('/api/inventory/warehouse'),
         cachedFetch('/api/inventory/stock'),
         cachedFetch('/api/inventory/batch'),
         cachedFetch('/api/inventory/orders'),
+        cachedFetch('/api/inventory/stock-moves'),
       ]);
 
       if (warehouseRes.ok) {
         const data = await warehouseRes.json();
-        if (data.warehouses && data.warehouses.length > 0) {
-          setWarehouses(data.warehouses);
-        }
+        setWarehouses(data.warehouses || []);
       }
       if (stockRes.ok) {
         const data = await stockRes.json();
-        if (data.items && data.items.length > 0) {
-          setStockItems(data.items);
-        }
+        setStockItems(data.items || []);
       }
       if (batchRes.ok) {
         const data = await batchRes.json();
-        if (data.batches && data.batches.length > 0) {
-          setBatches(data.batches);
-        }
+        setBatches(data.batches || []);
       }
       if (orderRes.ok) {
         const data = await orderRes.json();
-        if (data.orders && data.orders.length > 0) {
-          setOrders(data.orders);
-        }
+        setOrders(data.orders || []);
+      }
+      if (movesRes.ok) {
+        const data = await movesRes.json();
+        setStockMoves(data.moves || []);
       }
     } catch (err) {
       console.error('Error fetching analytics data:', err);
@@ -271,19 +269,37 @@ export default function InventoryAnalyticsPage() {
         }
       });
       
-      // Calculate realistic quantity with organic wave pattern for demonstration
-      const organicBaseline = Math.round(28 + 14 * Math.sin(i / 6.5) + ((i * 13) % 19));
       const realQty = dayOrders.reduce((sum, o) => sum + (o.totalQuantity || 0), 0);
-      const quantity = realQty > 0 ? realQty : organicBaseline;
 
       return {
         date: dateStr,
         label: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: '2-digit' }),
-        orders: dayOrders.length > 0 ? dayOrders.length : Math.max(1, Math.round(quantity / 8)),
-        quantity: quantity,
+        orders: dayOrders.length,
+        quantity: realQty,
       };
     });
   }, [filteredOrders]);
+
+  // Real Daily Throughput Data for DailyBrickBarChart
+  const dailyThroughputData = useMemo(() => {
+    const map = new Map<string, number>();
+    stockMoves.forEach((m) => {
+      const d = (m.scheduledDate || m.createdAt || "").split("T")[0];
+      if (d) {
+        const linesCount = (m.lines || []).reduce((s: number, l: any) => s + (l.quantity || 1), 0);
+        map.set(d, (map.get(d) || 0) + linesCount);
+      }
+    });
+    filteredOrders.forEach((o) => {
+      const d = (o.orderDate || (o as any).createdAt || "").split("T")[0];
+      if (d) {
+        map.set(d, (map.get(d) || 0) + (o.totalQuantity || 1));
+      }
+    });
+    return Array.from(map.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [stockMoves, filteredOrders]);
 
   // Top Items by Quantity (Bar Chart)
   const topItemsData = useMemo(() => {
@@ -426,13 +442,10 @@ export default function InventoryAnalyticsPage() {
                 Full 365-day timeline tracking each day individually with discrete segmented brick stacks
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2.5 h-2.5 bg-[#d4d4d8] rounded-none"></span>
-              <span className="text-[11px] font-mono text-muted-foreground">Daily Movements</span>
-            </div>
           </CardHeader>
           <CardContent className="h-[320px] sm:h-[280px] px-3 sm:px-6">
             <DailyBrickBarChart
+              data={dailyThroughputData}
               metricLabel="Movements"
               valueKey="count"
               height="100%"

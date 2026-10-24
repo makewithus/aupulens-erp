@@ -100,13 +100,35 @@ export function generate730HistoricalData(
   return result;
 }
 
+export function generateZeroHistoricalData(days = 90): LineDataPoint[] {
+  const result: LineDataPoint[] = [];
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - (days - 1));
+
+  for (let i = 0; i < days; i++) {
+    const curDate = new Date(startDate);
+    curDate.setDate(startDate.getDate() + i);
+    result.push({
+      date: curDate.toISOString().split("T")[0],
+      value: 0,
+      open: 0,
+      high: 0,
+      low: 0,
+      close: 0,
+      label: curDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    });
+  }
+  return result;
+}
+
 export function expandSparseToDailyTimeline(
   rawPoints: any[],
   valueKey: string,
   dateKey: string
 ): LineDataPoint[] {
   if (!rawPoints || rawPoints.length === 0) {
-    return generate730HistoricalData();
+    return generateZeroHistoricalData(90);
   }
 
   // If already rich daily data (>= 28 points)
@@ -672,6 +694,15 @@ export function TradingLineChart({
       ctx.strokeStyle = themeColors.main;
       ctx.lineWidth = 2.2;
       ctx.stroke();
+
+      // If all values are 0 (e.g. fresh organization without transactions)
+      if (maxVal === 0) {
+        ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.40)" : "rgba(15, 23, 42, 0.40)";
+        ctx.font = '12px "Roboto Mono", monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("No transactions recorded for this organization in this period", (cL + cR) / 2, (cT + cB) / 2);
+      }
 
       // ── 5. Hover Crosshairs & Point Marker ──
       if (currentHoverIdx !== null && currentHoverIdx >= 0 && currentHoverIdx < n) {

@@ -97,4 +97,62 @@ export type ErpStructuredResponse =
       type: "not_found";
       identifier?: string;
       message: string;
+    }
+  | {
+      type: "profit_loss";
+      revenue: number;
+      formattedRevenue: string;
+      expenses: number;
+      formattedExpenses: string;
+      netProfit: number;
+      formattedNetProfit: string;
+      isProfitable: boolean;
+      status: "profitable" | "loss" | "break_even" | "incomplete_data" | "unavailable";
+      period?: { from?: string; to?: string };
+      basis: string;
+      limitations?: string;
+      invoiceCount?: number;
+      postedEntryCount?: number;
+    }
+  | {
+      type: "customer_proposal";
+      proposalId: string;
+      name?: string;
+      isCompany?: boolean;
+      email?: string;
+      phone?: string;
+      missingFields?: string[];
+      status: "draft" | "proposed" | "confirmed";
+    }
+  | {
+      type: "customer_saved";
+      customerId: string;
+      name: string;
+      isCompany: boolean;
+      route: string;
+    }
+  | {
+      type: "role_change_proposal";
+      proposalId: string;
+      userId: string;
+      userName: string;
+      userEmail?: string;
+      currentRole: string;
+      currentRoleLabel: string;
+      proposedRole: string;
+      proposedRoleLabel: string;
+      status: "proposed";
+    }
+  | {
+      type: "role_changed";
+      userId: string;
+      userName: string;
+      newRole: string;
+      newRoleLabel: string;
+    }
+  | {
+      type: "clarification";
+      question: string;
+      contextEntity?: string;
+      options?: string[];
     };

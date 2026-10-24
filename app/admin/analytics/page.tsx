@@ -25,7 +25,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { DailyBrickBarChart, generate365DailyData } from '@/components/charts/DailyBrickBarChart';
+import { DailyBrickBarChart, generateZeroDailyData } from '@/components/charts/DailyBrickBarChart';
 import { TradingLineChart } from '@/components/charts/TradingLineChart';
 
 type Tab = 'overview' | 'finance' | 'sales' | 'inventory' | 'manufacturing';
@@ -115,33 +115,9 @@ export default function AdminAnalytics() {
       const inventoryAnalytics = inventoryAnalyticsRes && inventoryAnalyticsRes.ok ? await inventoryAnalyticsRes.json() : null;
       const manufacturingAnalytics = manufacturingAnalyticsRes && manufacturingAnalyticsRes.ok ? await manufacturingAnalyticsRes.json() : null;
 
-      // Generate dummy data for the past 12 months
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const generateDummyData = () => {
-        return monthNames.map((month, idx) => {
-          const baseRevenue = 50000 + Math.random() * 30000;
-          const baseOrders = 100 + Math.floor(Math.random() * 50);
-          const baseStock = 500 + Math.floor(Math.random() * 300);
-          const baseShipments = 20 + Math.floor(Math.random() * 30);
-          
-          return {
-            time: month,
-            revenue: Math.floor(baseRevenue + (idx * 2000)),
-            expenses: Math.floor(baseRevenue * (0.6 + Math.random() * 0.2)),
-            profit: 0, // will be calculated
-            orders: baseOrders + Math.floor(idx * 2),
-            stockLevel: baseStock + Math.floor(idx * 10),
-            production: baseShipments + Math.floor(idx * 2),
-            shipments: baseShipments,
-            costs: Math.floor(baseShipments * (800 + Math.random() * 400)),
-          };
-        }).map(item => ({
-          ...item,
-          profit: item.revenue - item.expenses
-        }));
-      };
 
-      // Transform finance data for charts - Mix real and dummy data
+      // Transform finance data for charts - Real API data only
       let financeChartData: ChartDataPoint[] = [];
       if (financeAnalytics?.revenue && financeAnalytics.revenue.length > 0) {
         financeChartData = financeAnalytics.revenue.map((rev: any, idx: number) => ({
@@ -151,15 +127,8 @@ export default function AdminAnalytics() {
           profit: rev.amount - (financeAnalytics?.expenses?.[idx]?.amount || 0),
         }));
       }
-      // If no real data or insufficient data, add dummy data
-      if (financeChartData.length < 6) {
-        const dummyData = generateDummyData();
-        financeChartData = financeChartData.length > 0 
-          ? [...financeChartData, ...dummyData.slice(financeChartData.length)]
-          : dummyData;
-      }
 
-      // Transform sales data for charts - Mix real and dummy data
+      // Transform sales data for charts - Real API data only
       let salesChartData: ChartDataPoint[] = [];
       if (salesAnalytics?.orders && salesAnalytics.orders.length > 0) {
         salesChartData = salesAnalytics.orders.map((order: any, idx: number) => ({
@@ -168,14 +137,8 @@ export default function AdminAnalytics() {
           revenue: salesAnalytics?.revenue?.[idx]?.amount || 0,
         }));
       }
-      if (salesChartData.length < 6) {
-        const dummyData = generateDummyData();
-        salesChartData = salesChartData.length > 0
-          ? [...salesChartData, ...dummyData.slice(salesChartData.length).map(d => ({ time: d.time, orders: d.orders, revenue: d.revenue }))]
-          : dummyData.map(d => ({ time: d.time, orders: d.orders, revenue: d.revenue }));
-      }
 
-      // Transform inventory data for charts - Mix real and dummy data
+      // Transform inventory data for charts - Real API data only
       let inventoryChartData: ChartDataPoint[] = [];
       if (inventoryAnalytics?.stockLevels && inventoryAnalytics.stockLevels.length > 0) {
         inventoryChartData = inventoryAnalytics.stockLevels.map((stock: any) => ({
@@ -184,14 +147,8 @@ export default function AdminAnalytics() {
           stockLevel: stock.level,
         }));
       }
-      if (inventoryChartData.length < 6) {
-        const dummyData = generateDummyData();
-        inventoryChartData = inventoryChartData.length > 0
-          ? [...inventoryChartData, ...dummyData.slice(inventoryChartData.length).map(d => ({ time: d.time, level: d.stockLevel, stockLevel: d.stockLevel }))]
-          : dummyData.map(d => ({ time: d.time, level: d.stockLevel, stockLevel: d.stockLevel }));
-      }
 
-      // Transform manufacturing data - Mix real and dummy data
+      // Transform manufacturing data - Real API data only
       let manufacturingChartData: ChartDataPoint[] = [];
       if (manufacturingAnalytics) {
         const shipmentsMap = new Map();
@@ -220,58 +177,39 @@ export default function AdminAnalytics() {
           });
         });
       }
-      // Add dummy manufacturing data if insufficient
-      if (manufacturingChartData.length < 6) {
-        const dummyData = generateDummyData();
-        if (manufacturingChartData.length > 0) {
-          manufacturingChartData.push(...dummyData.slice(manufacturingChartData.length).map(d => ({
-              time: d.time, 
-              production: d.production, 
-              shipments: d.shipments, 
-              costs: d.costs 
-            })));
-        } else {
-          manufacturingChartData.push(...dummyData.map(d => ({
-              time: d.time, 
-              production: d.production, 
-              shipments: d.shipments, 
-              costs: d.costs 
-            })));
-        }
-      }
 
-      // Calculate totals with both real and dummy data
+      // Calculate totals with authentic tenant data
       const totalFinanceRevenue = financeChartData.reduce((sum, item) => sum + (item.revenue || 0), 0);
       const totalFinanceExpenses = financeChartData.reduce((sum, item) => sum + (item.expenses || 0), 0);
       const totalSalesOrders = salesChartData.reduce((sum, item) => sum + (item.orders || 0), 0);
       const totalSalesRevenue = salesChartData.reduce((sum, item) => sum + (item.revenue || 0), 0);
 
-      // Process and structure the data - Mix real API data for totals with enriched chart data
+      // Process and structure the data strictly with authentic tenant values
       setAnalyticsData({
         finance: {
-          totalRevenue: financeSummary?.summary?.revenue?.current || totalFinanceRevenue || 450000,
-          totalExpenses: financeSummary?.summary?.expenses?.current || totalFinanceExpenses || 280000,
-          netProfit: financeSummary?.summary?.netIncome?.current || (totalFinanceRevenue - totalFinanceExpenses) || 170000,
+          totalRevenue: financeSummary?.summary?.revenue?.current || totalFinanceRevenue || 0,
+          totalExpenses: financeSummary?.summary?.expenses?.current || totalFinanceExpenses || 0,
+          netProfit: financeSummary?.summary?.netIncome?.current || (totalFinanceRevenue - totalFinanceExpenses) || 0,
           chartData: financeChartData,
         },
         sales: {
-          totalOrders: salesSummary?.totalOrders || totalSalesOrders || 1250,
-          totalRevenue: salesSummary?.totalRevenue || totalSalesRevenue || 850000,
+          totalOrders: salesSummary?.totalOrders || totalSalesOrders || 0,
+          totalRevenue: salesSummary?.totalRevenue || totalSalesRevenue || 0,
           avgOrderValue: salesSummary?.totalRevenue && salesSummary?.totalOrders
             ? Math.round(salesSummary.totalRevenue / salesSummary.totalOrders)
-            : totalSalesOrders > 0 ? Math.round(totalSalesRevenue / totalSalesOrders) : 680,
+            : totalSalesOrders > 0 ? Math.round(totalSalesRevenue / totalSalesOrders) : 0,
           chartData: salesChartData,
         },
         inventory: {
-          totalItems: inventorySummary?.summary?.totalItems?.current || inventoryChartData[inventoryChartData.length - 1]?.stockLevel || 7500,
-          lowStock: inventorySummary?.summary?.lowStock?.current || 45,
-          outOfStock: 8,
+          totalItems: inventorySummary?.summary?.totalItems?.current || (inventoryChartData.length > 0 ? inventoryChartData[inventoryChartData.length - 1]?.stockLevel : 0) || 0,
+          lowStock: inventorySummary?.summary?.lowStock?.current || 0,
+          outOfStock: 0,
           chartData: inventoryChartData,
         },
         manufacturing: {
-          totalProduction: manufacturingChartData.reduce((sum, item) => sum + (item.production || 0), 0) || 350,
-          totalShipments: manufacturingChartData.reduce((sum, item) => sum + (item.shipments || 0), 0) || 340,
-          activeClearances: 12,
+          totalProduction: manufacturingChartData.reduce((sum, item) => sum + (item.production || 0), 0) || 0,
+          totalShipments: manufacturingChartData.reduce((sum, item) => sum + (item.shipments || 0), 0) || 0,
+          activeClearances: 0,
           chartData: manufacturingChartData,
         },
       });
@@ -323,19 +261,16 @@ export default function AdminAnalytics() {
   };
 
   const dailySeedData = useMemo(() => {
-    switch (activeTab) {
-      case 'sales':
-        return generate365DailyData(2026, { base: 14000, variance: 6000, seed: 101 });
-      case 'inventory':
-        return generate365DailyData(2026, { base: 11000, variance: 5000, seed: 202 });
-      case 'manufacturing':
-        return generate365DailyData(2026, { base: 8000, variance: 4000, seed: 303 });
-      case 'finance':
-      case 'overview':
-      default:
-        return generate365DailyData(2026, { base: 18000, variance: 8000, seed: 404 });
+    const chartPoints = getChartData();
+    if (!chartPoints || chartPoints.length === 0) {
+      return generateZeroDailyData(30);
     }
-  }, [activeTab]);
+    return chartPoints.map((p) => ({
+      date: p.time,
+      count: p.orders || p.production || (p.level ? 1 : 0),
+      value: p.revenue || p.level || p.production || p.expenses || 0,
+    }));
+  }, [activeTab, analyticsData]);
 
   const getMetrics = () => {
     if (!analyticsData) return { primary: 0, secondary: 0, tertiary: 0 };

@@ -76,10 +76,12 @@ export async function GET(req: NextRequest) {
       ];
     }
     if (state === "pending") {
-      query.state = { $in: [DOCUMENT_STATUS.DRAFT, DOCUMENT_STATUS.PENDING_APPROVAL, DOCUMENT_STATUS.POSTED] };
+      query.state = { $nin: [DOCUMENT_STATUS.CANCELLED, DOCUMENT_STATUS.REJECTED] };
       query.paymentState = { $ne: PAYMENT_STATE.PAID };
     } else if (state === "draft") {
       query.state = DOCUMENT_STATUS.DRAFT;
+    } else if (state === "approved") {
+      query.state = DOCUMENT_STATUS.APPROVED;
     } else if (state === "posted") {
       query.state = DOCUMENT_STATUS.POSTED;
       query.paymentState = { $ne: PAYMENT_STATE.PAID };
@@ -87,9 +89,12 @@ export async function GET(req: NextRequest) {
       if (state === "paid") {
         query.paymentState = PAYMENT_STATE.PAID;
       } else {
-        query.state = DOCUMENT_STATUS.POSTED;
+        query.state = { $nin: [DOCUMENT_STATUS.CANCELLED, DOCUMENT_STATUS.REJECTED] };
         query.paymentState = { $ne: PAYMENT_STATE.PAID };
-        query.dueDate = { $lt: new Date() };
+        query.$or = [
+          { paymentState: PAYMENT_STATE.OVERDUE },
+          { state: DOCUMENT_STATUS.POSTED, dueDate: { $lt: new Date() } },
+        ];
       }
     } else if (state && PAYMENT_STATE_VALUES.includes(state as any)) {
       query.paymentState = state;
@@ -160,14 +165,6 @@ export async function GET(req: NextRequest) {
                       { $ne: ["$paymentState", PAYMENT_STATE.PAID] },
                       { $ne: ["$state", DOCUMENT_STATUS.CANCELLED] },
                       { $ne: ["$state", DOCUMENT_STATUS.REJECTED] },
-                      {
-                        $or: [
-                          { $eq: ["$paymentState", PAYMENT_STATE.NOT_PAID] },
-                          { $eq: ["$paymentState", PAYMENT_STATE.PARTIAL] },
-                          { $eq: ["$paymentState", PAYMENT_STATE.IN_PAYMENT] },
-                          { $in: ["$state", [DOCUMENT_STATUS.DRAFT, DOCUMENT_STATUS.PENDING_APPROVAL, DOCUMENT_STATUS.POSTED]] },
-                        ],
-                      },
                     ],
                   },
                   1,

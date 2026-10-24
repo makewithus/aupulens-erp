@@ -31,6 +31,7 @@ import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function SalesDashboardPage() {
   const { data: session, status } = useSession();
@@ -38,77 +39,116 @@ export default function SalesDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Sales-specific parameters & KPIs
-  const salesKPIs = {
-    netRevenue: 28450000,
-    revenueGrowthMoM: 14.2,
-    openPipelineValue: 42800000,
-    openQuotesCount: 48,
-    averageOrderValue: 185400,
-    aovChange: 6.8,
-    q2cConversionRate: 68.4,
-    activeSubscriptionsARR: 12400000,
-    activeTenants: 142,
-  };
+  // Sales-specific parameters & KPIs (Dynamic with database isolation)
+  const [salesKPIs, setSalesKPIs] = useState({
+    netRevenue: 0,
+    revenueGrowthMoM: 0,
+    openPipelineValue: 0,
+    openQuotesCount: 0,
+    averageOrderValue: 0,
+    aovChange: 0,
+    q2cConversionRate: 0,
+    activeSubscriptionsARR: 0,
+    activeTenants: 1,
+  });
 
-  const channelDistribution = [
-    { name: "Direct Enterprise", value: 12500000 },
-    { name: "Partner & VAR Network", value: 7800000 },
-    { name: "Online & Self-Serve", value: 5400000 },
-    { name: "Inbound Expansion", value: 2750000 },
-  ];
+  const [channelDistribution, setChannelDistribution] = useState<{ name: string; value: number }[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [q2cPipelineStages, setQ2cPipelineStages] = useState<any[]>([]);
+  const [dailyOrders, setDailyOrders] = useState<any[]>([]);
+  const [tradingLineData, setTradingLineData] = useState<any[]>([]);
 
-  const recentOrders = [
-    {
-      id: "SO-2026-881",
-      customer: "Reliance Petrochem Ltd",
-      amount: 1450000,
-      stage: "Accepted",
-      date: "Today, 14:30",
-      status: "In Production",
-    },
-    {
-      id: "SO-2026-880",
-      customer: "Tata Advanced Systems",
-      amount: 2850000,
-      stage: "Invoiced",
-      date: "Today, 11:15",
-      status: "Dispatched",
-    },
-    {
-      id: "SO-2026-879",
-      customer: "Larsen & Toubro Heavy",
-      amount: 4120000,
-      stage: "Paid",
-      date: "Yesterday",
-      status: "Completed",
-    },
-    {
-      id: "SO-2026-878",
-      customer: "Adani Solar Energy",
-      amount: 980000,
-      stage: "Sent",
-      date: "20 Oct 2026",
-      status: "Pending PO",
-    },
-    {
-      id: "SO-2026-877",
-      customer: "Mahindra Logistics Hub",
-      amount: 1640000,
-      stage: "Paid",
-      date: "19 Oct 2026",
-      status: "Completed",
-    },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSalesDashboard() {
+      try {
+        setIsLoading(true);
+        const fetchJson = async (url: string) => {
+          try {
+            const r = await cachedFetch(url);
+            return r.ok ? await r.json() : null;
+          } catch {
+            return null;
+          }
+        };
 
-  const q2cPipelineStages = [
-    { name: "Draft Quotations", count: 18, value: "₹8.4M", percent: 85, color: BRAND_COLORS.accent.blue },
-    { name: "Sent & Negotiating", count: 24, value: "₹18.2M", percent: 68, color: BRAND_COLORS.accent.purple },
-    { name: "Accepted Sales Orders", count: 32, value: "₹24.8M", percent: 75, color: BRAND_COLORS.accent.yellow },
-    { name: "Invoiced & Dispatched", count: 41, value: "₹31.5M", percent: 92, color: BRAND_COLORS.accent.green },
-  ];
+        const [summaryRes, analyticsRes, ordersRes] = await Promise.all([
+          fetchJson("/api/sales/summary"),
+          fetchJson("/api/sales/analytics"),
+          fetchJson("/api/sales/orders?limit=5"),
+        ]);
+
+        if (isMounted) {
+          const rev = summaryRes?.totalRevenue || 0;
+          const ordersCount = summaryRes?.totalOrders || 0;
+          const quotesCount = summaryRes?.totalQuotations || 0;
+          const aov = ordersCount > 0 ? Math.round(rev / ordersCount) : 0;
+          const convRate = quotesCount > 0 ? Math.min(100, Math.round((ordersCount / quotesCount) * 100)) : (ordersCount > 0 ? 100 : 0);
+
+          setSalesKPIs({
+            netRevenue: rev,
+            revenueGrowthMoM: summaryRes?.trends?.revenue || 0,
+            openPipelineValue: 0,
+            openQuotesCount: quotesCount,
+            averageOrderValue: aov,
+            aovChange: summaryRes?.trends?.orders || 0,
+            q2cConversionRate: convRate,
+            activeSubscriptionsARR: 0,
+            activeTenants: 1,
+          });
+
+          // Top products / channels
+          if (Array.isArray(analyticsRes?.topProducts) && analyticsRes.topProducts.length > 0) {
+            setChannelDistribution(analyticsRes.topProducts.map((p: any) => ({ name: p.name, value: p.value })));
+          } else {
+            setChannelDistribution([]);
+          }
+
+          // Daily orders for DailyBrickBarChart
+          if (Array.isArray(analyticsRes?.dailyOrders)) {
+            setDailyOrders(analyticsRes.dailyOrders);
+          } else {
+            setDailyOrders([]);
+          }
+
+          // Trading line monthly revenue
+          if (Array.isArray(analyticsRes?.revenue)) {
+            setTradingLineData(analyticsRes.revenue.map((r: any) => ({ date: r.month, value: r.amount })));
+          } else {
+            setTradingLineData([]);
+          }
+
+          // Pipeline stages
+          setQ2cPipelineStages([
+            { name: "Draft Quotations", count: quotesCount, value: `₹${(quotesCount * aov).toLocaleString("en-IN")}`, percent: quotesCount > 0 ? 100 : 0, color: BRAND_COLORS.accent.blue },
+            { name: "Confirmed Orders", count: ordersCount, value: `₹${rev.toLocaleString("en-IN")}`, percent: convRate, color: BRAND_COLORS.accent.green },
+          ]);
+
+          // Recent orders
+          if (ordersRes?.items && Array.isArray(ordersRes.items)) {
+            setRecentOrders(ordersRes.items.map((ord: any) => ({
+              id: ord.name || ord.code || (ord._id ? `SO-${ord._id.slice(-6).toUpperCase()}` : "SO-NEW"),
+              customer: ord.partnerId?.name || ord.customerName || "Customer",
+              amount: ord.totals?.amountTotal || ord.totalAmount || 0,
+              stage: ord.status === "sale" || ord.status === "done" ? "Accepted" : (ord.status === "invoiced" ? "Invoiced" : "Draft"),
+              date: ord.createdAt ? new Date(ord.createdAt).toLocaleDateString("en-IN") : "Recent",
+              status: ord.status || "Pending",
+            })));
+          } else {
+            setRecentOrders([]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load sales dashboard:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    loadSalesDashboard();
+    return () => { isMounted = false; };
+  }, []);
 
   return (
     <DashboardLayout
@@ -189,7 +229,9 @@ export default function SalesDashboardPage() {
               />
             </div>
             <div className="text-2xl md:text-3xl font-extrabold tracking-tight mt-2">
-              ₹{(salesKPIs.netRevenue / 10000000).toFixed(2)} Cr
+              {salesKPIs.netRevenue >= 10000000
+                ? `₹${(salesKPIs.netRevenue / 10000000).toFixed(2)} Cr`
+                : `₹${salesKPIs.netRevenue.toLocaleString("en-IN")}`}
             </div>
             <div className="flex items-center gap-2 mt-2 text-xs">
               <span className="flex items-center gap-1 font-bold text-emerald-500">
@@ -217,7 +259,9 @@ export default function SalesDashboardPage() {
               />
             </div>
             <div className="text-2xl md:text-3xl font-extrabold tracking-tight mt-2 text-purple-500">
-              ₹{(salesKPIs.openPipelineValue / 10000000).toFixed(2)} Cr
+              {salesKPIs.openPipelineValue >= 10000000
+                ? `₹${(salesKPIs.openPipelineValue / 10000000).toFixed(2)} Cr`
+                : `₹${salesKPIs.openPipelineValue.toLocaleString("en-IN")}`}
             </div>
             <div className="flex items-center gap-2 mt-2 text-xs">
               <span className="font-semibold text-muted-foreground">
@@ -302,7 +346,8 @@ export default function SalesDashboardPage() {
           >
             <CardContent className="p-0">
               <TradingLineChart
-                title="CONSOLIDATED SALES REVENUE (2-YEAR TIMELINE)"
+                data={tradingLineData}
+                title="CONSOLIDATED SALES REVENUE"
                 metricLabel="Gross Sales"
                 currencyPrefix="₹"
                 colorTheme="white"
@@ -334,8 +379,9 @@ export default function SalesDashboardPage() {
             </CardHeader>
             <CardContent className="p-4">
               <DailyBrickBarChart
+                data={dailyOrders}
                 metricLabel="Sales Order Units"
-                valueKey="value"
+                valueKey="count"
                 colorTheme="purple"
                 isDark={isDark}
                 yAxisFormatter={(v) => `${v} units`}
@@ -363,13 +409,19 @@ export default function SalesDashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="p-4 flex-1 h-[280px]">
-              <CanvasPieChart
-                data={channelDistribution}
-                nameKey="name"
-                valueKey="value"
-                colors={BRAND_ACCENT_PALETTE}
-                isDark={isDark}
-              />
+              {channelDistribution.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-xs text-muted-foreground font-mono">
+                  No product sales recorded yet for this organization.
+                </div>
+              ) : (
+                <CanvasPieChart
+                  data={channelDistribution}
+                  nameKey="name"
+                  valueKey="value"
+                  colors={BRAND_ACCENT_PALETTE}
+                  isDark={isDark}
+                />
+              )}
             </CardContent>
           </Card>
         </div>
@@ -458,32 +510,40 @@ export default function SalesDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
-                    {recentOrders.map((ord) => (
-                      <tr key={ord.id} className="hover:bg-muted/30 transition-colors">
-                        <td className={cn("py-3 font-semibold whitespace-nowrap pr-4", isDark ? "text-[#A77DFF]" : "text-purple-700 font-bold")}>
-                          {ord.id}
+                    {recentOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-muted-foreground font-mono">
+                          No commercial orders found for this organization.
                         </td>
-                        <td className="py-3 font-medium whitespace-nowrap pr-4 text-foreground">{ord.customer}</td>
-                        <td className="py-3 font-bold whitespace-nowrap pr-4 text-foreground">₹{ord.amount.toLocaleString("en-IN")}</td>
-                        <td className="py-3 whitespace-nowrap pr-4">
-                          <span
-                            className={cn(
-                              "px-2 py-0.5 text-[10px] border font-bold uppercase",
-                              ord.stage === "Paid"
-                                ? isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-300"
-                                : ord.stage === "Invoiced"
-                                ? isDark ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-blue-50 text-blue-700 border-blue-300"
-                                : ord.stage === "Accepted"
-                                ? isDark ? "bg-purple-500/10 text-purple-400 border-purple-500/30" : "bg-purple-50 text-purple-700 border-purple-300"
-                                : isDark ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" : "bg-amber-50 text-amber-800 border-amber-300"
-                            )}
-                          >
-                            {ord.stage}
-                          </span>
-                        </td>
-                        <td className="py-3 text-muted-foreground whitespace-nowrap">{ord.status}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      recentOrders.map((ord) => (
+                        <tr key={ord.id} className="hover:bg-muted/30 transition-colors">
+                          <td className={cn("py-3 font-semibold whitespace-nowrap pr-4", isDark ? "text-[#A77DFF]" : "text-purple-700 font-bold")}>
+                            {ord.id}
+                          </td>
+                          <td className="py-3 font-medium whitespace-nowrap pr-4 text-foreground">{ord.customer}</td>
+                          <td className="py-3 font-bold whitespace-nowrap pr-4 text-foreground">₹{ord.amount.toLocaleString("en-IN")}</td>
+                          <td className="py-3 whitespace-nowrap pr-4">
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 text-[10px] border font-bold uppercase",
+                                ord.stage === "Paid"
+                                  ? isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                  : ord.stage === "Invoiced"
+                                  ? isDark ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-blue-50 text-blue-700 border-blue-300"
+                                  : ord.stage === "Accepted"
+                                  ? isDark ? "bg-purple-500/10 text-purple-400 border-purple-500/30" : "bg-purple-50 text-purple-700 border-purple-300"
+                                  : isDark ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" : "bg-amber-50 text-amber-800 border-amber-300"
+                              )}
+                            >
+                              {ord.stage}
+                            </span>
+                          </td>
+                          <td className="py-3 text-muted-foreground whitespace-nowrap">{ord.status}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

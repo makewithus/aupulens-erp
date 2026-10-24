@@ -5,39 +5,76 @@ import { useThemeStore } from "@/store/themeStore";
 import { cn } from "@/lib/utils";
 import { BRAND_COLORS, ERP_MODULE_PALETTE } from "@/lib/constants/brandColors";
 import { Activity, Layers, BarChart2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
-export function SubsystemTransactionVolumeChart() {
+export interface SubsystemTransactionVolumeChartProps {
+  data?: Array<{ name: string; value: number; color?: string }>;
+}
+
+export function SubsystemTransactionVolumeChart({ data: propData }: SubsystemTransactionVolumeChartProps = {}) {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme !== "light";
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [centerVal, setCenterVal] = useState("10.6M");
+  const [chains, setChains] = useState<Array<{ name: string; value: number; color: string }>>([]);
+  const [centerVal, setCenterVal] = useState("0");
   const [centerTitle, setCenterTitle] = useState("ALL MODULES");
   const [centerSub, setCenterSub] = useState("Total Transactions");
   const [centerColor, setCenterColor] = useState<string | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState(-1);
-
-  // Chains with verified Image 1 color palette & module parameters
-  const chains = [
-    { name: "Finance & Accounts", value: 2420000, color: "#A77DFF" }, // Brand Purple
-    { name: "Supply Chain", value: 1180000, color: "#6CADF5" }, // Brand Blue
-    { name: "Inventory Management", value: 1540000, color: "#8AE06C" }, // Brand Green
-    { name: "Human Resources", value: 1310000, color: "#F1DF38" }, // Brand Yellow
-    { name: "Customer Relations (CRM)", value: 890000, color: "#F56868" }, // Brand Red
-    { name: "Warehouse Logistics", value: 1060000, color: "#B595FF" }, // Lavender
-    { name: "Billing & Invoicing", value: 980000, color: "#88C2FF" }, // Sky
-    { name: "Sales & Order Desk", value: 420000, color: "#A6EB8D" }, // Mint
-    { name: "Manufacturing Orders", value: 350000, color: "#F6E668" }, // Gold
-    { name: "Platform Infrastructure", value: 470000, color: "#757575" }, // Secondary Grey
-  ];
-
-  const total = chains.reduce((s, c) => s + c.value, 0);
 
   const formatShort = (val: number) => {
     if (val >= 1000000) return (val / 1000000).toFixed(2) + "M";
     if (val >= 1000) return (val / 1000).toFixed(0) + "K";
     return val.toLocaleString();
   };
+
+  useEffect(() => {
+    let isMounted = true;
+    if (propData && propData.length > 0) {
+      setChains(
+        propData.map((c, i) => ({
+          name: c.name,
+          value: c.value,
+          color: c.color || ERP_MODULE_PALETTE[i % ERP_MODULE_PALETTE.length],
+        }))
+      );
+      return;
+    }
+
+    async function fetchSubsystemData() {
+      try {
+        const res = await cachedFetch("/api/admin/dashboard");
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          const s = data?.summary;
+          if (s) {
+            const liveChains = [
+              { name: "Finance & Accounts", value: s.finance?.totalTransactions || 0, color: "#A77DFF" },
+              { name: "Sales & Invoicing", value: (s.sales?.totalOrders || 0) + (s.finance?.totalPayments || 0), color: "#6CADF5" },
+              { name: "Inventory & Logistics", value: s.inventory?.totalStockTransfers || 0, color: "#8AE06C" },
+              { name: "Manufacturing Orders", value: s.manufacturing?.totalManufacturingOrders || 0, color: "#F1DF38" },
+              { name: "Enterprise Users", value: s.users?.totalUsers || 0, color: "#F56868" },
+            ];
+            setChains(liveChains);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load subsystem transaction volume:", err);
+      }
+    }
+    fetchSubsystemData();
+    return () => { isMounted = false; };
+  }, [propData]);
+
+  const total = chains.reduce((s, c) => s + c.value, 0);
+
+  useEffect(() => {
+    setCenterVal(total > 0 ? formatShort(total) : "0");
+    setCenterTitle("ALL MODULES");
+    setCenterSub(total > 0 ? "Total Transactions" : "0 Transactions Recorded");
+    setCenterColor(null);
+  }, [total]);
 
   // Maintain refs for drawing to bypass stale state in event listeners
   const drawRef = useRef<(hIdx: number, progress: number) => void>(() => {});
@@ -79,6 +116,16 @@ export function SubsystemTransactionVolumeChart() {
     function drawDonut(hIdx: number, progress: number) {
       if (!ctx) return;
       ctx.clearRect(0, 0, size, size);
+
+      if (total === 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, (outerR + innerR) / 2, 0, Math.PI * 2);
+        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+        ctx.lineWidth = 14;
+        ctx.stroke();
+        return;
+      }
+
       let startAngle = -Math.PI / 2;
       const ap = Math.min(progress, 1);
 
@@ -147,12 +194,12 @@ export function SubsystemTransactionVolumeChart() {
         dy = my - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < innerR || dist > outerR + 12) {
+      if (dist < innerR || dist > outerR + 12 || total === 0) {
         if (hoveredIdxRef.current !== -1) {
           setHoveredIdx(-1);
           setCenterTitle("ALL MODULES");
-          setCenterVal("10.6M");
-          setCenterSub("Total Transactions");
+          setCenterVal(formatShort(total));
+          setCenterSub(total > 0 ? "Total Transactions" : "0 Transactions Recorded");
           setCenterColor(null);
           drawDonut(-1, 1);
         }
@@ -183,8 +230,8 @@ export function SubsystemTransactionVolumeChart() {
           setCenterColor(c.color);
         } else {
           setCenterTitle("ALL MODULES");
-          setCenterVal("10.6M");
-          setCenterSub("Total Transactions");
+          setCenterVal(formatShort(total));
+          setCenterSub(total > 0 ? "Total Transactions" : "0 Transactions Recorded");
           setCenterColor(null);
         }
         drawDonut(found, 1);
@@ -194,8 +241,8 @@ export function SubsystemTransactionVolumeChart() {
     const handleMouseLeave = () => {
       setHoveredIdx(-1);
       setCenterTitle("ALL MODULES");
-      setCenterVal("10.6M");
-      setCenterSub("Total Transactions");
+      setCenterVal(formatShort(total));
+      setCenterSub(total > 0 ? "Total Transactions" : "0 Transactions Recorded");
       setCenterColor(null);
       drawDonut(-1, 1);
     };
@@ -367,8 +414,8 @@ export function SubsystemTransactionVolumeChart() {
                 onMouseLeave={() => {
                   setHoveredIdx(-1);
                   setCenterTitle("ALL MODULES");
-                  setCenterVal("10.6M");
-                  setCenterSub("Total Transactions");
+                  setCenterVal(formatShort(total));
+                  setCenterSub(total > 0 ? "Total Transactions" : "0 Transactions Recorded");
                   setCenterColor(null);
                   drawRef.current(-1, 1);
                 }}
@@ -410,11 +457,15 @@ export function SubsystemTransactionVolumeChart() {
       <div className="mt-5 pt-3 border-t border-border/40 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
         <div>
           <span className="text-[10px] uppercase text-muted-foreground block">Peak Channel</span>
-          <span className="font-bold text-[#A77DFF]">Finance & Accounts (22.8%)</span>
+          <span className="font-bold text-[#A77DFF]">
+            {chains.filter((c) => c.value > 0).sort((a, b) => b.value - a.value)[0]?.name || "None"}
+          </span>
         </div>
         <div>
           <span className="text-[10px] uppercase text-muted-foreground block">Average Throughput</span>
-          <span className="font-bold text-foreground">353,000 txns / day</span>
+          <span className="font-bold text-foreground">
+            {total > 0 ? `${Math.round(total / 30).toLocaleString()} txns / day` : "0 txns / day"}
+          </span>
         </div>
         <div>
           <span className="text-[10px] uppercase text-muted-foreground block">Network Latency</span>
@@ -422,7 +473,9 @@ export function SubsystemTransactionVolumeChart() {
         </div>
         <div>
           <span className="text-[10px] uppercase text-muted-foreground block">Payload Status</span>
-          <span className="font-bold text-foreground">Zero Dropped Packets</span>
+          <span className="font-bold text-foreground">
+            {total > 0 ? "Active Telemetry" : "Awaiting Events"}
+          </span>
         </div>
       </div>
     </div>

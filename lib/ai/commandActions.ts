@@ -23,6 +23,9 @@ import Customer from "@/models/sales/Customer";
 import Employee from "@/models/hr/Employee";
 import Account from "@/models/finance/Account";
 import JournalEntry from "@/models/finance/JournalEntry";
+import User from "@/models/auth/User";
+import { getUserRoleOption, getUserRoleLabel, VALID_USER_ROLES, isRoleEnabledForModules } from "@/lib/admin/roleModules";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
@@ -445,6 +448,135 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
       });
       await CrmAuditLog.create({ tenantId, user_id: userId, action: "created", record_type: "JournalEntry", record_id: doc._id, new_value: journalNarration(params) });
       return { resultRef: String(doc._id), result: doc };
+    },
+  },
+
+  // ── Admin: change a user's role (mutation, requires admin confirmation) ─────
+  update_user_role: {
+    module: "admin",
+    destructive: true,
+    async buildPreview(params, tenantId) {
+      await connectDB();
+      const userName = String(params?.userName || params?.name || params?.user || "").trim();
+      const roleRaw = String(params?.role || params?.newRole || params?.targetRole || "").trim();
+
+      if (!userName && !params?.userId) throw new CommandActionError("A user name or user ID is required.");
+      if (!roleRaw) throw new CommandActionError("A new role is required (e.g. admin, sales-manager, hr-manager).");
+
+      let user: any;
+      if (params?.userId) {
+        user = await User.findOne({ _id: params.userId, tenantId }).lean();
+        if (!user) throw new CommandActionError("User not found.");
+      } else {
+        const rxExact = new RegExp(`^${escapeRegex(userName)}$`, "i");
+        let matches = await User.find({
+          tenantId,
+          $or: [{ name: rxExact }, { email: rxExact }],
+        }).lean();
+
+        if (matches.length === 0) {
+          const rxLoose = new RegExp(escapeRegex(userName), "i");
+          matches = await User.find({ tenantId, name: rxLoose }).limit(5).lean();
+        }
+
+        if (matches.length === 0) {
+          throw new CommandActionError(`User "${userName}" was not found in your accessible records.`);
+        }
+        if (matches.length > 1) {
+          const disambig = matches.map((u: any) => `"${u.name}" (${u.email})`).join(", ");
+          throw new CommandActionError(`Multiple users match "${userName}": ${disambig}. Please specify the full name or email.`);
+        }
+        user = matches[0];
+      }
+
+      // Normalize role string: "sales manager" -> "sales-manager", "Sales Executive" -> "sales-executive", "Admin" -> "admin"
+      const normalizedKey = roleRaw.toLowerCase().replace(/\s+/g, "-");
+      const roleOption = getUserRoleOption(normalizedKey) || getUserRoleOption(roleRaw.toLowerCase());
+      if (!roleOption || !VALID_USER_ROLES.includes(roleOption.value)) {
+        throw new CommandActionError(`"${roleRaw}" is not a recognized role in the organization. Valid roles include: Admin, Sales Manager, HR Manager, Finance Manager, Inventory Manager, Production Manager, CRM Manager, etc.`);
+      }
+
+      try {
+        const entitlements = await resolveEntitlements(tenantId);
+        if (entitlements && entitlements.source !== "permissive_default") {
+          if (!isRoleEnabledForModules(roleOption.value, entitlements.modules)) {
+            throw new CommandActionError(`The ${roleOption.label} role is not available on this organization's current plan/modules.`);
+          }
+        }
+      } catch {
+        // Entitlements check falls through if resolveEntitlements is unavailable
+      }
+
+      const currentRoleKey = user.userRole || user.role || "user";
+      const currentLabel = getUserRoleLabel(currentRoleKey);
+      if (currentRoleKey === roleOption.value || (user.role === roleOption.module && !user.userRole)) {
+        throw new CommandActionError(`User "${user.name}" already has the role ${roleOption.label}.`);
+      }
+
+      return {
+        summary: `Change role for user "${user.name}" (${user.email}) from ${currentLabel} to ${roleOption.label}. Explicit confirmation is required to update system access.`,
+        preview: {
+          userId: String(user._id),
+          userName: user.name,
+          userEmail: user.email,
+          currentRole: currentRoleKey,
+          currentRoleLabel: currentLabel,
+          proposedRole: roleOption.value,
+          proposedRoleLabel: roleOption.label,
+          targetModule: roleOption.module,
+        },
+      };
+    },
+    async execute(params, tenantId, userId) {
+      await connectDB();
+      const caller = await User.findOne({ _id: userId, tenantId }).lean();
+      if (!caller || !["admin", "master-admin"].includes((caller as any).role)) {
+        throw new CommandActionError("Unauthorized: Only administrators have permission to change user roles.");
+      }
+
+      const targetUserId = params.userId;
+      if (!targetUserId) throw new CommandActionError("User ID is required for execution.");
+
+      const user = await User.findOne({ _id: targetUserId, tenantId });
+      if (!user) throw new CommandActionError("User not found.");
+
+      const rawRole = params.proposedRole || params.role || params.newRole;
+      const normalizedKey = String(rawRole || "").toLowerCase().replace(/\s+/g, "-");
+      const roleOption = getUserRoleOption(normalizedKey) || getUserRoleOption(rawRole);
+      if (!roleOption) throw new CommandActionError("Invalid target role.");
+
+      const oldRole = user.userRole || user.role;
+      user.role = roleOption.module as any;
+      user.userRole = roleOption.value;
+      await user.save();
+
+      await CrmAuditLog.create({
+        tenantId,
+        user_id: userId,
+        action: "updated",
+        record_type: "User",
+        record_id: user._id,
+        field_name: "userRole",
+        old_value: oldRole,
+        new_value: roleOption.value,
+      });
+
+      const verified = await User.findOne({ _id: user._id, tenantId }).lean();
+      if (!verified || verified.userRole !== roleOption.value) {
+        throw new CommandActionError("Verification failed: role update was not persisted in database.");
+      }
+
+      return {
+        resultRef: String(user._id),
+        result: {
+          userId: String(user._id),
+          name: user.name,
+          userName: user.name,
+          oldRole,
+          newRole: roleOption.value,
+          newRoleLabel: roleOption.label,
+        },
+      };
     },
   },
 };

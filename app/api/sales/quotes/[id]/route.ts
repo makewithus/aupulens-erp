@@ -1,5 +1,6 @@
 import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
 import SalesQuotation from "@/models/sales/SalesQuotation";
@@ -16,8 +17,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     await connectDB();
     const { id } = await params;
+    const isObjectId = mongoose.isValidObjectId(id);
     const quote = await (SalesQuotation as any)
-      .findOne({ _id: id, tenantId: session.user.tenantId })
+      .findOne(
+        isObjectId
+          ? { _id: id, tenantId: session.user.tenantId }
+          : { quoteNumber: id, tenantId: session.user.tenantId }
+      )
       .populate("customerId", "header contact_details")
       .lean();
 
@@ -41,7 +47,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const body = await request.json();
 
-    const existing = await SalesQuotation.findOne({ _id: id, tenantId }).lean();
+    const existing = await SalesQuotation.findOne(
+      mongoose.isValidObjectId(id) ? { _id: id, tenantId } : { quoteNumber: id, tenantId }
+    ).lean();
     if (!existing) return NextResponse.json({ success: false, message: "Quote not found" }, { status: 404 });
 
     if (existing.status === "invoiced") {

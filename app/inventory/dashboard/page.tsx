@@ -31,6 +31,7 @@ import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function InventoryDashboardPage() {
   const { data: session, status } = useSession();
@@ -38,127 +39,143 @@ export default function InventoryDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Module-specific parameters for Inventory
-  const inventoryStats = {
-    totalValuation: 184200000, // ₹18.42 Cr
-    valuationChange: 4.2,
-    activeSKUs: 14820,
-    skuStockRate: 96.4,
-    warehouseCapacity: 84.6,
-    lowStockCount: 28,
-    outOfStockCount: 6,
-    stockTurnoverRatio: 4.8,
-    inboundToday: 420,
-    outboundToday: 680,
-  };
+  // Live Module Parameters for Inventory
+  const [stats, setStats] = useState({
+    totalValuation: 0,
+    valuationChange: 0,
+    activeSKUs: 0,
+    skuStockRate: 0,
+    warehouseCapacity: 0,
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    stockTurnoverRatio: 0,
+    inboundToday: 0,
+    outboundToday: 0,
+  });
+  const inventoryStats = stats;
 
-  const valuationByCategory = [
-    { name: "Raw Materials", value: 72000000 },
-    { name: "Finished Goods", value: 58000000 },
-    { name: "Work In Progress (WIP)", value: 41000000 },
-    { name: "Packaging Supplies", value: 13200000 },
-  ];
+  const [valuationByCategory, setValuationByCategory] = useState<any[]>([]);
+  const [warehouseCapacities, setWarehouseCapacities] = useState<any[]>([]);
+  const [criticalStockAlerts, setCriticalStockAlerts] = useState<any[]>([]);
+  const [recentMovements, setRecentMovements] = useState<any[]>([]);
+  const [stockMoves, setStockMoves] = useState<any[]>([]);
 
-  const warehouseCapacities = [
-    { name: "Gurgaon Central DC", used: 94, capacity: "12,000 pallets", status: "Near Limit", color: BRAND_COLORS.accent.red },
-    { name: "Mumbai Hub B-4", used: 88, capacity: "18,500 pallets", status: "Optimal", color: BRAND_COLORS.accent.yellow },
-    { name: "Bangalore Logistics Park", used: 74, capacity: "15,000 pallets", status: "Healthy", color: BRAND_COLORS.accent.blue },
-    { name: "Chennai Port Depot", used: 62, capacity: "8,000 pallets", status: "Available", color: BRAND_COLORS.accent.green },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchJson(url: string) {
+      try {
+        const r = await cachedFetch(url);
+        return r.ok ? await r.json() : null;
+      } catch {
+        return null;
+      }
+    }
 
-  const criticalStockAlerts = [
-    {
-      sku: "SKU-RAW-902",
-      name: "High-Tensile Aluminum Ingot (Grade 6061)",
-      category: "Raw Material",
-      onHand: 140,
-      safetyStock: 500,
-      unit: "KG",
-      leadDays: "3 Days",
-      severity: "CRITICAL",
-    },
-    {
-      sku: "SKU-PKG-412",
-      name: "Anti-Static Polymer Enclosure 240V",
-      category: "Packaging",
-      onHand: 65,
-      safetyStock: 250,
-      unit: "Units",
-      leadDays: "2 Days",
-      severity: "HIGH",
-    },
-    {
-      sku: "SKU-CMP-108",
-      name: "Precision Micro-Actuator Stepper Motor",
-      category: "Component",
-      onHand: 18,
-      safetyStock: 120,
-      unit: "Units",
-      leadDays: "7 Days",
-      severity: "CRITICAL",
-    },
-    {
-      sku: "SKU-FIN-784",
-      name: "Opto-Sensor Core Module Mk III",
-      category: "Finished Good",
-      onHand: 42,
-      safetyStock: 100,
-      unit: "Units",
-      leadDays: "4 Days",
-      severity: "MEDIUM",
-    },
-    {
-      sku: "SKU-RAW-304",
-      name: "Silicone Thermal Conductive Paste",
-      category: "Chemical Raw",
-      onHand: 8,
-      safetyStock: 40,
-      unit: "Liters",
-      leadDays: "5 Days",
-      severity: "HIGH",
-    },
-  ];
+    async function loadInventoryData() {
+      try {
+        setIsLoading(true);
+        const [summaryRes, movesRes, whRes, alertsRes] = await Promise.allSettled([
+          fetchJson("/api/inventory/summary"),
+          fetchJson("/api/inventory/stock-moves"),
+          fetchJson("/api/inventory/warehouse"),
+          fetchJson("/api/inventory/alerts"),
+        ]);
 
-  const recentMovements = [
-    {
-      id: "GRN-2026-1402",
-      type: "Inbound Receipt",
-      partner: "Vedanta Metals Consortium",
-      warehouse: "Gurgaon Central DC",
-      units: "1,250 KG",
-      time: "24 mins ago",
-      status: "Verified",
-    },
-    {
-      id: "DO-2026-9844",
-      type: "Outbound Dispatch",
-      partner: "Adani Solar Logistics",
-      warehouse: "Mumbai Hub B-4",
-      units: "480 Units",
-      time: "1 hour ago",
-      status: "In Transit",
-    },
-    {
-      id: "TRA-2026-0518",
-      type: "Inter-Warehouse Transfer",
-      partner: "Internal Transit (Chennai -> BLR)",
-      warehouse: "Bangalore Park",
-      units: "320 Units",
-      time: "3 hours ago",
-      status: "Completed",
-    },
-    {
-      id: "GRN-2026-1401",
-      type: "Inbound Receipt",
-      partner: "Murata Electronics Ltd",
-      warehouse: "Bangalore Park",
-      units: "2,400 Units",
-      time: "5 hours ago",
-      status: "Inspected",
-    },
-  ];
+        if (!isMounted) return;
+
+        // 1. Summary
+        if (summaryRes.status === "fulfilled" && summaryRes.value?.summary) {
+          const s = summaryRes.value.summary;
+          const totalItems = s.totalItems?.current || 0;
+          const lowStock = s.lowStock?.current || 0;
+          setStats((prev) => ({
+            ...prev,
+            totalValuation: s.totalValue?.current || 0,
+            activeSKUs: totalItems,
+            lowStockCount: lowStock,
+            inboundToday: s.operations?.receipts || 0,
+            outboundToday: s.operations?.deliveries || 0,
+            skuStockRate: totalItems > 0 ? Math.max(0, 100 - Math.round((lowStock / totalItems) * 100)) : 0,
+          }));
+        }
+
+        // 2. Stock Moves
+        if (movesRes.status === "fulfilled" && movesRes.value?.items) {
+          const moves = movesRes.value.items;
+          setStockMoves(moves);
+          setRecentMovements(
+            moves.slice(0, 5).map((m: any) => ({
+              id: m.reference || m._id?.slice(-8) || "SM-MOVE",
+              type: m.moveType === "incoming" ? "Inbound Receipt" : m.moveType === "outgoing" ? "Outbound Dispatch" : "Internal Transfer",
+              partner: m.partnerName || m.responsibleId?.name || "Warehouse Staff",
+              warehouse: m.sourceLocation?.warehouseId?.name || m.destinationLocation?.warehouseId?.name || "Main Warehouse",
+              units: `${Array.isArray(m.lines) ? m.lines.reduce((acc: number, l: any) => acc + (l.demand || l.quantity || 1), 0) : 1} Units`,
+              time: m.createdAt ? new Date(m.createdAt).toLocaleDateString() : "Recent",
+              status: m.moveStatus || "Done",
+            }))
+          );
+        }
+
+        // 3. Warehouses
+        if (whRes.status === "fulfilled") {
+          const whList = whRes.value?.data || whRes.value?.warehouses || (Array.isArray(whRes.value) ? whRes.value : []);
+          const palette = [BRAND_COLORS.accent.green, BRAND_COLORS.accent.blue, BRAND_COLORS.accent.yellow, BRAND_COLORS.accent.purple];
+          setWarehouseCapacities(
+            whList.map((wh: any, i: number) => ({
+              name: wh.name || wh.warehouseCode || `Hub ${i + 1}`,
+              used: wh.occupancyRate || wh.capacityPercentage || 0,
+              capacity: wh.totalCapacity ? `${wh.totalCapacity} pallets` : "Configured",
+              status: (wh.occupancyRate || 0) > 90 ? "Near Limit" : "Operational",
+              color: palette[i % palette.length],
+            }))
+          );
+        }
+
+        // 4. Alerts
+        if (alertsRes.status === "fulfilled") {
+          const alertsList = alertsRes.value?.items || alertsRes.value?.data || (Array.isArray(alertsRes.value) ? alertsRes.value : []);
+          setCriticalStockAlerts(
+            alertsList.slice(0, 5).map((a: any) => ({
+              sku: a.itemCode || a.sku || "SKU-ALERT",
+              name: a.name || "Stock Item",
+              category: a.category || "General",
+              onHand: a.quantity ?? 0,
+              safetyStock: a.reorderLevel ?? a.minStockLevel ?? 10,
+              unit: a.unit || "Units",
+              leadDays: a.leadTimeDays ? `${a.leadTimeDays} Days` : "3 Days",
+              severity: (a.quantity ?? 0) === 0 ? "CRITICAL" : "HIGH",
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("Failed to load inventory dashboard data:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    loadInventoryData();
+    return () => { isMounted = false; };
+  }, []);
+
+  const dailyThroughputData = useMemo(() => {
+    if (!stockMoves || stockMoves.length === 0) return [];
+    const countsByDate = new Map<string, number>();
+    for (const move of stockMoves) {
+      const d = move.scheduledDate || move.createdAt;
+      if (!d) continue;
+      const dateStr = new Date(d).toISOString().slice(0, 10);
+      const totalUnits = Array.isArray(move.lines)
+        ? move.lines.reduce((s: number, l: any) => s + (l.demand || l.quantity || 1), 0)
+        : 1;
+      countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + totalUnits);
+    }
+    return Array.from(countsByDate.entries()).map(([date, count]) => ({
+      date,
+      count,
+    }));
+  }, [stockMoves]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -259,11 +276,11 @@ export default function InventoryDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {formatCurrency(inventoryStats.totalValuation)}
+                {formatCurrency(stats.totalValuation)}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-500 font-semibold">
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span>+{inventoryStats.valuationChange}% vs last fiscal period</span>
+                <span>{stats.totalValuation > 0 ? "Real-time ledger asset balance" : "No asset balance recorded"}</span>
               </div>
             </CardContent>
           </Card>
@@ -283,11 +300,11 @@ export default function InventoryDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {inventoryStats.activeSKUs.toLocaleString()}
+                {stats.activeSKUs.toLocaleString()}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>{inventoryStats.skuStockRate}% in-stock fulfillment rate</span>
+                <span>{stats.skuStockRate}% in-stock fulfillment rate</span>
               </div>
             </CardContent>
           </Card>
@@ -301,16 +318,16 @@ export default function InventoryDashboardPage() {
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
-                <span>Warehouse Capacity</span>
+                <span>Warehouse Hubs</span>
                 <span className="p-1.5 bg-yellow-500/10 text-yellow-500 rounded border border-yellow-500/20">
                   <Warehouse className="w-4 h-4" />
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {inventoryStats.warehouseCapacity}%
+                {warehouseCapacities.length} Registered
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-500 font-semibold">
-                <span>Across 4 regional logistics hubs</span>
+                <span>{warehouseCapacities.length > 0 ? "Active facility network" : "No warehouses created"}</span>
               </div>
             </CardContent>
           </Card>
@@ -330,11 +347,11 @@ export default function InventoryDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-red-500">
-                {inventoryStats.lowStockCount} SKUs
+                {stats.lowStockCount} SKUs
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-red-400 font-semibold">
                 <ShieldAlert className="w-3.5 h-3.5" />
-                <span>{inventoryStats.outOfStockCount} zero-stock items pending PO</span>
+                <span>{stats.lowStockCount > 0 ? "Items requiring replenishment" : "Zero critical stockout risks"}</span>
               </div>
             </CardContent>
           </Card>
@@ -374,7 +391,13 @@ export default function InventoryDashboardPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-5">
-                <DailyBrickBarChart height={340} />
+                <DailyBrickBarChart
+                  height={340}
+                  colorTheme="emerald"
+                  metricLabel="Stock Units Moved"
+                  data={dailyThroughputData}
+                  valueKey="count"
+                />
               </CardContent>
             </Card>
           </div>
@@ -396,11 +419,17 @@ export default function InventoryDashboardPage() {
                 </p>
               </CardHeader>
               <CardContent className="p-5 flex-1 flex flex-col justify-center items-center">
-                <CanvasPieChart
-                  data={valuationByCategory}
-                  title="Stock Portfolio"
-                  colors={BRAND_ACCENT_PALETTE}
-                />
+                {valuationByCategory.some((d) => d.value > 0) ? (
+                  <CanvasPieChart
+                    data={valuationByCategory}
+                    title="Stock Portfolio"
+                    colors={BRAND_ACCENT_PALETTE}
+                  />
+                ) : (
+                  <div className="py-12 text-center text-xs text-muted-foreground font-mono">
+                    No catalog item valuations recorded yet
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -425,32 +454,38 @@ export default function InventoryDashboardPage() {
                 </p>
               </CardHeader>
               <CardContent className="p-5 space-y-4">
-                {warehouseCapacities.map((wh, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-semibold text-foreground">{wh.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">{wh.capacity}</span>
-                        <span
-                          className="px-1.5 py-0.2 rounded text-[10px] font-bold"
-                          style={{
-                            backgroundColor: `${wh.color}20`,
-                            color: wh.color,
-                            border: `1px solid ${wh.color}40`,
-                          }}
-                        >
-                          {wh.used}%
-                        </span>
+                {warehouseCapacities.length > 0 ? (
+                  warehouseCapacities.map((wh, idx) => (
+                    <div key={idx} className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-foreground">{wh.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">{wh.capacity}</span>
+                          <span
+                            className="px-1.5 py-0.2 rounded text-[10px] font-bold"
+                            style={{
+                              backgroundColor: `${wh.color}20`,
+                              color: wh.color,
+                              border: `1px solid ${wh.color}40`,
+                            }}
+                          >
+                            {wh.used}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-2 w-full bg-border/40 overflow-hidden">
+                        <div
+                          className="h-full transition-all duration-500"
+                          style={{ width: `${wh.used}%`, backgroundColor: wh.color }}
+                        />
                       </div>
                     </div>
-                    <div className="h-2 w-full bg-border/40 overflow-hidden">
-                      <div
-                        className="h-full transition-all duration-500"
-                        style={{ width: `${wh.used}%`, backgroundColor: wh.color }}
-                      />
-                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center text-xs text-muted-foreground font-mono">
+                    No warehouses configured for this organization.
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </div>
@@ -478,7 +513,7 @@ export default function InventoryDashboardPage() {
                   size="sm"
                   className="text-xs font-mono h-8 border-border/60"
                 >
-                  <Link href="/inventory/alerts">All Alerts ({inventoryStats.lowStockCount})</Link>
+                  <Link href="/inventory/alerts">All Alerts ({stats.lowStockCount})</Link>
                 </Button>
               </CardHeader>
               <CardContent className="p-0">
@@ -495,39 +530,47 @@ export default function InventoryDashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
-                      {criticalStockAlerts.map((item, i) => (
-                        <tr key={i} className="hover:bg-muted/10 transition-colors">
-                          <td className="p-3 pl-5 whitespace-nowrap">
-                            <div className="font-bold text-foreground">{item.sku}</div>
-                            <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">
-                              {item.name}
-                            </div>
-                          </td>
-                          <td className="p-3 text-muted-foreground whitespace-nowrap">{item.category}</td>
-                          <td className={cn("p-3 font-bold whitespace-nowrap", isDark ? "text-red-400" : "text-rose-600")}>
-                            {item.onHand} {item.unit}
-                          </td>
-                          <td className="p-3 text-muted-foreground whitespace-nowrap">
-                            {item.safetyStock} {item.unit}
-                          </td>
-                          <td className="p-3 text-muted-foreground whitespace-nowrap">{item.leadDays}</td>
-                          <td className="p-3 pr-5 text-right whitespace-nowrap">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={cn(
-                                "h-7 text-[10px] font-mono",
-                                isDark
-                                  ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
-                                  : "border-rose-300 text-rose-700 hover:bg-rose-50"
-                              )}
-                              onClick={() => router.push("/finance/purchase-orders")}
-                            >
-                              Reorder
-                            </Button>
+                      {criticalStockAlerts.length > 0 ? (
+                        criticalStockAlerts.map((item, i) => (
+                          <tr key={i} className="hover:bg-muted/10 transition-colors">
+                            <td className="p-3 pl-5 whitespace-nowrap">
+                              <div className="font-bold text-foreground">{item.sku}</div>
+                              <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                                {item.name}
+                              </div>
+                            </td>
+                            <td className="p-3 text-muted-foreground whitespace-nowrap">{item.category}</td>
+                            <td className={cn("p-3 font-bold whitespace-nowrap", isDark ? "text-red-400" : "text-rose-600")}>
+                              {item.onHand} {item.unit}
+                            </td>
+                            <td className="p-3 text-muted-foreground whitespace-nowrap">
+                              {item.safetyStock} {item.unit}
+                            </td>
+                            <td className="p-3 text-muted-foreground whitespace-nowrap">{item.leadDays}</td>
+                            <td className="p-3 pr-5 text-right whitespace-nowrap">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={cn(
+                                  "h-7 text-[10px] font-mono",
+                                  isDark
+                                    ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
+                                    : "border-rose-300 text-rose-700 hover:bg-rose-50"
+                                )}
+                                onClick={() => router.push("/finance/purchase-orders")}
+                              >
+                                Reorder
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-muted-foreground font-mono">
+                            No critical stockouts or low stock alerts detected.
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -576,40 +619,48 @@ export default function InventoryDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {recentMovements.map((move, i) => (
-                    <tr key={i} className="hover:bg-muted/10 transition-colors">
-                      <td className="p-3 pl-5 font-bold text-foreground whitespace-nowrap">{move.id}</td>
-                      <td className="p-3 whitespace-nowrap">
-                        <span
-                          className={cn(
-                            "px-2 py-0.5 text-[10px] font-semibold border",
-                            move.type.includes("Inbound")
-                              ? isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-300"
-                              : move.type.includes("Outbound")
-                              ? isDark ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-blue-50 text-blue-700 border-blue-300"
-                              : isDark ? "bg-purple-500/10 text-purple-400 border-purple-500/30" : "bg-purple-50 text-purple-700 border-purple-300"
-                          )}
-                        >
-                          {move.type}
-                        </span>
-                      </td>
-                      <td className="p-3 text-muted-foreground whitespace-nowrap">{move.partner}</td>
-                      <td className="p-3 text-muted-foreground whitespace-nowrap">{move.warehouse}</td>
-                      <td className="p-3 font-semibold text-foreground whitespace-nowrap">{move.units}</td>
-                      <td className="p-3 text-muted-foreground whitespace-nowrap">{move.time}</td>
-                      <td className="p-3 pr-5 text-right whitespace-nowrap">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "font-mono text-[10px]",
-                            isDark ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5" : "border-emerald-300 text-emerald-700 bg-emerald-50"
-                          )}
-                        >
-                          {move.status}
-                        </Badge>
+                  {recentMovements.length > 0 ? (
+                    recentMovements.map((move, i) => (
+                      <tr key={i} className="hover:bg-muted/10 transition-colors">
+                        <td className="p-3 pl-5 font-bold text-foreground whitespace-nowrap">{move.id}</td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 text-[10px] font-semibold border",
+                              move.type.includes("Inbound")
+                                ? isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                : move.type.includes("Outbound")
+                                ? isDark ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-blue-50 text-blue-700 border-blue-300"
+                                : isDark ? "bg-purple-500/10 text-purple-400 border-purple-500/30" : "bg-purple-50 text-purple-700 border-purple-300"
+                            )}
+                          >
+                            {move.type}
+                          </span>
+                        </td>
+                        <td className="p-3 text-muted-foreground whitespace-nowrap">{move.partner}</td>
+                        <td className="p-3 text-muted-foreground whitespace-nowrap">{move.warehouse}</td>
+                        <td className="p-3 font-semibold text-foreground whitespace-nowrap">{move.units}</td>
+                        <td className="p-3 text-muted-foreground whitespace-nowrap">{move.time}</td>
+                        <td className="p-3 pr-5 text-right whitespace-nowrap">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "font-mono text-[10px]",
+                              isDark ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5" : "border-emerald-300 text-emerald-700 bg-emerald-50"
+                            )}
+                          >
+                            {move.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-muted-foreground font-mono">
+                        No recent stock movements recorded for this organization.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

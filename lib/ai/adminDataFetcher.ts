@@ -1,4 +1,5 @@
 import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
+import { buildPostedJournalReport } from "@/lib/accounting/reports";
 import SaleOrder from "@/models/sales/SaleOrder";
 import InventoryItem from "@/models/inventory/InventoryItem";
 import Transaction from "@/models/finance/Transaction";
@@ -28,13 +29,27 @@ export async function fetchAdminFinanceData(tenantId: string) {
   const combinedInvoices = salesInvoices.length > 0 ? salesInvoices : invoices;
   const combinedTransactions = payments.length > 0 ? payments : transactions;
 
+  let postedFinancials: { income: number; expenses: number; netIncome: number; balanced: boolean; entryCount: number } | null = null;
+  try {
+    const report = await buildPostedJournalReport({ tenantId });
+    postedFinancials = {
+      income: report.income.total,
+      expenses: report.expense.total,
+      netIncome: report.income.total - report.expense.total,
+      balanced: report.totals.balanced,
+      entryCount: report.activity.postedEntryCount,
+    };
+  } catch {}
+
   return {
     summary: {
       totalRevenue,
       revenueBasis: "Issued invoice gross value including tax, excluding drafts/cancellations",
       totalTransactions,
       recentInvoices: combinedInvoices.length,
+      postedFinancials,
     },
+    postedFinancials,
     recentTransactions: combinedTransactions.slice(0, 5),
     recentInvoices: combinedInvoices.slice(0, 5),
   };

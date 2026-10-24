@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,103 +34,99 @@ export default function HRDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  // HR-specific operational parameters
+  const [summaryData, setSummaryData] = useState<any>(null);
+  const [pendingLeavesList, setPendingLeavesList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchHRData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [sumRes, leaveRes] = await Promise.all([
+        cachedFetch("/api/hr/summary"),
+        cachedFetch("/api/hr/leave?status=pending&limit=5"),
+      ]);
+
+      if (sumRes.ok) {
+        const d = await sumRes.json();
+        setSummaryData(d);
+      }
+      if (leaveRes.ok) {
+        const ld = await leaveRes.json();
+        setPendingLeavesList(ld.leaveRequests || ld.leaves || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch HR dashboard data", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHRData();
+  }, [fetchHRData]);
+
+  const totalEmployees = summaryData?.stats?.totalEmployees || 0;
+  const activeEmployees = summaryData?.stats?.activeEmployees || 0;
+  const onboardingEmployees = summaryData?.stats?.onboardingEmployees || 0;
+  const presentToday = summaryData?.todayAttendance?.present || 0;
+  const onLeaveToday = summaryData?.todayAttendance?.on_leave || 0;
+  const todayAttendanceRate = activeEmployees > 0 ? Number(((presentToday / activeEmployees) * 100).toFixed(1)) : 0;
+  const pendingLeavesCount = summaryData?.stats?.pendingLeaves || 0;
+  const monthlyGrossPayroll = summaryData?.payrollSummary?.totalGross || 0;
+  const monthlyNetPayroll = summaryData?.payrollSummary?.totalNet || 0;
+  const totalDepartments = summaryData?.stats?.totalDepartments || 0;
+
   const hrStats = {
-    totalEmployees: 428,
-    activeEmployees: 416,
-    onboardingEmployees: 12,
-    todayAttendanceRate: 95.4,
-    presentToday: 397,
-    onLeaveToday: 15,
-    pendingLeavesCount: 8,
-    monthlyGrossPayroll: 38500000, // ₹3.85 Cr
-    monthlyNetPayroll: 32200000, // ₹3.22 Cr
-    attritionRate: 4.2,
-    totalDepartments: 6,
-    openJobRequisitions: 14,
+    totalEmployees,
+    activeEmployees,
+    onboardingEmployees,
+    todayAttendanceRate,
+    presentToday,
+    onLeaveToday,
+    pendingLeavesCount,
+    monthlyGrossPayroll,
+    monthlyNetPayroll,
+    attritionRate: 0,
+    totalDepartments,
+    openJobRequisitions: 0,
   };
 
-  const departmentDistribution = [
-    { name: "Engineering & R&D", value: 140 },
-    { name: "Operations & Logistics", value: 112 },
-    { name: "Sales & Client Success", value: 84 },
-    { name: "Finance & Accounting", value: 52 },
-    { name: "Human Resources", value: 40 },
-  ];
+  const departmentDistribution = useMemo(() => {
+    if (!summaryData?.departmentDistribution?.length) return [];
+    return summaryData.departmentDistribution.map((d: any) => ({
+      name: d.departmentName,
+      value: d.count,
+    }));
+  }, [summaryData]);
 
-  const pendingLeaveRequests = [
-    {
-      id: "LR-2026-108",
-      name: "Aditya Kulkarni",
-      department: "Engineering",
-      type: "Annual Leave",
-      period: "24 Oct - 28 Oct (5 Days)",
-      reason: "Family Vacation",
-      appliedOn: "Today, 09:30",
-    },
-    {
-      id: "LR-2026-107",
-      name: "Pooja Sundaram",
-      department: "Operations",
-      type: "Sick Leave",
-      period: "22 Oct - 23 Oct (2 Days)",
-      reason: "Medical Recovery",
-      appliedOn: "Today, 08:15",
-    },
-    {
-      id: "LR-2026-106",
-      name: "Farhan Qureshi",
-      department: "Sales & Marketing",
-      type: "Casual Leave",
-      period: "27 Oct (1 Day)",
-      reason: "Personal Commute",
-      appliedOn: "Yesterday",
-    },
-    {
-      id: "LR-2026-105",
-      name: "Meera Sen",
-      department: "Finance",
-      type: "Compensatory Off",
-      period: "30 Oct (1 Day)",
-      reason: "Weekend Audit Shift",
-      appliedOn: "20 Oct 2026",
-    },
-  ];
+  const recentHires = useMemo(() => {
+    if (!summaryData?.recentHires?.length) return [];
+    return summaryData.recentHires.map((h: any) => ({
+      code: h.employeeCode || "EMP",
+      name: `${h.firstName || ""} ${h.lastName || ""}`.trim() || "Employee",
+      designation: h.designation || "Staff",
+      department: h.department || "General",
+      joiningDate: h.dateOfJoining ? new Date(h.dateOfJoining).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent",
+      status: h.lifecycleStatus === "active" ? "Active (Onboarded)" : (h.lifecycleStatus || "Active"),
+    }));
+  }, [summaryData]);
 
-  const recentHires = [
-    {
-      code: "EMP-2026-89",
-      name: "Rohan Varma",
-      designation: "Senior Embedded Firmware Lead",
-      department: "Engineering",
-      joiningDate: "15 Oct 2026",
-      status: "Active (Onboarded)",
-    },
-    {
-      code: "EMP-2026-90",
-      name: "Sunita Reddy",
-      designation: "Plant Logistics Coordinator",
-      department: "Operations",
-      joiningDate: "18 Oct 2026",
-      status: "Active (Onboarded)",
-    },
-    {
-      code: "EMP-2026-91",
-      name: "Kavita Singhal",
-      designation: "Enterprise Accounts Executive",
-      department: "Sales",
-      joiningDate: "20 Oct 2026",
-      status: "In Orientation",
-    },
-    {
-      code: "EMP-2026-92",
-      name: "Devendra Patel",
-      designation: "Senior Quality Assurance Auditor",
-      department: "Operations",
-      joiningDate: "21 Oct 2026",
-      status: "Documentation",
-    },
-  ];
+  const dailyAttendance = useMemo(() => {
+    return summaryData?.dailyAttendance || [];
+  }, [summaryData]);
+
+  const pendingLeaveRequests = useMemo(() => {
+    if (!pendingLeavesList.length) return [];
+    return pendingLeavesList.map((req: any) => ({
+      id: req._id || req.id,
+      name: req.employee ? `${req.employee.firstName || ""} ${req.employee.lastName || ""}`.trim() : (req.employeeName || "Employee"),
+      department: req.employee?.department?.name || req.department || "Staff",
+      type: req.leaveType || req.type || "Leave",
+      period: `${req.startDate ? new Date(req.startDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""} - ${req.endDate ? new Date(req.endDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""}`,
+      reason: req.reason || "Personal",
+      appliedOn: req.createdAt ? new Date(req.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Recent",
+    }));
+  }, [pendingLeavesList]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -333,10 +330,12 @@ export default function HRDashboardPage() {
             </CardHeader>
             <CardContent className="p-5">
               <DailyBrickBarChart
+                data={dailyAttendance}
+                valueKey="count"
                 height={340}
                 colorTheme="emerald"
                 metricLabel="Checked-In Staff"
-                yAxisFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+                yAxisFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toString()}
               />
             </CardContent>
           </Card>
@@ -359,11 +358,17 @@ export default function HRDashboardPage() {
               </p>
             </CardHeader>
             <CardContent className="p-5 flex-1 flex flex-col justify-center items-center">
-              <CanvasPieChart
-                data={departmentDistribution}
-                title="Staff"
-                colors={BRAND_ACCENT_PALETTE}
-              />
+              {departmentDistribution.length > 0 ? (
+                <CanvasPieChart
+                  data={departmentDistribution}
+                  title="Staff"
+                  colors={BRAND_ACCENT_PALETTE}
+                />
+              ) : (
+                <div className="h-[220px] flex items-center justify-center text-xs font-mono text-muted-foreground">
+                  No department distribution records
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -409,32 +414,40 @@ export default function HRDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {pendingLeaveRequests.map((req, i) => (
-                      <tr key={i} className="hover:bg-muted/10 transition-colors">
-                        <td className="p-3 pl-5">
-                          <div className="font-bold text-foreground">{req.name}</div>
-                          <div className="text-[10px] text-muted-foreground">{req.department}</div>
-                        </td>
-                        <td className="p-3 text-muted-foreground">{req.type}</td>
-                        <td className="p-3">
-                          <div className="font-semibold text-foreground">{req.period}</div>
-                          <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                            {req.reason}
-                          </div>
-                        </td>
-                        <td className="p-3 pr-5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Button
-                              size="sm"
-                              className="h-7 text-[10px] font-mono bg-emerald-600 hover:bg-emerald-700 text-white"
-                              asChild
-                            >
-                              <Link href="/hr/leave">Approve</Link>
-                            </Button>
-                          </div>
+                    {pendingLeaveRequests.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-muted-foreground text-xs font-mono">
+                          No pending leave approvals
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      pendingLeaveRequests.map((req, i) => (
+                        <tr key={i} className="hover:bg-muted/10 transition-colors">
+                          <td className="p-3 pl-5">
+                            <div className="font-bold text-foreground">{req.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{req.department}</div>
+                          </td>
+                          <td className="p-3 text-muted-foreground">{req.type}</td>
+                          <td className="p-3">
+                            <div className="font-semibold text-foreground">{req.period}</div>
+                            <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+                              {req.reason}
+                            </div>
+                          </td>
+                          <td className="p-3 pr-5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                className="h-7 text-[10px] font-mono bg-emerald-600 hover:bg-emerald-700 text-white"
+                                asChild
+                              >
+                                <Link href="/hr/leave">Approve</Link>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -480,29 +493,37 @@ export default function HRDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {recentHires.map((hire, i) => (
-                      <tr key={i} className="hover:bg-muted/10 transition-colors">
-                        <td className="p-3 pl-5">
-                          <div className="font-bold text-foreground">{hire.name}</div>
-                          <div className="text-[10px] text-muted-foreground">{hire.designation}</div>
-                        </td>
-                        <td className="p-3 text-muted-foreground">{hire.department}</td>
-                        <td className="p-3 text-muted-foreground">{hire.joiningDate}</td>
-                        <td className="p-3 pr-5 text-right">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "font-mono text-[10px]",
-                              hire.status.includes("Active")
-                                ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-                                : "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"
-                            )}
-                          >
-                            {hire.status}
-                          </Badge>
+                    {recentHires.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-muted-foreground text-xs font-mono">
+                          No recent hires recorded for this organization
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      recentHires.map((hire, i) => (
+                        <tr key={i} className="hover:bg-muted/10 transition-colors">
+                          <td className="p-3 pl-5">
+                            <div className="font-bold text-foreground">{hire.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{hire.designation}</div>
+                          </td>
+                          <td className="p-3 text-muted-foreground">{hire.department}</td>
+                          <td className="p-3 text-muted-foreground">{hire.joiningDate}</td>
+                          <td className="p-3 pr-5 text-right">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "font-mono text-[10px]",
+                                hire.status.includes("Active")
+                                  ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                                  : "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"
+                              )}
+                            >
+                              {hire.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

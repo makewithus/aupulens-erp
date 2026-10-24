@@ -62,7 +62,8 @@ export function generate365DailyData(
   const rng = createRng(seed);
   const result: DailyDataPoint[] = [];
 
-  const endDate = new Date(year, 11, 31);
+  const today = new Date();
+  const endDate = today.getFullYear() === year ? today : new Date(year, today.getMonth(), today.getDate());
   const startDate = new Date(endDate);
   startDate.setDate(endDate.getDate() - (totalDays - 1));
 
@@ -123,6 +124,28 @@ export function generate365DailyData(
   return result;
 }
 
+export function generateZeroDailyData(totalDays = 90): DailyDataPoint[] {
+  const result: DailyDataPoint[] = [];
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - (totalDays - 1));
+
+  for (let d = 0; d < totalDays; d++) {
+    const curDate = new Date(startDate);
+    curDate.setDate(startDate.getDate() + d);
+    result.push({
+      date: curDate.toISOString().split("T")[0],
+      value: 0,
+      label: curDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    });
+  }
+  return result;
+}
+
 function defaultFmtY(v: number): string {
   if (v >= 10000000) return "₹" + (v / 10000000).toFixed(1) + "Cr";
   if (v >= 100000) return "₹" + (v / 100000).toFixed(0) + "L";
@@ -174,33 +197,37 @@ export function DailyBrickBarChart({
 
   // Normalize incoming chart data
   const chartData = useMemo<DailyDataPoint[]>(() => {
-    if ((!data || data.length === 0) && seedDemonstration) {
-      return generate365DailyData(year);
-    }
-    if (!data || data.length === 0) {
-      return generate365DailyData(year);
-    }
-
-    return data.map((item, idx) => {
-      const rawDate = item[dateKey] || item.date;
-      let dStr = "";
-      if (rawDate instanceof Date) {
-        dStr = rawDate.toISOString().split("T")[0];
-      } else if (typeof rawDate === "string") {
-        dStr = rawDate.split("T")[0];
-      } else {
-        dStr = `Day ${idx + 1}`;
+    if (data && Array.isArray(data)) {
+      if (data.length === 0) {
+        return generateZeroDailyData(initialDays);
       }
+      return data.map((item, idx) => {
+        const rawDate = item[dateKey] || item.date;
+        let dStr = "";
+        if (rawDate instanceof Date) {
+          dStr = rawDate.toISOString().split("T")[0];
+        } else if (typeof rawDate === "string") {
+          dStr = rawDate.split("T")[0];
+        } else {
+          dStr = `Day ${idx + 1}`;
+        }
 
-      const val = Number(item[valueKey] ?? item.value ?? item.count ?? item.amount ?? 0);
-      return {
-        ...item,
-        date: dStr,
-        value: isNaN(val) ? 0 : val,
-        label: item.label || dStr,
-      };
-    });
-  }, [data, dateKey, valueKey, seedDemonstration, year]);
+        const val = Number(item[valueKey] ?? item.value ?? item.count ?? item.amount ?? 0);
+        return {
+          ...item,
+          date: dStr,
+          value: isNaN(val) ? 0 : val,
+          label: item.label || dStr,
+        };
+      });
+    }
+
+    if (seedDemonstration) {
+      return generate365DailyData(year);
+    }
+
+    return generateZeroDailyData(initialDays);
+  }, [data, dateKey, valueKey, seedDemonstration, year, initialDays]);
 
   // View window within chartData: [startIdx, endIdx]
   // Default to the last initialDays so the user can immediately zoom IN or zoom OUT
@@ -488,6 +515,17 @@ export function DailyBrickBarChart({
         if (v >= 1000) return (v / 1000).toFixed(0) + "K";
         return v.toString();
       };
+
+      const allZero = visibleData.every((d) => (d.value ?? 0) === 0);
+      if (allZero) {
+        ctx.save();
+        ctx.font = '12px "Roboto Mono", monospace';
+        ctx.fillStyle = isDark ? "#71717a" : "#a1a1aa";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("No transactions recorded for this period in your organization", cL + cW / 2, cT + cH / 2);
+        ctx.restore();
+      }
 
       for (let i = 0; i < n; i++) {
         const item = visibleData[i];

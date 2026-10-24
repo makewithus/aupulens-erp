@@ -287,19 +287,16 @@ export function DashboardHeader({
 
   const visibleModules = useMemo(() => {
     if (!shouldFilterModules) return MODULES;
-    if (!enabledModulesLoaded || !enabledModules) return [];
+    if (!enabledModulesLoaded || !enabledModules) return MODULES;
     const filtered = MODULES.filter((module) => enabledModules.includes(moduleEntitlementKey(module)));
-    return filtered.length ? filtered : MODULES.filter((module) => moduleEntitlementKey(module) === "admin");
+    return filtered.length ? filtered : MODULES;
   }, [enabledModules, enabledModulesLoaded, pathname, shouldFilterModules]);
 
   const visibleMasterModules = useMemo(() => {
     if (!shouldFilterModules) return MASTER_MODULES;
-    if (!enabledModulesLoaded || !enabledModules) {
-      const activeModule = moduleForHref(pathname) ?? "admin";
-      return MASTER_MODULES.filter((module) => moduleEntitlementKey(module) === activeModule);
-    }
+    if (!enabledModulesLoaded || !enabledModules) return MASTER_MODULES;
     const filtered = MASTER_MODULES.filter((module) => enabledModules.includes(moduleEntitlementKey(module)));
-    return filtered.length ? filtered : MASTER_MODULES.filter((module) => moduleEntitlementKey(module) === "admin");
+    return filtered.length ? filtered : MASTER_MODULES;
   }, [enabledModules, enabledModulesLoaded, pathname, shouldFilterModules]);
 
   // Initialize preview module based on dashboardTitle or pathname

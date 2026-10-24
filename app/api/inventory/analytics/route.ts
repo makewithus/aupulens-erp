@@ -27,8 +27,9 @@ await connectDB();
     // These 3 aggregations are independent of each other, so run them
     // concurrently instead of as a sequential waterfall.
     const [stockData, movementsData, alertsData] = await Promise.all([
-      // Get stock levels over time (monthly snapshots)
+      // Get stock levels for current tenant
       InventoryItem.aggregate([
+        { $match: { tenantId } },
         {
           $group: {
             _id: null,
@@ -37,10 +38,11 @@ await connectDB();
         }
       ]),
 
-      // Get order movements
+      // Get order movements for current tenant
       InventoryOrder.aggregate([
         {
           $match: {
+            tenantId,
             createdAt: { $gte: sixMonthsAgo }
           }
         },
@@ -57,8 +59,9 @@ await connectDB();
         { $sort: { '_id.year': 1, '_id.month': 1 } }
       ]),
 
-      // Get low stock alerts
+      // Get low stock alerts for current tenant
       InventoryItem.aggregate([
+        { $match: { tenantId } },
         {
           $facet: {
             lowStock: [
@@ -81,15 +84,15 @@ await connectDB();
     // Format data
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
-    // Generate mock stock levels for last 6 months
-    const currentStock = stockData[0]?.level || 5000;
+    // Real stock levels for last 6 months based on actual current stock
+    const currentStock = stockData[0]?.level || 0;
     const stockLevels = [];
     for (let i = 5; i >= 0; i--) {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
       stockLevels.push({
         month: monthNames[date.getMonth()],
-        level: Math.round(currentStock * (0.85 + Math.random() * 0.3))
+        level: currentStock > 0 ? currentStock : 0
       });
     }
 

@@ -29,106 +29,116 @@ import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function ProjectsDashboardPage() {
   const { data: session } = useSession();
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  // Projects-specific parameters & portfolio velocity
-  const projectStats = {
-    totalProjects: 34,
-    activeProjects: 24,
-    planningProjects: 6,
-    onHoldProjects: 4,
-    milestoneOnTimeRate: 91.8,
-    avgProgress: 72,
-    totalBudgetAllocated: 152000000, // ₹15.20 Cr
-    totalBudgetConsumed: 124500000, // ₹12.45 Cr
-    budgetUtilization: 81.9,
-    overdueTasksCount: 5,
-    criticalPathBlockers: 2,
-    sprintVelocityPoints: 184,
-  };
+  const [isLoading, setIsLoading] = useState(true);
 
-  const projectPhaseDistribution = [
-    { name: "Active Execution", value: 16 },
-    { name: "Planning & Scoping", value: 6 },
-    { name: "Validation & Testing", value: 5 },
-    { name: "On Hold", value: 4 },
-    { name: "Review & Signoff", value: 3 },
-  ];
+  // Live Projects State
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    activeProjects: 0,
+    planningProjects: 0,
+    onHoldProjects: 0,
+    milestoneOnTimeRate: 0,
+    avgProgress: 0,
+    totalBudgetAllocated: 0,
+    totalBudgetConsumed: 0,
+    budgetUtilization: 0,
+    overdueTasksCount: 0,
+    criticalPathBlockers: 0,
+    sprintVelocityPoints: 0,
+  });
 
-  const criticalProjectsList = [
-    {
-      id: "PRJ-2026-042",
-      name: "Automated Warehousing AGV Fleet Integration",
-      lead: "Karthik Subramanian",
-      progress: 88,
-      budgetConsumed: "₹3.8 Cr / ₹4.2 Cr",
-      milestone: "Commissioning & Safety Signoff",
-      dueDate: "30 Oct 2026",
-      status: "On Schedule",
-      color: BRAND_COLORS.accent.green,
-    },
-    {
-      id: "PRJ-2026-039",
-      name: "ERP Enterprise AI Logic Co-Pilot",
-      lead: "Tanvi Saxena",
-      progress: 68,
-      budgetConsumed: "₹2.4 Cr / ₹3.0 Cr",
-      milestone: "Model Fine-Tuning & Ingestion",
-      dueDate: "15 Nov 2026",
-      status: "At Risk (Blocker)",
-      color: BRAND_COLORS.accent.red,
-    },
-    {
-      id: "PRJ-2026-037",
-      name: "Supply Chain IoT Sensors Rollout",
-      lead: "Arjun Mehta",
-      progress: 94,
-      budgetConsumed: "₹1.8 Cr / ₹2.0 Cr",
-      milestone: "Port Depot Gate Readers",
-      dueDate: "25 Oct 2026",
-      status: "On Schedule",
-      color: BRAND_COLORS.accent.green,
-    },
-    {
-      id: "PRJ-2026-035",
-      name: "Plant Solar Microgrid & Power Backup",
-      lead: "Suresh Pillai",
-      progress: 45,
-      budgetConsumed: "₹4.1 Cr / ₹5.5 Cr",
-      milestone: "Inverter Synchronisation",
-      dueDate: "10 Dec 2026",
-      status: "Delayed (Permits)",
-      color: BRAND_COLORS.accent.yellow,
-    },
-  ];
+  const [projectPhaseDistribution, setProjectPhaseDistribution] = useState<any[]>([]);
+  const [criticalProjectsList, setCriticalProjectsList] = useState<any[]>([]);
+  const [criticalSprintTasks, setCriticalSprintTasks] = useState<any[]>([]);
+  const [dailyDeliverables, setDailyDeliverables] = useState<any[]>([]);
 
-  const criticalSprintTasks = [
-    {
-      task: "Resolve CAN-bus baud rate timing jitter",
-      project: "AGV Fleet Integration",
-      assignee: "Naveen K.",
-      daysOverdue: 2,
-      priority: "CRITICAL",
-    },
-    {
-      task: "Optimize BigQuery partitioned vector indexing",
-      project: "AI Logic Co-Pilot",
-      assignee: "Siddharth R.",
-      daysOverdue: 1,
-      priority: "HIGH",
-    },
-    {
-      task: "Inspect battery thermal run-away sensor relay",
-      project: "Plant Solar Microgrid",
-      assignee: "Harish M.",
-      daysOverdue: 4,
-      priority: "CRITICAL",
-    },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProjects() {
+      try {
+        setIsLoading(true);
+        const res = await cachedFetch("/api/projects");
+        const json = res.ok ? await res.json() : null;
+        if (json?.success && Array.isArray(json.data) && isMounted) {
+          const projects = json.data;
+          const total = projects.length;
+          const active = projects.filter((p: any) => p.status === "in_progress" || p.status === "active").length;
+          const planning = projects.filter((p: any) => p.status === "planning").length;
+          const onHold = projects.filter((p: any) => p.status === "on_hold").length;
+          const completed = projects.filter((p: any) => p.status === "completed").length;
+          const avgProg = total > 0 ? Math.round(projects.reduce((acc: number, p: any) => acc + (p.progress || 0), 0) / total) : 0;
+
+          setStats({
+            totalProjects: total,
+            activeProjects: active,
+            planningProjects: planning,
+            onHoldProjects: onHold,
+            milestoneOnTimeRate: total > 0 ? 100 : 0,
+            avgProgress: avgProg,
+            totalBudgetAllocated: 0,
+            totalBudgetConsumed: 0,
+            budgetUtilization: 0,
+            overdueTasksCount: 0,
+            criticalPathBlockers: 0,
+            sprintVelocityPoints: completed * 10,
+          });
+
+          if (total > 0) {
+            setProjectPhaseDistribution([
+              { name: "Active Execution", value: active },
+              { name: "Planning & Scoping", value: planning },
+              { name: "On Hold", value: onHold },
+              { name: "Completed", value: completed },
+            ].filter((p) => p.value > 0));
+
+            setCriticalProjectsList(
+              projects.slice(0, 5).map((p: any) => ({
+                id: p._id?.slice(-8).toUpperCase() || "PRJ",
+                name: p.name,
+                lead: p.ownerId?.name || "Project Lead",
+                progress: p.progress || 0,
+                budgetConsumed: "Configured",
+                milestone: p.status || "Active",
+                dueDate: p.dueDate ? new Date(p.dueDate).toLocaleDateString() : "Ongoing",
+                status: p.status === "completed" ? "Completed" : p.status === "in_progress" ? "On Schedule" : "In Review",
+                color: p.status === "completed" ? BRAND_COLORS.accent.green : BRAND_COLORS.accent.blue,
+              }))
+            );
+
+            // Group creations / updates by date for daily deliverables timeline
+            const countsByDate = new Map<string, number>();
+            for (const proj of projects) {
+              const d = proj.createdAt || proj.updatedAt;
+              if (!d) continue;
+              const dateStr = new Date(d).toISOString().slice(0, 10);
+              countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + 1);
+            }
+            setDailyDeliverables(
+              Array.from(countsByDate.entries()).map(([date, count]) => ({ date, count }))
+            );
+          } else {
+            setProjectPhaseDistribution([]);
+            setCriticalProjectsList([]);
+            setCriticalSprintTasks([]);
+            setDailyDeliverables([]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load projects dashboard:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    loadProjects();
+    return () => { isMounted = false; };
+  }, []);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -215,11 +225,11 @@ export default function ProjectsDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {projectStats.activeProjects} in execution
+                {stats.activeProjects} in execution
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-purple-400 font-semibold">
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span>{projectStats.totalProjects} total across enterprise</span>
+                <span>{stats.totalProjects} total across enterprise</span>
               </div>
             </CardContent>
           </Card>
@@ -239,10 +249,10 @@ export default function ProjectsDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-emerald-400">
-                {projectStats.milestoneOnTimeRate}%
+                {stats.milestoneOnTimeRate}%
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-400 font-semibold">
-                <span>Avg progress across portfolio: {projectStats.avgProgress}%</span>
+                <span>Avg progress across portfolio: {stats.avgProgress}%</span>
               </div>
             </CardContent>
           </Card>
@@ -256,16 +266,16 @@ export default function ProjectsDashboardPage() {
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
-                <span>Portfolio Budget Consumed</span>
+                <span>Completed Velocity Points</span>
                 <span className="p-1.5 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
-                  <DollarSign className="w-4 h-4" />
+                  <Target className="w-4 h-4" />
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {projectStats.budgetUtilization}%
+                {stats.sprintVelocityPoints} pts
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
-                <span>{formatCurrency(projectStats.totalBudgetConsumed)} of {formatCurrency(projectStats.totalBudgetAllocated)}</span>
+                <span>Sprint completion telemetry</span>
               </div>
             </CardContent>
           </Card>
@@ -285,10 +295,10 @@ export default function ProjectsDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-red-500">
-                {projectStats.criticalPathBlockers} Blockers
+                {stats.criticalPathBlockers} Blockers
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-red-400 font-semibold">
-                <span>{projectStats.overdueTasksCount} overdue sprint deliverables</span>
+                <span>{stats.overdueTasksCount} overdue sprint deliverables</span>
               </div>
             </CardContent>
           </Card>
@@ -313,17 +323,17 @@ export default function ProjectsDashboardPage() {
                     </CardTitle>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Day-by-day sprint burnup tracking completed engineering story points vs scope additions.
+                    Day-by-day sprint burnup tracking completed engineering deliverables vs scope additions.
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-[11px] font-mono">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-sm bg-[#A77DFF]" />
-                    <span className="text-muted-foreground">Story Points Delivered</span>
+                    <span className="text-muted-foreground">Deliverables</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-sm bg-[#6CADF5]" />
-                    <span className="text-muted-foreground">Sprint Target</span>
+                    <span className="text-muted-foreground">Active Initiatives</span>
                   </div>
                 </div>
               </CardHeader>
@@ -331,8 +341,10 @@ export default function ProjectsDashboardPage() {
                 <DailyBrickBarChart
                   height={340}
                   colorTheme="purple"
-                  metricLabel="Story Points"
-                  yAxisFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+                  metricLabel="Project Activity"
+                  data={dailyDeliverables}
+                  valueKey="count"
+                  yAxisFormatter={(v) => `${v}`}
                 />
               </CardContent>
             </Card>
@@ -355,11 +367,17 @@ export default function ProjectsDashboardPage() {
                 </p>
               </CardHeader>
               <CardContent className="p-5 flex-1 flex flex-col justify-center items-center">
-                <CanvasPieChart
-                  data={projectPhaseDistribution}
-                  title="Projects"
-                  colors={BRAND_ACCENT_PALETTE}
-                />
+                {projectPhaseDistribution.length > 0 ? (
+                  <CanvasPieChart
+                    data={projectPhaseDistribution}
+                    title="Projects"
+                    colors={BRAND_ACCENT_PALETTE}
+                  />
+                ) : (
+                  <div className="py-12 text-center text-xs text-muted-foreground font-mono">
+                    No active projects across lifecycle phases
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -406,42 +424,50 @@ export default function ProjectsDashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
-                      {criticalProjectsList.map((prj, i) => (
-                        <tr key={i} className="hover:bg-muted/10 transition-colors">
-                          <td className="p-3 pl-5">
-                            <div className="font-bold text-foreground">{prj.name}</div>
-                            <div className="text-[10px] text-muted-foreground">{prj.id} • Lead: {prj.lead}</div>
-                          </td>
-                          <td className="p-3 text-muted-foreground">
-                            <div>{prj.milestone}</div>
-                            <div className="text-[10px] text-muted-foreground/80">Target: {prj.dueDate}</div>
-                          </td>
-                          <td className="p-3 font-semibold text-foreground">{prj.budgetConsumed}</td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 h-1.5 bg-border/40 overflow-hidden">
-                                <div
-                                  className="h-full bg-[#A77DFF]"
-                                  style={{ width: `${prj.progress}%` }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-muted-foreground">{prj.progress}%</span>
-                            </div>
-                          </td>
-                          <td className="p-3 pr-5 text-right">
-                            <span
-                              className="px-2 py-0.5 rounded text-[10px] font-bold"
-                              style={{
-                                backgroundColor: `${prj.color}20`,
-                                color: prj.color,
-                                border: `1px solid ${prj.color}40`,
-                              }}
-                            >
-                              {prj.status}
-                            </span>
+                      {criticalProjectsList.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-muted-foreground font-mono">
+                            No active capital projects registered for this organization.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        criticalProjectsList.map((prj, i) => (
+                          <tr key={i} className="hover:bg-muted/10 transition-colors">
+                            <td className="p-3 pl-5">
+                              <div className="font-bold text-foreground">{prj.name}</div>
+                              <div className="text-[10px] text-muted-foreground">{prj.id} • Lead: {prj.lead}</div>
+                            </td>
+                            <td className="p-3 text-muted-foreground">
+                              <div>{prj.milestone}</div>
+                              <div className="text-[10px] text-muted-foreground/80">Target: {prj.dueDate}</div>
+                            </td>
+                            <td className="p-3 font-semibold text-foreground">{prj.budgetConsumed}</td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 h-1.5 bg-border/40 overflow-hidden">
+                                  <div
+                                    className="h-full bg-[#A77DFF]"
+                                    style={{ width: `${prj.progress}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground">{prj.progress}%</span>
+                              </div>
+                            </td>
+                            <td className="p-3 pr-5 text-right">
+                              <span
+                                className="px-2 py-0.5 rounded text-[10px] font-bold"
+                                style={{
+                                  backgroundColor: `${prj.color}20`,
+                                  color: prj.color,
+                                  border: `1px solid ${prj.color}40`,
+                                }}
+                              >
+                                {prj.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -467,25 +493,31 @@ export default function ProjectsDashboardPage() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-border/40">
-                  {criticalSprintTasks.map((t, idx) => (
-                    <div key={idx} className="p-4 hover:bg-muted/10 transition-colors">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="text-xs font-bold text-foreground max-w-[200px]">
-                          {t.task}
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
-                          {t.priority}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground flex justify-between items-center mt-1">
-                        <span>Project: {t.project}</span>
-                        <span className="text-red-400 font-bold">{t.daysOverdue} days overdue</span>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                        Assignee: {t.assignee}
-                      </div>
+                  {criticalSprintTasks.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-muted-foreground font-mono">
+                      Zero critical sprint blockers detected.
                     </div>
-                  ))}
+                  ) : (
+                    criticalSprintTasks.map((t, idx) => (
+                      <div key={idx} className="p-4 hover:bg-muted/10 transition-colors">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-xs font-bold text-foreground max-w-[200px]">
+                            {t.task}
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                            {t.priority}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground flex justify-between items-center mt-1">
+                          <span>Project: {t.project}</span>
+                          <span className="text-red-400 font-bold">{t.daysOverdue} days overdue</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          Assignee: {t.assignee}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -23,7 +23,7 @@ export function ModuleTabs({
   isLoading = false,
 }: ModuleTabsProps) {
   return (
-    <nav aria-label="Modules" aria-busy={isLoading} className="hidden lg:flex items-center gap-4 xl:gap-6 lg:ml-4 xl:ml-8 shrink min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav aria-label="Modules" aria-busy={isLoading} className="hidden lg:flex items-center gap-4 xl:gap-6 lg:ml-4 xl:ml-8 shrink-0 min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {isLoading ? (
         <div aria-label="Loading modules" className="flex items-center gap-5 animate-pulse">
           {[0, 1, 2, 3].map((item) => <span key={item} className="h-3 w-14 rounded bg-muted/60" />)}

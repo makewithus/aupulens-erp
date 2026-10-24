@@ -27,101 +27,144 @@ import { SubsystemTransactionVolumeChart } from "@/components/crm/SubsystemTrans
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function CRMDashboardPage() {
   const { data: session } = useSession();
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  // CRM-specific parameters & KPIs
-  const crmStats = {
-    totalPipelineValue: 568000000, // ₹56.80 Cr
-    pipelineGrowthYoY: 18.4,
-    winRate: 42.8,
-    avgSalesCycleDays: 34,
-    netRetentionRate: 118.4,
-    expansionARR: 94000000, // ₹9.40 Cr
-    accountsAtRiskCount: 8,
-    churnValueRisk: 32000000, // ₹3.20 Cr
-    totalLeadsThisMonth: 384,
-    leadConversionRate: 24.6,
-  };
+  const [isLoading, setIsLoading] = useState(true);
 
-  const accountHealthDistribution = [
-    { label: "Healthy Accounts (80-100)", count: 142, percent: 68, color: BRAND_COLORS.accent.green },
-    { label: "Warning / Attention (60-79)", count: 48, percent: 23, color: BRAND_COLORS.accent.yellow },
-    { label: "At Risk (40-59)", count: 12, percent: 6, color: BRAND_COLORS.accent.purple },
-    { label: "Critical Churn Risk (<40)", count: 8, percent: 3, color: BRAND_COLORS.accent.red },
-  ];
+  // Live CRM State
+  const [crmStats, setCrmStats] = useState({
+    totalPipelineValue: 0,
+    pipelineGrowthYoY: 0,
+    winRate: 0,
+    avgSalesCycleDays: 0,
+    netRetentionRate: 0,
+    expansionARR: 0,
+    accountsAtRiskCount: 0,
+    churnValueRisk: 0,
+    totalLeadsThisMonth: 0,
+    leadConversionRate: 0,
+  });
 
-  const criticalChurnAccounts = [
-    {
-      id: "ACC-904",
-      name: "Global Infra Concessionaires",
-      contractValue: 12500000,
-      healthScore: 32,
-      riskReason: "Executive champion departed; zero login in 21 days",
-      owner: "Sneha Kapur",
-      renewalDays: "18 days",
-    },
-    {
-      id: "ACC-872",
-      name: "Zenith Precision Heavy Metals",
-      contractValue: 8400000,
-      healthScore: 38,
-      riskReason: "ERP integration delayed; 3 high-priority tickets open",
-      owner: "Karan Malhotra",
-      renewalDays: "32 days",
-    },
-    {
-      id: "ACC-651",
-      name: "Apex Logistics & Port Services",
-      contractValue: 6200000,
-      healthScore: 35,
-      riskReason: "Requested RFP from competitive vendor",
-      owner: "Ananya Roy",
-      renewalDays: "45 days",
-    },
-  ];
+  const [accountHealthDistribution, setAccountHealthDistribution] = useState<any[]>([]);
+  const [criticalChurnAccounts, setCriticalChurnAccounts] = useState<any[]>([]);
+  const [highValueDeals, setHighValueDeals] = useState<any[]>([]);
+  const [dailyLeadInflow, setDailyLeadInflow] = useState<any[]>([]);
 
-  const highValueDeals = [
-    {
-      id: "OPP-2026-442",
-      customer: "Bharat Petrochemicals Consortium",
-      value: 24000000,
-      stage: "Contract Finalization",
-      probability: 90,
-      expectedClose: "31 Oct 2026",
-      owner: "Vikram Seth",
-    },
-    {
-      id: "OPP-2026-439",
-      customer: "Adani Smart Industrial Hub",
-      value: 18500000,
-      stage: "Technical Validation",
-      probability: 75,
-      expectedClose: "15 Nov 2026",
-      owner: "Neha Gupta",
-    },
-    {
-      id: "OPP-2026-435",
-      customer: "Tata Advanced Defense Solutions",
-      value: 14200000,
-      stage: "Proposal Review",
-      probability: 60,
-      expectedClose: "28 Nov 2026",
-      owner: "Rahul Deshmukh",
-    },
-    {
-      id: "OPP-2026-428",
-      customer: "Godrej Modern Storage Systems",
-      value: 9800000,
-      stage: "Discovery & Scope",
-      probability: 40,
-      expectedClose: "10 Dec 2026",
-      owner: "Sneha Kapur",
-    },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCrmData() {
+      try {
+        setIsLoading(true);
+        const fetchJson = async (url: string) => {
+          try {
+            const r = await cachedFetch(url);
+            return r.ok ? await r.json() : null;
+          } catch {
+            return null;
+          }
+        };
+
+        const [pData, oppsData, leadsData, acctsData] = await Promise.all([
+          fetchJson("/api/crm/pipeline/analytics"),
+          fetchJson("/api/crm/opportunities?limit=10"),
+          fetchJson("/api/crm/leads"),
+          fetchJson("/api/crm/accounts?limit=20"),
+        ]);
+
+        if (!isMounted) return;
+
+        // 1. Pipeline Analytics
+        if (pData?.data) {
+          const p = pData.data;
+          setCrmStats((prev) => ({
+            ...prev,
+            totalPipelineValue: p.totalPipelineValue || 0,
+            winRate: Math.round(p.winRate || 0),
+            expansionARR: p.weightedPipeline || 0,
+          }));
+        }
+
+        // 2. Opportunities (High-Value Deals)
+        if (oppsData) {
+          const opps = oppsData.data || (Array.isArray(oppsData) ? oppsData : []);
+          setHighValueDeals(
+            opps.slice(0, 5).map((o: any) => ({
+              id: o.opportunity_id || o.deal_name || o._id?.slice(-8) || "DEAL",
+              customer: o.account_name || o.account_id?.name || o.deal_name || "Enterprise Client",
+              value: o.amount || 0,
+              stage: o.stage || "Prospecting",
+              probability: o.probability || 50,
+              expectedClose: o.expected_close_date ? new Date(o.expected_close_date).toLocaleDateString() : "Active",
+              owner: o.owner_name || o.owner_id?.name || "Account Exec",
+            }))
+          );
+        }
+
+        // 3. Leads & Daily Inflow
+        if (leadsData) {
+          const leads = leadsData.data || leadsData.leads || (Array.isArray(leadsData) ? leadsData : []);
+          setCrmStats((prev) => ({ ...prev, totalLeadsThisMonth: leads.length }));
+
+          const countsByDate = new Map<string, number>();
+          for (const lead of leads) {
+            const d = lead.created_at || lead.createdAt;
+            if (!d) continue;
+            const dateStr = new Date(d).toISOString().slice(0, 10);
+            countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + 1);
+          }
+          setDailyLeadInflow(
+            Array.from(countsByDate.entries()).map(([date, count]) => ({ date, count }))
+          );
+        }
+
+        // 4. Accounts & Health
+        if (acctsData) {
+          const accts = acctsData.data || (Array.isArray(acctsData) ? acctsData : []);
+          const totalAccts = accts.length;
+          if (totalAccts > 0) {
+            const healthy = accts.filter((a: any) => (a.health_score || 80) >= 80).length;
+            const warning = accts.filter((a: any) => (a.health_score || 80) >= 60 && (a.health_score || 80) < 80).length;
+            const atRisk = accts.filter((a: any) => (a.health_score || 80) >= 40 && (a.health_score || 80) < 60).length;
+            const critical = accts.filter((a: any) => (a.health_score || 80) < 40).length;
+
+            setAccountHealthDistribution([
+              { label: "Healthy Accounts (80-100)", count: healthy, percent: Math.round((healthy / totalAccts) * 100), color: BRAND_COLORS.accent.green },
+              { label: "Warning / Attention (60-79)", count: warning, percent: Math.round((warning / totalAccts) * 100), color: BRAND_COLORS.accent.yellow },
+              { label: "At Risk (40-59)", count: atRisk, percent: Math.round((atRisk / totalAccts) * 100), color: BRAND_COLORS.accent.purple },
+              { label: "Critical Churn Risk (<40)", count: critical, percent: Math.round((critical / totalAccts) * 100), color: BRAND_COLORS.accent.red },
+            ]);
+
+            const churnRisk = accts.filter((a: any) => (a.health_score || 100) < 50);
+            setCriticalChurnAccounts(
+              churnRisk.slice(0, 3).map((a: any) => ({
+                id: a.account_number || a._id?.slice(-6) || "ACC",
+                name: a.name || a.company_name || "Account",
+                contractValue: a.annual_revenue || a.contract_value || 0,
+                healthScore: a.health_score || 35,
+                riskReason: a.churn_risk_reason || "Low user adoption and pending tickets",
+                owner: a.owner_name || "Success Mgr",
+                renewalDays: a.renewal_date ? `${Math.max(0, Math.ceil((new Date(a.renewal_date).getTime() - Date.now()) / (1000 * 3600 * 24)))} days` : "30 days",
+              }))
+            );
+          } else {
+            setAccountHealthDistribution([]);
+            setCriticalChurnAccounts([]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load CRM dashboard data:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    loadCrmData();
+    return () => { isMounted = false; };
+  }, []);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -332,7 +375,9 @@ export default function CRMDashboardPage() {
                 height={320}
                 colorTheme="blue"
                 metricLabel="Inbound Leads"
-                yAxisFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+                data={dailyLeadInflow}
+                valueKey="count"
+                yAxisFormatter={(v) => `${v}`}
               />
             </CardContent>
           </Card>
@@ -355,29 +400,35 @@ export default function CRMDashboardPage() {
               </p>
             </CardHeader>
             <CardContent className="p-5 space-y-5 flex-1 flex flex-col justify-center">
-              {accountHealthDistribution.map((cohort, idx) => (
-                <div key={idx} className="space-y-1.5">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-foreground">{cohort.label}</span>
-                    <span
-                      className="px-2 py-0.5 rounded text-[10px] font-bold"
-                      style={{
-                        backgroundColor: `${cohort.color}20`,
-                        color: cohort.color,
-                        border: `1px solid ${cohort.color}40`,
-                      }}
-                    >
-                      {cohort.count} accounts ({cohort.percent}%)
-                    </span>
+              {accountHealthDistribution.length > 0 ? (
+                accountHealthDistribution.map((cohort, idx) => (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-semibold text-foreground">{cohort.label}</span>
+                      <span
+                        className="px-2 py-0.5 rounded text-[10px] font-bold"
+                        style={{
+                          backgroundColor: `${cohort.color}20`,
+                          color: cohort.color,
+                          border: `1px solid ${cohort.color}40`,
+                        }}
+                      >
+                        {cohort.count} accounts ({cohort.percent}%)
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-border/40 overflow-hidden">
+                      <div
+                        className="h-full transition-all duration-500"
+                        style={{ width: `${cohort.percent}%`, backgroundColor: cohort.color }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 w-full bg-border/40 overflow-hidden">
-                    <div
-                      className="h-full transition-all duration-500"
-                      style={{ width: `${cohort.percent}%`, backgroundColor: cohort.color }}
-                    />
-                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center text-xs text-muted-foreground font-mono">
+                  No customer accounts registered yet for this organization.
                 </div>
-              ))}
+              )}
             </CardContent>
           </Card>
         </div>
@@ -405,27 +456,33 @@ export default function CRMDashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/40">
-                {criticalChurnAccounts.map((acct, i) => (
-                  <div key={i} className="p-4 hover:bg-muted/10 transition-colors">
-                    <div className="flex justify-between items-start mb-1">
-                      <div>
-                        <span className="font-bold text-foreground text-xs">{acct.name}</span>
-                        <div className="text-[10px] text-muted-foreground">Owner: {acct.owner}</div>
+                {criticalChurnAccounts.length > 0 ? (
+                  criticalChurnAccounts.map((acct, i) => (
+                    <div key={i} className="p-4 hover:bg-muted/10 transition-colors">
+                      <div className="flex justify-between items-start mb-1">
+                        <div>
+                          <span className="font-bold text-foreground text-xs">{acct.name}</span>
+                          <div className="text-[10px] text-muted-foreground">Owner: {acct.owner}</div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-red-500 block">
+                            {formatCurrency(acct.contractValue)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            Renewal in {acct.renewalDays}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-red-500 block">
-                          {formatCurrency(acct.contractValue)}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          Renewal in {acct.renewalDays}
-                        </span>
-                      </div>
+                      <p className="text-[11px] text-red-400/90 mt-1 bg-red-500/10 p-2 border border-red-500/20">
+                        ⚠️ {acct.riskReason}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-red-400/90 mt-1 bg-red-500/10 p-2 border border-red-500/20">
-                      ⚠️ {acct.riskReason}
-                    </p>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-xs text-muted-foreground font-mono">
+                    Zero customer accounts currently at risk of churn.
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -471,28 +528,36 @@ export default function CRMDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {highValueDeals.map((deal, i) => (
-                      <tr key={i} className="hover:bg-muted/10 transition-colors">
-                        <td className="p-3 pl-5 whitespace-nowrap">
-                          <div className="font-bold text-foreground">{deal.customer}</div>
-                          <div className="text-[10px] text-muted-foreground">{deal.id}</div>
+                    {highValueDeals.length > 0 ? (
+                      highValueDeals.map((deal, i) => (
+                        <tr key={i} className="hover:bg-muted/10 transition-colors">
+                          <td className="p-3 pl-5 whitespace-nowrap">
+                            <div className="font-bold text-foreground">{deal.customer}</div>
+                            <div className="text-[10px] text-muted-foreground">{deal.id}</div>
+                          </td>
+                          <td className={cn("p-3 font-semibold whitespace-nowrap", isDark ? "text-[#6CADF5]" : "text-blue-700 font-bold")}>
+                            {formatCurrency(deal.value)}
+                          </td>
+                          <td className="p-3 text-muted-foreground whitespace-nowrap">{deal.stage}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            <span className={cn(
+                              "px-2 py-0.5 rounded text-[10px] font-bold border",
+                              isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border-emerald-300"
+                            )}>
+                              {deal.probability}%
+                            </span>
+                          </td>
+                          <td className="p-3 text-muted-foreground whitespace-nowrap">{deal.expectedClose}</td>
+                          <td className="p-3 pr-5 text-right text-muted-foreground whitespace-nowrap">{deal.owner}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-muted-foreground font-mono">
+                          No active enterprise opportunities found for this organization.
                         </td>
-                        <td className={cn("p-3 font-semibold whitespace-nowrap", isDark ? "text-[#6CADF5]" : "text-blue-700 font-bold")}>
-                          {formatCurrency(deal.value)}
-                        </td>
-                        <td className="p-3 text-muted-foreground whitespace-nowrap">{deal.stage}</td>
-                        <td className="p-3 whitespace-nowrap">
-                          <span className={cn(
-                            "px-2 py-0.5 rounded text-[10px] font-bold border",
-                            isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border-emerald-300"
-                          )}>
-                            {deal.probability}%
-                          </span>
-                        </td>
-                        <td className="p-3 text-muted-foreground whitespace-nowrap">{deal.expectedClose}</td>
-                        <td className="p-3 pr-5 text-right text-muted-foreground whitespace-nowrap">{deal.owner}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>

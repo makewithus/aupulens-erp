@@ -137,8 +137,6 @@ function SalesInvoicesLandingPageInner() {
       <div className="flex items-center gap-6 mt-12 text-sm font-mono text-[11px] uppercase tracking-widest">
         <Button variant="link" className="text-muted-foreground">Talk to a specialist</Button>
         <span className="text-muted-foreground/40">•</span>
-        <Button variant="link" className="text-muted-foreground">+91-9876543210 (WhatsApp)</Button>
-        <span className="text-muted-foreground/40">•</span>
         <Button variant="link" className="text-primary">Watch how it works</Button>
       </div>
     </div>

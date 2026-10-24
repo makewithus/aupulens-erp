@@ -5,9 +5,15 @@ import mongoose from "mongoose";
 import ChatHistory, { type AiModule } from "@/models/ai/ChatHistory";
 import Organization from "@/models/admin/Organization";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
-import { parseErpIntent, normalizeErpText } from "./erpIntent";
+import User from "@/models/auth/User";
+import { parseErpIntent, normalizeErpText, type ErpIntentContext } from "./erpIntent";
 import { executeErpQuery, ErpToolError, currency, customerName, requireSalesAccess } from "./erpQuery";
 import { prepareQuoteDraft, confirmQuoteDraft, updateQuoteDraft } from "./quoteDraft";
+import { prepareCustomerDraft, updateCustomerDraft, confirmCustomerDraft, cancelCustomerDraft } from "./customerDraft";
+import { COMMAND_ACTIONS } from "./commandActions";
+import { buildPostedJournalReport } from "@/lib/accounting/reports";
+import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
+import { AI_ACTION_STATUS as A } from "@/lib/constants/statuses";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "./conversationContext";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import connectDB from "@/lib/db";
@@ -56,23 +62,56 @@ export function formatErpResult(result: Awaited<ReturnType<typeof executeErpQuer
 }
 export async function tryErpAssistant(input: { text: string; tenantId: string; userId: string; role: string; module?: AiModule; conversationId?: string; chatId?: string; requestId?: string; toolQuery?: unknown }) {
   if (typeof input.text !== "string" || input.text.length > 8000 || (input.conversationId !== undefined && (typeof input.conversationId !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(input.conversationId))) || (input.chatId !== undefined && (typeof input.chatId !== "string" || !/^[a-f\d]{24}$/i.test(input.chatId)))) throw new ErpToolError("INVALID_INPUT", "The message or conversation identifier is invalid.");
-  const intent = input.toolQuery ? input.toolQuery : parseErpIntent(input.text);
+
+  await connectDB();
+  const chatModule: AiModule = input.module === "admin" ? "admin" : "sales";
+  const conversationId = input.conversationId || randomUUID();
+  const chatLookupFilter: Record<string, unknown> = {
+    tenantId: input.tenantId,
+    userId: input.userId,
+    module: chatModule,
+    conversationId,
+  };
+  if (typeof input.chatId === "string" && /^[a-f\d]{24}$/i.test(input.chatId)) {
+    delete chatLookupFilter.conversationId;
+    chatLookupFilter._id = input.chatId;
+  }
+  const existingChat: any = await ChatHistory.findOne(chatLookupFilter).select("lastErpQuery pendingQuoteProposalId pendingCustomerProposalId pendingRoleProposalId").lean();
+
+  const erpContext: ErpIntentContext = {
+    lastErpQuery: existingChat?.lastErpQuery,
+    pendingQuoteProposalId: existingChat?.pendingQuoteProposalId ? String(existingChat.pendingQuoteProposalId) : undefined,
+    pendingCustomerProposalId: existingChat?.pendingCustomerProposalId ? String(existingChat.pendingCustomerProposalId) : undefined,
+    pendingRoleProposalId: existingChat?.pendingRoleProposalId ? String(existingChat.pendingRoleProposalId) : undefined,
+  };
+
+  const intent = input.toolQuery ? input.toolQuery : parseErpIntent(input.text, new Date(), erpContext);
   if (!intent) return null;
+
   const isPlanQuery = intent === "plan" || (typeof intent === "object" && intent !== null && (intent as any).type === "plan");
   const isOrgQuery = intent === "organization_info" || (typeof intent === "object" && intent !== null && (intent as any).type === "organization_info");
+  const isProfitLossQuery = intent === "profit_loss" || (typeof intent === "object" && intent !== null && (intent as any).type === "profit_loss");
+  const isRoleQuery = intent === "role_confirm" || intent === "role_cancel" || (typeof intent === "object" && intent !== null && (intent as any).type === "role_change");
+
   if (isPlanQuery) {
     if (!["admin", "master-admin"].includes(input.role)) throw new ErpToolError("PERMISSION_DENIED", "Billing plan details aren't accessible with your current permissions.", 403);
   } else if (isOrgQuery) {
     // Basic tenant identity context is accessible to all authenticated tenant users
+  } else if (isProfitLossQuery) {
+    if (!["admin", "master-admin", "finance"].includes(input.role)) {
+      throw new ErpToolError("PERMISSION_DENIED", "Financial profit and loss analysis requires administrative or finance permissions.", 403);
+    }
+    await requireWorkspaceModuleAccess("finance", input.tenantId);
+  } else if (isRoleQuery) {
+    if (!["admin", "master-admin"].includes(input.role)) {
+      throw new ErpToolError("PERMISSION_DENIED", "Changing user roles requires administrative permissions.", 403);
+    }
   } else {
     requireSalesAccess(input.role);
-    await connectDB();
-    // Admin routes can cross module boundaries; recheck Sales entitlements here.
     await requireWorkspaceModuleAccess("sales", input.tenantId);
   }
-  await connectDB();
-  const chatModule: AiModule = input.module === "admin" ? "admin" : "sales";
-  const context = await loadConversationContext({ ...input, module: chatModule, conversationId: input.conversationId || randomUUID(), message: input.text });
+
+  const context = await loadConversationContext({ ...input, module: chatModule, conversationId, message: input.text });
   const scope = { tenantId: input.tenantId, userId: input.userId, role: input.role, conversationId: context.conversationId };
   const requestId = input.requestId || randomUUID();
   const filter = { tenantId: input.tenantId, userId: input.userId, module: chatModule, conversationId: context.conversationId };
@@ -81,6 +120,8 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   let actions: { label: string; value: string }[] | undefined;
   let query: unknown;
   let pendingQuoteProposalId: string | undefined;
+  let pendingCustomerProposalId: string | undefined;
+  let pendingRoleProposalId: string | undefined;
   let structured: ErpStructuredResponse | undefined;
   if (!cached) {
     if (intent === "refuse") {
@@ -221,6 +262,261 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       } else {
         message = `Your organization name is **${org.name}** (Workspace: \`${org.subdomain}\`).`;
       }
+    } else if (intent === "profit_loss" || (typeof intent === "object" && intent !== null && (intent as any).type === "profit_loss")) {
+      const pAndLReport = await buildPostedJournalReport({
+        tenantId: input.tenantId,
+      });
+
+      const issuedInv = await SalesInvoice.aggregate([
+        { $match: { tenantId: input.tenantId, ...issuedInvoiceFilter() } },
+        { $group: { _id: null, total: { $sum: "$totalAmount" }, count: { $sum: 1 } } },
+      ]).exec();
+      const issuedRevenue = issuedInv[0]?.total || 0;
+      const issuedInvoiceCount = issuedInv[0]?.count || 0;
+
+      const postedIncome = pAndLReport.income.total;
+      const postedExpenses = pAndLReport.expense.total;
+      const postedEntries = pAndLReport.activity.postedEntryCount;
+
+      if (postedEntries > 0 && (postedIncome > 0 || postedExpenses > 0)) {
+        const net = postedIncome - postedExpenses;
+        const isProfit = net >= 0;
+        message = `Company financial analysis (authoritative posted journal entries):\n\n` +
+          `- Recognized revenue / income: ${currency(postedIncome)}\n` +
+          `- Operating & direct expenses: ${currency(postedExpenses)}\n` +
+          `- Net ${isProfit ? "profit" : "loss"}: ${currency(Math.abs(net))}\n` +
+          `- Overall company status: **${isProfit ? "In Profit" : "In Loss"}**\n` +
+          `- Posted journal entries analyzed: ${postedEntries}\n` +
+          `- Trial balance verification: ${pAndLReport.totals.balanced ? "Balanced" : "Discrepancy detected"}`;
+
+        structured = {
+          type: "profit_loss",
+          revenue: postedIncome,
+          formattedRevenue: currency(postedIncome),
+          expenses: postedExpenses,
+          formattedExpenses: currency(postedExpenses),
+          netProfit: net,
+          formattedNetProfit: currency(Math.abs(net)),
+          isProfitable: isProfit,
+          status: net > 0 ? "profitable" : net < 0 ? "loss" : "break_even",
+          postedEntryCount: postedEntries,
+          basis: "posted_journal_entries",
+        };
+      } else if (issuedRevenue > 0) {
+        message = `A reliable net profit or loss figure cannot yet be calculated because authoritative expense data is unavailable in your posted general ledger.\n\n` +
+          `- Issued sales invoice revenue: ${currency(issuedRevenue)} across ${issuedInvoiceCount} records (drafts and cancellations excluded)\n` +
+          `- Posted expense records: None found in the general ledger\n\n` +
+          `Sales revenue cannot be substituted for profit. To calculate net profit or loss, recorded expenses (vendor bills, payroll, or expense journals) must be posted to the finance ledger.`;
+
+        structured = {
+          type: "profit_loss",
+          revenue: issuedRevenue,
+          formattedRevenue: currency(issuedRevenue),
+          expenses: 0,
+          formattedExpenses: currency(0),
+          netProfit: 0,
+          formattedNetProfit: currency(0),
+          isProfitable: false,
+          status: "incomplete_data",
+          invoiceCount: issuedInvoiceCount,
+          postedEntryCount: 0,
+          basis: "incomplete_data",
+          limitations: "Operating expenses and posted expense journal entries are missing. Sales revenue cannot be substituted for profit.",
+        };
+      } else {
+        message = `Neither recognized revenue nor expense entries have been posted to the general ledger for this workspace. A reliable profit or loss figure cannot be calculated because financial records are empty.`;
+
+        structured = {
+          type: "profit_loss",
+          revenue: 0,
+          formattedRevenue: currency(0),
+          expenses: 0,
+          formattedExpenses: currency(0),
+          netProfit: 0,
+          formattedNetProfit: currency(0),
+          isProfitable: false,
+          status: "unavailable",
+          postedEntryCount: 0,
+          basis: "incomplete_data",
+          limitations: "No revenue or expense records found in the general ledger.",
+        };
+      }
+    } else if (intent === "customer_draft") {
+      await ChatHistory.updateOne(filter, { $unset: { pendingCustomerProposalId: "" } });
+      const draft = await prepareCustomerDraft(scope, input.text, requestId);
+      message = draft.message;
+      pendingCustomerProposalId = draft.proposalId;
+      actions = draft.missingFields.length === 0
+        ? [{ label: "Confirm customer", value: "confirm customer" }, { label: "Cancel", value: "cancel customer" }]
+        : [{ label: "Cancel", value: "cancel customer" }];
+      structured = {
+        type: "customer_proposal",
+        proposalId: draft.proposalId,
+        name: draft.name,
+        isCompany: draft.isCompany,
+        phone: draft.phone,
+        email: draft.email,
+        missingFields: draft.missingFields,
+        status: "proposed",
+      };
+    } else if (intent === "customer_update") {
+      const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
+      if (!chat?.pendingCustomerProposalId) {
+        const draft = await prepareCustomerDraft(scope, input.text, requestId);
+        message = draft.message;
+        pendingCustomerProposalId = draft.proposalId;
+        actions = draft.missingFields.length === 0
+          ? [{ label: "Confirm customer", value: "confirm customer" }, { label: "Cancel", value: "cancel customer" }]
+          : [{ label: "Cancel", value: "cancel customer" }];
+        structured = {
+          type: "customer_proposal",
+          proposalId: draft.proposalId,
+          name: draft.name,
+          isCompany: draft.isCompany,
+          phone: draft.phone,
+          email: draft.email,
+          missingFields: draft.missingFields,
+          status: "proposed",
+        };
+      } else {
+        const draft = await updateCustomerDraft(scope, String(chat.pendingCustomerProposalId), input.text, requestId);
+        message = draft.message;
+        pendingCustomerProposalId = draft.proposalId;
+        actions = draft.missingFields.length === 0
+          ? [{ label: "Confirm customer", value: "confirm customer" }, { label: "Cancel", value: "cancel customer" }]
+          : [{ label: "Cancel", value: "cancel customer" }];
+        structured = {
+          type: "customer_proposal",
+          proposalId: draft.proposalId,
+          name: draft.name,
+          isCompany: draft.isCompany,
+          phone: draft.phone,
+          email: draft.email,
+          missingFields: draft.missingFields,
+          status: "proposed",
+        };
+      }
+    } else if (intent === "customer_confirm") {
+      const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
+      if (!chat?.pendingCustomerProposalId) throw new ErpToolError("MISSING_FIELD", "Please prepare a customer draft in this conversation first.");
+      const cust = await confirmCustomerDraft(scope, String(chat.pendingCustomerProposalId));
+      message = `Saved customer "${cust.name}" (${cust.isCompany ? "Company" : "Individual"}).`;
+      structured = {
+        type: "customer_saved",
+        customerId: cust.customerId,
+        name: cust.name,
+        isCompany: cust.isCompany,
+        route: cust.route,
+      };
+      await ChatHistory.updateOne(filter, { $unset: { pendingCustomerProposalId: "" } });
+    } else if (intent === "customer_cancel") {
+      const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
+      if (chat?.pendingCustomerProposalId) {
+        await cancelCustomerDraft(scope, String(chat.pendingCustomerProposalId));
+        await ChatHistory.updateOne(filter, { $unset: { pendingCustomerProposalId: "" } });
+      }
+      message = "Customer draft cancelled. No customer record was created.";
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "role_change") {
+      if (!["admin", "master-admin"].includes(input.role)) {
+        throw new ErpToolError("PERMISSION_DENIED", "Changing user roles requires administrative permissions.", 403);
+      }
+      const roleIntent = intent as { type: "role_change"; userName: string; role: string };
+      if (!roleIntent.userName || !roleIntent.role) {
+        throw new ErpToolError("MISSING_FIELD", "Please specify the user name and the target role.");
+      }
+      const preview = await COMMAND_ACTIONS.update_user_role.buildPreview({ userName: roleIntent.userName, role: roleIntent.role }, input.tenantId);
+      const expiresAt = new Date(Date.now() + 24 * 3600 * 1000);
+      const proposal = await AiCommandProposal.create({
+        tenantId: input.tenantId,
+        userId: input.userId,
+        module: "admin",
+        actionType: "update_user_role",
+        destructive: true,
+        params: { userName: roleIntent.userName, role: roleIntent.role, proposedRole: (preview.preview as any)?.proposedRole, userId: preview.preview?.userId },
+        preview: preview.preview,
+        summary: preview.summary,
+        status: A.PROPOSED,
+        expiresAt,
+      });
+      message = `${preview.summary}\n\nPlease confirm to execute the role change, or cancel to discard.`;
+      actions = [{ label: "Confirm role change", value: "confirm role change" }, { label: "Cancel", value: "cancel role" }];
+      pendingRoleProposalId = String(proposal._id);
+      const p = (preview.preview || {}) as any;
+      structured = {
+        type: "role_change_proposal",
+        proposalId: String(proposal._id),
+        userId: String(p?.userId || ""),
+        userName: String(p?.userName || ""),
+        userEmail: p?.userEmail ? String(p.userEmail) : undefined,
+        currentRole: String(p?.currentRole || ""),
+        currentRoleLabel: String(p?.currentRoleLabel || ""),
+        proposedRole: String(p?.proposedRole || ""),
+        proposedRoleLabel: String(p?.proposedRoleLabel || ""),
+        status: "proposed",
+      };
+    } else if (intent === "role_confirm") {
+      if (!["admin", "master-admin"].includes(input.role)) {
+        throw new ErpToolError("PERMISSION_DENIED", "Changing user roles requires administrative permissions.", 403);
+      }
+      const chat: any = await ChatHistory.findOne(filter).select("pendingRoleProposalId").lean();
+      if (!chat?.pendingRoleProposalId) throw new ErpToolError("MISSING_FIELD", "No pending role change proposal found in this conversation.");
+      const proposal = await AiCommandProposal.findOne({
+        _id: chat.pendingRoleProposalId,
+        tenantId: input.tenantId,
+        userId: input.userId,
+      });
+      if (!proposal) throw new ErpToolError("NOT_FOUND", "Role change proposal not found.");
+      if (proposal.status === A.EXECUTED && proposal.resultRef) {
+        const user = await User.findById(proposal.resultRef).lean();
+        const prev = (proposal.preview || {}) as any;
+        const newRole = String(prev?.proposedRole || prev?.newRole || "");
+        const newRoleLabel = String(prev?.proposedRoleLabel || prev?.newRole || newRole);
+        message = `Role for user "${user?.name}" has already been updated to ${newRoleLabel}.`;
+        structured = {
+          type: "role_changed",
+          userId: proposal.resultRef,
+          userName: String(user?.name || ""),
+          newRole,
+          newRoleLabel,
+        };
+      } else if (proposal.status !== A.PROPOSED) {
+        throw new ErpToolError("BUSINESS_RULE", `This role change proposal is ${proposal.status} and cannot be executed.`);
+      } else {
+        const locked = await AiCommandProposal.findOneAndUpdate(
+          { _id: proposal._id, status: A.PROPOSED, "params.executing": { $ne: true } },
+          { $set: { "params.executing": true } },
+          { new: true }
+        );
+        if (!locked) throw new ErpToolError("BUSINESS_RULE", "This role change is already being processed.");
+        const outcome = await COMMAND_ACTIONS.update_user_role.execute(proposal.params, input.tenantId, input.userId);
+        locked.status = A.EXECUTED;
+        locked.resultRef = outcome.resultRef;
+        locked.executedAt = new Date();
+        await locked.save();
+        await ChatHistory.updateOne(filter, { $unset: { pendingRoleProposalId: "" } });
+        const prev = (proposal.preview || {}) as any;
+        const resUser = outcome.result as any;
+        const newRole = String(prev?.proposedRole || prev?.newRole || "");
+        const newRoleLabel = String(prev?.proposedRoleLabel || prev?.newRole || newRole);
+        message = `Successfully updated role for user "${resUser?.name}" to ${newRoleLabel}.`;
+        structured = {
+          type: "role_changed",
+          userId: outcome.resultRef,
+          userName: String(resUser?.name || ""),
+          newRole,
+          newRoleLabel,
+        };
+      }
+    } else if (intent === "role_cancel") {
+      const chat: any = await ChatHistory.findOne(filter).select("pendingRoleProposalId").lean();
+      if (chat?.pendingRoleProposalId) {
+        await AiCommandProposal.updateOne(
+          { _id: chat.pendingRoleProposalId, tenantId: input.tenantId, userId: input.userId, status: A.PROPOSED, "params.executing": { $ne: true } },
+          { $set: { status: A.REJECTED } }
+        );
+        await ChatHistory.updateOne(filter, { $unset: { pendingRoleProposalId: "" } });
+      }
+      message = "Role change request cancelled. No user permissions were modified.";
     } else {
       query = intent;
       if (intent === "total") {
@@ -321,7 +617,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
               status: r.status,
               date: formattedDate,
               rawDate: rawDate ? new Date(rawDate).toISOString() : undefined,
-              route: result.query.entity === "invoice" ? "/sales/invoices" : "/sales/quotes",
+              route: result.query.entity === "invoice" ? `/sales/invoices/${r._id}` : `/sales/quotes/${r._id || r.quoteNumber}`,
             };
           }),
           total: aggregateTotal ? {
@@ -337,6 +633,8 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
     }
     await saveCompletedExchange({ ...filter, message: input.text, response: message!, requestId, skipSummary: true, erpCreditsUsed: 0 });
     if (pendingQuoteProposalId) await ChatHistory.updateOne(filter, { $set: { pendingQuoteProposalId } });
+    if (pendingCustomerProposalId) await ChatHistory.updateOne(filter, { $set: { pendingCustomerProposalId } });
+    if (pendingRoleProposalId) await ChatHistory.updateOne(filter, { $set: { pendingRoleProposalId } });
     if (query) await ChatHistory.updateOne(filter, { $set: { lastErpQuery: query } });
   }
   const chat = await ChatHistory.findOne(filter).select("_id").lean();

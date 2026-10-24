@@ -24,13 +24,13 @@ await connectDB();
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    // These three aggregations are independent of each other, so run them
-    // concurrently instead of as a sequential waterfall.
-    const [ordersData, revenueData, topProducts] = await Promise.all([
+    // These aggregations are independent of each other, so run them concurrently
+    const [ordersData, revenueData, topProducts, dailyOrdersData] = await Promise.all([
       // Aggregate orders count by month
       SaleOrder.aggregate([
         {
           $match: {
+            tenantId,
             createdAt: { $gte: sixMonthsAgo }
           }
         },
@@ -50,6 +50,7 @@ await connectDB();
       SaleOrder.aggregate([
         {
           $match: {
+            tenantId,
             createdAt: { $gte: sixMonthsAgo },
             status: { $nin: [DOCUMENT_STATUS.CANCELLED, DOCUMENT_STATUS.DRAFT] }
           }
@@ -70,6 +71,7 @@ await connectDB();
       SaleOrder.aggregate([
         {
           $match: {
+            tenantId,
             createdAt: { $gte: sixMonthsAgo }
           }
         },
@@ -90,6 +92,24 @@ await connectDB();
           }
         }
       ]),
+
+      // Daily orders for DailyBrickBarChart (last 90 days)
+      SaleOrder.aggregate([
+        {
+          $match: {
+            tenantId,
+            createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }
+          }
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            count: { $sum: 1 },
+            value: { $sum: { $ifNull: ["$totals.amountTotal", 1] } }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ])
     ]);
 
     // Format data
@@ -105,15 +125,17 @@ await connectDB();
       amount: Math.round(item.amount)
     }));
 
+    const dailyOrders = dailyOrdersData.map(item => ({
+      date: item._id,
+      count: item.count,
+      value: item.value
+    }));
+
     return NextResponse.json({
       orders,
       revenue,
-      topProducts: topProducts.length > 0 ? topProducts : [
-        { name: 'Product A', value: 450 },
-        { name: 'Product B', value: 380 },
-        { name: 'Product C', value: 320 },
-        { name: 'Product D', value: 280 },
-      ]
+      topProducts,
+      dailyOrders
     });
 
   } catch (error) {

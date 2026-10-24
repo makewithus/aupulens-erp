@@ -128,6 +128,29 @@ export async function GET(req: NextRequest) {
       { $sort: { count: -1 } },
     ]);
 
+    // Daily shift attendance trend
+    const dailyAttendanceAgg = await Attendance.aggregate([
+      {
+        $match: {
+          tenantId,
+          date: { $gte: thirtyDaysAgo },
+          status: { $in: ["present", "half_day"] },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const dailyAttendance = dailyAttendanceAgg.map((d: any) => ({
+      date: d._id,
+      count: d.count,
+    }));
+
     return NextResponse.json({
       stats: {
         totalEmployees,
@@ -141,6 +164,7 @@ export async function GET(req: NextRequest) {
       payrollSummary,
       departmentDistribution,
       recentHires,
+      dailyAttendance,
     });
   } catch (error: any) {
     console.error("HR Summary Error:", error);

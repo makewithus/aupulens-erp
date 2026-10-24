@@ -17,6 +17,11 @@ import {
   CreditCard,
   ShieldAlert,
   ArrowRight,
+  TrendingUp,
+  TrendingDown,
+  UserCheck,
+  ShieldCheck,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ErpStructuredResponse, ErpRecordItem } from "@/lib/ai/erpTypes";
@@ -60,7 +65,20 @@ export function getStatusBadgeClass(status?: string): string {
   return "bg-slate-500/10 text-slate-400 border-slate-500/20";
 }
 
+import { useRouter } from "next/navigation";
+import { useAiChatStore } from "@/store/aiChatStore";
+
 export function StructuredErpView({ data, onAction, className }: StructuredErpViewProps) {
+  const router = useRouter();
+
+  const handleNavigate = (e: React.MouseEvent, href: string) => {
+    e.preventDefault();
+    router.push(href);
+    if (typeof window !== "undefined" && window.innerWidth < 1280) {
+      useAiChatStore.getState().close();
+    }
+  };
+
   switch (data.type) {
     case "count": {
       const getIcon = () => {
@@ -105,6 +123,12 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
         ? "/sales/products"
         : "/sales/customers";
 
+      const targetCustomer = (data as any).customerName || displayedRecords[0]?.customerName;
+      let finalEntityRoute = entityRoute;
+      if (targetCustomer && targetCustomer !== "Customer unavailable") {
+        finalEntityRoute = `${entityRoute}?search=${encodeURIComponent(targetCustomer)}`;
+      }
+
       return (
         <div className={cn("space-y-3", className)}>
           {data.title && (
@@ -122,13 +146,14 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
             {displayedRecords.map((rec: ErpRecordItem, idx: number) => {
               const docNum = rec.number || `Record #${idx + 1}`;
               const docLink = rec.route ? (
-                <Link
+                <a
                   href={rec.route}
-                  className="group inline-flex items-center gap-1 font-mono text-xs font-semibold text-primary hover:underline"
+                  onClick={(e) => handleNavigate(e, rec.route!)}
+                  className="group inline-flex items-center gap-1 font-mono text-xs font-semibold text-primary hover:underline cursor-pointer"
                 >
                   <span>{docNum}</span>
                   <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100 transition-opacity" />
-                </Link>
+                </a>
               ) : (
                 <span className="font-mono text-xs font-semibold text-foreground">{docNum}</span>
               );
@@ -194,13 +219,14 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
           {/* Show all link if list exceeds compact view */}
           {hasMore && (
             <div className="pt-1.5 text-center">
-              <Link
-                href={entityRoute}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-lg border border-primary/25 bg-primary/10 hover:bg-primary/20"
+              <a
+                href={finalEntityRoute}
+                onClick={(e) => handleNavigate(e, finalEntityRoute)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-lg border border-primary/25 bg-primary/10 hover:bg-primary/20 cursor-pointer"
               >
                 <span>View all {totalAvailable} {data.entity.replaceAll("_", " ")} records in Sales</span>
                 <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+              </a>
             </div>
           )}
 
@@ -473,6 +499,256 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
               <span className="font-mono text-foreground">{data.limits}</span>
             </div>
           )}
+        </div>
+      );
+    }
+
+    case "profit_loss": {
+      const isProfitable = data.status === "profitable";
+      const isLoss = data.status === "loss";
+      const isIncomplete = data.status === "incomplete_data" || data.status === "unavailable";
+
+      return (
+        <div className={cn("p-4 rounded-xl border border-border/70 bg-card/70 backdrop-blur-sm shadow-sm space-y-3 text-xs", className)}>
+          <div className="flex items-center justify-between border-b border-border/60 pb-2">
+            <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
+              {isProfitable ? (
+                <TrendingUp className="w-4 h-4 text-emerald-500" />
+              ) : isLoss ? (
+                <TrendingDown className="w-4 h-4 text-rose-500" />
+              ) : (
+                <Receipt className="w-4 h-4 text-amber-500" />
+              )}
+              <span>Profit & Loss Analysis</span>
+            </div>
+            <span
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border",
+                isProfitable
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : isLoss
+                  ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                  : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+              )}
+            >
+              {data.status.replace("_", " ")}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 py-1 text-center font-mono">
+            <div className="p-2 rounded-lg bg-muted/40 border border-border/40">
+              <span className="text-[10px] text-muted-foreground block uppercase font-sans">Revenue</span>
+              <span className="font-bold text-sm text-foreground">{data.formattedRevenue}</span>
+            </div>
+            <div className="p-2 rounded-lg bg-muted/40 border border-border/40">
+              <span className="text-[10px] text-muted-foreground block uppercase font-sans">Expenses</span>
+              <span className="font-bold text-sm text-foreground">{data.formattedExpenses}</span>
+            </div>
+            <div
+              className={cn(
+                "p-2 rounded-lg border",
+                isProfitable
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  : isLoss
+                  ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                  : "bg-muted/40 border-border/40 text-foreground"
+              )}
+            >
+              <span className="text-[10px] text-muted-foreground block uppercase font-sans">Net</span>
+              <span className="font-bold text-sm">{data.formattedNetProfit}</span>
+            </div>
+          </div>
+
+          {isIncomplete && data.limitations && (
+            <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] leading-relaxed flex items-start gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400 mt-0.5" />
+              <span>{data.limitations}</span>
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-border/40 text-[11px] text-muted-foreground flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+              <span>Basis: {data.basis.replace(/_/g, " ")}</span>
+            </span>
+            {data.postedEntryCount !== undefined && data.postedEntryCount > 0 && (
+              <span className="font-mono">{data.postedEntryCount} posted entries</span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    case "customer_proposal": {
+      const missing = data.missingFields || [];
+      const hasMissing = missing.length > 0;
+
+      return (
+        <div className={cn("p-4 rounded-xl border border-primary/30 bg-card/80 backdrop-blur-sm shadow-sm space-y-3 text-xs", className)}>
+          <div className="flex items-center justify-between border-b border-border/60 pb-2">
+            <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
+              <UserPlus className="w-4 h-4 text-primary" />
+              <span>Customer Draft — Review</span>
+            </div>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              Draft / Unshelved
+            </span>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Name:</span>
+              <span className="font-semibold text-foreground">{data.name || "Missing"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Type:</span>
+              <span className="capitalize font-medium text-foreground">
+                {data.isCompany === true ? "Company" : data.isCompany === false ? "Individual" : "Not specified"}
+              </span>
+            </div>
+            {data.phone && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Phone:</span>
+                <span className="font-mono text-foreground">{data.phone}</span>
+              </div>
+            )}
+            {data.email && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Email:</span>
+                <span className="font-mono text-foreground">{data.email}</span>
+              </div>
+            )}
+          </div>
+
+          {hasMissing ? (
+            <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px]">
+              Missing details: please supply <strong>{missing.join(" and ")}</strong> before confirming.
+            </div>
+          ) : (
+            <div className="flex gap-2 pt-2 border-t border-border/60">
+              {onAction && (
+                <>
+                  <button
+                    onClick={() => onAction("confirm customer")}
+                    className="flex-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Confirm Customer</span>
+                  </button>
+                  <button
+                    onClick={() => onAction("cancel customer")}
+                    className="px-3 py-1.5 rounded-lg border border-border/70 bg-card hover:bg-muted text-muted-foreground text-xs transition flex items-center justify-center gap-1.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Cancel</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case "customer_saved": {
+      return (
+        <div className={cn("p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 backdrop-blur-sm shadow-sm space-y-2 text-xs", className)}>
+          <div className="flex items-center gap-2 font-semibold text-emerald-400 text-sm">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Customer Successfully Saved</span>
+          </div>
+          <div className="flex items-baseline justify-between pt-1">
+            <span className="font-bold text-foreground text-sm">{data.name}</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-medium border uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+              {data.isCompany ? "Company" : "Individual"}
+            </span>
+          </div>
+          {data.route && (
+            <div className="pt-2 border-t border-emerald-500/20 text-[11px]">
+              <Link href={data.route} className="text-primary hover:underline flex items-center gap-1">
+                <span>View in Customer Master</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case "role_change_proposal": {
+      return (
+        <div className={cn("p-4 rounded-xl border border-amber-500/40 bg-card/80 backdrop-blur-sm shadow-sm space-y-3 text-xs", className)}>
+          <div className="flex items-center justify-between border-b border-border/60 pb-2">
+            <div className="flex items-center gap-2 font-semibold text-amber-400 text-sm">
+              <ShieldAlert className="w-4 h-4 text-amber-400" />
+              <span>Role Change — Confirmation Required</span>
+            </div>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              Sensitive Mutation
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <span className="text-muted-foreground text-[11px] block">Target User:</span>
+              <span className="font-semibold text-foreground text-[13px]">{data.userName}</span>
+              {data.userEmail && <span className="text-muted-foreground text-[11px] ml-1.5 font-mono">({data.userEmail})</span>}
+            </div>
+
+            <div className="flex items-center gap-2 pt-1 font-mono text-[11.5px]">
+              <span className="px-2 py-0.5 rounded bg-muted/60 border border-border/60 text-muted-foreground">
+                {data.currentRoleLabel || data.currentRole}
+              </span>
+              <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/30 text-primary font-bold">
+                {data.proposedRoleLabel || data.proposedRole}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground leading-relaxed border-t border-border/40 pt-2">
+            Role updates modify module entitlements, permissions, and security audit status. Explicit human confirmation is required.
+          </p>
+
+          {onAction && (
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => onAction("confirm role change")}
+                className="flex-1 px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold text-xs hover:bg-amber-700 transition flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Confirm Role Change</span>
+              </button>
+              <button
+                onClick={() => onAction("cancel role")}
+                className="px-3 py-1.5 rounded-lg border border-border/70 bg-card hover:bg-muted text-muted-foreground text-xs transition flex items-center justify-center gap-1.5"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case "role_changed": {
+      return (
+        <div className={cn("p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 backdrop-blur-sm shadow-sm space-y-2 text-xs", className)}>
+          <div className="flex items-center gap-2 font-semibold text-emerald-400 text-sm">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Role Successfully Changed</span>
+          </div>
+          <div className="flex items-baseline justify-between pt-1">
+            <span className="font-bold text-foreground text-sm">{data.userName}</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              {data.newRoleLabel || data.newRole}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground border-t border-emerald-500/20 pt-2 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+            <span>Persisted in database & logged to CRM Audit Log</span>
+          </p>
         </div>
       );
     }

@@ -28,6 +28,8 @@ export interface IChatHistory extends Document {
   messageCount?: number;
   lastErpQuery?: Record<string, unknown>;
   pendingQuoteProposalId?: mongoose.Types.ObjectId;
+  pendingCustomerProposalId?: mongoose.Types.ObjectId;
+  pendingRoleProposalId?: mongoose.Types.ObjectId;
   summary?: string;
   summaryVersion?: number;
   summarySourceCount?: number;
@@ -61,6 +63,8 @@ const ChatHistorySchema: Schema<IChatHistory> = new Schema(
     messageCount: { type: Number, default: 0 },
     lastErpQuery: { type: Schema.Types.Mixed },
     pendingQuoteProposalId: { type: Schema.Types.ObjectId },
+    pendingCustomerProposalId: { type: Schema.Types.ObjectId },
+    pendingRoleProposalId: { type: Schema.Types.ObjectId },
     summary: { type: String, maxlength: 12000 },
     summaryVersion: { type: Number, default: 0 },
     summarySourceCount: { type: Number, default: 0 },
