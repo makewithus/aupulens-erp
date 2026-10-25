@@ -846,6 +846,7 @@ export function CanvasPieChart({
   showLegend = true,
   pageSize = 5,
   isDark: propIsDark,
+  height = 220,
 }: {
   data: any[];
   nameKey?: string;
@@ -855,6 +856,7 @@ export function CanvasPieChart({
   showLegend?: boolean;
   pageSize?: number;
   isDark?: boolean;
+  height?: number;
 }) {
   const storeTheme = useThemeStore((state) => state.theme);
   const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
@@ -939,7 +941,7 @@ export function CanvasPieChart({
           scy += Math.sin(midAngle) * 8;
         }
 
-        ctx.fillStyle = palette[i % palette.length];
+        ctx.fillStyle = d.color || palette[i % palette.length];
         ctx.beginPath();
         ctx.arc(scx, scy, radius, startAngle, endAngle);
         ctx.arc(scx, scy, innerRadius, endAngle, startAngle, true);
@@ -1022,7 +1024,7 @@ export function CanvasPieChart({
       const pct = ((val / totalVal) * 100).toFixed(1);
 
       tooltip.innerHTML = `<div class="font-bold text-xs pb-1 border-b border-border/40 flex items-center gap-1.5">
-        <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${palette[matchedIdx % palette.length]}"></span>
+        <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${d.color || palette[matchedIdx % palette.length]}"></span>
         ${d[nameKey]}
       </div>
       <div class="flex items-center justify-between gap-6 mt-1.5 font-mono text-xs">
@@ -1183,7 +1185,11 @@ export function CanvasPieChart({
 
   return (
     <div className="w-full flex flex-col items-center chart-animate-in">
-      <div ref={containerRef} className="w-full min-h-[220px] h-[220px] relative">
+      <div
+        ref={containerRef}
+        style={{ height: height ? `${height}px` : "220px" }}
+        className="w-full relative"
+      >
         <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
         <div
           ref={tooltipRef}
@@ -1210,7 +1216,7 @@ export function CanvasPieChart({
                   const originalIdx = startIndex + sliceIdx;
                   const val = Number(item[valueKey]) || 0;
                   const pct = totalVal > 0 ? ((val / totalVal) * 100).toFixed(1) : "0.0";
-                  const color = palette[originalIdx % palette.length];
+                  const color = item.color || palette[originalIdx % palette.length];
                   return (
                     <div
                       key={originalIdx}

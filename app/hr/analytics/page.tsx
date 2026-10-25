@@ -105,14 +105,6 @@ export default function HrAnalyticsPage() {
   const tenureDistribution = Array.isArray(data?.tenureDistribution) ? data.tenureDistribution : [];
   const performanceDistribution = Array.isArray(data?.performanceDistribution) ? data.performanceDistribution : [];
 
-  if (isLoading && !data) {
-    return (
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-        <AnalyticsPageSkeleton />
-      </div>
-    );
-  }
-
   // Headcount Trajectory Composed Chart: Headcount (Bars) vs Net Hires (Line)
   const trajectoryChartData = useMemo(() => {
     return headcountTrajectory.map((h: any) => ({
@@ -152,6 +144,14 @@ export default function HrAnalyticsPage() {
     const best = [...attendanceTrends].sort((a: any, b: any) => (b.remote || 0) - (a.remote || 0))[0];
     return { day: best.day, pct: best.remote || 0 };
   }, [attendanceTrends]);
+
+  if (isLoading && !data) {
+    return (
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+        <AnalyticsPageSkeleton />
+      </div>
+    );
+  }
 
   const exportCsv = () => {
     const headers = ["Metric", "Value"];
@@ -336,38 +336,48 @@ export default function HrAnalyticsPage() {
         </Card>
 
         {/* Department Distribution (lg:col-span-4) */}
-        <Card className="chart-animate-in chart-delay-2 lg:col-span-4 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all">
+        <Card className="chart-animate-in chart-delay-2 lg:col-span-4 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
           <CardHeader className="p-6 pb-2">
-            <CardTitle className="text-base font-bold flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-purple-400" />
-              Department Staffing Density
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Headcount distribution across operating units.
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-purple-400" />
+                  Department Staffing Density
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Headcount distribution across operating units.
+                </p>
+              </div>
+              <Badge variant="outline" className="font-mono text-[10px]">
+                {departmentDistribution.length} Depts
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent className="p-6 pt-2">
+          <CardContent className="p-6 pt-2 flex-1 flex flex-col justify-between">
             {departmentDistribution.length > 0 ? (
               <>
-                <div className="h-[200px] w-full flex items-center justify-center">
+                <div className="h-[200px] w-full flex items-center justify-center relative">
                   <CanvasPieChart
                     data={departmentDistribution.map((d: any) => ({
                       name: d.name,
-                      value: d.value,
+                      value: d.count ?? d.value,
                       color: d.color,
                     }))}
+                    showLegend={false}
+                    title="STAFF"
+                    height={200}
                   />
                 </div>
-                <div className="mt-4 space-y-1.5 font-mono text-xs max-h-[160px] overflow-y-auto pr-1">
+                <div className="mt-3 space-y-1.5 font-mono text-xs max-h-[160px] overflow-y-auto pr-1">
                   {departmentDistribution.map((d: any) => (
-                    <div key={d.name} className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-border/30">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
-                        <span className="text-foreground text-[11px] font-medium">{d.name}</span>
+                    <div key={d.name} className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/30">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                        <span className="text-foreground text-[11px] font-medium truncate">{d.name}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-[11px]">{d.count} staff</span>
-                        <span className="font-bold text-foreground text-[11px]">{d.value}%</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-muted-foreground text-[11px] tabular-nums">{d.count} staff</span>
+                        <span className="font-bold text-foreground text-[11px] tabular-nums">{d.value}%</span>
                       </div>
                     </div>
                   ))}
