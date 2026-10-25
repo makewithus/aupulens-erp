@@ -129,12 +129,12 @@ export async function resolveEntitlements(tenantId: string): Promise<ResolvedEnt
       planKey = entitlement.planKey;
     } else {
       const org = await Organization.findOne({ subdomain: tenantId }, { tier: 1, subscriptionStatus: 1, status: 1 }).lean();
-      if (org?.tier && (org.tier === ORGANIZATION_TIER.PROFESSIONAL || org.tier === ORGANIZATION_TIER.ENTERPRISE)) {
+      if (org?.tier) {
         planKey = bridgeTierToPlanKey(org.tier);
-      } else if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
+      } else if (org?.subscriptionStatus === "trial" || org?.status === "trial") {
         planKey = PLAN_KEY.FREE;
       } else {
-        planKey = bridgeTierToPlanKey(org?.tier);
+        planKey = PLAN_KEY.STARTER;
       }
       source = "tier_fallback";
     }
@@ -208,12 +208,12 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
         planKeysToFetch.add(ent.planKey as PlanKeyType);
       } else {
         const org = orgMap.get(tenantId);
-        if (org?.tier && (org.tier === ORGANIZATION_TIER.PROFESSIONAL || org.tier === ORGANIZATION_TIER.ENTERPRISE)) {
+        if (org?.tier) {
           planKeysToFetch.add(bridgeTierToPlanKey(org.tier));
-        } else if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
+        } else if (org?.subscriptionStatus === "trial" || org?.status === "trial") {
           planKeysToFetch.add(PLAN_KEY.FREE);
         } else {
-          planKeysToFetch.add(bridgeTierToPlanKey(org?.tier));
+          planKeysToFetch.add(PLAN_KEY.STARTER);
         }
       }
     }
@@ -230,12 +230,12 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
         planKey = ent.planKey as PlanKeyType;
       } else {
         const org = orgMap.get(tenantId);
-        if (org?.tier && (org.tier === ORGANIZATION_TIER.PROFESSIONAL || org.tier === ORGANIZATION_TIER.ENTERPRISE)) {
+        if (org?.tier) {
           planKey = bridgeTierToPlanKey(org.tier);
-        } else if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
+        } else if (org?.subscriptionStatus === "trial" || org?.status === "trial") {
           planKey = PLAN_KEY.FREE;
         } else {
-          planKey = bridgeTierToPlanKey(org?.tier);
+          planKey = PLAN_KEY.STARTER;
         }
         source = "tier_fallback";
       }

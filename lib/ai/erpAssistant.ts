@@ -90,10 +90,13 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
     delete chatLookupFilter.conversationId;
     chatLookupFilter._id = input.chatId;
   }
-  const existingChat: any = await ChatHistory.findOne(chatLookupFilter).select("lastErpQuery pendingQuoteProposalId pendingCustomerProposalId pendingRoleProposalId").lean();
+  const chatLookupQuery: any = ChatHistory.findOne(chatLookupFilter);
+  const existingChat: any = await (typeof chatLookupQuery?.select === "function"
+    ? chatLookupQuery.select("lastErpQuery pendingQuoteProposalId pendingCustomerProposalId pendingRoleProposalId").lean()
+    : (typeof chatLookupQuery?.lean === "function" ? chatLookupQuery.lean() : chatLookupQuery));
 
   let pendingCustomerProposalIdFromDb = existingChat?.pendingCustomerProposalId ? String(existingChat.pendingCustomerProposalId) : undefined;
-  if (!pendingCustomerProposalIdFromDb) {
+  if (!pendingCustomerProposalIdFromDb && mongoose.isValidObjectId(input.userId)) {
     const activeCustomerProposal = await AiCommandProposal.findOne({
       tenantId: input.tenantId,
       userId: input.userId,
@@ -1081,7 +1084,8 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
     if (pendingRoleProposalId) await ChatHistory.updateOne(filter, { $set: { pendingRoleProposalId } });
     if (query) await ChatHistory.updateOne(filter, { $set: { lastErpQuery: query } });
   }
-  const chat = await ChatHistory.findOne(filter).select("_id").lean();
+  const chatItemQuery: any = ChatHistory.findOne(filter);
+  const chat = await (typeof chatItemQuery?.select === "function" ? chatItemQuery.select("_id").lean() : (typeof chatItemQuery?.lean === "function" ? chatItemQuery.lean() : chatItemQuery));
   return {
     handled: true,
     message,
