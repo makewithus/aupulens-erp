@@ -1,10 +1,14 @@
-"use client";
+import { cn } from "@/lib/utils";
 
-export function InactiveOrbit() {
+interface InactiveOrbitProps {
+  className?: string;
+}
+
+export function InactiveOrbit({ className }: InactiveOrbitProps = {}) {
   return (
     <svg
       viewBox="0 0 140 140"
-      className="h-28 w-28 text-[#F56868]/30"
+      className={cn("h-28 w-28 text-[#F56868]/30", className)}
       fill="none"
     >
       <circle

@@ -17,7 +17,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/shared/Table";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import {
   Plus,
   Users,
@@ -28,54 +28,96 @@ import {
   AlertCircle,
   Briefcase,
   ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-export default function CRMDashboardPage() {
-  const [loading, setLoading] = useState(true);
-  const [pipelineData, setPipelineData] = useState<any>(null);
-  const [healthData, setHealthData] = useState<any>(null);
-  const [churnData, setChurnData] = useState<any>(null);
-  const [renewalData, setRenewalData] = useState<any>(null);
-  const [expansionData, setExpansionData] = useState<any>(null);
-  const [highValueDeals, setHighValueDeals] = useState<any[]>([]);
+function CrmDashboardSkeleton() {
+  return (
+    <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6 max-w-full animate-pulse">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between pb-6 border-b border-border/40">
+        <div className="space-y-2">
+          <div className="h-5 w-48 bg-muted/40 rounded-md" />
+          <div className="h-10 w-80 bg-muted/60 rounded-lg" />
+          <div className="h-4 w-60 bg-muted/30 rounded" />
+        </div>
+        <div className="flex gap-2">
+          <div className="h-9 w-28 bg-muted/40 rounded-lg" />
+          <div className="h-9 w-28 bg-muted/40 rounded-lg" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-28 rounded-xl border border-border/60 bg-muted/20" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-5 h-96 rounded-xl border border-border/60 bg-muted/20" />
+        <div className="lg:col-span-7 h-96 rounded-xl border border-border/60 bg-muted/20" />
+      </div>
+    </div>
+  );
+}
 
-  const fetchJson = async (url: string) => {
+export default function CRMDashboardPage() {
+  const cachedPipe = getInstantCachedData<any>("/api/crm/pipeline/analytics");
+  const [pipelineData, setPipelineData] = useState<any>(() => cachedPipe?.data ?? null);
+  const [healthData, setHealthData] = useState<any>(() => getInstantCachedData<any>("/api/crm/health")?.data ?? null);
+  const [churnData, setChurnData] = useState<any>(() => getInstantCachedData<any>("/api/crm/churn")?.data ?? null);
+  const [renewalData, setRenewalData] = useState<any>(() => getInstantCachedData<any>("/api/crm/renewals")?.data ?? null);
+  const [expansionData, setExpansionData] = useState<any>(() => getInstantCachedData<any>("/api/crm/expansion")?.data ?? null);
+  const [highValueDeals, setHighValueDeals] = useState<any[]>(() => getInstantCachedData<any>("/api/crm/opportunities?limit=5")?.data ?? []);
+  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedPipe);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchJson = async (url: string, fresh: boolean = false) => {
     try {
-      const res = await cachedFetch(url);
+      const finalUrl = fresh ? `${url}${url.includes("?") ? "&" : "?"}fresh=true` : url;
+      const res = await cachedFetch(finalUrl, { cache: fresh ? "no-store" : "default" });
       return res.ok ? await res.json() : null;
     } catch {
       return null;
     }
   };
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (fresh: boolean = false) => {
     try {
-      setLoading(true);
+      if (fresh) setIsRefreshing(true);
       const [pipe, health, churn, renewal, exp, opps] = await Promise.all([
-        fetchJson("/api/crm/pipeline/analytics"),
-        fetchJson("/api/crm/health"),
-        fetchJson("/api/crm/churn"),
-        fetchJson("/api/crm/renewals"),
-        fetchJson("/api/crm/expansion"),
-        fetchJson("/api/crm/opportunities?limit=5"),
+        fetchJson("/api/crm/pipeline/analytics", fresh),
+        fetchJson("/api/crm/health", fresh),
+        fetchJson("/api/crm/churn", fresh),
+        fetchJson("/api/crm/renewals", fresh),
+        fetchJson("/api/crm/expansion", fresh),
+        fetchJson("/api/crm/opportunities?limit=5", fresh),
       ]);
 
-      if (pipe?.success) setPipelineData(pipe.data);
-      if (health?.success) setHealthData(health.data);
-      if (churn?.success) setChurnData(churn.data);
-      if (renewal?.success) setRenewalData(renewal.data);
-      if (exp?.success) setExpansionData(exp.data);
+      if (pipe?.success && pipe.data) setPipelineData(pipe.data);
+      if (health?.success && health.data) setHealthData(health.data);
+      if (churn?.success && churn.data) setChurnData(churn.data);
+      if (renewal?.success && renewal.data) setRenewalData(renewal.data);
+      if (exp?.success && exp.data) setExpansionData(exp.data);
       if (opps?.data) setHighValueDeals(opps.data.slice(0, 5));
+      if (fresh) toast.success("Live CRM dashboard synchronized");
     } catch (err) {
       console.error("Error loading CRM dashboard:", err);
+      if (fresh) toast.error("Failed to sync live CRM data");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+      if (fresh) setIsRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData();
+    loadData(false);
+    const handleRevalidated = (e: any) => {
+      if (e?.detail?.url?.includes("/api/crm")) {
+        loadData(false);
+      }
+    };
+    window.addEventListener("aup:revalidated", handleRevalidated);
+    return () => window.removeEventListener("aup:revalidated", handleRevalidated);
   }, [loadData]);
 
   const formatCurrency = (val: number) =>
@@ -84,6 +126,10 @@ export default function CRMDashboardPage() {
       currency: "INR",
       maximumFractionDigits: 0,
     }).format(val || 0);
+
+  if (isLoading && !pipelineData) {
+    return <CrmDashboardSkeleton />;
+  }
 
   const totalPipelineValue = pipelineData?.totalPipelineValue || 0;
   const activeDeals = pipelineData?.activeDeals || pipelineData?.totalOpportunities || 0;
@@ -96,31 +142,48 @@ export default function CRMDashboardPage() {
   const totalChurnRisk = (churnData?.high || 0) + (churnData?.critical || 0);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6 max-w-full">
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between pb-6 border-b border-border/40">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-[10px] tracking-wider uppercase font-mono font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/25 rounded-md">
               Customer Intelligence
             </span>
-            <span className="px-2 py-0.5 text-[10px] tracking-wider uppercase font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-md">
               Retention {retentionRate > 0 ? `${retentionRate}%` : "100%"}
             </span>
           </div>
-          <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words leading-none">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground break-words leading-none">
             CRM Executive Dashboard
           </h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Enterprise customer telemetry tracking relationship pipeline velocity, win ratios, account health, and renewal security.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            onClick={() => loadData(true)}
+            disabled={isRefreshing}
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 font-mono text-xs shadow-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Syncing..." : "Live Sync"}
+          </Button>
+
           <Button asChild size="sm" className="h-9 gap-1.5 font-bold shadow-sm">
             <Link href="/crm/opportunities">
               <Plus className="w-3.5 h-3.5" />
               New Opportunity
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 shadow-xs font-semibold">
+            <Link href="/crm/analytics">
+              <BarChart3 className="w-3.5 h-3.5" />
+              CRM Analytics
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 border-border/60">
@@ -144,37 +207,33 @@ export default function CRMDashboardPage() {
         </div>
       </div>
 
-      {/* Top 4 StatCards - Matching Image 4 & PipelineStats Reference */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="border border-border/40 bg-background shadow-none rounded-none p-6">
-              <Skeleton className="h-4 w-24 mb-4" />
-              <Skeleton className="h-10 w-36 mb-2" />
-              <Skeleton className="h-3 w-28" />
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+      {/* Top 4 StatCards - Wide responsive grid with generous breathing room */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
           <StatCard
             title="Pipeline Value"
             value={formatCurrency(totalPipelineValue)}
             visual={<UsersGraph />}
             subtitle="Total open pipeline"
           />
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
           <StatCard
             title="Active Deals"
             value={activeDeals}
             visual={<ActivePulse />}
             subtitle="Currently in progress"
           />
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
           <StatCard
             title="Won"
             value={wonDeals}
             visual={<UsersGraph />}
             subtitle="Closed successfully"
           />
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
           <StatCard
             title="Lost"
             value={lostDeals}
@@ -182,14 +241,14 @@ export default function CRMDashboardPage() {
             subtitle="Closed lost"
           />
         </div>
-      )}
+      </div>
 
-      {/* Main CRM Intelligence Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-1 pt-2">
-        {/* Left Column (35% -> lg:col-span-4) */}
-        <div className="space-y-1 lg:col-span-4">
+      {/* Main CRM Intelligence Grid - Balanced wide columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+        {/* Left Column (lg:col-span-5) */}
+        <div className="space-y-6 lg:col-span-5">
           {/* Account Health Distribution */}
-          <Card className="bg-background border border-border/40 shadow-none rounded-none">
+          <Card className="bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all">
             <CardHeader className="p-6 pb-2">
               <CardTitle className="text-base font-bold">
                 Account Health Distribution
@@ -199,7 +258,7 @@ export default function CRMDashboardPage() {
               </p>
             </CardHeader>
             <CardContent className="p-6 pt-4">
-              {loading ? (
+              {isLoading ? (
                 <div className="space-y-4">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className="space-y-2">
@@ -257,7 +316,7 @@ export default function CRMDashboardPage() {
           </Card>
 
           {/* Critical Churn Risks */}
-          <Card className="bg-background border border-border/40 shadow-none rounded-none">
+          <Card className="bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all">
             <CardHeader className="p-6 pb-2">
               <CardTitle className="text-base font-bold text-red-500 flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4" />
@@ -274,13 +333,13 @@ export default function CRMDashboardPage() {
                     <Link
                       key={acct._id}
                       href={`/crm/accounts/${acct._id}`}
-                      className="group block p-3 border border-border/30 hover:bg-muted/30 transition-colors rounded-none"
+                      className="group block p-3 border border-border/40 hover:bg-muted/30 transition-colors rounded-lg bg-background/50"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                           {acct.company_name}
                         </span>
-                        <span className="text-[10px] font-mono text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5">
+                        <span className="text-[10px] font-mono text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded">
                           risk
                         </span>
                       </div>
@@ -299,10 +358,10 @@ export default function CRMDashboardPage() {
           </Card>
         </div>
 
-        {/* Right Column (65% -> lg:col-span-8) */}
-        <div className="space-y-1 lg:col-span-8">
+        {/* Right Column (lg:col-span-7) */}
+        <div className="space-y-6 lg:col-span-7">
           {/* 12-Month Revenue Forecast Table */}
-          <Card className="bg-background border border-border/40 shadow-none rounded-none">
+          <Card className="bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all">
             <CardHeader className="p-6 pb-2">
               <CardTitle className="text-base font-bold">
                 12-Month Revenue & Expansion Forecast
@@ -313,45 +372,45 @@ export default function CRMDashboardPage() {
             </CardHeader>
             <CardContent className="p-6 pt-2">
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 border border-border/30 bg-muted/5 font-mono text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 border border-border/40 bg-muted/20 rounded-lg font-mono text-xs">
                   <div>
-                    <span className="text-muted-foreground text-[10px] uppercase">Total Forecast</span>
-                    <div className="text-base font-bold text-foreground mt-0.5">
+                    <span className="text-muted-foreground text-[10px] uppercase font-semibold">Total Forecast</span>
+                    <div className="text-lg font-bold text-foreground mt-0.5">
                       {formatCurrency(totalRenewalValue + totalExpansionValue)}
                     </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground text-[10px] uppercase">Renewal Rate</span>
-                    <div className="text-base font-bold text-emerald-400 mt-0.5">
+                    <span className="text-muted-foreground text-[10px] uppercase font-semibold">Renewal Rate</span>
+                    <div className="text-lg font-bold text-emerald-400 mt-0.5">
                       {retentionRate}%
                     </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground text-[10px] uppercase">At-Risk Value</span>
-                    <div className="text-base font-bold text-red-400 mt-0.5">
+                    <span className="text-muted-foreground text-[10px] uppercase font-semibold">At-Risk Value</span>
+                    <div className="text-lg font-bold text-red-400 mt-0.5">
                       {formatCurrency(expansionData?.summary?.atRiskRenewalValue || 0)}
                     </div>
                   </div>
                 </div>
 
-                <TableContainer className="border border-border/40 rounded-none">
+                <TableContainer className="border border-border/40 rounded-lg overflow-hidden">
                   <TableHead>
-                    <TableRow className="border-b border-border/40 bg-muted/10">
-                      <TableHeaderCell className="py-3 text-xs normal-case tracking-normal">Quarter</TableHeaderCell>
-                      <TableHeaderCell className="py-3 text-xs normal-case tracking-normal text-right">Renewal Target</TableHeaderCell>
-                      <TableHeaderCell className="py-3 text-xs normal-case tracking-normal text-right">Expansion Pipeline</TableHeaderCell>
-                      <TableHeaderCell className="py-3 text-xs normal-case tracking-normal text-right">Total Forecast</TableHeaderCell>
+                    <TableRow className="border-b border-border/40 bg-muted/20">
+                      <TableHeaderCell className="py-3 text-xs font-bold tracking-normal">Quarter</TableHeaderCell>
+                      <TableHeaderCell className="py-3 text-xs font-bold tracking-normal text-right">Renewal Target</TableHeaderCell>
+                      <TableHeaderCell className="py-3 text-xs font-bold tracking-normal text-right">Expansion Pipeline</TableHeaderCell>
+                      <TableHeaderCell className="py-3 text-xs font-bold tracking-normal text-right">Total Forecast</TableHeaderCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {expansionData?.quarterly?.length > 0 ? (
                       expansionData.quarterly.map((q: any) => (
-                        <TableRow key={q.quarter} className="border-b border-border/20 hover:bg-muted/20">
+                        <TableRow key={q.quarter} className="border-b border-border/20 hover:bg-muted/30">
                           <TableCell className="py-3 text-sm font-semibold text-foreground">{q.quarter}</TableCell>
-                          <TableCell className="py-3 text-right font-mono text-xs text-blue-400">
+                          <TableCell className="py-3 text-right font-mono text-xs text-blue-400 font-medium">
                             {formatCurrency(q.renewalRevenue)}
                           </TableCell>
-                          <TableCell className="py-3 text-right font-mono text-xs text-emerald-400">
+                          <TableCell className="py-3 text-right font-mono text-xs text-emerald-400 font-medium">
                             {formatCurrency(q.expansionRevenue)}
                           </TableCell>
                           <TableCell className="py-3 text-right font-mono text-sm font-bold text-foreground">
@@ -373,9 +432,9 @@ export default function CRMDashboardPage() {
           </Card>
 
           {/* Sub Grid for Upcoming Renewals & High-Value Opportunities */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pt-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Upcoming Renewals */}
-            <Card className="bg-background border border-border/40 shadow-none rounded-none">
+            <Card className="bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all">
               <CardHeader className="p-6 pb-2">
                 <CardTitle className="text-base font-bold">Upcoming Renewals</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -383,15 +442,15 @@ export default function CRMDashboardPage() {
                 </p>
               </CardHeader>
               <CardContent className="p-6 pt-3 space-y-3 font-mono text-xs">
-                <div className="flex items-center justify-between p-2.5 border border-border/30 bg-red-500/5">
+                <div className="flex items-center justify-between p-3 border border-red-500/20 bg-red-500/10 rounded-lg">
                   <span className="text-red-400 font-semibold">Expiring in 7 days</span>
                   <span className="font-bold text-foreground">{renewalData?.expiring7 || 0} contracts</span>
                 </div>
-                <div className="flex items-center justify-between p-2.5 border border-border/30 bg-amber-500/5">
+                <div className="flex items-center justify-between p-3 border border-amber-500/20 bg-amber-500/10 rounded-lg">
                   <span className="text-amber-400 font-semibold">Expiring in 30 days</span>
                   <span className="font-bold text-foreground">{renewalData?.expiring30 || 0} contracts</span>
                 </div>
-                <div className="flex items-center justify-between p-2.5 border border-border/30 bg-blue-500/5">
+                <div className="flex items-center justify-between p-3 border border-blue-500/20 bg-blue-500/10 rounded-lg">
                   <span className="text-blue-400 font-semibold">Expiring in 90 days</span>
                   <span className="font-bold text-foreground">{renewalData?.expiring90 || 0} contracts</span>
                 </div>
@@ -399,7 +458,7 @@ export default function CRMDashboardPage() {
             </Card>
 
             {/* High-Value Opportunities */}
-            <Card className="bg-background border border-border/40 shadow-none rounded-none">
+            <Card className="bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all">
               <CardHeader className="flex flex-row items-center justify-between p-6 pb-2">
                 <div>
                   <CardTitle className="text-base font-bold">High-Value Deals</CardTitle>

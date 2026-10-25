@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import CrmCampaign from "@/models/crm/Campaign";
 import { getAttributionBreakdownByChannel } from "@/lib/crm/attributionEngine";
 import { requirePermission } from "@/lib/crm/rbac";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -15,8 +16,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, message: err.message }, { status: 403 });
   }
 
-  await dbConnect();
   const tenantId = session.user.tenantId;
+  const cacheKey = `crm-reports-campaigns:${tenantId}`;
+  const cached = getCachedData<any>(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached);
+  }
+
+  await dbConnect();
 
   // Overview metrics
   const [campaigns, channelAttribution] = await Promise.all([
@@ -32,7 +39,7 @@ export async function GET(req: NextRequest) {
   const topCampaigns = sortedByROI.slice(0, 5);
   const worstCampaigns = [...sortedByROI].reverse().filter(c => c.status === "Completed" || c.status === "Active").slice(0, 5);
 
-  return NextResponse.json({
+  const payload = {
     success: true,
     data: {
       overview: {
@@ -42,7 +49,10 @@ export async function GET(req: NextRequest) {
       },
       channelAttribution,
       topCampaigns,
-      worstCampaigns
-    }
-  });
+      worstCampaigns,
+    },
+  };
+
+  setCachedData(cacheKey, payload, 20_000);
+  return NextResponse.json(payload);
 }

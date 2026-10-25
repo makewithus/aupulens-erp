@@ -5,8 +5,8 @@ import connectDB from "@/lib/db";
 import ManufacturingOrder from "@/models/manufacturing/ManufacturingOrder";
 import BillOfMaterial from "@/models/manufacturing/BillOfMaterial";
 import Shipment from "@/models/manufacturing/Shipment";
-
 import Product from "@/models/inventory/Product";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +19,18 @@ export async function GET(req: NextRequest) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
 
+    const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
+    const cacheKey = `mfg-summary:${tenantId}`;
+    if (!isFresh) {
+      const cached = getCachedData<any>(cacheKey);
+      if (cached) {
+        return NextResponse.json(cached);
+      }
+    }
+
     await connectDB();
+
+    const tenantMatch = { tenantId };
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -40,54 +51,54 @@ export async function GET(req: NextRequest) {
       dailyOutputAgg,
       totalShipments,
     ] = await Promise.all([
-      ManufacturingOrder.countDocuments({ tenantId }),
+      ManufacturingOrder.countDocuments(tenantMatch),
       ManufacturingOrder.countDocuments({
-        tenantId,
+        ...tenantMatch,
         $or: [
           { productionStatus: { $in: ["demand_forecast", "production_order"] } },
           { status: { $in: ["draft", "confirmed"] } },
         ],
       }),
       ManufacturingOrder.countDocuments({
-        tenantId,
+        ...tenantMatch,
         $or: [
           { productionStatus: { $in: ["material_reserved", "material_issued", "in_production"] } },
           { status: "in_progress" },
         ],
       }),
       ManufacturingOrder.countDocuments({
-        tenantId,
+        ...tenantMatch,
         $or: [
           { productionStatus: "qc_pending" },
           { status: "to_close" },
         ],
       }),
       ManufacturingOrder.countDocuments({
-        tenantId,
+        ...tenantMatch,
         productionStatus: { $in: ["rework", "qc_failed"] },
       }),
       ManufacturingOrder.countDocuments({
-        tenantId,
+        ...tenantMatch,
         $or: [
           { productionStatus: "finished" },
           { status: "done" },
         ],
       }),
       ManufacturingOrder.countDocuments({
-        tenantId,
+        ...tenantMatch,
         $or: [
           { productionStatus: "finished" },
           { status: "done" },
         ],
         updatedAt: { $gte: startOfMonth },
       }),
-      BillOfMaterial.countDocuments({ tenantId }),
-      Product.countDocuments({ tenantId }),
+      BillOfMaterial.countDocuments(tenantMatch),
+      Product.countDocuments(tenantMatch),
       ManufacturingOrder.aggregate([
-        { $match: { tenantId } },
+        { $match: tenantMatch },
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
-      ManufacturingOrder.find({ tenantId })
+      ManufacturingOrder.find(tenantMatch)
         .populate("header.productId", "header.name")
         .sort({ createdAt: -1 })
         .limit(10)
@@ -95,7 +106,7 @@ export async function GET(req: NextRequest) {
       ManufacturingOrder.aggregate([
         {
           $match: {
-            tenantId,
+            ...tenantMatch,
             createdAt: { $gte: thirtyDaysAgo },
           },
         },
@@ -108,7 +119,7 @@ export async function GET(req: NextRequest) {
         },
         { $sort: { _id: 1 } },
       ]),
-      Shipment.countDocuments({ tenantId }),
+      Shipment.countDocuments(tenantMatch),
     ]);
 
     const stageMap: Record<string, string> = {
@@ -174,7 +185,7 @@ export async function GET(req: NextRequest) {
       qualityRate: Math.min(100, Math.max(0, qualityRate)),
     };
 
-    return NextResponse.json({
+    const responsePayload = {
       success: true,
       stats: statsPayload,
       summary: {
@@ -191,7 +202,11 @@ export async function GET(req: NextRequest) {
       productionStages,
       recentOrders,
       dailyOutput,
-    });
+    };
+
+    setCachedData(cacheKey, responsePayload, 30_000);
+
+    return NextResponse.json(responsePayload);
   } catch (error: any) {
     console.error("Manufacturing summary error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

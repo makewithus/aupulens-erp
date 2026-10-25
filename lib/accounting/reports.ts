@@ -1,8 +1,8 @@
 import JournalEntry from "@/models/finance/JournalEntry";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
-import { toDateEndInTimeZone } from "@/lib/accounting/reportDate";
+import { toDateEndInTimeZone, toDateStartInTimeZone } from "@/lib/accounting/reportDate";
 
-export { toDateEndInTimeZone } from "@/lib/accounting/reportDate";
+export { toDateEndInTimeZone, toDateStartInTimeZone } from "@/lib/accounting/reportDate";
 
 export type ReportGroup =
   | "asset"
@@ -23,6 +23,7 @@ export type ReportAccount = {
   debit: number;
   credit: number;
   amount: number;
+  entryCount?: number;
 };
 
 export type AccountGroupReport = {
@@ -68,7 +69,10 @@ export async function buildPostedJournalReport({
 
   if (startDate || endDate) {
     query["header.date"] = {};
-    if (startDate) query["header.date"].$gte = startDate;
+    if (startDate) {
+      const isPrecise = startDate.getUTCHours() !== 0 || startDate.getUTCMinutes() !== 0 || startDate.getUTCSeconds() !== 0;
+      query["header.date"].$gte = isPrecise ? startDate : toDateStartInTimeZone(startDate, endDateTimeZone);
+    }
     if (endDate) query["header.date"].$lte = toDateEndInTimeZone(endDate, endDateTimeZone);
   }
 
@@ -94,6 +98,8 @@ export async function buildPostedJournalReport({
       report.activity.latestPostedDate = entryDate;
     }
   }
+
+  const accountEntryMap = new Map<string, Set<string>>();
 
   for (const entry of entries) {
     for (const line of entry.lineIds || []) {
@@ -124,6 +130,7 @@ export async function buildPostedJournalReport({
           debit: 0,
           credit: 0,
           amount: 0,
+          entryCount: 0,
         };
       }
 
@@ -131,6 +138,10 @@ export async function buildPostedJournalReport({
       target.debit += debit;
       target.credit += credit;
       target.amount = getSignedAmount(internalGroup, target.debit, target.credit);
+
+      if (!accountEntryMap.has(key)) accountEntryMap.set(key, new Set());
+      if (entry._id) accountEntryMap.get(key)!.add(String(entry._id));
+      target.entryCount = accountEntryMap.get(key)!.size;
     }
   }
 
@@ -647,6 +658,65 @@ export async function buildAgedPartnerReport({
         });
       } else {
         partners[partnerId].unappliedCredits += Math.abs(amount);
+      }
+    }
+  }
+
+  // If no partner-tagged journal lines were found (e.g. standard COA where receivables/payables
+  // are tracked at document level or under broader current asset/liability accounts),
+  // aggregate real aging from unpaid operational documents so reports and ratios are authentic.
+  if (postedLineCount === 0) {
+    if (type === "receivable") {
+      const { SalesInvoice } = await import("@/models/sales/SalesInvoice");
+      const unpaidSalesInvoices = await SalesInvoice.find({
+        tenantId,
+        paymentStatus: { $ne: "paid" },
+        status: { $nin: ["cancelled", "draft"] },
+      }).populate("customerId").lean();
+
+      for (const inv of unpaidSalesInvoices as any[]) {
+        const due = inv.amountDue !== undefined ? inv.amountDue : (inv.totalAmount - (inv.amountPaid || 0));
+        if (due <= 0.005) continue;
+        const customerRef = inv.customerId as any;
+        const partnerId = customerRef?._id?.toString() || inv.customer || "unknown";
+        const partnerName = customerRef?.name || customerRef?.companyName || inv.customer || "Customer";
+        if (!partners[partnerId]) {
+          partners[partnerId] = {
+            partnerId,
+            partnerName,
+            openItems: [],
+            unappliedCredits: 0,
+          };
+        }
+        postedLineCount += 1;
+        const maturityDate = inv.dueDate ? new Date(inv.dueDate) : new Date(inv.invoiceDate || inv.createdAt);
+        partners[partnerId].openItems.push({ maturityDate, amount: due });
+      }
+    } else {
+      const Invoice = (await import("@/models/finance/Invoice")).default;
+      const unpaidBills = await Invoice.find({
+        tenantId,
+        moveType: "in_invoice",
+        state: { $nin: ["paid", "cancel"] },
+      }).populate("partnerId").lean();
+
+      for (const bill of unpaidBills as any[]) {
+        const due = bill.amountResidual !== undefined ? bill.amountResidual : (bill.amountTotal || 0);
+        if (due <= 0.005) continue;
+        const partner = bill.partnerId as any;
+        const partnerId = partner?._id?.toString() || "unknown";
+        const partnerName = partner?.header?.name || partner?.name || "Vendor";
+        if (!partners[partnerId]) {
+          partners[partnerId] = {
+            partnerId,
+            partnerName,
+            openItems: [],
+            unappliedCredits: 0,
+          };
+        }
+        postedLineCount += 1;
+        const maturityDate = bill.invoiceDateDue ? new Date(bill.invoiceDateDue) : new Date(bill.invoiceDate || bill.createdAt);
+        partners[partnerId].openItems.push({ maturityDate, amount: due });
       }
     }
   }

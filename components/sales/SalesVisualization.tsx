@@ -98,7 +98,9 @@ export function SalesVisualization({
   const [dateRange, setDateRange] = useState("30");
   const [groupBy, setGroupBy] = useState("day");
 
-  const [visualizationData, setVisualizationData] = useState<any[]>([]);
+  const [visualizationData, setVisualizationData] = useState<any[]>(() =>
+    getDummyData(defaultDataType || availableDataTypes[0]?.value || "orders_trend", "30")
+  );
   const [isLoadingViz, setIsLoadingViz] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
 
@@ -108,6 +110,7 @@ export function SalesVisualization({
   const scrollRef = useRef<HTMLDivElement>(null);
   const tooltipDateRef = useRef<HTMLDivElement>(null);
   const tooltipValueRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef<boolean>(false);
 
   // ── Fetch dynamic DB values or fallback to dummy waves ──
   const fetchVisualizationData = useCallback(async () => {
@@ -233,8 +236,9 @@ export function SalesVisualization({
       return `rgba(${rv},${gv},${bv},${a})`;
     };
 
-    function drawSingleLine(colorStr: string, field: string) {
+    function drawSingleLine(colorStr: string, field: string, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const W = canvas.width / (window.devicePixelRatio || 1);
       const H = canvas.height / (window.devicePixelRatio || 1);
       const cL = PAD.left,
@@ -247,7 +251,7 @@ export function SalesVisualization({
       ctx.beginPath();
       for (let i = 0; i < visualizationData.length; i++) {
         const x = cL + (i / (visualizationData.length - 1)) * cW;
-        const val = visualizationData[i][field] || 0;
+        const val = (visualizationData[i][field] || 0) * progress;
         const y = cB - (val / yMax) * cH;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
@@ -261,14 +265,15 @@ export function SalesVisualization({
       ctx.lineTo(cL, cB);
       ctx.closePath();
       const grad = ctx.createLinearGradient(0, cT, 0, cB);
-      grad.addColorStop(0, hexToFill(colorStr, 0.08));
+      grad.addColorStop(0, hexToFill(colorStr, 0.08 * progress));
       grad.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = grad;
       ctx.fill();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -312,17 +317,39 @@ export function SalesVisualization({
         ctx.fillText(labelText || "", x, cB + 10);
       }
 
-      // Draw Line paths
+      // Draw Line paths with animation
       if (isConversion) {
-        drawSingleLine("#6CADF5", "orders");
-        drawSingleLine("#f59e0b", "quotations");
+        drawSingleLine("#6CADF5", "orders", progress);
+        drawSingleLine("#f59e0b", "quotations", progress);
       } else if (isRevenue) {
-        drawSingleLine("#8AE06C", "revenue");
+        drawSingleLine("#8AE06C", "revenue", progress);
       } else if (isOrders) {
-        drawSingleLine("#6CADF5", "orders");
+        drawSingleLine("#6CADF5", "orders", progress);
       } else {
         // Status breakdown count
-        drawSingleLine("#A77DFF", "value");
+        drawSingleLine("#A77DFF", "value", progress);
+      }
+
+      // Leading beacon effect during animation
+      if (progress < 1 && highlightIdx === undefined && visualizationData.length > 0) {
+        const frontierIdx = Math.min(
+          visualizationData.length - 1,
+          Math.floor((visualizationData.length - 1) * Math.min(1, progress * 1.05))
+        );
+        const d = visualizationData[frontierIdx];
+        const val = isRevenue ? d.revenue : isOrders ? d.orders : isConversion ? Math.max(d.orders || 0, d.quotations || 0) : d.value;
+        const fx = cL + (frontierIdx / (visualizationData.length - 1)) * cW;
+        const fy = cB - (((val || 0) * progress) / yMax) * cH;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(fx, fy, 9, 0, Math.PI * 2);
+        ctx.fillStyle = isRevenue ? "rgba(138, 224, 108, 0.4)" : "rgba(108, 173, 245, 0.4)";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.restore();
       }
 
       // Hover Crosshair guides + highlight dots
@@ -368,6 +395,32 @@ export function SalesVisualization({
       }
     }
 
+    let animId: number | null = null;
+    function runEntryAnimation() {
+      if (hasAnimatedRef.current) {
+        draw(undefined, 1);
+        return;
+      }
+      if (animId) cancelAnimationFrame(animId);
+      const startTime = performance.now();
+      const duration = 850;
+
+      function step(now: number) {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(step);
+        } else {
+          animId = null;
+          hasAnimatedRef.current = true;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(step);
+    }
+
     function resize() {
       if (!canvas || !container) return;
       const dpr = window.devicePixelRatio || 1;
@@ -377,11 +430,15 @@ export function SalesVisualization({
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      draw();
+      runEntryAnimation();
     }
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!canvas) return;
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const W = rect.width;
@@ -391,7 +448,7 @@ export function SalesVisualization({
 
       if (mx < cL || mx > cR) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
@@ -399,7 +456,7 @@ export function SalesVisualization({
       const idx = Math.round(ratio * (visualizationData.length - 1));
       if (idx < 0 || idx >= visualizationData.length) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
@@ -452,12 +509,12 @@ export function SalesVisualization({
       tooltip.style.left = (tipX + 210 > W ? mx - 220 : tipX) + "px";
       tooltip.style.top = Math.max(0, e.clientY - rect.top - 60) + "px";
 
-      draw(idx);
+      draw(idx, 1);
     };
 
     const handleMouseLeave = () => {
       tooltip.style.display = "none";
-      draw();
+      draw(undefined, 1);
     };
 
     canvas.addEventListener("mousemove", handleMouseMove);
@@ -468,6 +525,7 @@ export function SalesVisualization({
     resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("resize", resize);
@@ -477,7 +535,7 @@ export function SalesVisualization({
   return (
     <Card
       className={cn(
-        "overflow-hidden border border-border/40 shadow-none bg-background rounded-none p-8 font-mono",
+        "chart-animate-in chart-shimmer-border overflow-hidden border border-border/40 shadow-none bg-background rounded-none p-8 font-mono",
         className,
       )}
     >

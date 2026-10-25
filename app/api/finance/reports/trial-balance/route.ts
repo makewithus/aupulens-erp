@@ -6,6 +6,7 @@ import {
   buildPostedJournalReport,
   type ReportGroup,
 } from "@/lib/accounting/reports";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 const reportGroups: ReportGroup[] = [
   "asset",
@@ -33,6 +34,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+
+    const cacheKey = `finance_tb:${tenantId}:${startDate || "all"}:${endDate || "all"}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
 
     await connectDB();
 
@@ -69,7 +76,7 @@ export async function GET(req: NextRequest) {
       accounts.reduce((sum, account) => sum + account.creditBalance, 0),
     );
 
-    return NextResponse.json({
+    const payload = {
       accountingBasis: "posted_journal_entries",
       period: {
         startDate: startDate || null,
@@ -87,7 +94,10 @@ export async function GET(req: NextRequest) {
         trialBalanceBalanced:
           Math.abs(totalDebitBalance - totalCreditBalance) <= 0.01,
       },
-    });
+    };
+
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error: any) {
     console.error("Trial Balance Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

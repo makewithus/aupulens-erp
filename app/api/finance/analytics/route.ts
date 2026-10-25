@@ -6,6 +6,7 @@ import {
   buildPostedCashFlowSeries,
   buildPostedIncomeExpenseSeries,
 } from "@/lib/accounting/reports";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET() {
   try {
@@ -22,27 +23,32 @@ export async function GET() {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
+
+    const cacheKey = `finance_analytics:${tenantId}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
     await connectDB();
 
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    sixMonthsAgo.setDate(1);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
     const [incomeExpenseSeries, cashFlow] = await Promise.all([
       buildPostedIncomeExpenseSeries({
         tenantId,
-        startDate: sixMonthsAgo,
+        startDate: twelveMonthsAgo,
         groupBy: "month",
       }),
       buildPostedCashFlowSeries({
         tenantId,
-        startDate: sixMonthsAgo,
+        startDate: twelveMonthsAgo,
         groupBy: "month",
       }),
     ]);
 
-    return NextResponse.json({
+    const payload = {
       accountingBasis: "posted_journal_entries",
       revenue: incomeExpenseSeries.map((item) => ({
         month: item.date,
@@ -57,7 +63,9 @@ export async function GET() {
         inflow: Math.round(item.inflow),
         outflow: Math.round(item.outflow),
       })),
-    });
+    };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Error fetching finance analytics:", error);
     return NextResponse.json(

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Sparkles, AlertTriangle, TrendingUp, UserX, Database, Crosshair } from "lucide-react";
 
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
+
 function AIWidget({ title, value, sub, icon: Icon, alert = false }: any) {
   return (
     <div className={`bg-card border ${alert ? 'border-red-900/50' : 'border-border'} rounded-lg p-5`}>
@@ -21,16 +23,36 @@ function formatCurrency(n: number) {
 }
 
 export default function AIDashboard() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const cachedAi = getInstantCachedData<any>("/api/crm/ai/dashboard");
+  const [data, setData] = useState<any>(() => cachedAi?.data ?? null);
+  const [loading, setLoading] = useState<boolean>(() => !cachedAi);
 
   useEffect(() => {
-    fetch("/api/crm/ai/dashboard")
-      .then((res) => res.json())
-      .then((d) => {
-        if (d.success) setData(d.data);
-        setLoading(false);
-      });
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const res = await cachedFetch("/api/crm/ai/dashboard");
+        if (res.ok && isMounted) {
+          const d = await res.json();
+          if (d.success && d.data) setData(d.data);
+        }
+      } catch (err) {
+        console.error("Failed to load CRM AI dashboard:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadData();
+    const handleRevalidated = (e: any) => {
+      if (e?.detail?.url?.includes("/api/crm")) {
+        loadData();
+      }
+    };
+    window.addEventListener("aup:revalidated", handleRevalidated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("aup:revalidated", handleRevalidated);
+    };
   }, []);
 
   return (
@@ -52,28 +74,28 @@ export default function AIDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <AIWidget
               title="At-Risk Deals"
-              value={data.atRiskDeals.count}
-              sub={`${formatCurrency(data.atRiskDeals.pipelineValue)} Pipeline Risk`}
+              value={data.atRiskDeals?.count ?? 0}
+              sub={`${formatCurrency(data.atRiskDeals?.pipelineValue ?? 0)} Pipeline Risk`}
               icon={AlertTriangle}
-              alert={data.atRiskDeals.count > 0}
+              alert={(data.atRiskDeals?.count ?? 0) > 0}
             />
             <AIWidget
               title="High Churn Accounts"
-              value={data.highChurnAccounts.count}
-              sub={data.highChurnAccounts.count > 0 ? "Immediate attention needed" : "No accounts flagged"}
+              value={data.highChurnAccounts?.count ?? 0}
+              sub={(data.highChurnAccounts?.count ?? 0) > 0 ? "Immediate attention needed" : "No accounts flagged"}
               icon={UserX}
-              alert={data.highChurnAccounts.count > 0}
+              alert={(data.highChurnAccounts?.count ?? 0) > 0}
             />
             <AIWidget
               title="Forecast Confidence"
-              value={`${data.forecast.confidencePercent}%`}
-              sub={`${formatCurrency(data.forecast.weightedPipeline)} weighted of ${formatCurrency(data.forecast.totalPipeline)} open pipeline`}
+              value={`${data.forecast?.confidencePercent ?? 0}%`}
+              sub={`${formatCurrency(data.forecast?.weightedPipeline ?? 0)} weighted of ${formatCurrency(data.forecast?.totalPipeline ?? 0)} open pipeline`}
               icon={TrendingUp}
             />
             <AIWidget
               title="Data Health"
-              value={`${data.dataHealth.healthPercent}%`}
-              sub={`${data.dataHealth.missingFieldCount} Missing Key Fields across ${data.dataHealth.totalRecords} leads`}
+              value={`${data.dataHealth?.healthPercent ?? 0}%`}
+              sub={`${data.dataHealth?.missingFieldCount ?? 0} Missing Key Fields across ${data.dataHealth?.totalRecords ?? 0} leads`}
               icon={Database}
             />
           </div>

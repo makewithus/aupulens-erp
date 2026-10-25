@@ -129,7 +129,9 @@ export async function resolveEntitlements(tenantId: string): Promise<ResolvedEnt
       planKey = entitlement.planKey;
     } else {
       const org = await Organization.findOne({ subdomain: tenantId }, { tier: 1, subscriptionStatus: 1, status: 1 }).lean();
-      if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
+      if (org?.tier && (org.tier === ORGANIZATION_TIER.PROFESSIONAL || org.tier === ORGANIZATION_TIER.ENTERPRISE)) {
+        planKey = bridgeTierToPlanKey(org.tier);
+      } else if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
         planKey = PLAN_KEY.FREE;
       } else {
         planKey = bridgeTierToPlanKey(org?.tier);
@@ -138,14 +140,13 @@ export async function resolveEntitlements(tenantId: string): Promise<ResolvedEnt
     }
 
     const plan = await Plan.findOne({ key: planKey }).lean();
-    const planFeatures = plan?.features ?? PLAN_DEFINITIONS[planKey]?.features;
-    if (!planFeatures) throw new Error(`No Plan document or default definition found for key "${planKey}"`);
+    if (!plan) throw new Error(`No Plan document found for key "${planKey}"`);
 
     const overrides = entitlement?.overrides ?? {};
     // Older plan documents predate weighted session/week credit caps. Read
     // their defaults from the canonical catalogue until the plan is edited or
     // reseeded; never silently interpret a missing field as unlimited.
-    const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, planFeatures);
+    const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, plan.features);
 
     const resolved: ResolvedEntitlements = {
       planKey,
@@ -207,7 +208,9 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
         planKeysToFetch.add(ent.planKey as PlanKeyType);
       } else {
         const org = orgMap.get(tenantId);
-        if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
+        if (org?.tier && (org.tier === ORGANIZATION_TIER.PROFESSIONAL || org.tier === ORGANIZATION_TIER.ENTERPRISE)) {
+          planKeysToFetch.add(bridgeTierToPlanKey(org.tier));
+        } else if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
           planKeysToFetch.add(PLAN_KEY.FREE);
         } else {
           planKeysToFetch.add(bridgeTierToPlanKey(org?.tier));
@@ -227,7 +230,9 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
         planKey = ent.planKey as PlanKeyType;
       } else {
         const org = orgMap.get(tenantId);
-        if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
+        if (org?.tier && (org.tier === ORGANIZATION_TIER.PROFESSIONAL || org.tier === ORGANIZATION_TIER.ENTERPRISE)) {
+          planKey = bridgeTierToPlanKey(org.tier);
+        } else if (org?.subscriptionStatus === "trial" || org?.status === "trial" || (!org?.subscriptionStatus && !org?.tier)) {
           planKey = PLAN_KEY.FREE;
         } else {
           planKey = bridgeTierToPlanKey(org?.tier);
@@ -236,8 +241,7 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
       }
 
       const plan = planMap.get(planKey);
-      const planFeatures = plan?.features ?? PLAN_DEFINITIONS[planKey]?.features;
-      if (!planFeatures) {
+      if (!plan) {
          await emitPlatformAuditEvent({
            actor: { id: "system", role: "system" },
            tenantId,
@@ -246,7 +250,7 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
            severity: PLATFORM_SEVERITY.SECURITY,
            metadata: {
              note: "resolveEntitlementsBatch threw — falling back to the permissive default",
-             error: `No Plan document or default definition found for key "${planKey}"`,
+             error: `No Plan document found for key "${planKey}"`,
            },
          });
          const def = permissiveDefault();
@@ -256,7 +260,7 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
       }
 
       const overrides = ent?.overrides ?? {};
-      const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, planFeatures);
+      const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, plan.features);
 
       const resolved: ResolvedEntitlements = {
         planKey,

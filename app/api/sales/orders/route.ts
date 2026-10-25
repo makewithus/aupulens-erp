@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/sales/SaleOrder";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { getCachedData, setCachedData, invalidateCache } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,6 +22,15 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    const statusKey = searchParams.get("status") || "all";
+    const dateFromKey = searchParams.get("dateFrom") || "";
+    const dateToKey = searchParams.get("dateTo") || "";
+
+    const cacheKey = `sales-orders:${tenantId}:${page}:${limit}:${statusKey}:${dateFromKey}:${dateToKey}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
     const skip = (page - 1) * limit;
 
     const query: any = { tenantId };
@@ -46,7 +56,9 @@ export async function GET(req: NextRequest) {
       SaleOrder.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     ]);
 
-    return NextResponse.json({ items, total, page, totalPages: Math.ceil(total / limit) });
+    const payload = { items, total, page, totalPages: Math.ceil(total / limit) };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Error fetching sales orders:", error);
     return NextResponse.json(
@@ -94,6 +106,7 @@ export async function POST(request: Request) {
       status: body.status || DOCUMENT_STATUS.DRAFT,
     });
 
+    invalidateCache(`sales-orders:${tenantId}`);
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
     console.error("Error creating sales order:", error);

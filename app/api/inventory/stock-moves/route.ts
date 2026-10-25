@@ -6,6 +6,7 @@ import StockMove from "@/models/inventory/StockMove";
 import "@/models/inventory/Warehouse";
 import "@/models/inventory/Product";
 import { checkNegativeStockGuardBatch } from "@/lib/inventory/stockGuard";
+import { getCachedData, setCachedData, invalidateCache } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,8 +18,15 @@ export async function GET(req: NextRequest) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
     const searchParams = req.nextUrl.searchParams;
-    const moveStatus = searchParams.get("moveStatus");
-    const moveType = searchParams.get("moveType");
+    const moveStatus = searchParams.get("moveStatus") || "";
+    const moveType = searchParams.get("moveType") || "";
+    const search = searchParams.get("search")?.trim() || "";
+
+    const cacheKey = `inv-stock-moves:${tenantId}:${moveStatus}:${moveType}:${search}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
 
     await connectDB();
 
@@ -32,7 +40,6 @@ export async function GET(req: NextRequest) {
 
     // AI-native "redirect with filters" support — additive: omitting these
     // params leaves every existing caller's behavior unchanged.
-    const search = searchParams.get("search")?.trim();
     if (search) {
       const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
       query.reference = { $regex: words.join(".*"), $options: "i" };
@@ -66,7 +73,9 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ items: moves });
+    const payload = { items: moves };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error: any) {
     console.error("Error fetching stock moves:", error);
     return NextResponse.json(
@@ -147,6 +156,7 @@ export async function POST(req: NextRequest) {
       ],
     });
 
+    invalidateCache(`inv-stock-moves:${tenantId}`);
     return NextResponse.json({ item: move }, { status: 201 });
   } catch (error: any) {
     console.error("Error creating stock move:", error);

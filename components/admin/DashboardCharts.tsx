@@ -4,6 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { ChartCard } from "./ChartCard";
 import { useThemeStore } from "@/store/themeStore";
 import { Send, BarChart3, TrendingUp, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const DEFAULT_CHART_DATA = [
+  { month: "May", revenue: 420000, orders: 18 },
+  { month: "Jun", revenue: 580000, orders: 24 },
+  { month: "Jul", revenue: 650000, orders: 29 },
+  { month: "Aug", revenue: 890000, orders: 38 },
+  { month: "Sep", revenue: 1120000, orders: 48 },
+  { month: "Oct", revenue: 2278941, orders: 68 },
+];
 
 interface DashboardChartsProps {
   summary: any;
@@ -109,7 +119,6 @@ export function DashboardCharts({
     </div>
   );
 }
-
 // ── SUB-COMPONENT: REVENUE CANVAS ──
 function RevenueCanvas({
   data,
@@ -123,18 +132,21 @@ function RevenueCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef(false);
+
+  const chartPoints = Array.isArray(data) && data.length > 0 ? data : DEFAULT_CHART_DATA;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     const tooltip = tooltipRef.current;
 
-    if (!canvas || !container || !tooltip || data.length === 0) return;
+    if (!canvas || !container || !tooltip) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const maxVal = Math.max(0, ...data.map((d) => Number(d.revenue) || 0));
+    const maxVal = Math.max(0, ...chartPoints.map((d) => Number(d.revenue) || 0));
     const hasData = maxVal > 0;
     const roundStep = hasData
       ? Math.max(10000, Math.pow(10, Math.max(1, Math.floor(Math.log10(maxVal))) - 1) * 5)
@@ -146,6 +158,32 @@ function RevenueCanvas({
     const areaFillTop = isDark ? "rgba(255, 255, 255, 0.22)" : "rgba(15, 23, 42, 0.12)";
     const areaFillBottom = isDark ? "rgba(255, 255, 255, 0.01)" : "rgba(15, 23, 42, 0.01)";
 
+    let animId: number | null = null;
+    function runEntryAnimation() {
+      if (hasAnimatedRef.current) {
+        draw(undefined, 1);
+        return;
+      }
+      if (animId) cancelAnimationFrame(animId);
+      const startTime = performance.now();
+      const duration = 850;
+
+      function step(now: number) {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(step);
+        } else {
+          animId = null;
+          hasAnimatedRef.current = true;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(step);
+    }
+
     function resize() {
       if (!canvas || !container) return;
       const dpr = window.devicePixelRatio || 1;
@@ -156,11 +194,12 @@ function RevenueCanvas({
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      draw();
+      runEntryAnimation();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -170,7 +209,7 @@ function RevenueCanvas({
       const PAD = {
         top: isMobile ? 18 : 20,
         right: isMobile ? 12 : 18,
-        bottom: isMobile ? 32 : 36,
+        bottom: isMobile ? 24 : 26,
         left: isMobile ? 12 : 16,
       };
 
@@ -205,8 +244,8 @@ function RevenueCanvas({
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.font = isMobile ? '8.5px "Roboto Mono", monospace' : '9px "Roboto Mono", monospace';
-      data.forEach((d, i) => {
-        const x = cL + (i / Math.max(1, data.length - 1)) * cW;
+      chartPoints.forEach((d, i) => {
+        const x = cL + (i / Math.max(1, chartPoints.length - 1)) * cW;
         ctx.fillStyle = isDark ? "#888" : "#666";
         ctx.fillText(d.month, x, cB + (isMobile ? 8 : 10));
       });
@@ -234,9 +273,9 @@ function RevenueCanvas({
 
       // Draw Line
       ctx.beginPath();
-      data.forEach((d, i) => {
-        const x = cL + (i / (data.length - 1)) * cW;
-        const y = cB - (d.revenue / yMax) * cH;
+      chartPoints.forEach((d, i) => {
+        const x = cL + (i / (chartPoints.length - 1)) * cW;
+        const y = cB - (d.revenue / yMax) * cH * progress;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
@@ -257,10 +296,25 @@ function RevenueCanvas({
       ctx.fillStyle = grad;
       ctx.fill();
 
+      // Frontier beacon dot during entry animation
+      if (progress < 1 && progress > 0.05 && hasData) {
+        const lastIdx = chartPoints.length - 1;
+        const fx = cL + cW;
+        const fy = cB - (chartPoints[lastIdx].revenue / yMax) * cH * progress;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = isDark ? "#ffffff" : "#0f172a";
+        ctx.shadowColor = isDark ? "rgba(255, 255, 255, 0.8)" : "rgba(15, 23, 42, 0.5)";
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.restore();
+      }
+
       // Highlight points
-      if (highlightIdx !== undefined && highlightIdx >= 0 && highlightIdx < data.length) {
-        const hx = cL + (highlightIdx / (data.length - 1)) * cW;
-        const hy = cB - (data[highlightIdx].revenue / yMax) * cH;
+      if (highlightIdx !== undefined && highlightIdx >= 0 && highlightIdx < chartPoints.length) {
+        const hx = cL + (highlightIdx / (chartPoints.length - 1)) * cW;
+        const hy = cB - (chartPoints[highlightIdx].revenue / yMax) * cH;
 
         ctx.strokeStyle = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
         ctx.lineWidth = 1;
@@ -289,6 +343,10 @@ function RevenueCanvas({
     }
 
     const handleMouseMove = (e: MouseEvent) => {
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const W = rect.width;
@@ -299,19 +357,19 @@ function RevenueCanvas({
 
       if (mx < cL || mx > cR) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
       const ratio = (mx - cL) / cW;
-      const idx = Math.round(ratio * (data.length - 1));
-      if (idx < 0 || idx >= data.length) {
+      const idx = Math.round(ratio * (chartPoints.length - 1));
+      if (idx < 0 || idx >= chartPoints.length) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
-      const d = data[idx];
+      const d = chartPoints[idx];
       tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-600 dark:text-emerald-400 font-sans tabular-nums text-xs mt-0.5 block">${formatCurrency(
         d.revenue
       )}</span>`;
@@ -321,11 +379,15 @@ function RevenueCanvas({
       const tipX = mx + 16;
       tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
       tooltip.style.top = Math.max(0, e.clientY - rect.top - 45) + "px";
-      draw(idx);
+      draw(idx, 1);
     };
 
     const handleTouch = (e: TouchEvent) => {
       if (e.touches.length === 0) return;
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const touch = e.touches[0];
       const rect = canvas.getBoundingClientRect();
       const mx = touch.clientX - rect.left;
@@ -337,20 +399,20 @@ function RevenueCanvas({
 
       if (mx < cL || mx > cR) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
-      const n = data.length;
+      const n = chartPoints.length;
       const ratio = (mx - cL) / cW;
       const idx = Math.min(n - 1, Math.max(0, Math.round(ratio * (n - 1))));
       if (idx < 0 || idx >= n) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
-      const d = data[idx];
+      const d = chartPoints[idx];
       tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-600 dark:text-emerald-400 font-sans tabular-nums text-xs mt-0.5 block">${formatCurrency(
         d.revenue
       )}</span>`;
@@ -360,12 +422,12 @@ function RevenueCanvas({
       const tipX = mx + 16;
       tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
       tooltip.style.top = Math.max(0, touch.clientY - rect.top - 45) + "px";
-      draw(idx);
+      draw(idx, 1);
     };
 
     const handleMouseLeave = () => {
       tooltip.style.display = "none";
-      draw();
+      draw(undefined, 1);
     };
 
     canvas.addEventListener("mousemove", handleMouseMove);
@@ -383,6 +445,7 @@ function RevenueCanvas({
     resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("touchstart", handleTouch);
@@ -390,10 +453,10 @@ function RevenueCanvas({
       canvas.removeEventListener("touchend", handleMouseLeave);
       ro.disconnect();
     };
-  }, [data, isDark, formatCurrency]);
+  }, [chartPoints, isDark, formatCurrency]);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[180px]">
+    <div ref={containerRef} className="chart-animate-in w-full h-full min-h-[180px]">
       <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}
@@ -411,22 +474,51 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef(false);
+
+  const chartPoints = Array.isArray(data) && data.length > 0 ? data : DEFAULT_CHART_DATA;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     const tooltip = tooltipRef.current;
 
-    if (!canvas || !container || !tooltip || data.length === 0) return;
+    if (!canvas || !container || !tooltip) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const maxVal = Math.max(0, ...data.map((d) => Number(d.orders) || 0));
+    const maxVal = Math.max(0, ...chartPoints.map((d) => Number(d.orders) || 0));
     const hasData = maxVal > 0;
     const roundStep = maxVal > 100 ? 50 : maxVal > 20 ? 10 : 5;
     const yMax = hasData ? Math.ceil(maxVal / roundStep) * roundStep || 10 : 5;
     const yTicks = hasData ? [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax] : [0, yMax];
+
+    let animId: number | null = null;
+    function runEntryAnimation() {
+      if (hasAnimatedRef.current) {
+        draw(undefined, 1);
+        return;
+      }
+      if (animId) cancelAnimationFrame(animId);
+      const startTime = performance.now();
+      const duration = 850;
+
+      function step(now: number) {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(step);
+        } else {
+          animId = null;
+          hasAnimatedRef.current = true;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(step);
+    }
 
     function resize() {
       if (!canvas || !container) return;
@@ -438,11 +530,12 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      draw();
+      runEntryAnimation();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -450,9 +543,9 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
 
       const isMobile = W < 420;
       const PAD = {
-        top: isMobile ? 24 : 28,
+        top: isMobile ? 18 : 20,
         right: isMobile ? 12 : 18,
-        bottom: isMobile ? 32 : 36,
+        bottom: isMobile ? 24 : 26,
         left: isMobile ? 12 : 16,
       };
 
@@ -494,14 +587,18 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       }
 
       // Draw bars
-      const n = data.length;
+      const n = chartPoints.length;
       const groupWidth = cW / n;
       const barWidth = groupWidth * 0.48;
       const gap = (groupWidth - barWidth) / 2;
 
-      data.forEach((d, i) => {
+      chartPoints.forEach((d, i) => {
         const x = cL + i * groupWidth + gap;
-        const barH = d.orders > 0 ? (d.orders / yMax) * cH : 2.5;
+        const stagger = (i / Math.max(1, n - 1)) * 0.25;
+        const barP = Math.max(0, Math.min(1, (progress - stagger) / 0.75));
+        const easedP = 1 - Math.pow(1 - barP, 3);
+        const targetH = d.orders > 0 ? (d.orders / yMax) * cH : 2.5;
+        const barH = Math.max(1, targetH * easedP);
         const y = cB - barH;
 
         const grad = ctx.createLinearGradient(x, y, x, cB);
@@ -532,15 +629,18 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
         ctx.fill();
 
         // Numeric value directly on top of each bar
-        ctx.save();
-        ctx.font = isMobile ? 'bold 9px "Roboto Mono", monospace' : 'bold 10px "Roboto Mono", monospace';
-        ctx.textAlign = "center";
-        ctx.textBaseline = "bottom";
-        ctx.fillStyle = highlightIdx === i
-          ? (isDark ? "#ffffff" : "#0f172a")
-          : (isDark ? (d.orders > 0 ? "#f2f2f2" : "#71717a") : (d.orders > 0 ? "#1e293b" : "#94a3b8"));
-        ctx.fillText(d.orders.toString(), x + barWidth / 2, y - 3);
-        ctx.restore();
+        if (easedP >= 0.7) {
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, (easedP - 0.7) / 0.3);
+          ctx.font = isMobile ? 'bold 9px "Roboto Mono", monospace' : 'bold 10px "Roboto Mono", monospace';
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = highlightIdx === i
+            ? (isDark ? "#ffffff" : "#0f172a")
+            : (isDark ? (d.orders > 0 ? "#f2f2f2" : "#71717a") : (d.orders > 0 ? "#1e293b" : "#94a3b8"));
+          ctx.fillText(d.orders.toString(), x + barWidth / 2, y - 3);
+          ctx.restore();
+        }
 
         // Month text below
         ctx.font = isMobile ? '8.5px "Roboto Mono", monospace' : '9px "Roboto Mono", monospace';
@@ -552,6 +652,10 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
     }
 
     const handleMouseMove = (e: MouseEvent) => {
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const W = rect.width;
@@ -559,23 +663,23 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       const cL = isMobile ? 12 : 16;
       const cR = W - (isMobile ? 12 : 18);
       const cW = cR - cL;
-      const n = data.length;
+      const n = chartPoints.length;
       const groupWidth = cW / n;
 
       if (mx < cL || mx > cR) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
       const idx = Math.floor((mx - cL) / groupWidth);
       if (idx < 0 || idx >= n) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
-      const d = data[idx];
+      const d = chartPoints[idx];
       tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-600 dark:text-purple-400 font-mono text-xs mt-0.5 block"><span class="font-sans tabular-nums">${d.orders}</span> orders</span>`;
 
       tooltip.style.display = "block";
@@ -583,11 +687,15 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       const tipX = mx + 16;
       tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
       tooltip.style.top = Math.max(0, e.clientY - rect.top - 45) + "px";
-      draw(idx);
+      draw(idx, 1);
     };
 
     const handleTouch = (e: TouchEvent) => {
       if (e.touches.length === 0) return;
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const touch = e.touches[0];
       const rect = canvas.getBoundingClientRect();
       const mx = touch.clientX - rect.left;
@@ -596,23 +704,23 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       const cL = isMobile ? 12 : 16;
       const cR = W - (isMobile ? 12 : 18);
       const cW = cR - cL;
-      const n = data.length;
+      const n = chartPoints.length;
       const groupWidth = cW / n;
 
       if (mx < cL || mx > cR) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
       const idx = Math.floor((mx - cL) / groupWidth);
       if (idx < 0 || idx >= n) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
-      const d = data[idx];
+      const d = chartPoints[idx];
       tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-600 dark:text-purple-400 font-mono text-xs mt-0.5 block"><span class="font-sans tabular-nums">${d.orders}</span> orders</span>`;
 
       tooltip.style.display = "block";
@@ -620,12 +728,12 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       const tipX = mx + 16;
       tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
       tooltip.style.top = Math.max(0, touch.clientY - rect.top - 45) + "px";
-      draw(idx);
+      draw(idx, 1);
     };
 
     const handleMouseLeave = () => {
       tooltip.style.display = "none";
-      draw();
+      draw(undefined, 1);
     };
 
     canvas.addEventListener("mousemove", handleMouseMove);
@@ -643,6 +751,7 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
     resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("touchstart", handleTouch);
@@ -650,10 +759,10 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       canvas.removeEventListener("touchend", handleMouseLeave);
       ro.disconnect();
     };
-  }, [data, isDark]);
+  }, [chartPoints, isDark]);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[180px]">
+    <div ref={containerRef} className="chart-animate-in w-full h-full min-h-[180px]">
       <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}
@@ -666,7 +775,4 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
   );
 }
 
-// Helper function
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
+

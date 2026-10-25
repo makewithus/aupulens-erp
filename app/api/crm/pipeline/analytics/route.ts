@@ -2,15 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmOpportunity from "@/models/crm/Opportunity";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  
+  const tenantId = session.user.tenantId;
+
+  const cacheKey = `crm-pipe-analytics:${tenantId}`;
+  const cached = getCachedData<any>(cacheKey);
+  if (cached) return NextResponse.json(cached);
+
   await dbConnect();
   
   const pipeline = await CrmOpportunity.aggregate([
-    { $match: { tenantId: session.user.tenantId } },
+    { $match: { tenantId } },
     { $group: {
         _id: null,
         total_opportunities: { $sum: 1 },
@@ -26,7 +32,7 @@ export async function GET(req: NextRequest) {
     total_opportunities: 0, total_pipeline_value: 0, weighted_pipeline: 0, closed_won_count: 0, closed_lost_count: 0, total_closed: 0
   };
 
-  return NextResponse.json({
+  const responsePayload = {
     success: true,
     data: {
       totalOpportunities: stats.total_opportunities,
@@ -39,5 +45,9 @@ export async function GET(req: NextRequest) {
       winRate: stats.total_closed > 0 ? (stats.closed_won_count / stats.total_closed) * 100 : 0,
       lossRate: stats.total_closed > 0 ? (stats.closed_lost_count / stats.total_closed) * 100 : 0
     }
-  });
+  };
+
+  setCachedData(cacheKey, responsePayload, 30_000);
+
+  return NextResponse.json(responsePayload);
 }

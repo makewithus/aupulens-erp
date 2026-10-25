@@ -12,19 +12,21 @@ import Organization from "@/models/admin/Organization";
 import mongoose from "mongoose";
 
 export async function fetchAdminFinanceData(tenantId: string) {
-  const [transactions, payments, invoices, salesInvoices] = await Promise.all([
+  const [transactions, payments, invoices, salesInvoices, paymentCount, transactionCount] = await Promise.all([
     (Transaction as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
     (Payment as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
     (Invoice as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
     (SalesInvoice as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
+    Payment.countDocuments({ tenantId }),
+    Transaction.countDocuments({ tenantId }),
   ]);
 
   const issued = await SalesInvoice.aggregate([
     { $match: { tenantId, ...issuedInvoiceFilter() } },
     { $group: { _id: null, total: { $sum: "$totalAmount" } } },
   ]).exec();
-  const totalRevenue = issued[0]?.total || 0;
-  const totalTransactions = payments.length > 0 ? payments.length : transactions.length;
+  const issuedRevenue = issued[0]?.total || 0;
+  const totalTransactions = paymentCount > 0 ? paymentCount : transactionCount;
 
   const combinedInvoices = salesInvoices.length > 0 ? salesInvoices : invoices;
   const combinedTransactions = payments.length > 0 ? payments : transactions;
@@ -41,10 +43,17 @@ export async function fetchAdminFinanceData(tenantId: string) {
     };
   } catch {}
 
+  const effectiveRevenue = (postedFinancials && postedFinancials.entryCount > 0)
+    ? postedFinancials.income
+    : issuedRevenue;
+
   return {
     summary: {
-      totalRevenue,
-      revenueBasis: "Issued invoice gross value including tax, excluding drafts/cancellations",
+      totalRevenue: effectiveRevenue,
+      issuedRevenue,
+      revenueBasis: (postedFinancials && postedFinancials.entryCount > 0)
+        ? "Posted general ledger revenue"
+        : "Issued invoice gross value including tax, excluding drafts/cancellations",
       totalTransactions,
       recentInvoices: combinedInvoices.length,
       postedFinancials,
@@ -170,11 +179,14 @@ export async function fetchAdminInventoryData(tenantId: string) {
 }
 
 export async function fetchAdminManufacturingData(tenantId: string) {
-  const shipments = await (Shipment as any)
-    .find({ tenantId })
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .lean();
+  const [shipments, totalShipments] = await Promise.all([
+    (Shipment as any)
+      .find({ tenantId })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean(),
+    Shipment.countDocuments({ tenantId }),
+  ]);
 
   const statusCounts: Record<string, number> = {};
   shipments.forEach((s: any) => {
@@ -183,7 +195,7 @@ export async function fetchAdminManufacturingData(tenantId: string) {
   });
 
   return {
-    summary: { totalShipments: shipments.length, statusBreakdown: statusCounts },
+    summary: { totalShipments, statusBreakdown: statusCounts },
     recentShipments: shipments.slice(0, 5),
   };
 }

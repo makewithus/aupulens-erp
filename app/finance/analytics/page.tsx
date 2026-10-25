@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
@@ -29,8 +29,9 @@ export default function FinanceAnalyticsPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [data, setData] = useState<any>(null);
+  const cachedSummary = getInstantCachedData<any>("/api/finance/summary");
+  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedSummary?.summary);
+  const [data, setData] = useState<any>(() => cachedSummary?.summary ?? null);
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -38,7 +39,9 @@ export default function FinanceAnalyticsPage() {
       const res = await cachedFetch("/api/finance/summary");
       if (res.ok) {
         const json = await res.json();
-        setData(json.summary);
+        if (json?.summary) {
+          setData(json.summary);
+        }
       }
     } catch (err) {
       console.error("Error fetching finance analytics:", err);
@@ -49,6 +52,13 @@ export default function FinanceAnalyticsPage() {
 
   useEffect(() => {
     fetchAnalytics();
+    const handleRevalidated = (e: any) => {
+      if (e?.detail?.url?.includes("/api/finance")) {
+        fetchAnalytics();
+      }
+    };
+    window.addEventListener("aup:revalidated", handleRevalidated);
+    return () => window.removeEventListener("aup:revalidated", handleRevalidated);
   }, [fetchAnalytics]);
 
   const formatCurrency = (val: number) =>
@@ -136,7 +146,7 @@ export default function FinanceAnalyticsPage() {
 
           <Card
             className={cn(
-              "rounded-none border shadow-none overflow-hidden transition-colors",
+              "chart-animate-in chart-delay-1 chart-shimmer-border rounded-none border shadow-none overflow-hidden transition-colors",
               isDark ? "bg-[#0A0A0A] border-[#272727]" : "bg-white border-[#e5e5e5]"
             )}
           >
@@ -162,7 +172,7 @@ export default function FinanceAnalyticsPage() {
           <div className="lg:col-span-7 xl:col-span-8">
             <Card
               className={cn(
-                "rounded-none border shadow-sm transition-colors h-full flex flex-col",
+                "chart-animate-in chart-delay-2 chart-shimmer-border rounded-none border shadow-sm transition-colors h-full flex flex-col",
                 isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
               )}
             >
@@ -204,7 +214,7 @@ export default function FinanceAnalyticsPage() {
           <div className="lg:col-span-5 xl:col-span-4">
             <Card
               className={cn(
-                "rounded-none border shadow-sm transition-colors flex flex-col h-full",
+                "chart-animate-in chart-delay-3 chart-shimmer-border rounded-none border shadow-sm transition-colors flex flex-col h-full",
                 isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
               )}
             >

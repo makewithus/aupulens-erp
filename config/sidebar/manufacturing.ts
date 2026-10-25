@@ -24,6 +24,11 @@ export const manufacturingSidebarConfig: SidebarSection[] = [
         href: "/manufacturing/dashboard",
         icon: LayoutDashboard,
       },
+      {
+        title: "Analytics",
+        href: "/manufacturing/analytics",
+        icon: BarChart3,
+      },
     ],
   },
   {

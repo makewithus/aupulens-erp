@@ -31,7 +31,7 @@ export default function ProfitLossPage() {
       if (dateRange?.from && dateRange?.to) {
         url += `?startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`;
       }
-      const res = await cachedFetch(url, undefined, { noCache: true });
+      const res = await cachedFetch(url);
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || "load failed");
       setData(json);

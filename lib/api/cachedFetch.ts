@@ -1,29 +1,44 @@
 "use client";
 
 /**
- * Drop-in replacement for `fetch` that makes list/detail pages feel instant.
+ * Drop-in replacement for `fetch` that makes dashboard and detail pages feel instant.
  *
- * GET requests:
- *  - served immediately from an in-memory cache when present, so navigating back
- *    to a page you've already visited renders its data with no network wait;
- *  - if the cached copy is older than the TTL it's still returned instantly, then
- *    refreshed in the background (stale-while-revalidate);
- *  - concurrent identical requests are de-duped into ONE network call — clicking
- *    fast/repeatedly can't spawn a storm of duplicate fetches.
- *
- * Mutations (POST/PUT/PATCH/DELETE): passed straight through, and on success the
- * cached GETs for that resource are invalidated so the next read is fresh — data
- * stays consistent after a create/edit/delete.
- *
- * The cache lives for the tab session (module-level Map) and is bounded by TTL.
- * Because it returns a real `Response`, callers keep using `res.ok` / `res.json()`
- * exactly as with `fetch` — a true drop-in.
+ * Multi-tier caching architecture:
+ *  1. In-memory Map cache (0ms instant response within tab session);
+ *  2. Browser sessionStorage cache (0ms instant response across page reloads/navigations);
+ *  3. Stale-While-Revalidate (SWR): returns cached copy immediately, revalidates in the background;
+ *  4. In-flight request de-duplication: concurrent identical requests collapse into a single network call;
+ *  5. Automatic mutation invalidation: POST/PUT/PATCH/DELETE invalidate corresponding collection keys.
  */
 
-type Entry = { res: Response; ts: number };
+type Entry = { res: Response; json?: any; ts: number };
 const cache = new Map<string, Entry>();
 const inflight = new Map<string, Promise<Response>>();
-const DEFAULT_TTL = 30_000; // 30s: fresh window before a background revalidate
+const DEFAULT_TTL = 30_000; // 30s fresh window before background revalidate
+const SESSION_CACHE_PREFIX = "aup_cache:";
+
+export function getInstantCachedData<T = any>(url: string): T | null {
+  const mem = cache.get(url);
+  if (mem?.json) return mem.json as T;
+  const sess = getSessionCached(url);
+  if (sess?.body) {
+    try {
+      const parsed = JSON.parse(sess.body);
+      cache.set(url, {
+        res: new Response(sess.body, {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+        json: parsed,
+        ts: sess.ts,
+      });
+      return parsed as T;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 function urlString(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
@@ -41,23 +56,97 @@ function resourcePrefix(url: string): string {
   }
 }
 
+function getSessionCached(url: string): { body: string; ts: number } | null {
+  if (typeof window === "undefined" || !window.sessionStorage) return null;
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_CACHE_PREFIX + url);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function setSessionCached(url: string, body: string): void {
+  if (typeof window === "undefined" || !window.sessionStorage) return;
+  try {
+    window.sessionStorage.setItem(
+      SESSION_CACHE_PREFIX + url,
+      JSON.stringify({ body, ts: Date.now() })
+    );
+  } catch {
+    // QuotaExceeded or disabled
+  }
+}
+
+function clearSessionPrefix(prefix: string): void {
+  if (typeof window === "undefined" || !window.sessionStorage) return;
+  try {
+    for (let i = window.sessionStorage.length - 1; i >= 0; i--) {
+      const k = window.sessionStorage.key(i);
+      if (k && k.startsWith(SESSION_CACHE_PREFIX)) {
+        const u = k.slice(SESSION_CACHE_PREFIX.length);
+        if (resourcePrefix(u) === prefix) {
+          window.sessionStorage.removeItem(k);
+        }
+      }
+    }
+  } catch {}
+}
+
 function invalidatePrefix(prefix: string) {
   for (const key of cache.keys()) {
     if (resourcePrefix(key) === prefix) cache.delete(key);
   }
+  clearSessionPrefix(prefix);
 }
 
 /** Manually clear cached GETs matching a URL's resource (or everything). */
 export function invalidateCache(url?: string) {
-  if (!url) { cache.clear(); return; }
+  if (!url) {
+    cache.clear();
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      try {
+        for (let i = window.sessionStorage.length - 1; i >= 0; i--) {
+          const k = window.sessionStorage.key(i);
+          if (k && k.startsWith(SESSION_CACHE_PREFIX)) {
+            window.sessionStorage.removeItem(k);
+          }
+        }
+      } catch {}
+    }
+    return;
+  }
   invalidatePrefix(resourcePrefix(url));
 }
 
 async function networkLoad(url: string, init?: RequestInit): Promise<Response> {
   let p = inflight.get(url);
   if (!p) {
-    p = fetch(url, init).then((res) => {
-      if (res.ok) cache.set(url, { res: res.clone(), ts: Date.now() });
+    p = fetch(url, init).then(async (res) => {
+      if (res.ok) {
+        try {
+          const cloneForCache = res.clone();
+          const text = await cloneForCache.text();
+          let parsedJson: any = null;
+          try { parsedJson = JSON.parse(text); } catch {}
+          cache.set(url, {
+            res: new Response(text, {
+              status: res.status,
+              statusText: res.statusText,
+              headers: new Headers(res.headers),
+            }),
+            json: parsedJson,
+            ts: Date.now(),
+          });
+          setSessionCached(url, text);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("aup:revalidated", { detail: { url } }));
+          }
+        } catch {
+          cache.set(url, { res: res.clone(), ts: Date.now() });
+        }
+      }
       return res;
     });
     inflight.set(url, p);
@@ -84,12 +173,35 @@ export async function cachedFetch(
   if (opts?.noCache) return fetch(input as any, init);
 
   const ttl = opts?.ttl ?? DEFAULT_TTL;
-  const cached = cache.get(url);
+
+  // 1. Check in-memory map
+  let cached = cache.get(url);
+
+  // 2. Check browser sessionStorage for instant render across page reloads
+  if (!cached) {
+    const stored = getSessionCached(url);
+    if (stored) {
+      cached = {
+        res: new Response(stored.body, {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+        ts: stored.ts,
+      };
+      cache.set(url, cached);
+    }
+  }
+
+  // 3. If cached copy exists and not forced, return it immediately (0ms wait)
   if (!opts?.force && cached) {
-    // Stale → return the cached copy now, refresh in the background.
-    if (Date.now() - cached.ts > ttl) void networkLoad(url, init).catch(() => {});
+    // If older than TTL, revalidate in the background
+    if (Date.now() - cached.ts > ttl) {
+      void networkLoad(url, init).catch(() => {});
+    }
     return cached.res.clone();
   }
+
+  // 4. First-time fetch
   const fresh = await networkLoad(url, init);
   return fresh.clone();
 }

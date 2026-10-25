@@ -20,7 +20,8 @@ export function ChartCard({
   return (
     <Card
       className={cn(
-        "overflow-hidden rounded-lg border border-border/40 shadow-none font-mono",
+        "overflow-hidden rounded-lg border border-border/40 shadow-none font-mono relative transition-all duration-300",
+        "chart-animate-in chart-shimmer-border group hover:border-border/80",
         className
       )}
     >

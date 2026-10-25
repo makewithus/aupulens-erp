@@ -6,6 +6,7 @@ import {
   refreshAllAccountHealth,
 } from "@/lib/crm/accountHealth";
 import CrmAccount from "@/models/crm/Account";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 // ─── GET /api/crm/health?account_id=<id> ─────────────────────────────────────
 // Returns health score for a single account or distribution for entire tenant
@@ -14,23 +15,30 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false }, { status: 401 });
 
-  await dbConnect();
+  const tenantId = session.user.tenantId;
   const url = new URL(req.url);
   const accountId = url.searchParams.get("account_id");
 
   if (accountId) {
+    await dbConnect();
     const result = await computeAndStoreAccountHealth(
       accountId,
-      session.user.tenantId,
+      tenantId,
       session.user.id
     );
     return NextResponse.json({ success: true, data: result });
   }
 
+  const cacheKey = `crm-health:${tenantId}`;
+  const cached = getCachedData<any>(cacheKey);
+  if (cached) return NextResponse.json(cached);
+
+  await dbConnect();
+
   // Tenant-wide distribution
   const [distribution, accounts] = await Promise.all([
     CrmAccount.aggregate([
-      { $match: { tenantId: session.user.tenantId } },
+      { $match: { tenantId } },
       {
         $bucket: {
           groupBy: "$account_health_score",
@@ -40,16 +48,20 @@ export async function GET(req: NextRequest) {
         },
       },
     ]),
-    CrmAccount.find({ tenantId: session.user.tenantId })
+    CrmAccount.find({ tenantId })
       .select("company_name account_health_score status")
       .sort({ account_health_score: 1 })
       .lean()
   ]);
 
-  return NextResponse.json({
+  const responsePayload = {
     success: true,
     data: { distribution, accounts },
-  });
+  };
+
+  setCachedData(cacheKey, responsePayload, 30_000);
+
+  return NextResponse.json(responsePayload);
 }
 
 // ─── POST /api/crm/health — Trigger full refresh ──────────────────────────────

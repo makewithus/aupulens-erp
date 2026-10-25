@@ -5,6 +5,8 @@ import { ErpToolError, escapeRegex, requireSalesAccess } from "./erpQuery";
 import { normalizeErpText } from "./erpIntent";
 import { AI_ACTION_STATUS as A } from "@/lib/constants/statuses";
 
+import { isValidPhone, isValidEmail } from "@/lib/sales/customerValidation";
+
 type Scope = { tenantId: string; userId: string; role: string; conversationId: string };
 
 export interface CustomerDraftParams {
@@ -18,15 +20,17 @@ export interface CustomerDraftParams {
   currency?: string;
   conversationId: string;
   executing?: boolean;
+  clearPhone?: boolean;
 }
 
-export function validateCustomerPhone(phone: string): boolean {
-  const cleaned = phone.replace(/[\s+-]/g, "");
-  return /^\d{7,15}$/.test(cleaned);
+export function validateCustomerPhone(phone?: string | null): boolean {
+  if (!phone || !phone.trim()) return true;
+  return isValidPhone(phone);
 }
 
-export function validateCustomerEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+export function validateCustomerEmail(email?: string | null): boolean {
+  if (!email || !email.trim()) return true;
+  return isValidEmail(email);
 }
 
 export function validateCustomerGstin(gstin: string): boolean {
@@ -37,81 +41,125 @@ export function validateCustomerPan(pan: string): boolean {
   return /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan.toUpperCase());
 }
 
-export function extractCustomerFields(text: string): Partial<CustomerDraftParams> {
+export function extractCustomerFieldsWithErrors(text: string): {
+  fields: Partial<CustomerDraftParams> & { clearPhone?: boolean };
+  errors: string[];
+} {
   const q = normalizeErpText(text).trim();
-  const fields: Partial<CustomerDraftParams> = {};
+  const fields: Partial<CustomerDraftParams> & { clearPhone?: boolean } = {};
+  const errors: string[] = [];
 
-  // Check customer type
+  // 1. Customer type
   if (/\b(?:individual|person|sole\s+proprietor(?:ship)?)\b/i.test(q)) {
     fields.is_company = false;
-  } else if (/\b(?:company|business|firm|enterprise|corporate|corp|pvt\s+ltd|ltd)\b/i.test(q)) {
+  } else if (
+    /\b(?:type\s*(?:is|to|:|=)\s*company|customer\s+type\s*(?:is|to|:|=)\s*company|company\s+customer)\b/i.test(q) ||
+    (/\b(?:company|business|firm|enterprise|corporate|corp|pvt\s+ltd|ltd)\b/i.test(q) && !/\bindividual\b/i.test(q))
+  ) {
     fields.is_company = true;
   }
 
-  // Check email
+  // 2. Email
   const emailMatch = q.match(/\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b/);
   if (emailMatch) {
-    fields.email = emailMatch[1].toLowerCase();
+    const rawEmail = emailMatch[1].toLowerCase();
+    if (isValidEmail(rawEmail)) {
+      fields.email = rawEmail;
+    } else {
+      errors.push(`Email "${rawEmail}" is invalid. Please supply a valid email address.`);
+    }
   }
 
-  // Check phone / mobile
-  const explicitPhone = q.match(/\b(?:phone|mobile|tel|contact(?:\s+number)?)\s*(?:is|:|=)?\s*([+0-9\s-]{1,25})/i);
-  if (explicitPhone) {
-    const raw = explicitPhone[1].trim();
-    if (validateCustomerPhone(raw)) {
-      fields.phone = raw;
-      fields.mobile = raw;
-    } else {
-      throw new ErpToolError("BUSINESS_RULE", `Phone number "${raw}" is invalid. Please supply a valid 7–15 digit phone number.`);
-    }
+  // 3. Phone clearing instruction vs phone value
+  const clearPhone = /\b(?:leave|keep|set)?\s*(?:the\s+)?(?:phone|mobile|contact)(?:\s+number)?\s*(?:is\s+|to\s+|as\s+)?(?:empty|blank|none|clear|null)\b|\b(?:clear|remove|delete|omit)\s+(?:the\s+)?(?:phone|mobile|contact)(?:\s+number)?\b|\bwithout\s+(?:a\s+)?(?:phone|mobile|contact)(?:\s+number)?\b|\bno\s+(?:phone|mobile|contact)(?:\s+number)?\b/i.test(q);
+  if (clearPhone) {
+    fields.phone = "";
+    fields.mobile = "";
+    fields.clearPhone = true;
   } else {
-    // Pure phone number (e.g. "123456788" or "+919876543210")
-    const standaloneNum = q.match(/^\+?[0-9\s-]{7,18}$/);
-    if (standaloneNum) {
-      const raw = standaloneNum[0].trim();
-      if (validateCustomerPhone(raw)) {
+    // Explicit phone keyword
+    const explicitPhone = q.match(/\b(?:(?:phone|mobile|tel|contact)(?:\s+number)?)\s*(?:is|to|:|=)?\s*([+]?[0-9][0-9\s-]*[0-9]|[0-9]+|[a-zA-Z0-9_+.-]+)/i);
+    if (explicitPhone) {
+      const raw = explicitPhone[1].trim();
+      if (isValidPhone(raw)) {
         fields.phone = raw;
         fields.mobile = raw;
       } else {
-        throw new ErpToolError("BUSINESS_RULE", `Phone number "${raw}" is invalid. Please supply a valid 7–15 digit phone number.`);
+        errors.push(`Phone number "${raw}" is invalid. Please supply a valid 7–15 digit phone number.`);
+      }
+    } else {
+      // Standalone or list phone number
+      const standalone = q.match(/(?:^|\b|\band\s+)(\+?[0-9][0-9\s-]{5,18}[0-9]|\+?[0-9]{7,18})(?:[.,;!]|\s*(?:and|with|$))/i);
+      if (standalone && !fields.clearPhone) {
+        const raw = standalone[1].trim();
+        if (isValidPhone(raw)) {
+          fields.phone = raw;
+          fields.mobile = raw;
+        } else {
+          errors.push(`Phone number "${raw}" is invalid. Please supply a valid 7–15 digit phone number.`);
+        }
       }
     }
   }
 
-  // Check GSTIN
-  const gstinMatch = q.match(/\bgstin\s*(?:is|:|=)?\s*([0-9A-Za-z]{15})\b/i);
+  // 4. GSTIN
+  const gstinMatch = q.match(/\bgstin\s*(?:is|to|:|=)?\s*([0-9A-Za-z]{15})\b/i);
   if (gstinMatch) {
     const raw = gstinMatch[1].toUpperCase();
     if (validateCustomerGstin(raw)) fields.gstin = raw;
-    else throw new ErpToolError("BUSINESS_RULE", `GSTIN "${raw}" is invalid. GSTIN must be a valid 15-character Indian GST identifier.`);
+    else errors.push(`GSTIN "${raw}" is invalid. GSTIN must be a valid 15-character Indian GST identifier.`);
   }
 
-  // Check PAN
-  const panMatch = q.match(/\bpan\s*(?:is|:|=)?\s*([0-9A-Za-z]{10})\b/i);
+  // 5. PAN
+  const panMatch = q.match(/\bpan\s*(?:is|to|:|=)?\s*([0-9A-Za-z]{10})\b/i);
   if (panMatch) {
     const raw = panMatch[1].toUpperCase();
     if (validateCustomerPan(raw)) fields.pan = raw;
-    else throw new ErpToolError("BUSINESS_RULE", `PAN "${raw}" is invalid. PAN must be a valid 10-character Indian PAN identifier.`);
+    else errors.push(`PAN "${raw}" is invalid. PAN must be a valid 10-character Indian PAN identifier.`);
   }
 
-  // Check name
-  const nameExplicit = q.match(/\b(?:names?|named|customer\s+names?|customer\s+named)\b\s*(?:is|:|=)?\s*([^,.\n]+?)(?=\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
-  if (nameExplicit) {
-    fields.name = nameExplicit[1].trim().replace(/^['"]|['"]$/g, "");
-  } else if (/\bcustomer\b/i.test(q)) {
-    const afterCustomer = q.match(/\b(?:create|make|add|new|draft|prepare|register)\s+(?:an?\s+)?customer\s+(?:(?:named|names|name|called|for)\s+)?([^,.\n]+?)(?=\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
-    if (afterCustomer) {
-      fields.name = afterCustomer[1].trim().replace(/^['"]|['"]$/g, "");
-    }
-  } else if (!fields.email && !fields.phone && fields.is_company === undefined && !q.includes("confirm") && !q.includes("cancel")) {
-    // A standalone name string like "kishore k" or "Kishore Kumar"
-    const cleaned = q.replace(/^name\s+(?:is\s+)?/i, "").trim().replace(/[.!]$/, "");
-    if (/^[A-Za-z0-9\s.&'-]{2,80}$/.test(cleaned) && !/^(?:yes|no|confirm|save|cancel|show|list)$/i.test(cleaned)) {
-      fields.name = cleaned;
+  // 6. Name
+  // A. 'change/update the name from X to Y'
+  const changeFromTo = q.match(/\b(?:change|update)\s+(?:the\s+)?(?:customer\s+)?names?\s+from\s+[^,.\n]+?\s+to\s+([^,.\n]+?)(?=[.,;!]|\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
+  if (changeFromTo) {
+    fields.name = changeFromTo[1].trim().replace(/^['"]|['"]$/g, "");
+  } else {
+    // B. 'set/change/update name to Y' or 'name is/as/:/= Y'
+    const nameToOrIs = q.match(/\b(?:(?:customer\s+)?names?|named)\s*(?:is|to|:|as|=)\s*([^,.\n]+?)(?=[.,;!]|\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
+    if (nameToOrIs) {
+      fields.name = nameToOrIs[1].trim().replace(/^['"]|['"]$/g, "");
+    } else {
+      // C. 'customer named/names/called X' or 'create customer [named] X'
+      const custNamed = q.match(/\b(?:create|make|add|new|draft|prepare|register)\s+(?:an?\s+)?customer\s+(?:(?:named|names|name|called|for)\s+)?([^,.\n]+?)(?=[.,;!]|\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
+      if (custNamed) {
+        const candidate = custNamed[1].trim().replace(/^['"]|['"]$/g, "");
+        if (!/^(?:draft|record|profile|account)$/i.test(candidate)) {
+          fields.name = candidate;
+        }
+      } else {
+        // D. 'with [Name], [Type], and [Phone]'
+        const withList = q.match(/\bwith\s+([A-Za-z0-9\s.&'-]+?)(?=\s*,\s*(?:individual|company|[0-9])|\s+and\s+[0-9]|\s*(?:,|\band\b)\s*(?:individual|company))/i);
+        if (withList) {
+          fields.name = withList[1].trim().replace(/^['"]|['"]$/g, "");
+        } else if (!fields.email && !fields.phone && fields.is_company === undefined && !fields.clearPhone && !q.includes("confirm") && !q.includes("cancel")) {
+          // E. Standalone name string (e.g. "kishore k" or "Kishore Kumar")
+          const isKeywordOnly = /\b(?:type|phone|mobile|email|gstin|pan|draft|confirm|cancel|save|delete|leave|show|list)\b/i.test(q);
+          if (!isKeywordOnly) {
+            const cleaned = q.replace(/^name\s+(?:is\s+|to\s+)?/i, "").trim().replace(/[.!]$/, "");
+            if (/^[A-Za-z0-9\s.&'-]{2,80}$/.test(cleaned) && !/^(?:yes|no|confirm|save|cancel|show|list|individual|company|update)$/i.test(cleaned) && !/^\+?[0-9\s-]{7,25}$/.test(cleaned)) {
+              fields.name = cleaned;
+            }
+          }
+        }
+      }
     }
   }
 
-  return fields;
+  return { fields, errors };
+}
+
+export function extractCustomerFields(text: string): Partial<CustomerDraftParams> & { clearPhone?: boolean } {
+  return extractCustomerFieldsWithErrors(text).fields;
 }
 
 export function customerDraftSummary(params: CustomerDraftParams): string {
@@ -137,15 +185,15 @@ export function customerDraftSummary(params: CustomerDraftParams): string {
 
 export async function prepareCustomerDraft(scope: Scope, text: string, requestId: string) {
   requireSalesAccess(scope.role);
-  const extracted = extractCustomerFields(text);
+  const { fields: extracted, errors } = extractCustomerFieldsWithErrors(text);
   const name = extracted.name || "";
 
   const params: CustomerDraftParams = {
     name,
     is_company: extracted.is_company,
     email: extracted.email,
-    phone: extracted.phone,
-    mobile: extracted.mobile,
+    phone: extracted.clearPhone ? undefined : extracted.phone,
+    mobile: extracted.clearPhone ? undefined : (extracted.mobile || extracted.phone),
     gstin: extracted.gstin,
     pan: extracted.pan,
     currency: "INR",
@@ -167,6 +215,10 @@ export async function prepareCustomerDraft(scope: Scope, text: string, requestId
     status: A.PROPOSED,
     expiresAt,
   });
+
+  if (errors.length > 0) {
+    throw new ErpToolError("BUSINESS_RULE", errors[0]);
+  }
 
   const missingFields: string[] = [];
   if (!params.name) missingFields.push("name");
@@ -196,7 +248,7 @@ export async function updateCustomerDraft(scope: Scope, proposalId: string, text
   if (!proposal) throw new ErpToolError("NOT_FOUND", "No active customer draft found in this conversation.");
 
   const currentParams = (proposal.params || {}) as unknown as CustomerDraftParams;
-  const extracted = extractCustomerFields(text);
+  const { fields: extracted, errors } = extractCustomerFieldsWithErrors(text);
 
   const updatedParams: CustomerDraftParams = {
     ...currentParams,
@@ -208,11 +260,21 @@ export async function updateCustomerDraft(scope: Scope, proposalId: string, text
     ...(extracted.pan ? { pan: extracted.pan } : {}),
   };
 
+  if (extracted.clearPhone) {
+    delete updatedParams.phone;
+    delete updatedParams.mobile;
+  }
+
   const summary = customerDraftSummary(updatedParams);
   proposal.params = updatedParams as unknown as Record<string, unknown>;
   proposal.preview = { ...updatedParams } as unknown as Record<string, unknown>;
   proposal.summary = summary;
   await proposal.save();
+
+  // If there are validation errors (e.g. invalid phone number), raise them now AFTER saving valid fields
+  if (errors.length > 0) {
+    throw new ErpToolError("BUSINESS_RULE", errors[0]);
+  }
 
   const missingFields: string[] = [];
   if (!updatedParams.name) missingFields.push("name");
@@ -285,7 +347,12 @@ export async function confirmCustomerDraft(scope: Scope, proposalId: string) {
     throw new ErpToolError("MISSING_FIELD", "Please provide a customer name before saving.");
   }
 
-  const isCompany = params.is_company ?? false;
+  if (params.is_company === undefined) {
+    await AiCommandProposal.updateOne({ _id: proposalId }, { $unset: { "params.executing": "" } });
+    throw new ErpToolError("MISSING_FIELD", "Please specify customer type (Individual or Company) before saving.");
+  }
+
+  const isCompany = params.is_company;
   const name = params.name.trim();
 
   // Create real customer

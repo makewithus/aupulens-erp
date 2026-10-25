@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -40,17 +40,17 @@ export default function SalesSummaryPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { toast } = useToast();
-  const [summary, setSummary] = useState<SalesSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedData = getInstantCachedData<SalesSummary>("/api/sales/summary");
+  const [summary, setSummary] = useState<SalesSummary | null>(() => cachedData ?? null);
+  const [isLoading, setIsLoading] = useState(() => !cachedData);
   const [error, setError] = useState("");
 
-  const fetchSummary = useCallback(async () => {
+  const fetchSummary = useCallback(async (force = false) => {
     try {
-      setIsLoading(true);
-      const res = await cachedFetch("/api/sales/summary");
+      const res = await cachedFetch("/api/sales/summary", undefined, { force });
       if (!res.ok) throw new Error("Failed to load summary");
       const data = await res.json();
-      setSummary(data);
+      if (data) setSummary(data);
     } catch (err) {
       console.error(err);
       setError("Failed to load sales summary");
@@ -71,6 +71,18 @@ export default function SalesSummaryPage() {
     }
   }, [status, fetchSummary]);
 
+  useEffect(() => {
+    const handleRevalidate = (e: any) => {
+      if (e?.detail?.url?.includes("/api/sales")) {
+        fetchSummary(true);
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("aup:revalidated", handleRevalidate);
+      return () => window.removeEventListener("aup:revalidated", handleRevalidate);
+    }
+  }, [fetchSummary]);
+
   const formatTrend = (val?: number) => {
     if (val === undefined || val === null) return undefined;
     if (val === 0) return "No change";
@@ -81,7 +93,7 @@ export default function SalesSummaryPage() {
     return <FullPageLoadingSkeleton />;
   }
 
-  if (isLoading) {
+  if (isLoading && !summary) {
     return (
       <DashboardLayout
         sidebarSections={salesSidebarConfig}
@@ -150,7 +162,7 @@ export default function SalesSummaryPage() {
             </p>
           </div>
           <Button
-            onClick={fetchSummary}
+            onClick={() => fetchSummary(true)}
             className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
           >
             <Activity className="w-4 h-4 mr-2" />

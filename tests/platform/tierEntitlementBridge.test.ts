@@ -63,6 +63,7 @@ describe("getTierLimits(tier) vs resolveEntitlements() â€” byte-for-byte equival
       subdomain: tenantId,
       ownerUserId: new mongoose.Types.ObjectId(),
       tier,
+      subscriptionStatus: "active",
     });
 
     const legacy = getTierLimits(tier);
@@ -120,6 +121,7 @@ describe("enforce.ts's moduleIsEnabled() vs moduleGate's isModuleAccessible() â€
       subdomain: tenantId,
       ownerUserId: new mongoose.Types.ObjectId(),
       tier,
+      subscriptionStatus: "active",
     });
 
     for (const moduleName of ALL_MODULES) {
@@ -136,6 +138,7 @@ describe("enforce.ts's moduleIsEnabled() vs moduleGate's isModuleAccessible() â€
       subdomain: tenantId,
       ownerUserId: new mongoose.Types.ObjectId(),
       tier: ORGANIZATION_TIER.STARTER,
+      subscriptionStatus: "active",
     });
     expect(await moduleIsEnabled(tenantId, "inventory")).toBe(true);
     expect(await moduleIsEnabled(tenantId, "finance")).toBe(false);

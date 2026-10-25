@@ -22,6 +22,8 @@ import {
   UserCheck,
   ShieldCheck,
   UserPlus,
+  Clock,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ErpStructuredResponse, ErpRecordItem } from "@/lib/ai/erpTypes";
@@ -69,11 +71,21 @@ import { useRouter } from "next/navigation";
 import { useAiChatStore } from "@/store/aiChatStore";
 
 export function StructuredErpView({ data, onAction, className }: StructuredErpViewProps) {
-  const router = useRouter();
+  let router: any = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    router = useRouter();
+  } catch {
+    router = null;
+  }
 
   const handleNavigate = (e: React.MouseEvent, href: string) => {
     e.preventDefault();
-    router.push(href);
+    if (router?.push) {
+      router.push(href);
+    } else if (typeof window !== "undefined") {
+      window.location.href = href;
+    }
     if (typeof window !== "undefined" && window.innerWidth < 1280) {
       useAiChatStore.getState().close();
     }
@@ -121,6 +133,8 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
         ? "/sales/orders"
         : data.entity === "product"
         ? "/sales/products"
+        : data.entity === "employee"
+        ? "/hr/employees"
         : "/sales/customers";
 
       const targetCustomer = (data as any).customerName || displayedRecords[0]?.customerName;
@@ -166,7 +180,7 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
                   {/* Top row: Document link + Status badge */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-muted-foreground text-[11px]">{data.entity === "invoice" ? "Invoice" : data.entity === "quote" ? "Quote" : "Document"}:</span>
+                      <span className="text-muted-foreground text-[11px]">{data.entity === "invoice" ? "Invoice" : data.entity === "quote" ? "Quote" : data.entity === "employee" ? "Employee ID" : "Document"}:</span>
                       {docLink}
                     </div>
                     {rec.status && (
@@ -179,26 +193,32 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
                   {/* Customer row */}
                   {rec.customerName && (
                     <div className="text-[11.5px] truncate">
-                      <span className="text-muted-foreground">Customer: </span>
+                      <span className="text-muted-foreground">{data.entity === "employee" ? "Employee Name: " : "Customer: "}</span>
                       <span className="font-medium text-foreground">{rec.customerName}</span>
                     </div>
                   )}
 
                   {/* Amount and Date row */}
-                  <div className="flex items-center justify-between text-[11.5px] pt-1 border-t border-border/30">
-                    <div>
-                      <span className="text-muted-foreground">Amount: </span>
-                      <span className="font-mono font-bold text-foreground">
-                        {rec.formattedAmount || (rec.amount !== undefined ? `₹${rec.amount.toLocaleString("en-IN")}` : "—")}
-                      </span>
+                  {(rec.amount !== undefined || rec.formattedAmount || rec.date) && (
+                    <div className="flex items-center justify-between text-[11.5px] pt-1 border-t border-border/30">
+                      {data.entity !== "employee" ? (
+                        <div>
+                          <span className="text-muted-foreground">Amount: </span>
+                          <span className="font-mono font-bold text-foreground">
+                            {rec.formattedAmount || (rec.amount !== undefined ? `₹${rec.amount.toLocaleString("en-IN")}` : "—")}
+                          </span>
+                        </div>
+                      ) : (
+                        <div />
+                      )}
+                      {rec.date && (
+                        <div className="text-muted-foreground flex items-center gap-1 font-mono text-[11px]">
+                          <Calendar className="w-3 h-3 opacity-70" />
+                          <span>{data.entity === "employee" ? `Joined: ${rec.date}` : rec.date}</span>
+                        </div>
+                      )}
                     </div>
-                    {rec.date && (
-                      <div className="text-muted-foreground flex items-center gap-1 font-mono text-[11px]">
-                        <Calendar className="w-3 h-3 opacity-70" />
-                        <span>{rec.date}</span>
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   {/* Optional extra metadata */}
                   {rec.extra && Object.keys(rec.extra).length > 0 && (
@@ -224,7 +244,7 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
                 onClick={(e) => handleNavigate(e, finalEntityRoute)}
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-lg border border-primary/25 bg-primary/10 hover:bg-primary/20 cursor-pointer"
               >
-                <span>View all {totalAvailable} {data.entity.replaceAll("_", " ")} records in Sales</span>
+                <span>View all {totalAvailable} {data.entity.replaceAll("_", " ")} records in {data.entity === "employee" ? "HR" : "Sales"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -507,9 +527,18 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
       const isProfitable = data.status === "profitable";
       const isLoss = data.status === "loss";
       const isIncomplete = data.status === "incomplete_data" || data.status === "unavailable";
+      const hasCogs = data.cogs !== undefined;
+      const details = data.details;
+      const hasDetails = Boolean(
+        details &&
+        ((details.revenueBreakdown && details.revenueBreakdown.length > 0) ||
+         (details.expenseBreakdown && details.expenseBreakdown.length > 0) ||
+         (details.cogsBreakdown && details.cogsBreakdown.length > 0))
+      );
 
       return (
         <div className={cn("p-4 rounded-xl border border-border/70 bg-card/70 backdrop-blur-sm shadow-sm space-y-3 text-xs", className)}>
+          {/* Header */}
           <div className="flex items-center justify-between border-b border-border/60 pb-2">
             <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
               {isProfitable ? (
@@ -519,7 +548,7 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
               ) : (
                 <Receipt className="w-4 h-4 text-amber-500" />
               )}
-              <span>Profit & Loss Analysis</span>
+              <span>{data.title || "Profit & Loss Analysis"}</span>
             </div>
             <span
               className={cn(
@@ -535,14 +564,42 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 py-1 text-center font-mono">
+          {/* Period Banner */}
+          {data.period && (
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-muted/40 border border-border/40 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5 font-medium text-foreground">
+                <Calendar className="w-3.5 h-3.5 text-primary" />
+                <span>{data.period.label}</span>
+              </div>
+              {data.period.startDate && data.period.endDate ? (
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {String(data.period.startDate)} → {String(data.period.endDate)}
+                </span>
+              ) : (
+                <span className="text-[10px] text-muted-foreground italic">Full ledger span</span>
+              )}
+            </div>
+          )}
+
+          {/* Metrics Grid */}
+          <div className={cn("grid gap-2 py-1 text-center font-mono", hasCogs ? "grid-cols-4" : "grid-cols-3")}>
             <div className="p-2 rounded-lg bg-muted/40 border border-border/40">
               <span className="text-[10px] text-muted-foreground block uppercase font-sans">Revenue</span>
               <span className="font-bold text-sm text-foreground">{data.formattedRevenue}</span>
             </div>
+            {hasCogs && (
+              <div className="p-2 rounded-lg bg-muted/40 border border-border/40">
+                <span className="text-[10px] text-muted-foreground block uppercase font-sans">COGS</span>
+                <span className="font-bold text-sm text-foreground">{data.formattedCogs}</span>
+              </div>
+            )}
             <div className="p-2 rounded-lg bg-muted/40 border border-border/40">
-              <span className="text-[10px] text-muted-foreground block uppercase font-sans">Expenses</span>
-              <span className="font-bold text-sm text-foreground">{data.formattedExpenses}</span>
+              <span className="text-[10px] text-muted-foreground block uppercase font-sans">
+                {hasCogs ? "OpEx" : "Expenses"}
+              </span>
+              <span className="font-bold text-sm text-foreground">
+                {hasCogs ? (data.formattedOperatingExpenses || data.formattedExpenses) : data.formattedExpenses}
+              </span>
             </div>
             <div
               className={cn(
@@ -559,20 +616,107 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
             </div>
           </div>
 
-          {isIncomplete && data.limitations && (
+          {/* COGS Explanation Callout */}
+          {data.cogsExplanation && (
+            <div className="px-2.5 py-1.5 rounded-lg bg-muted/30 border border-border/40 text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 shrink-0 text-primary" />
+              <span>{data.cogsExplanation}</span>
+            </div>
+          )}
+
+          {/* Calculation Details Breakdown */}
+          {hasDetails && (
+            <div className="p-2.5 rounded-lg bg-muted/20 border border-border/40 space-y-2 text-[11px]">
+              <div className="font-semibold text-foreground flex items-center justify-between">
+                <span>Account Breakdown</span>
+                <span className="text-[10px] text-muted-foreground font-normal">Authoritative posted ledger</span>
+              </div>
+              {details?.cogsBreakdown && details.cogsBreakdown.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase">Direct Costs (COGS)</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1 mt-0.5">
+                    {details.cogsBreakdown.map((acc, i) => (
+                      <div key={i} className="flex justify-between items-center text-muted-foreground font-mono">
+                        <span className="truncate pr-1">
+                          {acc.accountName} ({acc.accountCode})
+                          {acc.entryCount !== undefined ? ` • ${acc.entryCount} ${acc.entryCount === 1 ? "entry" : "entries"}` : ""}:
+                        </span>
+                        <span className="font-semibold text-foreground shrink-0">{acc.formattedAmount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {details?.expenseBreakdown && details.expenseBreakdown.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase">Operating Expenses</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1 mt-0.5">
+                    {details.expenseBreakdown.map((acc, i) => (
+                      <div key={i} className="flex justify-between items-center text-muted-foreground font-mono">
+                        <span className="truncate pr-1">
+                          {acc.accountName} ({acc.accountCode})
+                          {acc.entryCount !== undefined ? ` • ${acc.entryCount} ${acc.entryCount === 1 ? "entry" : "entries"}` : ""}:
+                        </span>
+                        <span className="font-semibold text-foreground shrink-0">{acc.formattedAmount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {details?.revenueBreakdown && details.revenueBreakdown.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase">Revenue</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1 mt-0.5">
+                    {details.revenueBreakdown.map((acc, i) => (
+                      <div key={i} className="flex justify-between items-center text-muted-foreground font-mono">
+                        <span className="truncate pr-1">
+                          {acc.accountName} ({acc.accountCode})
+                          {acc.entryCount !== undefined ? ` • ${acc.entryCount} ${acc.entryCount === 1 ? "entry" : "entries"}` : ""}:
+                        </span>
+                        <span className="font-semibold text-foreground shrink-0">{acc.formattedAmount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {details?.crossModuleCoverage && (
+                <div className="pt-2 border-t border-border/30 space-y-1">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase">Cross-Module Ledger Coverage</span>
+                  <div className="space-y-1 text-[10.5px] text-muted-foreground">
+                    {details.crossModuleCoverage.notes.map((note, idx) => (
+                      <div key={idx} className="flex items-start gap-1.5 leading-snug">
+                        <span className="text-primary font-bold">•</span>
+                        <span>{note}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Missing data / Limitations */}
+          {data.limitations && (
             <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] leading-relaxed flex items-start gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400 mt-0.5" />
               <span>{data.limitations}</span>
             </div>
           )}
 
+          {/* Footer with Basis and Timestamp */}
           <div className="pt-2 border-t border-border/40 text-[11px] text-muted-foreground flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3 h-3 text-emerald-500" />
               <span>Basis: {data.basis.replace(/_/g, " ")}</span>
+              {data.postedEntryCount !== undefined && data.postedEntryCount > 0 && (
+                <span className="font-mono">• {data.postedEntryCount} posted entries</span>
+              )}
             </span>
-            {data.postedEntryCount !== undefined && data.postedEntryCount > 0 && (
-              <span className="font-mono">{data.postedEntryCount} posted entries</span>
+            {data.generatedAt && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/80 font-mono">
+                <Clock className="w-3 h-3 text-muted-foreground/60" />
+                <span>{new Date(data.generatedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+              </span>
             )}
           </div>
         </div>
@@ -591,7 +735,7 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
               <span>Customer Draft — Review</span>
             </div>
             <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              Draft / Unshelved
+              Draft / Unsaved
             </span>
           </div>
 
@@ -606,12 +750,12 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
                 {data.isCompany === true ? "Company" : data.isCompany === false ? "Individual" : "Not specified"}
               </span>
             </div>
-            {data.phone && (
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Phone:</span>
-                <span className="font-mono text-foreground">{data.phone}</span>
-              </div>
-            )}
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Phone:</span>
+              <span className={cn(data.phone ? "font-mono text-foreground" : "text-muted-foreground")}>
+                {data.phone || "Not provided"}
+              </span>
+            </div>
             {data.email && (
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Email:</span>
@@ -690,8 +834,20 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
 
           <div className="space-y-2">
             <div>
-              <span className="text-muted-foreground text-[11px] block">Target User:</span>
+              <span className="text-muted-foreground text-[11px] block">
+                {data.employeeId ? "Target Employee:" : "Target User:"}
+              </span>
               <span className="font-semibold text-foreground text-[13px]">{data.userName}</span>
+              {data.employeeCode && (
+                <span className="text-muted-foreground text-[11px] ml-1.5 font-mono">
+                  (ID: {data.employeeCode})
+                </span>
+              )}
+              {data.department && (
+                <span className="text-muted-foreground text-[11px] ml-1.5 font-mono">
+                  · {data.department}
+                </span>
+              )}
               {data.userEmail && <span className="text-muted-foreground text-[11px] ml-1.5 font-mono">({data.userEmail})</span>}
             </div>
 
@@ -707,7 +863,7 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
           </div>
 
           <p className="text-[11px] text-muted-foreground leading-relaxed border-t border-border/40 pt-2">
-            Role updates modify module entitlements, permissions, and security audit status. Explicit human confirmation is required.
+            Role updates modify organizational designation, entitlements, and permissions. Explicit human confirmation is required.
           </p>
 
           {onAction && (
@@ -740,7 +896,10 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
             <span>Role Successfully Changed</span>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <span className="font-bold text-foreground text-sm">{data.userName}</span>
+            <span className="font-bold text-foreground text-sm">
+              {data.userName}
+              {data.employeeCode ? ` (${data.employeeCode})` : ""}
+            </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               {data.newRoleLabel || data.newRole}
             </span>

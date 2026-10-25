@@ -6,6 +6,7 @@ import Organization from "@/models/admin/Organization";
 import { buildPostedJournalReport } from "@/lib/accounting/reports";
 import { getBalanceSheetReviewItems } from "@/lib/accounting/balanceSheetReview";
 import { dateInTimeZone, isValidDateOnly } from "@/lib/accounting/reportDate";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,6 +22,12 @@ export async function GET(req: NextRequest) {
     const date = searchParams.get("date");
     if (date && !isValidDateOnly(date)) {
       return NextResponse.json({ error: "Invalid as-of date. Use YYYY-MM-DD." }, { status: 400 });
+    }
+
+    const cacheKey = `finance_bs:${tenantId}:${date || "today"}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
     }
 
     await connectDB();
@@ -68,7 +75,7 @@ export async function GET(req: NextRequest) {
       equity: { accounts: equityAccounts },
     });
 
-    return NextResponse.json({
+    const payload = {
       asset: report.asset,
       liability: report.liability,
       equity: {
@@ -92,7 +99,10 @@ export async function GET(req: NextRequest) {
           Math.abs(report.asset.total - (report.liability.total + equityTotal)) <=
           0.01,
       },
-    });
+    };
+
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error: any) {
     console.error("Balance Sheet Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -81,7 +81,7 @@ function SalesInvoicesLandingPageInner() {
       if (customerId) params.set("customerId", customerId);
       if (amountMin) params.set("amountMin", amountMin);
       if (amountMax) params.set("amountMax", amountMax);
-      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`, undefined, { noCache: true });
+      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
       const data = await res.json();
       if (requestId !== invoiceRequest.current) return;
       if (data.success) {

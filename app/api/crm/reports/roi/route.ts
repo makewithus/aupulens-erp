@@ -4,6 +4,7 @@ import { calculateCampaignROI, calculateGlobalROI, updateCampaignROI } from "@/l
 import { requirePermission } from "@/lib/crm/rbac";
 import dbConnect from "@/lib/db";
 import CrmCampaign from "@/models/crm/Campaign";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -19,12 +20,22 @@ export async function GET(req: NextRequest) {
   const campaignId = url.searchParams.get("campaign_id");
   const tenantId = session.user.tenantId;
 
+  const cacheKey = `crm-reports-roi:${tenantId}:${campaignId || "global"}`;
+  const cached = getCachedData<any>(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached);
+  }
+
   if (campaignId) {
     const metrics = await calculateCampaignROI(campaignId, tenantId);
-    return NextResponse.json({ success: true, data: metrics });
+    const payload = { success: true, data: metrics };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } else {
     const globalMetrics = await calculateGlobalROI(tenantId);
-    return NextResponse.json({ success: true, data: globalMetrics });
+    const payload = { success: true, data: globalMetrics };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   }
 }
 

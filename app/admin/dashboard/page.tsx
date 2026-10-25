@@ -18,7 +18,7 @@ import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
 import { NetProfitCard } from "@/components/admin/NetProfitCard";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
 import { BusinessHealthCard, BusinessHealthCardSkeleton } from "@/components/dashboard/BusinessHealthCard";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
 
 interface DashboardSummary {
@@ -66,11 +66,14 @@ interface DashboardSummary {
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const cachedData = getInstantCachedData<{ summary: DashboardSummary }>("/api/admin/dashboard");
+  const [summary, setSummary] = useState<DashboardSummary | null>(() => cachedData?.summary ?? null);
   const [healthRefreshKey, setHealthRefreshKey] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !cachedData?.summary);
   const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(session?.user?.role === "admin");
-  const visibleModules = enabledModulesLoaded ? (enabledModules ?? ["admin"]) : ["admin"];
+  const visibleModules = enabledModulesLoaded
+    ? Array.from(new Set([...(enabledModules ?? []), "admin", "manufacturing", "crm", "sales", "inventory", "finance", "hr"]))
+    : ["admin", "manufacturing", "crm", "sales", "inventory", "finance", "hr"];
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -87,31 +90,38 @@ export default function AdminDashboard() {
     }
   }, [status, session, router]);
 
-  const fetchDashboardData = async () => {
-    setIsLoading(true);
+  const fetchDashboardData = async (forceRefresh = false) => {
     try {
-      const res = await cachedFetch("/api/admin/dashboard", { cache: "no-store" }, { noCache: true });
-      // A 401/403 here means the session is actually invalid even if the client
-      // session state hasn't flipped yet — go to login instead of showing stale
-      // dashboard chrome.
+      const res = await cachedFetch("/api/admin/dashboard", undefined, { force: forceRefresh });
       if (res.status === 401 || res.status === 403) {
         router.replace("/auth/admin");
         return;
       }
       if (res.ok) {
         const data = await res.json();
-        setSummary(data.summary);
-        setHealthRefreshKey((key) => key + 1);
-      } else {
-        setSummary(null);
+        if (data.summary) {
+          setSummary(data.summary);
+          setHealthRefreshKey((key) => key + 1);
+        }
       }
     } catch (error) {
-      setSummary(null);
       console.error("Error fetching dashboard data:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const handleRevalidate = (e: any) => {
+      if (e?.detail?.url?.includes("/api/admin/dashboard")) {
+        fetchDashboardData();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("aup:revalidated", handleRevalidate);
+      return () => window.removeEventListener("aup:revalidated", handleRevalidate);
+    }
+  }, []);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {

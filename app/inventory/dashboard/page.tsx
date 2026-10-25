@@ -31,7 +31,7 @@ import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 
 export default function InventoryDashboardPage() {
   const { data: session, status } = useSession();
@@ -39,28 +39,47 @@ export default function InventoryDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedSum = getInstantCachedData<any>("/api/inventory/summary");
+  const cachedMoves = getInstantCachedData<any>("/api/inventory/stock-moves");
+  const cachedWh = getInstantCachedData<any>("/api/inventory/warehouse");
+  const cachedAlerts = getInstantCachedData<any>("/api/inventory/alerts");
+
+  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedSum);
+
+  const initS = cachedSum?.summary;
+  const initItems = initS?.totalItems?.current ?? 0;
+  const initLow = initS?.lowStock?.current ?? 0;
 
   // Live Module Parameters for Inventory
-  const [stats, setStats] = useState({
-    totalValuation: 0,
+  const [stats, setStats] = useState(() => ({
+    totalValuation: initS?.totalValue?.current ?? 0,
     valuationChange: 0,
-    activeSKUs: 0,
-    skuStockRate: 0,
+    activeSKUs: initItems,
+    skuStockRate: initItems > 0 ? Math.max(0, 100 - Math.round((initLow / initItems) * 100)) : 0,
     warehouseCapacity: 0,
-    lowStockCount: 0,
+    lowStockCount: initLow,
     outOfStockCount: 0,
     stockTurnoverRatio: 0,
-    inboundToday: 0,
-    outboundToday: 0,
-  });
+    inboundToday: initS?.operations?.receipts ?? 0,
+    outboundToday: initS?.operations?.deliveries ?? 0,
+  }));
   const inventoryStats = stats;
 
   const [valuationByCategory, setValuationByCategory] = useState<any[]>([]);
-  const [warehouseCapacities, setWarehouseCapacities] = useState<any[]>([]);
+  const [warehouseCapacities, setWarehouseCapacities] = useState<any[]>(() => {
+    const whList = cachedWh?.data || cachedWh?.warehouses || (Array.isArray(cachedWh) ? cachedWh : []);
+    const palette = [BRAND_COLORS.accent.green, BRAND_COLORS.accent.blue, BRAND_COLORS.accent.yellow, BRAND_COLORS.accent.purple];
+    return whList.map((wh: any, i: number) => ({
+      name: wh.name || wh.warehouseCode || `Hub ${i + 1}`,
+      used: wh.occupancyRate || wh.capacityPercentage || 0,
+      capacity: wh.totalCapacity ? `${wh.totalCapacity} pallets` : "Configured",
+      status: (wh.occupancyRate || 0) > 90 ? "Near Limit" : "Operational",
+      color: palette[i % palette.length],
+    }));
+  });
   const [criticalStockAlerts, setCriticalStockAlerts] = useState<any[]>([]);
   const [recentMovements, setRecentMovements] = useState<any[]>([]);
-  const [stockMoves, setStockMoves] = useState<any[]>([]);
+  const [stockMoves, setStockMoves] = useState<any[]>(() => cachedMoves?.items ?? []);
 
   useEffect(() => {
     let isMounted = true;
@@ -156,11 +175,22 @@ export default function InventoryDashboardPage() {
       }
     }
     loadInventoryData();
-    return () => { isMounted = false; };
+    const handleRevalidated = (e: any) => {
+      if (e?.detail?.url?.includes("/api/inventory")) {
+        loadInventoryData();
+      }
+    };
+    window.addEventListener("aup:revalidated", handleRevalidated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("aup:revalidated", handleRevalidated);
+    };
   }, []);
 
   const dailyThroughputData = useMemo(() => {
-    if (!stockMoves || stockMoves.length === 0) return [];
+    if (!stockMoves || stockMoves.length === 0) {
+      return [];
+    }
     const countsByDate = new Map<string, number>();
     for (const move of stockMoves) {
       const d = move.scheduledDate || move.createdAt;

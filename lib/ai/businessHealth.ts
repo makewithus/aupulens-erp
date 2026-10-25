@@ -83,11 +83,11 @@ export async function generateBusinessHealthSummary(tenantId: string): Promise<H
       tier,
       aiSettings,
       `Write a concise daily business-health summary for a company's leadership based on this ERP data. ` +
-        `Include a short revenue outlook based on the weighted vs total open pipeline. Respond with ONLY JSON:\n` +
+        `Include a short revenue outlook based on the weighted vs total open pipeline. Format all financial amounts in Indian Rupees (₹), NEVER in dollars ($). If postedFinancials is present and balanced, reference posted income and net income. Respond with ONLY JSON:\n` +
         `{"summary":"<2-3 sentences>","highlights":["<positive point>"],"concerns":["<risk/issue>"],"revenueForecast":"<1 sentence outlook>"}\n\n` +
         `Data:\n${JSON.stringify(metrics)}`,
       {
-        systemPrompt: "You are a precise business analyst. Use only the data provided; never invent figures. Reply with raw JSON only.",
+        systemPrompt: "You are a precise business analyst for an Indian enterprise ERP. Use only the data provided; never invent figures. Format all monetary figures in Indian Rupees (₹), never in USD ($). Reply with raw JSON only.",
         maxTokens: AI_MAX_TOKENS.summary,
       }
     );

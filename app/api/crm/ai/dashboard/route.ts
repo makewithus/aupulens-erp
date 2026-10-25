@@ -9,6 +9,7 @@ import CrmActivity from "@/models/crm/Activity";
 import { evaluateOpportunityHealth } from "@/lib/crm/opportunityHealth";
 import { calculateForecast } from "@/lib/crm/forecast";
 import { analyzeLeadCompleteness } from "@/lib/crm/dataCompletion";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 /**
  * Real data backing /crm/ai/dashboard (Phase 2). Previously this page was
@@ -19,6 +20,15 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   const tenantId = session.user.tenantId;
+
+  const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
+  const cacheKey = `crm-ai-dashboard:${tenantId}`;
+  if (!isFresh) {
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+  }
 
   await dbConnect();
 
@@ -59,7 +69,7 @@ export async function GET(req: NextRequest) {
       ? Math.round(recentLeads.reduce((sum: number, l: any) => sum + (l.lead_score || 0), 0) / recentLeads.length)
       : null;
 
-  return NextResponse.json({
+  const payload = {
     success: true,
     data: {
       atRiskDeals: { count: atRiskDealsCount, pipelineValue: atRiskPipelineValue },
@@ -69,5 +79,8 @@ export async function GET(req: NextRequest) {
       leadQuality: { avgScoreLast30Days: avgLeadScore, sampleSize: recentLeads.length },
       topRecommendations,
     },
-  });
+  };
+
+  setCachedData(cacheKey, payload, 20_000);
+  return NextResponse.json(payload);
 }

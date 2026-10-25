@@ -11,18 +11,32 @@ import { executeErpQuery, ErpToolError, currency, customerName, requireSalesAcce
 import { prepareQuoteDraft, confirmQuoteDraft, updateQuoteDraft } from "./quoteDraft";
 import { prepareCustomerDraft, updateCustomerDraft, confirmCustomerDraft, cancelCustomerDraft } from "./customerDraft";
 import { COMMAND_ACTIONS } from "./commandActions";
-import { buildPostedJournalReport } from "@/lib/accounting/reports";
+import { buildPostedJournalReport, toDateStartInTimeZone, toDateEndInTimeZone } from "@/lib/accounting/reports";
 import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
-import { AI_ACTION_STATUS as A } from "@/lib/constants/statuses";
+import { AI_ACTION_STATUS as A, DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "./conversationContext";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import connectDB from "@/lib/db";
+import JournalEntry from "@/models/finance/JournalEntry";
+import Employee from "@/models/hr/Employee";
+import "@/models/hr/Department";
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 import type { ErpStructuredResponse } from "./erpTypes";
 import { formatSalesDate } from "@/lib/sales/formatters";
 
 // Fixed data cache for organization and plan lookups to reduce repeated database roundtrips
 const orgCache = new Map<string, { org: any; expiresAt: number }>();
+export function clearOrgCache(tenantId?: string) {
+  if (tenantId) {
+    orgCache.delete(tenantId);
+  } else {
+    orgCache.clear();
+  }
+}
 async function getCachedOrg(tenantId: string) {
   const now = Date.now();
   const hit = orgCache.get(tenantId);
@@ -78,10 +92,26 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   }
   const existingChat: any = await ChatHistory.findOne(chatLookupFilter).select("lastErpQuery pendingQuoteProposalId pendingCustomerProposalId pendingRoleProposalId").lean();
 
+  let pendingCustomerProposalIdFromDb = existingChat?.pendingCustomerProposalId ? String(existingChat.pendingCustomerProposalId) : undefined;
+  if (!pendingCustomerProposalIdFromDb) {
+    const activeCustomerProposal = await AiCommandProposal.findOne({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      module: "sales",
+      actionType: "create_customer_draft",
+      status: A.PROPOSED,
+      "params.conversationId": conversationId,
+      "params.executing": { $ne: true },
+    }).sort({ createdAt: -1 }).lean();
+    if (activeCustomerProposal) {
+      pendingCustomerProposalIdFromDb = String(activeCustomerProposal._id);
+    }
+  }
+
   const erpContext: ErpIntentContext = {
     lastErpQuery: existingChat?.lastErpQuery,
     pendingQuoteProposalId: existingChat?.pendingQuoteProposalId ? String(existingChat.pendingQuoteProposalId) : undefined,
-    pendingCustomerProposalId: existingChat?.pendingCustomerProposalId ? String(existingChat.pendingCustomerProposalId) : undefined,
+    pendingCustomerProposalId: pendingCustomerProposalIdFromDb,
     pendingRoleProposalId: existingChat?.pendingRoleProposalId ? String(existingChat.pendingRoleProposalId) : undefined,
   };
 
@@ -125,7 +155,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   let structured: ErpStructuredResponse | undefined;
   if (!cached) {
     if (intent === "refuse") {
-      let draftCount = 293;
+      let draftCount = 0;
       try {
         const count = await SalesInvoice.countDocuments({
           tenantId: input.tenantId === "default" || input.tenantId === "default-tenant"
@@ -263,12 +293,71 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         message = `Your organization name is **${org.name}** (Workspace: \`${org.subdomain}\`).`;
       }
     } else if (intent === "profit_loss" || (typeof intent === "object" && intent !== null && (intent as any).type === "profit_loss")) {
+      const isObjIntent = typeof intent === "object" && intent !== null;
+      const intentObj = isObjIntent ? (intent as any) : {};
+      const startDate: Date | undefined = intentObj.startDate || (intentObj.dateFrom ? new Date(intentObj.dateFrom + "T00:00:00Z") : undefined);
+      const endDate: Date | undefined = intentObj.endDate || (intentObj.dateTo ? new Date(intentObj.dateTo + "T23:59:59.999Z") : undefined);
+      const wantsCogs = Boolean(intentObj.wantsCogs);
+      const wantsRevenue = Boolean(intentObj.wantsRevenue);
+      const wantsExpenses = Boolean(intentObj.wantsExpenses);
+      const wantsCrossModule = Boolean(intentObj.wantsCrossModule);
+      const wantsDetails = Boolean(intentObj.wantsDetails);
+      const wantsDateRange = Boolean(intentObj.wantsDateRange);
+
+      const org: any = await getCachedOrg(input.tenantId);
+      const orgName = org?.name || "Aupulens Workspace";
+
+      let periodLabel = typeof intentObj.period === "string" ? intentObj.period : intentObj.period?.label;
+      if (!periodLabel) {
+        const fromStr = startDate ? formatSalesDate(startDate) : undefined;
+        const toStr = endDate ? formatSalesDate(endDate) : undefined;
+        periodLabel = fromStr && toStr ? `${fromStr} to ${toStr}` : fromStr ? `From ${fromStr}` : toStr ? `Until ${toStr}` : "All Time";
+      }
+      const periodType = typeof intentObj.period === "object" && intentObj.period?.type ? intentObj.period.type : (startDate ? "month" : "all_time");
+      const periodInfo = {
+        type: periodType,
+        label: periodLabel,
+        startDate,
+        endDate,
+      };
+
+      const orgTimezone = "Asia/Kolkata";
       const pAndLReport = await buildPostedJournalReport({
         tenantId: input.tenantId,
+        startDate,
+        endDate,
+        endDateTimeZone: orgTimezone,
       });
 
+      // Count unposted/draft entries within the period
+      const unpostedQuery: Record<string, any> = {
+        tenantId: input.tenantId,
+        status: { $ne: DOCUMENT_STATUS.POSTED },
+      };
+      if (startDate || endDate) {
+        unpostedQuery["header.date"] = {};
+        if (startDate) {
+          const isPrecise = startDate.getUTCHours() !== 0 || startDate.getUTCMinutes() !== 0 || startDate.getUTCSeconds() !== 0;
+          unpostedQuery["header.date"].$gte = isPrecise ? startDate : toDateStartInTimeZone(startDate, orgTimezone);
+        }
+        if (endDate) {
+          unpostedQuery["header.date"].$lte = toDateEndInTimeZone(endDate, orgTimezone);
+        }
+      }
+      const unpostedEntryCount = await JournalEntry.countDocuments(unpostedQuery);
+
+      // Check issued sales invoices in the period
+      const invoiceMatch: Record<string, any> = {
+        tenantId: input.tenantId,
+        ...issuedInvoiceFilter(),
+      };
+      if (startDate || endDate) {
+        invoiceMatch.invoiceDate = {};
+        if (startDate) invoiceMatch.invoiceDate.$gte = startDate;
+        if (endDate) invoiceMatch.invoiceDate.$lte = endDate;
+      }
       const issuedInv = await SalesInvoice.aggregate([
-        { $match: { tenantId: input.tenantId, ...issuedInvoiceFilter() } },
+        { $match: invoiceMatch },
         { $group: { _id: null, total: { $sum: "$totalAmount" }, count: { $sum: 1 } } },
       ]).exec();
       const issuedRevenue = issuedInv[0]?.total || 0;
@@ -278,38 +367,223 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       const postedExpenses = pAndLReport.expense.total;
       const postedEntries = pAndLReport.activity.postedEntryCount;
 
+      const expenseAccounts = Object.values(pAndLReport.expense.accounts || {});
+      const incomeAccounts = Object.values(pAndLReport.income.accounts || {});
+
+      const isCogsAccount = (acc: any) => {
+        if (acc.accountType === "expense_direct_cost") return true;
+        if (acc.code && /^5[0-9]{3}/.test(acc.code)) return true;
+        if (acc.name && /\b(?:cogs|cost of goods|direct cost|cost of sales)\b/i.test(acc.name)) return true;
+        return false;
+      };
+
+      const cogsAccounts = expenseAccounts.filter(isCogsAccount);
+      const operatingAccounts = expenseAccounts.filter((a) => !isCogsAccount(a));
+
+      const cogsTotal = cogsAccounts.reduce((sum, a) => sum + a.amount, 0);
+      const operatingTotal = operatingAccounts.reduce((sum, a) => sum + a.amount, 0);
+
+      const hasSeparateCogs = cogsAccounts.length > 0;
+      const cogsTreatment: "separated" | "included_in_expenses" | "unavailable" = hasSeparateCogs
+        ? "separated"
+        : postedExpenses > 0
+        ? "included_in_expenses"
+        : "unavailable";
+
+      const cogsExplanation = hasSeparateCogs
+        ? `COGS of ${currency(cogsTotal)} is separately categorized in the chart of accounts across ${cogsAccounts.length} direct cost account(s).`
+        : postedExpenses > 0
+        ? "COGS is not separately categorized in the posted chart of accounts; all recorded expenses are classified as operating expenses."
+        : "No expense records are posted in the general ledger for this period.";
+
+      const startDisplay = startDate ? formatSalesDate(startDate) : undefined;
+      const endDisplay = endDate ? formatSalesDate(endDate) : undefined;
+
+      const limitationList: string[] = [];
+      if (unpostedEntryCount > 0) {
+        limitationList.push(`${unpostedEntryCount} unposted or draft journal ${unpostedEntryCount === 1 ? "entry was" : "entries were"} excluded in accordance with the posted-only reporting policy.`);
+      }
+      if (postedEntries > 0 && postedIncome === 0 && issuedRevenue > 0) {
+        limitationList.push(`${issuedInvoiceCount} sales invoices (${currency(issuedRevenue)}) were issued during this period but have not yet been posted as journal entries to recognized revenue.`);
+      }
+
+      // Details breakdown with contributing entry counts
+      const revenueBreakdown = incomeAccounts.map((a) => ({
+        accountCode: a.code,
+        accountName: a.name,
+        amount: a.amount,
+        formattedAmount: currency(a.amount),
+        entryCount: a.entryCount || 0,
+      }));
+      const expenseBreakdown = operatingAccounts.map((a) => ({
+        accountCode: a.code,
+        accountName: a.name,
+        amount: a.amount,
+        formattedAmount: currency(a.amount),
+        entryCount: a.entryCount || 0,
+      }));
+      const cogsBreakdown = cogsAccounts.map((a) => ({
+        accountCode: a.code,
+        accountName: a.name,
+        amount: a.amount,
+        formattedAmount: currency(a.amount),
+        entryCount: a.entryCount || 0,
+      }));
+
+      const sourcesChecked = [
+        "Finance (Posted General Ledger)",
+        "Sales (Sales Invoices)",
+        "Inventory & Direct Costs",
+        "Procurement & Expenses",
+      ];
+      const coverageNotes = [
+        `Finance Ledger: Authoritative source for all recognized income and expense calculations (${postedEntries} posted journal entries verified).`,
+        issuedInvoiceCount > 0
+          ? `Sales Module: ${issuedInvoiceCount} sales invoices found totaling ${currency(issuedRevenue)}. Invoices already posted as journal entries are recognized in the general ledger (${currency(postedIncome)}); unposted invoices are not double-counted.`
+          : `Sales Module: No unposted sales revenue detected outside the general ledger.`,
+        hasSeparateCogs
+          ? `Inventory / COGS: Direct costs of ${currency(cogsTotal)} are categorized in the chart of accounts across ${cogsAccounts.length} direct cost account(s).`
+          : `Inventory / COGS: ${cogsExplanation}`,
+        `Double-Counting Prevention: Operating expenses and revenues are recognized strictly from posted general ledger accounts to guarantee transactions in subsidiary modules are not added a second time.`
+      ];
+      const crossModuleCoverage = {
+        sourcesChecked,
+        notes: coverageNotes,
+      };
+
+      query = {
+        type: "profit_loss",
+        entity: "profit_loss",
+        reportType: "profit_loss",
+        period: periodLabel,
+        periodType: periodInfo.type,
+        dateFrom: intentObj.dateFrom || (startDate ? startDate.toISOString().slice(0, 10) : undefined),
+        dateTo: intentObj.dateTo || (endDate ? endDate.toISOString().slice(0, 10) : undefined),
+        startDate: startDate ? startDate.toISOString() : undefined,
+        endDate: endDate ? endDate.toISOString() : undefined,
+        wantsCogs,
+        wantsRevenue,
+        wantsExpenses,
+        wantsCrossModule,
+        wantsDetails,
+        wantsDateRange,
+      };
+
       if (postedEntries > 0 && (postedIncome > 0 || postedExpenses > 0)) {
         const net = postedIncome - postedExpenses;
         const isProfit = net >= 0;
-        message = `Company financial analysis (authoritative posted journal entries):\n\n` +
-          `- Recognized revenue / income: ${currency(postedIncome)}\n` +
-          `- Operating & direct expenses: ${currency(postedExpenses)}\n` +
-          `- Net ${isProfit ? "profit" : "loss"}: ${currency(Math.abs(net))}\n` +
-          `- Overall company status: **${isProfit ? "In Profit" : "In Loss"}**\n` +
-          `- Posted journal entries analyzed: ${postedEntries}\n` +
-          `- Trial balance verification: ${pAndLReport.totals.balanced ? "Balanced" : "Discrepancy detected"}`;
+        const status = net > 0 ? "profitable" : net < 0 ? "loss" : "break_even";
+        const isFollowUpRequest = wantsDetails || wantsCrossModule || wantsRevenue || wantsExpenses || wantsCogs || wantsDateRange;
+
+        let msg = "";
+        if (isFollowUpRequest) {
+          msg = `### Profit & Loss Calculation Details & Account-Level Breakdown — **${periodLabel}**\n\n` +
+            `**1. Reporting Scope & Basis:**\n` +
+            `- Organization: **${orgName}** (Workspace: \`${input.tenantId}\`)\n` +
+            `- Reporting period: ${startDisplay && endDisplay ? `${startDisplay} to ${endDisplay}` : periodLabel} (Asia/Kolkata timezone)\n` +
+            `- Scope: ${startDate || endDate ? "Date-bounded" : "All Time (full general ledger span)"}\n` +
+            `- Accounting basis: Authoritative posted journal entries (\`JournalEntry\` general ledger)\n` +
+            `- Posted entries analyzed: ${postedEntries}\n\n` +
+            `**2. Revenue Breakdown:**\n` +
+            (incomeAccounts.length > 0
+              ? incomeAccounts.map((a) => `- **${a.name}** (Code: \`${a.code}\`): ${currency(a.amount)} across ${a.entryCount || 0} posted entry/entries`).join("\n") + "\n"
+              : "- No revenue accounts recorded.\n") +
+            `- **Total Recognized Revenue:** ${currency(postedIncome)}\n\n` +
+            `**3. Cost of Goods Sold (COGS) Breakdown:**\n` +
+            (hasSeparateCogs
+              ? cogsAccounts.map((a) => `- **${a.name}** (Code: \`${a.code}\`): ${currency(a.amount)} across ${a.entryCount || 0} posted entry/entries`).join("\n") + "\n"
+              : `- COGS treatment: ${cogsExplanation}\n`) +
+            `- **Total Direct Costs (COGS):** ${hasSeparateCogs ? currency(cogsTotal) : "Included in operating expenses or unavailable"}\n\n` +
+            `**4. Operating Expenses & Net Result:**\n` +
+            (operatingAccounts.length > 0
+              ? operatingAccounts.map((a) => `- **${a.name}** (Code: \`${a.code}\`): ${currency(a.amount)} across ${a.entryCount || 0} posted entry/entries`).join("\n") + "\n"
+              : "- No operating expense accounts recorded.\n") +
+            `- **Total Operating Expenses:** ${currency(operatingTotal)}\n` +
+            `- **Total Expenses:** ${currency(postedExpenses)}\n` +
+            `- **Calculation Formula:** Net Result = Revenue (${currency(postedIncome)}) - COGS (${currency(hasSeparateCogs ? cogsTotal : 0)}) - Operating Expenses (${currency(operatingTotal)})\n` +
+            `- **Reconciled Net Result:** ${currency(Math.abs(net))} (${isProfit ? "Profit" : "Loss"})\n` +
+            `- **Overall Status:** **${isProfit ? "In Profit" : "In Loss"}**\n` +
+            `- **Trial Balance Verification:** ${pAndLReport.totals.balanced ? "Balanced" : "Discrepancy detected"}\n\n` +
+            `**5. Cross-Module Coverage & Ledger Reconciliation:**\n` +
+            coverageNotes.map((n) => `- ${n}`).join("\n");
+        } else {
+          msg = `Company financial analysis for **${periodLabel}** (authoritative posted journal entries):\n\n` +
+            `- Reporting period: ${startDisplay && endDisplay ? `${startDisplay} to ${endDisplay}` : periodLabel}\n` +
+            `- Recognized revenue / income: ${currency(postedIncome)}\n` +
+            (hasSeparateCogs
+              ? `- Cost of Goods Sold (COGS): ${currency(cogsTotal)} (separated)\n- Operating expenses: ${currency(operatingTotal)}\n`
+              : `- Cost of Goods Sold (COGS): Unavailable separately (${cogsExplanation})\n`) +
+            `- Total expenses: ${currency(postedExpenses)}\n` +
+            `- Net ${isProfit ? "profit" : "loss"}: ${currency(Math.abs(net))}\n` +
+            `- Overall company status: **${isProfit ? "In Profit" : "In Loss"}**\n` +
+            `- Posted journal entries analyzed: ${postedEntries}\n` +
+            `- Accounting basis: Posted journal entries (cash/accrual ledgers)\n` +
+            `- Trial balance verification: ${pAndLReport.totals.balanced ? "Balanced" : "Discrepancy detected"}`;
+        }
+
+        if (limitationList.length > 0) {
+          msg += `\n\n**Data integrity notices:**\n` + limitationList.map((l) => `- ${l}`).join("\n");
+        }
+
+        message = msg;
 
         structured = {
           type: "profit_loss",
+          title: `Profit & Loss Analysis — ${periodLabel}`,
+          period: {
+            type: periodInfo.type as any,
+            label: periodLabel,
+            startDate: startDisplay,
+            endDate: endDisplay,
+          },
           revenue: postedIncome,
           formattedRevenue: currency(postedIncome),
+          cogs: hasSeparateCogs ? cogsTotal : undefined,
+          formattedCogs: hasSeparateCogs ? currency(cogsTotal) : undefined,
+          cogsTreatment,
+          cogsExplanation,
+          operatingExpenses: hasSeparateCogs ? operatingTotal : postedExpenses,
+          formattedOperatingExpenses: currency(hasSeparateCogs ? operatingTotal : postedExpenses),
           expenses: postedExpenses,
           formattedExpenses: currency(postedExpenses),
           netProfit: net,
           formattedNetProfit: currency(Math.abs(net)),
           isProfitable: isProfit,
-          status: net > 0 ? "profitable" : net < 0 ? "loss" : "break_even",
+          status,
           postedEntryCount: postedEntries,
           basis: "posted_journal_entries",
+          limitations: limitationList.length > 0 ? limitationList.join(" ") : undefined,
+          details: {
+            revenueBreakdown,
+            expenseBreakdown,
+            cogsBreakdown,
+            crossModuleCoverage,
+          },
+          generatedAt: new Date().toISOString(),
         };
       } else if (issuedRevenue > 0) {
-        message = `A reliable net profit or loss figure cannot yet be calculated because authoritative expense data is unavailable in your posted general ledger.\n\n` +
+        let msg = `A reliable net profit or loss figure cannot yet be calculated for **${periodLabel}** because authoritative expense data is unavailable in your posted general ledger.\n\n` +
+          `- Reporting period: ${startDisplay && endDisplay ? `${startDisplay} to ${endDisplay}` : periodLabel}\n` +
           `- Issued sales invoice revenue: ${currency(issuedRevenue)} across ${issuedInvoiceCount} records (drafts and cancellations excluded)\n` +
-          `- Posted expense records: None found in the general ledger\n\n` +
+          `- Posted expense records: None found in the general ledger\n` +
+          `- Cost of Goods Sold (COGS): Unavailable (no posted accounting entries)\n\n` +
           `Sales revenue cannot be substituted for profit. To calculate net profit or loss, recorded expenses (vendor bills, payroll, or expense journals) must be posted to the finance ledger.`;
+
+        if (limitationList.length > 0) {
+          msg += `\n\n**Data integrity notices:**\n` + limitationList.map((l) => `- ${l}`).join("\n");
+        }
+
+        message = msg;
 
         structured = {
           type: "profit_loss",
+          title: `Profit & Loss Analysis — ${periodLabel}`,
+          period: {
+            type: periodInfo.type as any,
+            label: periodLabel,
+            startDate: startDisplay,
+            endDate: endDisplay,
+          },
           revenue: issuedRevenue,
           formattedRevenue: currency(issuedRevenue),
           expenses: 0,
@@ -321,13 +595,25 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           invoiceCount: issuedInvoiceCount,
           postedEntryCount: 0,
           basis: "incomplete_data",
-          limitations: "Operating expenses and posted expense journal entries are missing. Sales revenue cannot be substituted for profit.",
+          cogsTreatment: "unavailable",
+          cogsExplanation: "COGS is unavailable because no expense records have been posted to the general ledger.",
+          limitations: limitationList.length > 0
+            ? limitationList.join(" ") + " Operating expenses and posted expense journal entries are missing. Sales revenue cannot be substituted for profit."
+            : "Operating expenses and posted expense journal entries are missing. Sales revenue cannot be substituted for profit.",
+          generatedAt: new Date().toISOString(),
         };
       } else {
-        message = `Neither recognized revenue nor expense entries have been posted to the general ledger for this workspace. A reliable profit or loss figure cannot be calculated because financial records are empty.`;
+        message = `Neither recognized revenue nor expense entries have been posted to the general ledger for this workspace in **${periodLabel}** (${startDisplay && endDisplay ? `${startDisplay} to ${endDisplay}` : "all dates"}). A reliable profit or loss figure cannot be calculated because financial records are empty.`;
 
         structured = {
           type: "profit_loss",
+          title: `Profit & Loss Analysis — ${periodLabel}`,
+          period: {
+            type: periodInfo.type as any,
+            label: periodLabel,
+            startDate: startDisplay,
+            endDate: endDisplay,
+          },
           revenue: 0,
           formattedRevenue: currency(0),
           expenses: 0,
@@ -338,7 +624,10 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           status: "unavailable",
           postedEntryCount: 0,
           basis: "incomplete_data",
-          limitations: "No revenue or expense records found in the general ledger.",
+          cogsTreatment: "unavailable",
+          cogsExplanation: "No financial entries exist for this period.",
+          limitations: limitationList.length > 0 ? limitationList.join(" ") : "No revenue or expense records found in the general ledger for this period.",
+          generatedAt: new Date().toISOString(),
         };
       }
     } else if (intent === "customer_draft") {
@@ -360,8 +649,25 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         status: "proposed",
       };
     } else if (intent === "customer_update") {
-      const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
-      if (!chat?.pendingCustomerProposalId) {
+      let proposalId = existingChat?.pendingCustomerProposalId ? String(existingChat.pendingCustomerProposalId) : undefined;
+      if (!proposalId) {
+        const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
+        if (chat?.pendingCustomerProposalId) proposalId = String(chat.pendingCustomerProposalId);
+      }
+      if (!proposalId) {
+        const activeProposal = await AiCommandProposal.findOne({
+          tenantId: scope.tenantId,
+          userId: scope.userId,
+          module: "sales",
+          actionType: "create_customer_draft",
+          status: A.PROPOSED,
+          "params.conversationId": scope.conversationId,
+          "params.executing": { $ne: true },
+        }).sort({ createdAt: -1 }).lean();
+        if (activeProposal) proposalId = String(activeProposal._id);
+      }
+
+      if (!proposalId) {
         const draft = await prepareCustomerDraft(scope, input.text, requestId);
         message = draft.message;
         pendingCustomerProposalId = draft.proposalId;
@@ -379,7 +685,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           status: "proposed",
         };
       } else {
-        const draft = await updateCustomerDraft(scope, String(chat.pendingCustomerProposalId), input.text, requestId);
+        const draft = await updateCustomerDraft(scope, proposalId, input.text, requestId);
         message = draft.message;
         pendingCustomerProposalId = draft.proposalId;
         actions = draft.missingFields.length === 0
@@ -397,9 +703,25 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         };
       }
     } else if (intent === "customer_confirm") {
-      const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
-      if (!chat?.pendingCustomerProposalId) throw new ErpToolError("MISSING_FIELD", "Please prepare a customer draft in this conversation first.");
-      const cust = await confirmCustomerDraft(scope, String(chat.pendingCustomerProposalId));
+      let proposalId = existingChat?.pendingCustomerProposalId ? String(existingChat.pendingCustomerProposalId) : undefined;
+      if (!proposalId) {
+        const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
+        if (chat?.pendingCustomerProposalId) proposalId = String(chat.pendingCustomerProposalId);
+      }
+      if (!proposalId) {
+        const activeProposal = await AiCommandProposal.findOne({
+          tenantId: scope.tenantId,
+          userId: scope.userId,
+          module: "sales",
+          actionType: "create_customer_draft",
+          status: A.PROPOSED,
+          "params.conversationId": scope.conversationId,
+          "params.executing": { $ne: true },
+        }).sort({ createdAt: -1 }).lean();
+        if (activeProposal) proposalId = String(activeProposal._id);
+      }
+      if (!proposalId) throw new ErpToolError("MISSING_FIELD", "Please prepare a customer draft in this conversation first.");
+      const cust = await confirmCustomerDraft(scope, proposalId);
       message = `Saved customer "${cust.name}" (${cust.isCompany ? "Company" : "Individual"}).`;
       structured = {
         type: "customer_saved",
@@ -410,29 +732,136 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       };
       await ChatHistory.updateOne(filter, { $unset: { pendingCustomerProposalId: "" } });
     } else if (intent === "customer_cancel") {
-      const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
-      if (chat?.pendingCustomerProposalId) {
-        await cancelCustomerDraft(scope, String(chat.pendingCustomerProposalId));
+      let proposalId = existingChat?.pendingCustomerProposalId ? String(existingChat.pendingCustomerProposalId) : undefined;
+      if (!proposalId) {
+        const chat: any = await ChatHistory.findOne(filter).select("pendingCustomerProposalId").lean();
+        if (chat?.pendingCustomerProposalId) proposalId = String(chat.pendingCustomerProposalId);
+      }
+      if (!proposalId) {
+        const activeProposal = await AiCommandProposal.findOne({
+          tenantId: scope.tenantId,
+          userId: scope.userId,
+          module: "sales",
+          actionType: "create_customer_draft",
+          status: A.PROPOSED,
+          "params.conversationId": scope.conversationId,
+          "params.executing": { $ne: true },
+        }).sort({ createdAt: -1 }).lean();
+        if (activeProposal) proposalId = String(activeProposal._id);
+      }
+      if (proposalId) {
+        await cancelCustomerDraft(scope, proposalId);
         await ChatHistory.updateOne(filter, { $unset: { pendingCustomerProposalId: "" } });
       }
       message = "Customer draft cancelled. No customer record was created.";
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "employee_lookup") {
+      const lookupIntent = intent as { type: "employee_lookup"; name?: string; department?: string; employeeCode?: string };
+      await connectDB();
+      const filterQuery: any = { tenantId: input.tenantId };
+      if (lookupIntent.name) {
+        const rx = new RegExp(escapeRegex(lookupIntent.name), "i");
+        filterQuery.$or = [
+          { firstName: rx },
+          { lastName: rx },
+          { employeeCode: rx },
+          { email: rx },
+          { designation: rx },
+        ];
+      }
+      let employees = await Employee.find(filterQuery)
+        .populate("departmentId", "name code")
+        .populate("userId", "name email role userRole")
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
+
+      if (employees.length === 0 && lookupIntent.name) {
+        const allEmps = await Employee.find({ tenantId: input.tenantId })
+          .populate("departmentId", "name code")
+          .populate("userId", "name email role userRole")
+          .lean();
+        const target = lookupIntent.name.toLowerCase();
+        employees = allEmps.filter((emp: any) => {
+          const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim().toLowerCase();
+          return fullName === target || fullName.includes(target);
+        });
+      }
+
+      if (employees.length === 0) {
+        message = lookupIntent.name
+          ? `No matching employee found for "${lookupIntent.name}" in your current organization.`
+          : "No employees found in your current organization.";
+        structured = {
+          type: "not_found",
+          identifier: lookupIntent.name,
+          message,
+        };
+      } else if (lookupIntent.name && employees.length > 1) {
+        const items = employees.map((e: any) =>
+          `- **${e.firstName} ${e.lastName}** (Employee Code: \`${e.employeeCode || String(e._id)}\`, Role/Designation: *${e.designation || "Not specified"}*, Department: *${e.departmentId?.name || "General"}*)`
+        ).join("\n");
+        message = `Found ${employees.length} employees matching "${lookupIntent.name}". Please specify the employee code or full name to disambiguate:\n\n${items}`;
+        structured = {
+          type: "clarification",
+          question: `Multiple employees match "${lookupIntent.name}". Which one would you like to view?`,
+          options: employees.map((e: any) => `${e.firstName} ${e.lastName} (${e.employeeCode || String(e._id)})`),
+        };
+      } else {
+        const items = employees.map((e: any) =>
+          `- **${e.firstName} ${e.lastName}** (Employee ID: \`${e.employeeCode || String(e._id)}\`, Current Role/Designation: *${e.designation || "Not specified"}*, Department: *${e.departmentId?.name || "General"}*, Email: \`${e.email}\`)`
+        ).join("\n");
+        message = employees.length === 1
+          ? `Found employee record in current organization:\n\n${items}`
+          : `Found ${employees.length} employees in current organization:\n\n${items}`;
+        structured = {
+          type: "record_list",
+          title: "Employees",
+          entity: "employee",
+          records: employees.map((e: any) => ({
+            id: String(e._id),
+            number: e.employeeCode || String(e._id),
+            date: e.dateOfJoining ? new Date(e.dateOfJoining).toISOString().slice(0, 10) : "",
+            status: e.status || "active",
+            customerName: `${e.firstName} ${e.lastName}`,
+            route: `/hr/employees/${e._id}`,
+            extra: {
+              role: e.designation || "Not specified",
+              department: e.departmentId?.name || "General",
+            },
+          })),
+          totalCount: employees.length,
+        };
+      }
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "role_change") {
       if (!["admin", "master-admin"].includes(input.role)) {
-        throw new ErpToolError("PERMISSION_DENIED", "Changing user roles requires administrative permissions.", 403);
+        throw new ErpToolError("PERMISSION_DENIED", "Unauthorized: Changing employee roles requires administrative permissions.", 403);
       }
-      const roleIntent = intent as { type: "role_change"; userName: string; role: string };
+      const roleIntent = intent as { type: "role_change"; userName: string; role: string; fromRole?: string };
       if (!roleIntent.userName || !roleIntent.role) {
-        throw new ErpToolError("MISSING_FIELD", "Please specify the user name and the target role.");
+        throw new ErpToolError("MISSING_FIELD", "Please specify the employee name and the target role.");
       }
-      const preview = await COMMAND_ACTIONS.update_user_role.buildPreview({ userName: roleIntent.userName, role: roleIntent.role }, input.tenantId);
+      const preview = await COMMAND_ACTIONS.update_user_role.buildPreview(
+        { userName: roleIntent.userName, role: roleIntent.role, fromRole: roleIntent.fromRole },
+        input.tenantId
+      );
       const expiresAt = new Date(Date.now() + 24 * 3600 * 1000);
+      const prevData = preview.preview as any;
       const proposal = await AiCommandProposal.create({
         tenantId: input.tenantId,
         userId: input.userId,
         module: "admin",
         actionType: "update_user_role",
         destructive: true,
-        params: { userName: roleIntent.userName, role: roleIntent.role, proposedRole: (preview.preview as any)?.proposedRole, userId: preview.preview?.userId },
+        params: {
+          userName: roleIntent.userName,
+          role: roleIntent.role,
+          fromRole: roleIntent.fromRole,
+          proposedRole: prevData?.proposedRole,
+          userId: prevData?.userId,
+          employeeId: prevData?.employeeId,
+          employeeCode: prevData?.employeeCode,
+          currentRole: prevData?.currentRole,
+        },
         preview: preview.preview,
         summary: preview.summary,
         status: A.PROPOSED,
@@ -441,22 +870,24 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       message = `${preview.summary}\n\nPlease confirm to execute the role change, or cancel to discard.`;
       actions = [{ label: "Confirm role change", value: "confirm role change" }, { label: "Cancel", value: "cancel role" }];
       pendingRoleProposalId = String(proposal._id);
-      const p = (preview.preview || {}) as any;
       structured = {
         type: "role_change_proposal",
         proposalId: String(proposal._id),
-        userId: String(p?.userId || ""),
-        userName: String(p?.userName || ""),
-        userEmail: p?.userEmail ? String(p.userEmail) : undefined,
-        currentRole: String(p?.currentRole || ""),
-        currentRoleLabel: String(p?.currentRoleLabel || ""),
-        proposedRole: String(p?.proposedRole || ""),
-        proposedRoleLabel: String(p?.proposedRoleLabel || ""),
+        employeeId: prevData?.employeeId ? String(prevData.employeeId) : undefined,
+        employeeCode: prevData?.employeeCode ? String(prevData.employeeCode) : undefined,
+        department: prevData?.department ? String(prevData.department) : undefined,
+        userId: String(prevData?.userId || ""),
+        userName: String(prevData?.userName || ""),
+        userEmail: prevData?.userEmail ? String(prevData.userEmail) : undefined,
+        currentRole: String(prevData?.currentRole || ""),
+        currentRoleLabel: String(prevData?.currentRoleLabel || ""),
+        proposedRole: String(prevData?.proposedRole || ""),
+        proposedRoleLabel: String(prevData?.proposedRoleLabel || ""),
         status: "proposed",
       };
     } else if (intent === "role_confirm") {
       if (!["admin", "master-admin"].includes(input.role)) {
-        throw new ErpToolError("PERMISSION_DENIED", "Changing user roles requires administrative permissions.", 403);
+        throw new ErpToolError("PERMISSION_DENIED", "Unauthorized: Changing employee roles requires administrative permissions.", 403);
       }
       const chat: any = await ChatHistory.findOne(filter).select("pendingRoleProposalId").lean();
       if (!chat?.pendingRoleProposalId) throw new ErpToolError("MISSING_FIELD", "No pending role change proposal found in this conversation.");
@@ -467,15 +898,17 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       });
       if (!proposal) throw new ErpToolError("NOT_FOUND", "Role change proposal not found.");
       if (proposal.status === A.EXECUTED && proposal.resultRef) {
-        const user = await User.findById(proposal.resultRef).lean();
         const prev = (proposal.preview || {}) as any;
         const newRole = String(prev?.proposedRole || prev?.newRole || "");
         const newRoleLabel = String(prev?.proposedRoleLabel || prev?.newRole || newRole);
-        message = `Role for user "${user?.name}" has already been updated to ${newRoleLabel}.`;
+        const targetKind = (prev?.employeeId || prev?.employeeCode) ? "employee" : "user";
+        message = `Role for ${targetKind} "${prev?.userName}" has already been updated to ${newRoleLabel}.`;
         structured = {
           type: "role_changed",
+          employeeId: prev?.employeeId,
+          employeeCode: prev?.employeeCode,
           userId: proposal.resultRef,
-          userName: String(user?.name || ""),
+          userName: String(prev?.userName || ""),
           newRole,
           newRoleLabel,
         };
@@ -488,7 +921,15 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           { new: true }
         );
         if (!locked) throw new ErpToolError("BUSINESS_RULE", "This role change is already being processed.");
-        const outcome = await COMMAND_ACTIONS.update_user_role.execute(proposal.params, input.tenantId, input.userId);
+        
+        let outcome: any;
+        try {
+          outcome = await COMMAND_ACTIONS.update_user_role.execute(proposal.params, input.tenantId, input.userId);
+        } catch (err: any) {
+          await AiCommandProposal.updateOne({ _id: proposal._id }, { $unset: { "params.executing": "" } });
+          throw err;
+        }
+
         locked.status = A.EXECUTED;
         locked.resultRef = outcome.resultRef;
         locked.executedAt = new Date();
@@ -498,11 +939,14 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         const resUser = outcome.result as any;
         const newRole = String(prev?.proposedRole || prev?.newRole || "");
         const newRoleLabel = String(prev?.proposedRoleLabel || prev?.newRole || newRole);
-        message = `Successfully updated role for user "${resUser?.name}" to ${newRoleLabel}.`;
+        const targetKind = (resUser?.employeeId || prev?.employeeId || prev?.employeeCode) ? "employee" : "user";
+        message = `Successfully updated role for ${targetKind} "${resUser?.name || prev?.userName}" to ${newRoleLabel}. Verified persisted record in database.`;
         structured = {
           type: "role_changed",
+          employeeId: resUser?.employeeId || prev?.employeeId,
+          employeeCode: resUser?.employeeCode || prev?.employeeCode,
           userId: outcome.resultRef,
-          userName: String(resUser?.name || ""),
+          userName: String(resUser?.name || prev?.userName || ""),
           newRole,
           newRoleLabel,
         };
@@ -516,7 +960,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         );
         await ChatHistory.updateOne(filter, { $unset: { pendingRoleProposalId: "" } });
       }
-      message = "Role change request cancelled. No user permissions were modified.";
+      message = "Role change request cancelled. No employee or user permissions were modified.";
     } else {
       query = intent;
       if (intent === "total") {

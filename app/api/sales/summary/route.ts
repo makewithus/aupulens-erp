@@ -8,6 +8,7 @@ import SalesQuotation from "@/models/sales/SalesQuotation";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import DeliveryChallan from "@/models/sales/DeliveryChallan";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 function calculateTrend(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? 100 : 0;
@@ -48,6 +49,12 @@ export async function GET() {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
+    const cacheKey = `sales_summary:${tenantId}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
     const now = new Date();
     const last30Days = new Date(now);
     last30Days.setDate(now.getDate() - 30);
@@ -81,7 +88,7 @@ export async function GET() {
     const currentRevenue = currentInvoiceAgg[0]?.total || 0;
     const prevRevenue = prevInvoiceAgg[0]?.total || 0;
 
-    return NextResponse.json({
+    const payload = {
       totalOrders: currentOrders,
       totalQuotations: currentQuotes,
       totalRevenue: currentRevenue,
@@ -91,7 +98,9 @@ export async function GET() {
         orders: calculateTrend(currentOrders, prevOrders),
         quotations: calculateTrend(currentQuotes, prevQuotes),
       },
-    });
+    };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Error fetching sales summary:", error);
     return NextResponse.json(

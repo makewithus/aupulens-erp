@@ -29,6 +29,11 @@ export const salesSidebarConfig: SidebarSection[] = [
         href: "/sales/dashboard",
         icon: LayoutDashboard,
       },
+      {
+        title: "Analytics",
+        href: "/sales/analytics",
+        icon: BarChart3,
+      },
     ],
   },
   {
@@ -105,7 +110,12 @@ export const salesSidebarConfig: SidebarSection[] = [
     title: "Analytics",
     items: [
       {
-        title: "Dashboard",
+        title: "Sales Analytics",
+        href: "/sales/analytics",
+        icon: BarChart3,
+      },
+      {
+        title: "Summary Dashboard",
         href: "/sales/summary",
         icon: LayoutDashboard,
       },

@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
+import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,10 @@ import {
   Briefcase,
   ShieldCheck,
   CalendarCheck,
+  BarChart3,
+  RefreshCw,
 } from "lucide-react";
+import { toast } from "sonner";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
@@ -33,21 +37,24 @@ export default function HRDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [summaryData, setSummaryData] = useState<any>(null);
+  const cachedHR = getInstantCachedData<any>("/api/hr/summary");
+  const [summaryData, setSummaryData] = useState<any>(() => cachedHR ?? null);
   const [pendingLeavesList, setPendingLeavesList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedHR);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchHRData = useCallback(async () => {
+  const fetchHRData = useCallback(async (fresh: boolean = false) => {
     try {
-      setIsLoading(true);
+      if (fresh) setIsRefreshing(true);
       const [sumRes, leaveRes] = await Promise.all([
-        cachedFetch("/api/hr/summary"),
-        cachedFetch("/api/hr/leave?status=pending&limit=5"),
+        cachedFetch(`/api/hr/summary${fresh ? "?fresh=true" : ""}`, { cache: fresh ? "no-store" : "default" }),
+        cachedFetch(`/api/hr/leave?status=pending&limit=5${fresh ? "&fresh=true" : ""}`, { cache: fresh ? "no-store" : "default" }),
       ]);
 
       if (sumRes.ok) {
         const d = await sumRes.json();
         setSummaryData(d);
+        if (fresh) toast.success("Live HR data synchronized");
       }
       if (leaveRes.ok) {
         const ld = await leaveRes.json();
@@ -55,13 +62,27 @@ export default function HRDashboardPage() {
       }
     } catch (e) {
       console.error("Failed to fetch HR dashboard data", e);
+      if (fresh) toast.error("Failed to sync live HR data");
     } finally {
+      if (fresh) setIsRefreshing(false);
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchHRData();
+    fetchHRData(false);
+  }, [fetchHRData]);
+
+  useEffect(() => {
+    const handleRevalidate = (e: any) => {
+      if (e?.detail?.url?.includes("/api/hr")) {
+        fetchHRData(true);
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("aup:revalidated", handleRevalidate);
+      return () => window.removeEventListener("aup:revalidated", handleRevalidate);
+    }
   }, [fetchHRData]);
 
   const totalEmployees = summaryData?.stats?.totalEmployees || 0;
@@ -145,7 +166,7 @@ export default function HRDashboardPage() {
               Workforce Intelligence
             </span>
             <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              Attendance 95.4%
+              Attendance {hrStats.todayAttendanceRate}%
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
@@ -158,6 +179,17 @@ export default function HRDashboardPage() {
 
         <div className="flex items-center gap-2">
           <Button
+            onClick={() => fetchHRData(true)}
+            disabled={isRefreshing}
+            variant="outline"
+            size="sm"
+            className="text-xs font-mono h-9 gap-1.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 shadow-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Syncing..." : "Live Sync"}
+          </Button>
+
+          <Button
             asChild
             size="sm"
             className="text-xs font-mono h-9 gap-1.5 bg-[#8AE06C] hover:bg-[#78cf5a] text-[#0A0A0A] font-bold shadow-sm"
@@ -165,6 +197,17 @@ export default function HRDashboardPage() {
             <Link href="/hr/employees">
               <UserPlus className="w-3.5 h-3.5" />
               Add Employee
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="text-xs font-mono h-9 gap-1.5 border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 shadow-xs font-semibold"
+          >
+            <Link href="/hr/analytics">
+              <BarChart3 className="w-3.5 h-3.5" />
+              HR Analytics
             </Link>
           </Button>
           <Button

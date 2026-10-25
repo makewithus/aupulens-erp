@@ -4,6 +4,7 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import SaleOrder from '@/models/sales/SaleOrder';
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET() {
   try {
@@ -13,12 +14,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    
-
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-await connectDB();
+
+    const cacheKey = `sales_analytics:${tenantId}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
+    await connectDB();
 
     // Get last 6 months data
     const sixMonthsAgo = new Date();
@@ -131,12 +137,14 @@ await connectDB();
       value: item.value
     }));
 
-    return NextResponse.json({
+    const payload = {
       orders,
       revenue,
       topProducts,
       dailyOrders
-    });
+    };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
 
   } catch (error) {
     console.error('Error fetching sales analytics:', error);

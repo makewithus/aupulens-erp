@@ -62,6 +62,16 @@ function zonedMidnightToUtc(year: number, month: number, day: number, requestedT
   return new Date(guess);
 }
 
+/** Returns the first instant (00:00:00.000) of the calendar date encoded in `date` in `timeZone` as a UTC Date. */
+export function toDateStartInTimeZone(date: Date, timeZone: string) {
+  return zonedMidnightToUtc(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+    timeZone,
+  );
+}
+
 /** Returns the last instant of the calendar date encoded in `date` at UTC. */
 export function toDateEndInTimeZone(date: Date, timeZone: string) {
   const nextDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));

@@ -100,19 +100,40 @@ export type ErpStructuredResponse =
     }
   | {
       type: "profit_loss";
+      title?: string;
       revenue: number;
       formattedRevenue: string;
       expenses: number;
       formattedExpenses: string;
+      cogs?: number | null;
+      formattedCogs?: string | null;
+      cogsTreatment?: "separated" | "component_of_expenses" | "included_in_expenses" | "unavailable";
+      cogsExplanation?: string;
+      operatingExpenses?: number;
+      formattedOperatingExpenses?: string;
       netProfit: number;
       formattedNetProfit: string;
       isProfitable: boolean;
       status: "profitable" | "loss" | "break_even" | "incomplete_data" | "unavailable";
-      period?: { from?: string; to?: string };
+      period?: { from?: string; to?: string; label?: string; type?: string; startDate?: string | Date; endDate?: string | Date };
       basis: string;
       limitations?: string;
       invoiceCount?: number;
       postedEntryCount?: number;
+      details?: {
+        incomeAccounts?: Array<{ code: string; name: string; amount: number; formattedAmount: string; entryCount?: number }>;
+        expenseAccounts?: Array<{ code: string; name: string; amount: number; formattedAmount: string; isCogs?: boolean; entryCount?: number }>;
+        unpostedCount?: number;
+        trialBalanceBalanced?: boolean;
+        revenueBreakdown?: Array<{ accountCode: string; accountName: string; amount: number; formattedAmount: string; entryCount?: number }>;
+        cogsBreakdown?: Array<{ accountCode: string; accountName: string; amount: number; formattedAmount: string; entryCount?: number }>;
+        expenseBreakdown?: Array<{ accountCode: string; accountName: string; amount: number; formattedAmount: string; entryCount?: number }>;
+        crossModuleCoverage?: {
+          sourcesChecked: string[];
+          notes: string[];
+        };
+      };
+      generatedAt?: string;
     }
   | {
       type: "customer_proposal";
@@ -126,7 +147,7 @@ export type ErpStructuredResponse =
     }
   | {
       type: "customer_saved";
-      customerId: string;
+      customerId?: string;
       name: string;
       isCompany: boolean;
       route: string;
@@ -134,7 +155,10 @@ export type ErpStructuredResponse =
   | {
       type: "role_change_proposal";
       proposalId: string;
-      userId: string;
+      userId?: string;
+      employeeId?: string;
+      employeeCode?: string;
+      department?: string;
       userName: string;
       userEmail?: string;
       currentRole: string;
@@ -145,7 +169,10 @@ export type ErpStructuredResponse =
     }
   | {
       type: "role_changed";
-      userId: string;
+      userId?: string;
+      employeeId?: string;
+      employeeCode?: string;
+      department?: string;
       userName: string;
       newRole: string;
       newRoleLabel: string;

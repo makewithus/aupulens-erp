@@ -4,6 +4,7 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import InventoryItem from '@/models/inventory/InventoryItem';
 import InventoryOrder from '@/models/inventory/InventoryOrder';
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET() {
   try {
@@ -13,12 +14,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    
-
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-await connectDB();
+
+    const cacheKey = `inventory_analytics:${tenantId}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
+    await connectDB();
 
     // Get last 6 months data
     const sixMonthsAgo = new Date();
@@ -119,11 +125,13 @@ await connectDB();
       { type: 'Expired', count: alertsData[0]?.expired[0]?.count || 0 }
     ];
 
-    return NextResponse.json({
+    const payload = {
       stockLevels,
       movements: movements.length > 0 ? movements : [],
       alerts
-    });
+    };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
 
   } catch (error) {
     console.error('Error fetching inventory analytics:', error);

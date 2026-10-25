@@ -76,6 +76,27 @@ export function UpcomingRenewalsChart() {
     const maxVal = Math.max(...bars.map((b) => b.value), 1);
     const PAD = { top: 24, right: 20, bottom: 44, left: 14 };
 
+    let animId: number | null = null;
+    function runEntryAnimation() {
+      if (animId) cancelAnimationFrame(animId);
+      const startTime = performance.now();
+      const duration = 850;
+
+      function step(now: number) {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(step);
+        } else {
+          animId = null;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(step);
+    }
+
     function resize() {
       if (!canvas || !container) return;
       const dpr = window.devicePixelRatio || 1;
@@ -85,11 +106,12 @@ export function UpcomingRenewalsChart() {
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      draw();
+      runEntryAnimation();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -106,6 +128,10 @@ export function UpcomingRenewalsChart() {
 
       bars.forEach((b, i) => {
         const x = cL + slot * i + slot / 2;
+        const stagger = (i / n) * 0.25;
+        const barP = Math.max(0, Math.min(1, (progress - stagger) / 0.75));
+        const easedP = 1 - Math.pow(1 - barP, 3);
+
         const barH = (b.value / maxVal) * cH;
         const isHighlight = highlightIdx === i;
 
@@ -118,8 +144,9 @@ export function UpcomingRenewalsChart() {
         const bG = 1.5;
         const unitH = bH + bG;
         const totalBricks = Math.max(1, Math.round(barH / unitH));
+        const activeBricks = Math.round(totalBricks * easedP);
 
-        for (let br = 0; br < totalBricks; br++) {
+        for (let br = 0; br < activeBricks; br++) {
           const by = cB - (br + 1) * unitH + bG;
           let brickColor = b.color;
           if (isHighlight) {
@@ -134,10 +161,15 @@ export function UpcomingRenewalsChart() {
           ctx.fillRect(Math.round(x - barW / 2), Math.round(by), Math.max(1, Math.round(barW)), Math.round(bH));
         }
 
-        const barTopY = cB - totalBricks * unitH;
-        ctx.fillStyle = isHighlight ? (isDark ? "#ffffff" : "#111827") : (isDark ? "#F2F2F2" : "#1F2937");
-        ctx.font = 'bold 11px "Roboto Mono", monospace';
-        ctx.fillText(String(b.value), x, barTopY - 12);
+        if (easedP >= 0.7) {
+          const barTopY = cB - activeBricks * unitH;
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, (easedP - 0.7) / 0.3);
+          ctx.fillStyle = isHighlight ? (isDark ? "#ffffff" : "#111827") : (isDark ? "#F2F2F2" : "#1F2937");
+          ctx.font = 'bold 11px "Roboto Mono", monospace';
+          ctx.fillText(String(b.value), x, barTopY - 12);
+          ctx.restore();
+        }
 
         ctx.fillStyle = isDark ? "#757575" : "#4B5563";
         ctx.font = '9px "Roboto Mono", monospace';
@@ -148,18 +180,22 @@ export function UpcomingRenewalsChart() {
       });
     }
 
-    drawRef.current = draw;
+    drawRef.current = (idx) => draw(idx, 1);
 
     const handleMouseMove = (e: MouseEvent) => {
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const W = rect.width;
       const cL = PAD.left, cR = W - PAD.right, cW = cR - cL;
       const slot = cW / n;
 
-      if (mx < cL || mx > cR) { tooltip.style.display = "none"; draw(); return; }
+      if (mx < cL || mx > cR) { tooltip.style.display = "none"; draw(undefined, 1); return; }
       const idx = Math.floor((mx - cL) / slot);
-      if (idx < 0 || idx >= n) { tooltip.style.display = "none"; draw(); return; }
+      if (idx < 0 || idx >= n) { tooltip.style.display = "none"; draw(undefined, 1); return; }
 
       const b = bars[idx];
       tooltipDate.textContent = b.label;
@@ -169,11 +205,15 @@ export function UpcomingRenewalsChart() {
       const tipX = mx + 16;
       tooltip.style.left = (tipX + 180 > W ? mx - 190 : tipX) + "px";
       tooltip.style.top = Math.max(0, e.clientY - rect.top - 40) + "px";
-      draw(idx);
+      draw(idx, 1);
     };
 
     const handleTouch = (e: TouchEvent) => {
       if (e.touches.length === 0) return;
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const touch = e.touches[0];
       const rect = canvas.getBoundingClientRect();
       const mx = touch.clientX - rect.left;
@@ -181,9 +221,9 @@ export function UpcomingRenewalsChart() {
       const cL = PAD.left, cR = W - PAD.right, cW = cR - cL;
       const slot = cW / n;
 
-      if (mx < cL || mx > cR) { tooltip.style.display = "none"; draw(); return; }
+      if (mx < cL || mx > cR) { tooltip.style.display = "none"; draw(undefined, 1); return; }
       const idx = Math.floor((mx - cL) / slot);
-      if (idx < 0 || idx >= n) { tooltip.style.display = "none"; draw(); return; }
+      if (idx < 0 || idx >= n) { tooltip.style.display = "none"; draw(undefined, 1); return; }
 
       const b = bars[idx];
       tooltipDate.textContent = b.label;
@@ -193,10 +233,10 @@ export function UpcomingRenewalsChart() {
       const tipX = mx + 16;
       tooltip.style.left = (tipX + 180 > W ? mx - 190 : tipX) + "px";
       tooltip.style.top = Math.max(0, touch.clientY - rect.top - 40) + "px";
-      draw(idx);
+      draw(idx, 1);
     };
 
-    const handleMouseLeave = () => { tooltip.style.display = "none"; draw(); };
+    const handleMouseLeave = () => { tooltip.style.display = "none"; draw(undefined, 1); };
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
@@ -209,6 +249,7 @@ export function UpcomingRenewalsChart() {
     resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("touchstart", handleTouch);
@@ -225,7 +266,7 @@ export function UpcomingRenewalsChart() {
   }
 
   return (
-    <div className={`rounded-lg p-6 font-mono w-full relative border ${isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-foreground"}`}>
+    <div className={`chart-animate-in chart-shimmer-border rounded-lg p-6 font-mono w-full relative border ${isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-foreground"}`}>
       <div className="flex justify-between items-center gap-4 mb-4">
         <div>
           <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-[#F2F2F2]" : "text-foreground"}`}>Upcoming Renewals</h3>

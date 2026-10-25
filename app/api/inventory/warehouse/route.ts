@@ -4,6 +4,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Warehouse from "@/models/inventory/Warehouse";
+import { getCachedData, setCachedData, invalidateCache } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,15 +18,20 @@ export async function GET(req: NextRequest) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
 
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status") || "all";
+    const search = searchParams.get("search")?.trim() || "";
+
+    const cacheKey = `inv-warehouses:${tenantId}:${status}:${search}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
     await connectDB();
 
-    // AI-native "redirect with filters" support — additive: omitting these
-    // params leaves every existing caller's behavior unchanged.
-    const { searchParams } = new URL(req.url);
     const query: any = { tenantId };
-    const status = searchParams.get("status");
     if (status && status !== "all") query.status = status;
-    const search = searchParams.get("search")?.trim();
     if (search) {
       const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
       const re = { $regex: words.join(".*"), $options: "i" };
@@ -36,7 +42,9 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ warehouses });
+    const payload = { warehouses };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Error fetching warehouses:", error);
     return NextResponse.json(
@@ -67,6 +75,7 @@ export async function POST(req: NextRequest) {
       tenantId,
     });
 
+    invalidateCache(`inv-warehouses:${tenantId}`);
     return NextResponse.json({ warehouse }, { status: 201 });
   } catch (error: any) {
     if (error?.code === 11000) return NextResponse.json({ error: "That warehouse code is already in use." }, { status: 409 });

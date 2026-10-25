@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  BarChart3,
   Users,
   Briefcase,
   FileText,
@@ -37,6 +38,11 @@ export const crmSidebarConfig: SidebarSection[] = [
         title: "Dashboard",
         href: "/crm/dashboard",
         icon: LayoutDashboard,
+      },
+      {
+        title: "Analytics",
+        href: "/crm/analytics",
+        icon: BarChart3,
       },
       {
         title: "Leads",

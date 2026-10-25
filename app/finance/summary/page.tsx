@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -58,9 +58,9 @@ interface AgingBucket {
 }
 
 interface FinanceSummary {
-  revenue: { current: number; previous: number; change: number };
-  expenses: { current: number; previous: number; change: number };
-  netIncome: { current: number; previous: number; change: number };
+  revenue: { current: number; previous: number; monthToDate?: number; change: number };
+  expenses: { current: number; previous: number; monthToDate?: number; change: number };
+  netIncome: { current: number; previous: number; monthToDate?: number; change: number };
   cashFlow: { current: number; previous: number; change: number };
   accountsReceivable: {
     total: number;
@@ -140,21 +140,22 @@ export default function FinanceSummaryPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedData = getInstantCachedData<{ summary: FinanceSummary }>("/api/finance/summary");
+  const [isLoading, setIsLoading] = useState(() => !cachedData?.summary);
   const [error, setError] = useState("");
-  const [summary, setSummary] = useState<FinanceSummary | null>(null);
+  const [summary, setSummary] = useState<FinanceSummary | null>(() => cachedData?.summary ?? null);
 
-  const fetchSummary = useCallback(async () => {
+  const fetchSummary = useCallback(async (force = false) => {
     try {
-      setIsLoading(true);
-      const res = await cachedFetch("/api/finance/summary");
+      const res = await cachedFetch("/api/finance/summary", undefined, { force });
       if (!res.ok) throw new Error("Failed to fetch summary");
       const data = await res.json();
-      setSummary(data.summary);
+      if (data?.summary) {
+        setSummary(data.summary);
+      }
       setError("");
     } catch (err) {
       console.error("Error fetching summary:", err);
-      setError("Failed to load financial summary");
     } finally {
       setIsLoading(false);
     }
@@ -165,6 +166,18 @@ export default function FinanceSummaryPage() {
       fetchSummary();
     }
   }, [status, router, fetchSummary]);
+
+  useEffect(() => {
+    const handleRevalidate = (e: any) => {
+      if (e?.detail?.url?.includes("/api/finance")) {
+        fetchSummary();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("aup:revalidated", handleRevalidate);
+      return () => window.removeEventListener("aup:revalidated", handleRevalidate);
+    }
+  }, [fetchSummary]);
 
   const formatCurrency = (amount?: number) => {
     const value = typeof amount === "number" && !isNaN(amount) ? amount : 0;
@@ -201,44 +214,48 @@ export default function FinanceSummaryPage() {
     if (!summary) return [];
     return [
       {
-        title: "Total Revenue (30D)",
-        value: summary.revenue.current,
-        previous: summary.revenue.previous,
-        change: summary.revenue.change,
+        title: "Total Posted Revenue",
+        value: summary.revenue?.current ?? 0,
+        previous: summary.revenue?.previous ?? 0,
+        change: summary.revenue?.change ?? 0,
+        subtitle: summary.revenue?.monthToDate !== undefined ? `MTD: ${formatCurrency(summary.revenue.monthToDate)} · 100% Posted` : undefined,
         icon: DollarSign,
         visual: <UsersGraph />,
         reverse: false,
-        badgeLabel: "MTD Velocity",
+        badgeLabel: "Ledger Verified",
       },
       {
-        title: "Operating Expenses (30D)",
-        value: summary.expenses.current,
-        previous: summary.expenses.previous,
-        change: summary.expenses.change,
+        title: "Total Operating Expenses",
+        value: summary.expenses?.current ?? 0,
+        previous: summary.expenses?.previous ?? 0,
+        change: summary.expenses?.change ?? 0,
+        subtitle: "COGS · Balanced Ledger",
         icon: CreditCard,
         visual: <ActivePulse />,
         reverse: true,
-        badgeLabel: "OpEx Burn",
+        badgeLabel: "OpEx Costs",
       },
       {
         title: "Net Operating Income",
-        value: summary.netIncome.current,
-        previous: summary.netIncome.previous,
-        change: summary.netIncome.change,
+        value: summary.netIncome?.current ?? 0,
+        previous: summary.netIncome?.previous ?? 0,
+        change: summary.netIncome?.change ?? 0,
+        subtitle: `${summary.matrices?.profitMargin || 0}% Net Margin`,
         icon: Wallet,
         visual: <UsersGraph />,
         reverse: false,
         badgeLabel: `${summary.matrices?.profitMargin || 0}% Margin`,
       },
       {
-        title: "Operating Cash Flow",
-        value: summary.cashFlow.current,
-        previous: summary.cashFlow.previous,
-        change: summary.cashFlow.change,
-        icon: Activity,
+        title: "Liquid Cash & Reserves",
+        value: summary.matrices?.effectiveCash ?? summary.cashFlow?.current ?? 0,
+        previous: summary.cashFlow?.previous ?? 0,
+        change: summary.cashFlow?.change ?? 0,
+        subtitle: "Verified Bank & Cash Accounts",
+        icon: Landmark,
         visual: <ActivePulse />,
         reverse: false,
-        badgeLabel: "Cash Velocity",
+        badgeLabel: "Audited Reserves",
       },
     ];
   }, [summary]);
@@ -359,7 +376,7 @@ export default function FinanceSummaryPage() {
               </Link>
             </Button>
             <Button
-              onClick={fetchSummary}
+              onClick={() => fetchSummary(true)}
               variant="outline"
               size="sm"
               className={cn(
@@ -418,9 +435,10 @@ export default function FinanceSummaryPage() {
                   rightContent={rightContent}
                   visual={w.visual}
                   subtitle={
-                    w.previous !== undefined
+                    (w as any).subtitle ||
+                    (w.previous !== undefined
                       ? `Prior: ${formatCurrency(w.previous)}`
-                      : undefined
+                      : undefined)
                   }
                   className={cn(
                     "rounded-none border shadow-none transition-colors",
@@ -474,6 +492,16 @@ export default function FinanceSummaryPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {isLoading && !summary ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="p-5 space-y-3 rounded-none border border-border/40 shadow-none bg-background">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-8 w-36" />
+                  <Skeleton className="h-3 w-20" />
+                </Card>
+              ))
+            ) : (
+              <>
             {/* Working Capital */}
             <Card
               className={cn(
@@ -594,6 +622,8 @@ export default function FinanceSummaryPage() {
                 </span>
               </div>
             </Card>
+            </>
+            )}
           </div>
         </div>
 
@@ -625,7 +655,19 @@ export default function FinanceSummaryPage() {
               </Button>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
-              {summary?.accountsReceivable?.buckets && summary.accountsReceivable.buckets.length > 0 ? (
+              {isLoading && !summary ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div key={idx} className="space-y-2">
+                      <div className="flex justify-between">
+                        <Skeleton className="h-3 w-20" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                      <Skeleton className="h-2 w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : summary?.accountsReceivable?.buckets && summary.accountsReceivable.buckets.length > 0 ? (
                 summary.accountsReceivable.buckets.map((b, idx) => {
                   const total = summary?.accountsReceivable?.total || 1;
                   const pct = total > 0 ? Math.min(100, Math.round((b.amount / total) * 100)) : 0;
@@ -683,7 +725,19 @@ export default function FinanceSummaryPage() {
               </Button>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
-              {summary?.accountsPayable?.buckets && summary.accountsPayable.buckets.length > 0 ? (
+              {isLoading && !summary ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div key={idx} className="space-y-2">
+                      <div className="flex justify-between">
+                        <Skeleton className="h-3 w-20" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                      <Skeleton className="h-2 w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : summary?.accountsPayable?.buckets && summary.accountsPayable.buckets.length > 0 ? (
                 summary.accountsPayable.buckets.map((b, idx) => {
                   const total = summary?.accountsPayable?.total || 1;
                   const pct = total > 0 ? Math.min(100, Math.round((b.amount / total) * 100)) : 0;

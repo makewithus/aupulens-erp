@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -62,52 +62,25 @@ interface Order {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
-const DEMO_WAREHOUSES: Warehouse[] = [
-  { _id: 'wh-1', warehouseCode: 'MUM-01', name: 'Mumbai Central Hub', type: 'Distribution', capacity: 15000, currentUtilization: 11400, status: 'active' },
-  { _id: 'wh-2', warehouseCode: 'BHW-02', name: 'Bhiwandi Fulfillment Ctr', type: 'Fulfillment', capacity: 25000, currentUtilization: 19800, status: 'active' },
-  { _id: 'wh-3', warehouseCode: 'PUN-03', name: 'Pune Regional Depot', type: 'Depot', capacity: 8000, currentUtilization: 4900, status: 'active' },
-  { _id: 'wh-4', warehouseCode: 'AMD-04', name: 'Ahmedabad Logistics Park', type: 'Logistics', capacity: 12000, currentUtilization: 8200, status: 'active' },
-  { _id: 'wh-5', warehouseCode: 'BLR-05', name: 'Bengaluru South Facility', type: 'Distribution', capacity: 18000, currentUtilization: 14200, status: 'active' },
-];
-
-const DEMO_STOCK_ITEMS: StockItem[] = [
-  { _id: 'stk-1', itemCode: 'PRD-BEARING', name: 'Ball Bearing 6205', category: 'Mechanical Components', quantity: 3450, warehouse: 'Mumbai Central Hub', unitCost: 420, totalValue: 1449000 },
-  { _id: 'stk-2', itemCode: 'PRD-SOLAR5', name: 'Solar Inverter 5kW', category: 'Renewable & Power', quantity: 180, warehouse: 'Bhiwandi Fulfillment Ctr', unitCost: 42000, totalValue: 7560000 },
-  { _id: 'stk-3', itemCode: 'PRD-PKG', name: 'Industrial Film Roll', category: 'Packaging Materials', quantity: 1820, warehouse: 'Pune Regional Depot', unitCost: 850, totalValue: 1547000 },
-  { _id: 'stk-4', itemCode: 'PRD-RACK', name: 'Warehouse Pallet Rack', category: 'Storage Systems', quantity: 420, warehouse: 'Bhiwandi Fulfillment Ctr', unitCost: 9800, totalValue: 4116000 },
-  { _id: 'stk-5', itemCode: 'PRD-CHAIR', name: 'Ergonomic Task Chair', category: 'Commercial Furniture', quantity: 640, warehouse: 'Ahmedabad Logistics Park', unitCost: 6500, totalValue: 4160000 },
-  { _id: 'stk-6', itemCode: 'PRD-LUB', name: 'Gear Lubricant ISO 220', category: 'Chemicals & Consumables', quantity: 950, warehouse: 'Bengaluru South Facility', unitCost: 1200, totalValue: 1140000 },
-  { _id: 'stk-7', itemCode: 'PRD-MOTOR', name: 'Induction Motor 7.5HP', category: 'Electrical Equipment', quantity: 210, warehouse: 'Mumbai Central Hub', unitCost: 28500, totalValue: 5985000 },
-  { _id: 'stk-8', itemCode: 'PRD-VALVE', name: 'Control Solenoid Valve', category: 'Automation & Controls', quantity: 780, warehouse: 'Pune Regional Depot', unitCost: 3400, totalValue: 2652000 },
-];
-
-const DEMO_BATCHES: Batch[] = [
-  { _id: 'b-1', batchNumber: 'BAT-2026-001', warehouse: 'Mumbai Central Hub', quantity: 1200, status: 'active', expiryDate: '2028-01-15' },
-  { _id: 'b-2', batchNumber: 'BAT-2026-002', warehouse: 'Bhiwandi Fulfillment Ctr', quantity: 95, status: 'released', expiryDate: '2031-02-10' },
-  { _id: 'b-3', batchNumber: 'BAT-2026-003', warehouse: 'Pune Regional Depot', quantity: 800, status: 'active', expiryDate: '2027-03-01' },
-  { _id: 'b-4', batchNumber: 'BAT-2026-004', warehouse: 'Bengaluru South Facility', quantity: 240, status: 'quarantine', expiryDate: '2027-08-25' },
-];
-
-const DEMO_ORDERS: Order[] = [
-  { _id: 'ord-1', orderNumber: 'SO-2026-101', status: 'delivered', warehouse: 'Mumbai Central Hub', items: [{ itemCode: 'PRD-BEARING', quantity: 50 }], totalQuantity: 50, orderDate: '2026-03-01' },
-  { _id: 'ord-2', orderNumber: 'SO-2026-102', status: 'shipped', warehouse: 'Bhiwandi Fulfillment Ctr', items: [{ itemCode: 'PRD-SOLAR5', quantity: 4 }], totalQuantity: 4, orderDate: '2026-03-05' },
-  { _id: 'ord-3', orderNumber: 'SO-2026-103', status: 'fulfilled', warehouse: 'Pune Regional Depot', items: [{ itemCode: 'PRD-PKG', quantity: 25 }], totalQuantity: 25, orderDate: '2026-03-08' },
-  { _id: 'ord-4', orderNumber: 'SO-2026-104', status: 'processing', warehouse: 'Ahmedabad Logistics Park', items: [{ itemCode: 'PRD-CHAIR', quantity: 12 }], totalQuantity: 12, orderDate: '2026-03-11' },
-  { _id: 'ord-5', orderNumber: 'SO-2026-105', status: 'pending', warehouse: 'Bengaluru South Facility', items: [{ itemCode: 'PRD-MOTOR', quantity: 6 }], totalQuantity: 6, orderDate: '2026-03-12' },
-];
-
 export default function InventoryAnalyticsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+
+  const cachedWh = getInstantCachedData<any>("/api/inventory/warehouse");
+  const cachedStock = getInstantCachedData<any>("/api/inventory/stock");
+  const cachedBatch = getInstantCachedData<any>("/api/inventory/batch");
+  const cachedOrders = getInstantCachedData<any>("/api/inventory/orders");
+  const cachedMoves = getInstantCachedData<any>("/api/inventory/stock-moves");
+
+  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedWh);
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
   const [dateRange, setDateRange] = useState('30');
 
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [stockItems, setStockItems] = useState<StockItem[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [stockMoves, setStockMoves] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>(() => cachedWh?.warehouses || []);
+  const [stockItems, setStockItems] = useState<StockItem[]>(() => cachedStock?.items || []);
+  const [batches, setBatches] = useState<Batch[]>(() => cachedBatch?.batches || []);
+  const [orders, setOrders] = useState<Order[]>(() => cachedOrders?.orders || []);
+  const [stockMoves, setStockMoves] = useState<any[]>(() => cachedMoves?.moves || []);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -119,8 +92,6 @@ export default function InventoryAnalyticsPage() {
 
   const fetchAllData = useCallback(async () => {
     try {
-      setIsLoading(true);
-      
       const [warehouseRes, stockRes, batchRes, orderRes, movesRes] = await Promise.all([
         cachedFetch('/api/inventory/warehouse'),
         cachedFetch('/api/inventory/stock'),
@@ -159,6 +130,13 @@ export default function InventoryAnalyticsPage() {
   useEffect(() => {
     if (status === 'authenticated') {
       fetchAllData();
+      const handleRevalidated = (e: any) => {
+        if (e?.detail?.url?.includes('/api/inventory')) {
+          fetchAllData();
+        }
+      };
+      window.addEventListener("aup:revalidated", handleRevalidated);
+      return () => window.removeEventListener("aup:revalidated", handleRevalidated);
     }
   }, [status, fetchAllData]);
 
@@ -328,7 +306,7 @@ export default function InventoryAnalyticsPage() {
     });
   }, [warehouses, orders, batches]);
 
-  if (status === 'loading' || isLoading) {
+  if (status === 'loading') {
     return (
       <DashboardLayout
         sidebarSections={inventorySidebarConfig}
@@ -339,9 +317,9 @@ export default function InventoryAnalyticsPage() {
           { label: 'Dashboard', href: '/inventory/summary' },
           { label: 'Analytics' }
         ]}
-        userName={session?.user?.name || ''}
-        userEmail={session?.user?.email || ''}
-        userRole={session?.user?.role}
+        userName={(session as any)?.user?.name || ''}
+        userEmail={(session as any)?.user?.email || ''}
+        userRole={(session as any)?.user?.role || undefined}
         onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
         profilePath="/inventory/profile"
       >
@@ -360,9 +338,9 @@ export default function InventoryAnalyticsPage() {
         { label: 'Dashboard', href: '/inventory/summary' },
         { label: 'Analytics' }
       ]}
-      userName={session?.user?.name || ''}
-      userEmail={session?.user?.email || ''}
-      userRole={session?.user?.role}
+      userName={(session as any)?.user?.name || ''}
+      userEmail={(session as any)?.user?.email || ''}
+      userRole={(session as any)?.user?.role || undefined}
       onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
       onRefresh={fetchAllData}
       profilePath="/inventory/profile"
@@ -432,7 +410,7 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Daily Inventory & Throughput Timeline (365 Days) */}
-        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="chart-animate-in chart-delay-1 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
             <div>
               <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">
@@ -454,7 +432,7 @@ export default function InventoryAnalyticsPage() {
         </Card>
 
         {/* Warehouse Utilization Canvas Bar Chart */}
-        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="chart-animate-in chart-delay-2 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Warehouse Utilization Overview</CardTitle>
           </CardHeader>
@@ -473,7 +451,7 @@ export default function InventoryAnalyticsPage() {
         </Card>
 
         {/* Stock Levels by Warehouse - Composed Canvas Chart */}
-        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="chart-animate-in chart-delay-3 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Stock Levels by Warehouse</CardTitle>
           </CardHeader>
@@ -496,7 +474,7 @@ export default function InventoryAnalyticsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Stock by Category - Canvas Pie Chart */}
-          <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+          <Card className="chart-animate-in chart-delay-4 relative min-w-0 rounded-none shadow-none border-border/60">
             <CardHeader>
               <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Stock Distribution by Category</CardTitle>
             </CardHeader>
@@ -515,7 +493,7 @@ export default function InventoryAnalyticsPage() {
           </Card>
 
           {/* Inventory Value Distribution - Canvas Pie Chart */}
-          <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+          <Card className="chart-animate-in chart-delay-4 relative min-w-0 rounded-none shadow-none border-border/60">
             <CardHeader>
               <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Inventory Value Distribution</CardTitle>
             </CardHeader>
@@ -535,7 +513,7 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Order Trends - Trading Line Chart with Zoom & Pan */}
-        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="chart-animate-in chart-delay-2 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Order Trends & Throughput Timeline</CardTitle>
           </CardHeader>
@@ -555,7 +533,7 @@ export default function InventoryAnalyticsPage() {
         </Card>
 
         {/* Top Items by Quantity - Horizontal Canvas Bar Chart */}
-        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="chart-animate-in chart-delay-3 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Top 10 Items by Quantity</CardTitle>
           </CardHeader>

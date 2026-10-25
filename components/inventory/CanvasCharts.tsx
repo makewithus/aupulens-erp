@@ -132,6 +132,7 @@ export function CanvasAreaChart({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -163,8 +164,9 @@ export function CanvasAreaChart({
       draw();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -214,7 +216,7 @@ export function CanvasAreaChart({
         ctx.beginPath();
         data.forEach((d, i) => {
           const x = getX(i);
-          const y = cB - ((Number(d[s.key]) || 0) / yMax) * cH;
+          const y = cB - (((Number(d[s.key]) || 0) * progress) / yMax) * cH;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         });
@@ -232,7 +234,7 @@ export function CanvasAreaChart({
         ctx.beginPath();
         data.forEach((d, i) => {
           const x = getX(i);
-          const y = cB - ((Number(d[s.key]) || 0) / yMax) * cH;
+          const y = cB - (((Number(d[s.key]) || 0) * progress) / yMax) * cH;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         });
@@ -360,13 +362,40 @@ export function CanvasAreaChart({
     canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    const ro = new ResizeObserver(() => resize());
+    let animId: number | null = null;
+    if (hasAnimatedRef.current) {
+      draw(undefined, 1);
+    } else {
+      let startTime: number | null = null;
+      const duration = 750;
+
+      function animate(timestamp: number) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(animate);
+        } else {
+          animId = null;
+          hasAnimatedRef.current = true;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(animate);
+    }
+
+    const ro = new ResizeObserver(() => {
+      if (animId) cancelAnimationFrame(animId);
+      resize();
+    });
     ro.observe(container);
 
     const resizeTimer = window.setTimeout(resize, 60);
-    resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       window.clearTimeout(resizeTimer);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
@@ -379,7 +408,7 @@ export function CanvasAreaChart({
   }, [data, series, xAxisKey, isDark]);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-w-0 min-h-0 relative">
+    <div ref={containerRef} className="w-full h-full min-w-0 min-h-0 relative chart-animate-in chart-shimmer-border">
       <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}
@@ -414,6 +443,7 @@ export function CanvasBarChart({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -447,8 +477,9 @@ export function CanvasBarChart({
       draw();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -513,7 +544,7 @@ export function CanvasBarChart({
           series.forEach((s, sIdx) => {
             const val = Number(d[s.key]) || 0;
             if (val <= 0) return;
-            const barH = (val / ticksMax) * cH;
+            const barH = ((val * progress) / ticksMax) * cH;
             const bx = cL + i * groupW + groupGap + sIdx * singleBarW;
             const totalBricks = Math.max(1, Math.round(barH / unitH));
 
@@ -529,16 +560,18 @@ export function CanvasBarChart({
             }
 
             // Numeric value directly above each bar so user can read directly
-            const barTopY = cB - totalBricks * unitH;
-            ctx.save();
-            ctx.font = 'bold 9px "Roboto Mono", monospace';
-            ctx.textAlign = "center";
-            ctx.textBaseline = "bottom";
-            ctx.fillStyle = isSelected
-              ? (isDark ? "#ffffff" : "#0f172a")
-              : (isDark ? "#f2f2f2" : "#1e293b");
-            ctx.fillText(formatShortVal(val), bx + singleBarW / 2, barTopY - 3);
-            ctx.restore();
+            if (progress >= 0.85 || isSelected) {
+              const barTopY = cB - totalBricks * unitH;
+              ctx.save();
+              ctx.font = 'bold 9px "Roboto Mono", monospace';
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+              ctx.fillStyle = isSelected
+                ? (isDark ? "#ffffff" : "#0f172a")
+                : (isDark ? "#f2f2f2" : "#1e293b");
+              ctx.fillText(formatShortVal(val), bx + singleBarW / 2, barTopY - 3);
+              ctx.restore();
+            }
           });
         });
       } else {
@@ -591,7 +624,7 @@ export function CanvasBarChart({
           series.forEach((s, sIdx) => {
             const val = Number(d[s.key]) || 0;
             if (val <= 0) return;
-            const barW = (val / ticksMax) * cW;
+            const barW = ((val * progress) / ticksMax) * cW;
             const by = cT + i * groupH + groupGap + sIdx * singleBarH;
             const totalBricks = Math.max(1, Math.round(barW / unitW));
 
@@ -607,16 +640,18 @@ export function CanvasBarChart({
             }
 
             // Numeric value directly at the end of each bar so user can read directly
-            const barRightX = cL + totalBricks * unitW;
-            ctx.save();
-            ctx.font = 'bold 9px "Roboto Mono", monospace';
-            ctx.textAlign = "left";
-            ctx.textBaseline = "middle";
-            ctx.fillStyle = isSelected
-              ? (isDark ? "#ffffff" : "#0f172a")
-              : (isDark ? "#f2f2f2" : "#1e293b");
-            ctx.fillText(formatShortVal(val), barRightX + 6, by + singleBarH / 2);
-            ctx.restore();
+            if (progress >= 0.85 || isSelected) {
+              const barRightX = cL + totalBricks * unitW;
+              ctx.save();
+              ctx.font = 'bold 9px "Roboto Mono", monospace';
+              ctx.textAlign = "left";
+              ctx.textBaseline = "middle";
+              ctx.fillStyle = isSelected
+                ? (isDark ? "#ffffff" : "#0f172a")
+                : (isDark ? "#f2f2f2" : "#1e293b");
+              ctx.fillText(formatShortVal(val), barRightX + 6, by + singleBarH / 2);
+              ctx.restore();
+            }
           });
         });
       }
@@ -740,15 +775,40 @@ export function CanvasBarChart({
     canvas.addEventListener("touchstart", handleTouch, { passive: true });
     canvas.addEventListener("touchmove", handleTouch, { passive: true });
     canvas.addEventListener("touchend", handleMouseLeave);
-    window.addEventListener("resize", resize);
+    let animId: number | null = null;
+    if (hasAnimatedRef.current) {
+      draw(undefined, 1);
+    } else {
+      let startTime: number | null = null;
+      const duration = 750;
 
-    const ro = new ResizeObserver(() => resize());
+      function animate(timestamp: number) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(animate);
+        } else {
+          animId = null;
+          hasAnimatedRef.current = true;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(animate);
+    }
+
+    const ro = new ResizeObserver(() => {
+      if (animId) cancelAnimationFrame(animId);
+      resize();
+    });
     ro.observe(container);
 
     const resizeTimer = window.setTimeout(resize, 60);
-    resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       window.clearTimeout(resizeTimer);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
@@ -761,7 +821,7 @@ export function CanvasBarChart({
   }, [data, series, xAxisKey, layout, isDark]);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-w-0 min-h-0 relative">
+    <div ref={containerRef} className="w-full h-full min-w-0 min-h-0 relative chart-animate-in chart-shimmer-border">
       <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}
@@ -808,6 +868,7 @@ export function CanvasPieChart({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -833,8 +894,9 @@ export function CanvasPieChart({
       draw();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -842,7 +904,8 @@ export function CanvasPieChart({
 
       const cx = W / 2;
       const cy = H / 2;
-      const radius = Math.min(cx, cy) * 0.75;
+      const baseRadius = Math.min(cx, cy) * 0.75;
+      const radius = baseRadius * (0.86 + 0.14 * progress);
       const innerRadius = radius * 0.55;
 
       if (totalVal <= 0) {
@@ -864,7 +927,7 @@ export function CanvasPieChart({
       data.forEach((d, i) => {
         const val = Number(d[valueKey]) || 0;
         if (val === 0) return;
-        const sliceAngle = (val / totalVal) * Math.PI * 2;
+        const sliceAngle = (val / totalVal) * Math.PI * 2 * progress;
         const endAngle = startAngle + sliceAngle;
         const isHovered = highlightIdx === i;
 
@@ -896,7 +959,7 @@ export function CanvasPieChart({
       ctx.textBaseline = "middle";
       ctx.fillStyle = isDark ? "#ffffff" : "#0f172a";
       ctx.font = 'bold 11px "Roboto Mono", monospace';
-      ctx.fillText("TOTAL", cx, cy - 8);
+      ctx.fillText(title, cx, cy - 8);
       ctx.font = 'bold 15px "Roboto Mono", monospace';
       ctx.fillText(formatShortVal(totalVal), cx, cy + 9);
     }
@@ -1071,13 +1134,40 @@ export function CanvasPieChart({
     canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    const ro = new ResizeObserver(() => resize());
+    let animId: number | null = null;
+    if (hasAnimatedRef.current) {
+      draw(undefined, 1);
+    } else {
+      let startTime: number | null = null;
+      const duration = 800;
+
+      function animate(timestamp: number) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(animate);
+        } else {
+          animId = null;
+          hasAnimatedRef.current = true;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(animate);
+    }
+
+    const ro = new ResizeObserver(() => {
+      if (animId) cancelAnimationFrame(animId);
+      resize();
+    });
     ro.observe(container);
 
     const resizeTimer = window.setTimeout(resize, 60);
-    resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       window.clearTimeout(resizeTimer);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
@@ -1092,7 +1182,7 @@ export function CanvasPieChart({
   const totalVal = data ? data.reduce((sum, item) => sum + (Number(item[valueKey]) || 0), 0) : 0;
 
   return (
-    <div className="w-full flex flex-col items-center">
+    <div className="w-full flex flex-col items-center chart-animate-in">
       <div ref={containerRef} className="w-full min-h-[220px] h-[220px] relative">
         <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
         <div
@@ -1222,6 +1312,7 @@ export function CanvasComposedChart({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1261,8 +1352,9 @@ export function CanvasComposedChart({
       draw();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -1331,7 +1423,7 @@ export function CanvasComposedChart({
         barSeries.forEach((s, sIdx) => {
           const val = Number(d[s.key]) || 0;
           if (val <= 0) return;
-          const barH = (val / yBarMax) * cH;
+          const barH = (((val) * progress) / yBarMax) * cH;
           const bx = cL + i * groupW + groupGap + sIdx * singleBarW;
           const totalBricks = Math.max(1, Math.round(barH / unitH));
 
@@ -1347,16 +1439,18 @@ export function CanvasComposedChart({
           }
 
           // Numeric value directly above each bar so user can read directly
-          const barTopY = cB - totalBricks * unitH;
-          ctx.save();
-          ctx.font = 'bold 9px "Roboto Mono", monospace';
-          ctx.textAlign = "center";
-          ctx.textBaseline = "bottom";
-          ctx.fillStyle = isSelected
-            ? (isDark ? "#ffffff" : "#0f172a")
-            : (isDark ? "#f2f2f2" : "#1e293b");
-          ctx.fillText(formatShortVal(val), bx + singleBarW / 2, barTopY - 3);
-          ctx.restore();
+          if (progress >= 0.85 || isSelected) {
+            const barTopY = cB - totalBricks * unitH;
+            ctx.save();
+            ctx.font = 'bold 9px "Roboto Mono", monospace';
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.fillStyle = isSelected
+              ? (isDark ? "#ffffff" : "#0f172a")
+              : (isDark ? "#f2f2f2" : "#1e293b");
+            ctx.fillText(formatShortVal(val), bx + singleBarW / 2, barTopY - 3);
+            ctx.restore();
+          }
         });
       });
 
@@ -1364,7 +1458,7 @@ export function CanvasComposedChart({
       ctx.beginPath();
       data.forEach((d, i) => {
         const x = cL + (i + 0.5) * (cW / data.length);
-        const y = cB - ((Number(d[lineSeries.key]) || 0) / yLineMax) * cH;
+        const y = cB - (((Number(d[lineSeries.key]) || 0) * progress) / yLineMax) * cH;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
@@ -1375,7 +1469,7 @@ export function CanvasComposedChart({
       // Draw line dots with amber glow / crisp border
       data.forEach((d, i) => {
         const x = cL + (i + 0.5) * (cW / data.length);
-        const y = cB - ((Number(d[lineSeries.key]) || 0) / yLineMax) * cH;
+        const y = cB - (((Number(d[lineSeries.key]) || 0) * progress) / yLineMax) * cH;
         const isSelected = highlightIdx === i;
 
         ctx.beginPath();
@@ -1512,13 +1606,40 @@ export function CanvasComposedChart({
     canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    const ro = new ResizeObserver(() => resize());
+    let animId: number | null = null;
+    if (hasAnimatedRef.current) {
+      draw(undefined, 1);
+    } else {
+      let startTime: number | null = null;
+      const duration = 800;
+
+      function animate(timestamp: number) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(animate);
+        } else {
+          animId = null;
+          hasAnimatedRef.current = true;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(animate);
+    }
+
+    const ro = new ResizeObserver(() => {
+      if (animId) cancelAnimationFrame(animId);
+      resize();
+    });
     ro.observe(container);
 
     const resizeTimer = window.setTimeout(resize, 60);
-    resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       window.clearTimeout(resizeTimer);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
@@ -1531,7 +1652,7 @@ export function CanvasComposedChart({
   }, [data, barSeries, lineSeries, xAxisKey, isDark]);
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-3 chart-animate-in">
       <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground" aria-label="Chart legend">
         {[...barSeries, lineSeries].map((series) => (
           <span key={series.key} className="inline-flex items-center gap-1.5">
@@ -1540,7 +1661,7 @@ export function CanvasComposedChart({
           </span>
         ))}
       </div>
-      <div ref={containerRef} className="w-full flex-1 min-w-0 min-h-0 relative">
+      <div ref={containerRef} className="w-full flex-1 min-w-0 min-h-0 relative chart-shimmer-border">
       <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}

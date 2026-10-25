@@ -27,6 +27,7 @@ import {
 } from 'recharts';
 import { DailyBrickBarChart, generateZeroDailyData } from '@/components/charts/DailyBrickBarChart';
 import { TradingLineChart } from '@/components/charts/TradingLineChart';
+import { cachedFetch, getInstantCachedData } from '@/lib/api/cachedFetch';
 
 type Tab = 'overview' | 'finance' | 'sales' | 'inventory' | 'manufacturing';
 
@@ -89,25 +90,23 @@ export default function AdminAnalytics() {
 
   const fetchAnalyticsData = useCallback(async () => {
     try {
-      setIsLoading(true);
-      
-      // Fetch summary data for metrics
+      // Fetch summary data for metrics via cachedFetch
       const [financeSummaryRes, salesSummaryRes, inventorySummaryRes] = await Promise.all([
-        fetch('/api/finance/summary').catch(() => null),
-        fetch('/api/sales/summary').catch(() => null),
-        fetch('/api/inventory/summary').catch(() => null),
+        cachedFetch('/api/finance/summary').catch(() => null),
+        cachedFetch('/api/sales/summary').catch(() => null),
+        cachedFetch('/api/inventory/summary').catch(() => null),
       ]);
 
       const financeSummary = financeSummaryRes && financeSummaryRes.ok ? await financeSummaryRes.json() : null;
       const salesSummary = salesSummaryRes && salesSummaryRes.ok ? await salesSummaryRes.json() : null;
       const inventorySummary = inventorySummaryRes && inventorySummaryRes.ok ? await inventorySummaryRes.json() : null;
 
-      // Fetch analytics data for charts (time-series data)
+      // Fetch analytics data for charts (time-series data) via cachedFetch
       const [financeAnalyticsRes, salesAnalyticsRes, inventoryAnalyticsRes, manufacturingAnalyticsRes] = await Promise.all([
-        fetch('/api/finance/analytics').catch(() => null),
-        fetch('/api/sales/analytics').catch(() => null),
-        fetch('/api/inventory/analytics').catch(() => null),
-        fetch('/api/manufacturing/analytics').catch(() => null),
+        cachedFetch('/api/finance/analytics').catch(() => null),
+        cachedFetch('/api/sales/analytics').catch(() => null),
+        cachedFetch('/api/inventory/analytics').catch(() => null),
+        cachedFetch('/api/manufacturing/analytics').catch(() => null),
       ]);
 
       const financeAnalytics = financeAnalyticsRes && financeAnalyticsRes.ok ? await financeAnalyticsRes.json() : null;
@@ -233,6 +232,18 @@ export default function AdminAnalytics() {
       return () => window.clearTimeout(timeoutId);
     }
   }, [status, session, router, fetchAnalyticsData]);
+
+  useEffect(() => {
+    const handleRevalidate = (e: any) => {
+      if (e?.detail?.url?.includes('/api/')) {
+        void fetchAnalyticsData();
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('aup:revalidated', handleRevalidate);
+      return () => window.removeEventListener('aup:revalidated', handleRevalidate);
+    }
+  }, [fetchAnalyticsData]);
 
   const tabs = [
     { id: 'overview' as Tab, name: 'Overview' },
@@ -550,7 +561,7 @@ export default function AdminAnalytics() {
           </div>
 
           {/* Metrics Info */}
-          <div className="flex items-center gap-6 text-xs flex-wrap">
+          <div className="chart-animate-in flex items-center gap-6 text-xs flex-wrap">
             <div className="flex items-center gap-4">
               <span className="text-muted-foreground">Department:</span>
               <span className="text-foreground font-medium capitalize">{activeTab}</span>
@@ -585,7 +596,7 @@ export default function AdminAnalytics() {
           </div>
 
           {/* Chart */}
-          <div className="mt-6 bg-background rounded-none" style={{ height: '440px' }}>
+          <div className="chart-animate-in chart-delay-1 mt-6 bg-background rounded-none" style={{ height: '440px' }}>
             {chartMode === 'bar' ? (
               <DailyBrickBarChart
                 data={dailySeedData}

@@ -7,6 +7,7 @@ import Department from "@/models/hr/Department";
 import Payroll from "@/models/hr/Payroll";
 import LeaveRequest from "@/models/hr/LeaveRequest";
 import Attendance from "@/models/hr/Attendance";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,10 +19,21 @@ export async function GET(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    await connectDB();
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
+    const cacheKey = `hr-summary:${tenantId}`;
+    if (!isFresh) {
+      const cached = getCachedData<any>(cacheKey);
+      if (cached) {
+        return NextResponse.json(cached);
+      }
+    }
+    await connectDB();
+
+    const tenantMatch = { tenantId };
 
     // Get employee counts
     const [
@@ -33,30 +45,38 @@ export async function GET(req: NextRequest) {
       pendingLeaves,
       currentMonthPayrolls,
       recentHires,
+      empPayrollAgg,
     ] = await Promise.all([
-      Employee.countDocuments({ tenantId }),
-      Employee.countDocuments({ tenantId, lifecycleStatus: "active" }),
-      Employee.countDocuments({ tenantId, lifecycleStatus: "onboarding" }),
+      Employee.countDocuments(tenantMatch),
+      Employee.countDocuments({ ...tenantMatch, lifecycleStatus: "active" }),
+      Employee.countDocuments({ ...tenantMatch, lifecycleStatus: "onboarding" }),
       Employee.countDocuments({
-        tenantId,
+        ...tenantMatch,
         lifecycleStatus: "exited",
         updatedAt: { $gte: thirtyDaysAgo },
       }),
-      Department.countDocuments({ tenantId, isActive: true }),
-      LeaveRequest.countDocuments({ tenantId, status: "pending" }),
+      Department.countDocuments({ ...tenantMatch, isActive: true }),
+      LeaveRequest.countDocuments({ ...tenantMatch, status: "pending" }),
       Payroll.find({
-        tenantId,
+        ...tenantMatch,
         "payrollPeriod.month": now.getMonth() + 1,
         "payrollPeriod.year": now.getFullYear(),
       }).lean(),
-      Employee.find({
-        tenantId,
-        dateOfJoining: { $gte: thirtyDaysAgo },
-      })
+      Employee.find(tenantMatch)
         .select("firstName lastName employeeCode designation dateOfJoining lifecycleStatus")
         .sort({ dateOfJoining: -1 })
         .limit(5)
         .lean(),
+      Employee.aggregate([
+        { $match: tenantMatch },
+        {
+          $group: {
+            _id: null,
+            totalGross: { $sum: "$salary.grossSalary" },
+            totalNet: { $sum: "$salary.netSalary" },
+          },
+        },
+      ]),
     ]);
 
     // Get attendance stats for today
@@ -69,7 +89,7 @@ export async function GET(req: NextRequest) {
     const todayAttendance = await Attendance.aggregate([
       {
         $match: {
-          tenantId,
+          ...tenantMatch,
           date: { $gte: todayStart, $lt: todayEnd },
         },
       },
@@ -86,7 +106,8 @@ export async function GET(req: NextRequest) {
       attendanceBreakdown[item._id] = item.count;
     });
 
-    // Payroll summary
+    // Payroll summary from active payroll or live employee compensation contracts
+    const empPayroll = empPayrollAgg[0] || {};
     const payrollSummary = currentMonthPayrolls.length > 0
       ? {
           totalGross: currentMonthPayrolls.reduce(
@@ -99,11 +120,15 @@ export async function GET(req: NextRequest) {
           ),
           status: currentMonthPayrolls[0]?.status || "not_started",
         }
-      : { totalGross: 0, totalNet: 0, status: "not_started" };
+      : {
+          totalGross: empPayroll.totalGross || 0,
+          totalNet: empPayroll.totalNet || 0,
+          status: "active_disbursement",
+        };
 
     // Department-wise employee distribution
     const departmentDistribution = await Employee.aggregate([
-      { $match: { tenantId, lifecycleStatus: "active" } },
+      { $match: { ...tenantMatch, lifecycleStatus: "active" } },
       {
         $group: {
           _id: "$departmentId",
@@ -151,7 +176,7 @@ export async function GET(req: NextRequest) {
       count: d.count,
     }));
 
-    return NextResponse.json({
+    const responsePayload = {
       stats: {
         totalEmployees,
         activeEmployees,
@@ -165,7 +190,11 @@ export async function GET(req: NextRequest) {
       departmentDistribution,
       recentHires,
       dailyAttendance,
-    });
+    };
+
+    setCachedData(cacheKey, responsePayload, 30_000);
+
+    return NextResponse.json(responsePayload);
   } catch (error: any) {
     console.error("HR Summary Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -143,7 +143,7 @@ export function FinanceVisualization({
 
   return (
     <Card className={cn(
-      "border font-mono transition-colors duration-200",
+      "chart-animate-in chart-shimmer-border border font-mono transition-colors duration-200",
       isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2] shadow-md" : "bg-white border-[#e5e5e5] text-slate-900 shadow-sm",
       className
     )}>
@@ -280,6 +280,9 @@ export function FinanceVisualization({
                       fill="#8884d8"
                       dataKey="value"
                       paddingAngle={2}
+                      isAnimationActive={true}
+                      animationDuration={1000}
+                      animationEasing="ease-out"
                     >
                       {displayData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

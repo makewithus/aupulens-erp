@@ -83,6 +83,27 @@ export function SingleModuleBarChart({
 
     const PAD = { top: 28, right: 45, bottom: 85, left: 16 };
 
+    let animId: number | null = null;
+    function runEntryAnimation() {
+      if (animId) cancelAnimationFrame(animId);
+      const startTime = performance.now();
+      const duration = 850;
+
+      function step(now: number) {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const progress = 1 - Math.pow(1 - t, 3);
+        draw(undefined, progress);
+        if (t < 1) {
+          animId = requestAnimationFrame(step);
+        } else {
+          animId = null;
+          draw(undefined, 1);
+        }
+      }
+      animId = requestAnimationFrame(step);
+    }
+
     function resize() {
       if (!canvas || !container) return;
       const dpr = window.devicePixelRatio || 1;
@@ -92,11 +113,12 @@ export function SingleModuleBarChart({
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      draw();
+      runEntryAnimation();
     }
 
-    function draw(highlightIdx?: number) {
+    function draw(highlightIdx?: number, animProgress: number = 1) {
       if (!ctx || !canvas) return;
+      const progress = Math.max(0, Math.min(1, animProgress));
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
@@ -143,7 +165,10 @@ export function SingleModuleBarChart({
           ctx.fillRect(cL + i * groupWidth, cT, groupWidth, cH);
         }
 
-        const barH = (data[i].count / yMax) * cH;
+        const stagger = (i / Math.max(1, n - 1)) * 0.25;
+        const barP = Math.max(0, Math.min(1, (progress - stagger) / 0.75));
+        const easedP = 1 - Math.pow(1 - barP, 3);
+        const barH = (data[i].count / yMax) * cH * easedP;
         const barY = cB - barH;
 
         // Gradient purple bar matching Image 3 (#A77DFF brand gradient)
@@ -181,15 +206,18 @@ export function SingleModuleBarChart({
         }
 
         // Numeric value on top of each bar so user can read directly
-        ctx.save();
-        ctx.font = 'bold 10px "Roboto Mono", monospace';
-        ctx.textAlign = "center";
-        ctx.textBaseline = "bottom";
-        ctx.fillStyle = isHighlight
-          ? isDark ? "#FFFFFF" : "#0F172A"
-          : isDark ? "#F2F2F2" : "#1E293B";
-        ctx.fillText(formatShortM(data[i].count), x + barWidth / 2, barY - 4);
-        ctx.restore();
+        if (easedP >= 0.7) {
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, (easedP - 0.7) / 0.3);
+          ctx.font = 'bold 10px "Roboto Mono", monospace';
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = isHighlight
+            ? isDark ? "#FFFFFF" : "#0F172A"
+            : isDark ? "#F2F2F2" : "#1E293B";
+          ctx.fillText(formatShortM(data[i].count), x + barWidth / 2, barY - 4);
+          ctx.restore();
+        }
 
         // Module name on X-axis (rotated -45 degrees)
         ctx.save();
@@ -207,6 +235,10 @@ export function SingleModuleBarChart({
     }
 
     const handleMouseMove = (e: MouseEvent) => {
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -221,14 +253,14 @@ export function SingleModuleBarChart({
 
       if (mx < cL || mx > cR || my < cT || my > cB + 60) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
       const idx = Math.floor(((mx - cL) / cW) * data.length);
       if (idx < 0 || idx >= data.length) {
         tooltip.style.display = "none";
-        draw();
+        draw(undefined, 1);
         return;
       }
 
@@ -256,12 +288,12 @@ export function SingleModuleBarChart({
       tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
       tooltip.style.top = Math.max(10, my - 60) + "px";
 
-      draw(idx);
+      draw(idx, 1);
     };
 
     const handleMouseLeave = () => {
       tooltip.style.display = "none";
-      draw();
+      draw(undefined, 1);
     };
 
     canvas.addEventListener("mousemove", handleMouseMove);
@@ -272,6 +304,7 @@ export function SingleModuleBarChart({
     resize();
 
     return () => {
+      if (animId) cancelAnimationFrame(animId);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("resize", resize);
@@ -281,7 +314,7 @@ export function SingleModuleBarChart({
   return (
     <div
       className={cn(
-        "border rounded-none p-4 font-mono transition-colors duration-200 flex flex-col justify-between",
+        "chart-animate-in chart-shimmer-border border rounded-none p-4 font-mono transition-colors duration-200 flex flex-col justify-between",
         isDark
           ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2] shadow-md"
           : "bg-white border-[#e5e5e5] text-slate-900 shadow-sm"

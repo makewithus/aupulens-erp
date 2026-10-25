@@ -119,10 +119,56 @@ export function parseStructuredErpText(text: string): ErpStructuredResponse | nu
     };
   }
 
+  // Profit & Loss response
+  if (trimmed.startsWith("Company financial analysis") || trimmed.startsWith("A reliable net profit or loss figure")) {
+    const periodMatch = trimmed.match(/for \*\*(.*?)\*\*/);
+    const periodLabel = periodMatch ? periodMatch[1] : undefined;
+    const revMatch = trimmed.match(/Recognized revenue \/ income:\s*(₹[\d,]+(?:\.\d+)?)/i) || trimmed.match(/Issued sales invoice revenue:\s*(₹[\d,]+(?:\.\d+)?)/i);
+    const expMatch = trimmed.match(/Total expenses:\s*(₹[\d,]+(?:\.\d+)?)/i) || trimmed.match(/Operating & direct expenses:\s*(₹[\d,]+(?:\.\d+)?)/i);
+    const netMatch = trimmed.match(/Net (?:profit|loss):\s*(₹[\d,]+(?:\.\d+)?)/i);
+    const entriesMatch = trimmed.match(/Posted journal entries analyzed:\s*(\d+)/i);
+    const isProfit = trimmed.includes("**In Profit**");
+    const isLoss = trimmed.includes("**In Loss**");
+    const isIncomplete = trimmed.includes("cannot yet be calculated");
+
+    const formattedRevenue = revMatch ? revMatch[1] : "₹0";
+    const revenue = Number(formattedRevenue.replace(/[₹,]/g, "")) || 0;
+    const formattedExpenses = expMatch ? expMatch[1] : "₹0";
+    const expenses = Number(formattedExpenses.replace(/[₹,]/g, "")) || 0;
+    const formattedNet = netMatch ? netMatch[1] : "₹0";
+    const netVal = Number(formattedNet.replace(/[₹,]/g, "")) || 0;
+    const netProfit = isLoss ? -netVal : netVal;
+    const postedEntryCount = entriesMatch ? Number(entriesMatch[1]) : 0;
+
+    const cogsMatch = trimmed.match(/Cost of Goods Sold \(COGS\):\s*(₹[\d,]+(?:\.\d+)?)/i);
+    const formattedCogs = cogsMatch ? cogsMatch[1] : undefined;
+    const cogs = formattedCogs ? Number(formattedCogs.replace(/[₹,]/g, "")) : undefined;
+
+    return {
+      type: "profit_loss",
+      title: periodLabel ? `Profit & Loss Analysis — ${periodLabel}` : "Profit & Loss Analysis",
+      period: periodLabel ? { type: "range", label: periodLabel } : undefined,
+      revenue,
+      formattedRevenue,
+      expenses,
+      formattedExpenses,
+      cogs,
+      formattedCogs,
+      cogsTreatment: cogs ? "separated" : "included_in_expenses",
+      cogsExplanation: cogs ? undefined : "COGS is included within general expenses or not separately categorized.",
+      netProfit,
+      formattedNetProfit: formattedNet,
+      isProfitable: isProfit,
+      status: isIncomplete ? "incomplete_data" : isProfit ? "profitable" : isLoss ? "loss" : "break_even",
+      postedEntryCount,
+      basis: isIncomplete ? "incomplete_data" : "posted_journal_entries",
+    };
+  }
+
   // Safety refusal
   if (trimmed.startsWith("Bulk deletion through the assistant is not supported")) {
     const draftMatch = trimmed.match(/(\d+)\s+drafts/i);
-    const draftCount = draftMatch ? Number(draftMatch[1]) : 293;
+    const draftCount = draftMatch ? Number(draftMatch[1]) : 0;
     return {
       type: "safety_refusal",
       title: "Bulk Deletion Not Supported",
@@ -209,6 +255,51 @@ export function parseStructuredErpText(text: string): ErpStructuredResponse | nu
       total,
       formattedTotal,
       route: "/sales/quotes",
+    };
+  }
+
+  // Customer proposal draft
+  // Example: "Customer draft — not saved:\n\nName: Kishore\nType: Not specified..."
+  if (trimmed.startsWith("Customer draft — not saved:")) {
+    const nameMatch = trimmed.match(/Name:\s*([^\n]+)/i);
+    const typeMatch = trimmed.match(/Type:\s*([^\n]+)/i);
+    const phoneMatch = trimmed.match(/Phone:\s*([^\n]+)/i);
+    const emailMatch = trimmed.match(/Email:\s*([^\n]+)/i);
+
+    const rawName = nameMatch ? nameMatch[1].trim() : "";
+    const name = rawName && rawName.toLowerCase() !== "missing" ? rawName : undefined;
+    const typeStr = typeMatch ? typeMatch[1].trim() : "";
+    const isCompany = typeStr.toLowerCase() === "company" ? true : typeStr.toLowerCase() === "individual" ? false : undefined;
+    const phone = phoneMatch ? phoneMatch[1].trim() : undefined;
+    const email = emailMatch ? emailMatch[1].trim() : undefined;
+
+    const missingFields: string[] = [];
+    if (!name) missingFields.push("name");
+    if (isCompany === undefined) missingFields.push("type");
+
+    return {
+      type: "customer_proposal",
+      proposalId: "customer-draft",
+      name,
+      isCompany,
+      phone,
+      email,
+      missingFields,
+      status: "proposed",
+    };
+  }
+
+  // Successfully saved customer
+  // Example: Saved customer "Kishore K" (Individual).
+  const savedCustomerMatch = trimmed.match(/^Saved\s+customer\s+"([^"]+)"\s*\((Company|Individual)\)\.?$/i);
+  if (savedCustomerMatch) {
+    const name = savedCustomerMatch[1].trim();
+    const isCompany = savedCustomerMatch[2].toLowerCase() === "company";
+    return {
+      type: "customer_saved",
+      name,
+      isCompany,
+      route: "/sales/customers",
     };
   }
 

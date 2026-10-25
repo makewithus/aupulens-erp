@@ -145,6 +145,20 @@ const looksLikeClearance = (text: string): boolean => {
  * HS-code→goods-receipt) each caused by an earlier, simpler heuristic.
  */
 export function findCreateTarget(q: string): CreateTargetDef | undefined {
+  // CRITICAL FIX: Non-creation employee operations must NEVER redirect to Add New Employee.
+  // 1. Role change or update requests are mutations/workflows, never entity creation.
+  if (/\b(?:role\s+change|change\s+.*role|update\s+.*role|role\s+to\b|set\s+.*role|switch\s+.*role|modify\s+.*role|promote|demote)\b/i.test(q)) {
+    return undefined;
+  }
+  // 2. Employee search, lookup, or listing requests are read-only, never entity creation.
+  if (/\b(?:find|search|lookup|look\s+up|list|show|fetch|get|who\s+is|who\s+are)\b.*\b(?:employees?|staff|users?|members?)\b/i.test(q)) {
+    return undefined;
+  }
+  // 3. Explicit negative instruction against creation ("do not create", "don't create", etc.).
+  if (/\b(?:do\s+not|don'?t|never|without)\s+(?:create|make|add|draft|generate)\b/i.test(q)) {
+    return undefined;
+  }
+
   // Decisive override: the word "clearance" belongs to EXACTLY one feature —
   // Customs Clearance. No other target in this app uses that word, so it must
   // win even when the phrase also contains "customer" (a very easy typo/near-
@@ -214,10 +228,16 @@ export function findCreateTarget(q: string): CreateTargetDef | undefined {
 
   const tail = q.slice(anchorIdx);
   const afterExact = earliestIn(tail, anchorIdx);
-  if (afterExact) return afterExact.t;
-  const afterTypo = fuzzyIn(tail);
-  if (afterTypo) return afterTypo;
-  const beforeExact = nearestBefore(q, anchorIdx);
-  if (beforeExact) return beforeExact.t;
-  return fuzzyIn(q);
+  const afterTypo = !afterExact ? fuzzyIn(tail) : undefined;
+  const beforeExact = !afterExact && !afterTypo ? nearestBefore(q, anchorIdx) : undefined;
+  const candidate = afterExact?.t || afterTypo || beforeExact?.t || fuzzyIn(q);
+
+  if (candidate?.target === "employee") {
+    const isExplicitEmployeeCreate =
+      /\b(?:create|add|new|register|onboard|draft|hire|enter)\b.*\b(?:employee|staff)\b/i.test(q) ||
+      /\b(?:employee|staff)\b.*\b(?:creation|registration|onboarding)\b/i.test(q);
+    if (!isExplicitEmployeeCreate) return undefined;
+  }
+
+  return candidate;
 }

@@ -29,115 +29,120 @@ import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
+
+function computeProjectDashboardData(projects: any[]) {
+  const total = projects.length;
+  const active = projects.filter((p: any) => p.status === "in_progress" || p.status === "active").length;
+  const planning = projects.filter((p: any) => p.status === "planning").length;
+  const onHold = projects.filter((p: any) => p.status === "on_hold").length;
+  const completed = projects.filter((p: any) => p.status === "completed").length;
+  const avgProg = total > 0 ? Math.round(projects.reduce((acc: number, p: any) => acc + (p.progress || 0), 0) / total) : 0;
+  const onTimeRate = total > 0 ? (completed > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 100) : 0;
+
+  const stats = {
+    totalProjects: total,
+    activeProjects: active,
+    planningProjects: planning,
+    onHoldProjects: onHold,
+    milestoneOnTimeRate: onTimeRate,
+    avgProgress: avgProg,
+    totalBudgetAllocated: 0,
+    totalBudgetConsumed: 0,
+    budgetUtilization: 0,
+    overdueTasksCount: 0,
+    criticalPathBlockers: 0,
+    sprintVelocityPoints: completed * 10,
+  };
+
+  const projectPhaseDistribution = [
+    { name: "Active Execution", value: active },
+    { name: "Planning & Scoping", value: planning },
+    { name: "On Hold", value: onHold },
+    { name: "Completed", value: completed },
+  ].filter((p) => p.value > 0);
+
+  const criticalProjectsList = projects.slice(0, 5).map((p: any) => ({
+    id: p._id?.slice(-8).toUpperCase() || "PRJ",
+    name: p.name,
+    lead: p.ownerId?.name || "Project Lead",
+    progress: p.progress || 0,
+    budgetConsumed: "Configured",
+    milestone: p.status || "Active",
+    dueDate: p.dueDate ? new Date(p.dueDate).toLocaleDateString() : "Ongoing",
+    status: p.status === "completed" ? "Completed" : p.status === "in_progress" ? "On Schedule" : "In Review",
+    color: p.status === "completed" ? BRAND_COLORS.accent.green : BRAND_COLORS.accent.blue,
+  }));
+
+  const countsByDate = new Map<string, number>();
+  for (const proj of projects) {
+    const d = proj.createdAt || proj.updatedAt;
+    if (!d) continue;
+    const dateStr = new Date(d).toISOString().slice(0, 10);
+    countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + 1);
+  }
+
+  const dailyDeliverables = countsByDate.size > 0
+    ? Array.from(countsByDate.entries()).map(([date, count]) => ({ date, count }))
+    : [];
+
+  return {
+    stats,
+    projectPhaseDistribution,
+    criticalProjectsList,
+    criticalSprintTasks: [] as any[],
+    dailyDeliverables,
+  };
+}
 
 export default function ProjectsDashboardPage() {
   const { data: session } = useSession();
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedProjects = getInstantCachedData<{ success: boolean; data: any[] }>("/api/projects");
+  const initialData = computeProjectDashboardData(cachedProjects?.data ?? []);
 
-  // Live Projects State
-  const [stats, setStats] = useState({
-    totalProjects: 0,
-    activeProjects: 0,
-    planningProjects: 0,
-    onHoldProjects: 0,
-    milestoneOnTimeRate: 0,
-    avgProgress: 0,
-    totalBudgetAllocated: 0,
-    totalBudgetConsumed: 0,
-    budgetUtilization: 0,
-    overdueTasksCount: 0,
-    criticalPathBlockers: 0,
-    sprintVelocityPoints: 0,
-  });
+  const [isLoading, setIsLoading] = useState(() => !cachedProjects);
+  const [stats, setStats] = useState(initialData.stats);
+  const [projectPhaseDistribution, setProjectPhaseDistribution] = useState<any[]>(initialData.projectPhaseDistribution);
+  const [criticalProjectsList, setCriticalProjectsList] = useState<any[]>(initialData.criticalProjectsList);
+  const [criticalSprintTasks, setCriticalSprintTasks] = useState<any[]>(initialData.criticalSprintTasks);
+  const [dailyDeliverables, setDailyDeliverables] = useState<any[]>(initialData.dailyDeliverables);
 
-  const [projectPhaseDistribution, setProjectPhaseDistribution] = useState<any[]>([]);
-  const [criticalProjectsList, setCriticalProjectsList] = useState<any[]>([]);
-  const [criticalSprintTasks, setCriticalSprintTasks] = useState<any[]>([]);
-  const [dailyDeliverables, setDailyDeliverables] = useState<any[]>([]);
+  const loadProjects = async (force = false) => {
+    try {
+      const res = await cachedFetch("/api/projects", undefined, { force });
+      const json = res.ok ? await res.json() : null;
+      if (json?.success && Array.isArray(json.data)) {
+        const computed = computeProjectDashboardData(json.data);
+        setStats(computed.stats);
+        setProjectPhaseDistribution(computed.projectPhaseDistribution);
+        setCriticalProjectsList(computed.criticalProjectsList);
+        setCriticalSprintTasks(computed.criticalSprintTasks);
+        setDailyDeliverables(computed.dailyDeliverables);
+      }
+    } catch (err) {
+      console.error("Failed to load projects dashboard:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    async function loadProjects() {
-      try {
-        setIsLoading(true);
-        const res = await cachedFetch("/api/projects");
-        const json = res.ok ? await res.json() : null;
-        if (json?.success && Array.isArray(json.data) && isMounted) {
-          const projects = json.data;
-          const total = projects.length;
-          const active = projects.filter((p: any) => p.status === "in_progress" || p.status === "active").length;
-          const planning = projects.filter((p: any) => p.status === "planning").length;
-          const onHold = projects.filter((p: any) => p.status === "on_hold").length;
-          const completed = projects.filter((p: any) => p.status === "completed").length;
-          const avgProg = total > 0 ? Math.round(projects.reduce((acc: number, p: any) => acc + (p.progress || 0), 0) / total) : 0;
-
-          setStats({
-            totalProjects: total,
-            activeProjects: active,
-            planningProjects: planning,
-            onHoldProjects: onHold,
-            milestoneOnTimeRate: total > 0 ? 100 : 0,
-            avgProgress: avgProg,
-            totalBudgetAllocated: 0,
-            totalBudgetConsumed: 0,
-            budgetUtilization: 0,
-            overdueTasksCount: 0,
-            criticalPathBlockers: 0,
-            sprintVelocityPoints: completed * 10,
-          });
-
-          if (total > 0) {
-            setProjectPhaseDistribution([
-              { name: "Active Execution", value: active },
-              { name: "Planning & Scoping", value: planning },
-              { name: "On Hold", value: onHold },
-              { name: "Completed", value: completed },
-            ].filter((p) => p.value > 0));
-
-            setCriticalProjectsList(
-              projects.slice(0, 5).map((p: any) => ({
-                id: p._id?.slice(-8).toUpperCase() || "PRJ",
-                name: p.name,
-                lead: p.ownerId?.name || "Project Lead",
-                progress: p.progress || 0,
-                budgetConsumed: "Configured",
-                milestone: p.status || "Active",
-                dueDate: p.dueDate ? new Date(p.dueDate).toLocaleDateString() : "Ongoing",
-                status: p.status === "completed" ? "Completed" : p.status === "in_progress" ? "On Schedule" : "In Review",
-                color: p.status === "completed" ? BRAND_COLORS.accent.green : BRAND_COLORS.accent.blue,
-              }))
-            );
-
-            // Group creations / updates by date for daily deliverables timeline
-            const countsByDate = new Map<string, number>();
-            for (const proj of projects) {
-              const d = proj.createdAt || proj.updatedAt;
-              if (!d) continue;
-              const dateStr = new Date(d).toISOString().slice(0, 10);
-              countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + 1);
-            }
-            setDailyDeliverables(
-              Array.from(countsByDate.entries()).map(([date, count]) => ({ date, count }))
-            );
-          } else {
-            setProjectPhaseDistribution([]);
-            setCriticalProjectsList([]);
-            setCriticalSprintTasks([]);
-            setDailyDeliverables([]);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load projects dashboard:", err);
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    }
     loadProjects();
-    return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
+    const handleRevalidate = (e: any) => {
+      if (e?.detail?.url?.includes("/api/projects")) {
+        loadProjects(true);
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("aup:revalidated", handleRevalidate);
+      return () => window.removeEventListener("aup:revalidated", handleRevalidate);
+    }
   }, []);
 
   const formatCurrency = (val: number) => {
@@ -169,7 +174,7 @@ export default function ProjectsDashboardPage() {
                 Portfolio Governance
               </span>
               <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                On-Time 91.8%
+                On-Time {stats.milestoneOnTimeRate}%
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
@@ -310,7 +315,7 @@ export default function ProjectsDashboardPage() {
           <div className="lg:col-span-8">
             <Card
               className={cn(
-                "border border-border/60 shadow-sm h-full",
+                "chart-animate-in chart-delay-1 border border-border/60 shadow-sm h-full",
                 isDark ? "bg-[#161616]" : "bg-card"
               )}
             >
@@ -354,7 +359,7 @@ export default function ProjectsDashboardPage() {
           <div className="lg:col-span-4">
             <Card
               className={cn(
-                "border border-border/60 shadow-sm h-full flex flex-col justify-between",
+                "chart-animate-in chart-delay-2 border border-border/60 shadow-sm h-full flex flex-col justify-between",
                 isDark ? "bg-[#161616]" : "bg-card"
               )}
             >

@@ -488,7 +488,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       { role: "assistant", text: "", isLoading: true },
     ]);
 
-    if (!freshAttachments.length && ["sales", "admin", "master-admin"].includes(session?.user?.role || "")) {
+    if (!freshAttachments.length && ["sales", "admin", "master-admin", "hr", "finance", "inventory", "project", "manufacturing", "crm"].includes(session?.user?.role || "")) {
       const erp = await runErpAssistant({ text: q, module: session?.user?.role === "sales" ? "sales" : "admin", conversationId: activeConversationId, requestId: crypto.randomUUID() });
       if (erp.handled) {
         setIsLoading(false);

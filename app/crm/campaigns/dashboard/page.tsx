@@ -7,6 +7,8 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
+
 function MetricCard({ title, value, sub, icon: Icon, colorClass, loading }: any) {
   return (
     <div className="bg-card border border-border rounded-lg p-5">
@@ -27,19 +29,46 @@ function MetricCard({ title, value, sub, icon: Icon, colorClass, loading }: any)
 }
 
 export default function CampaignDashboardPage() {
-  const [globalROI, setGlobalROI] = useState<any>(null);
-  const [reports, setReports] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const cachedRoi = getInstantCachedData<any>("/api/crm/reports/roi");
+  const cachedReports = getInstantCachedData<any>("/api/crm/reports/campaigns");
+  const [globalROI, setGlobalROI] = useState<any>(() => cachedRoi?.data ?? null);
+  const [reports, setReports] = useState<any>(() => cachedReports?.data ?? null);
+  const [loading, setLoading] = useState<boolean>(() => !cachedRoi || !cachedReports);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/crm/reports/roi").then(r => r.json()),
-      fetch("/api/crm/reports/campaigns").then(r => r.json()),
-    ]).then(([roiData, reportsData]) => {
-      if (roiData.success) setGlobalROI(roiData.data);
-      if (reportsData.success) setReports(reportsData.data);
-      setLoading(false);
-    });
+    let isMounted = true;
+    async function loadCampaignMetrics() {
+      try {
+        const [roiRes, reportsRes] = await Promise.all([
+          cachedFetch("/api/crm/reports/roi"),
+          cachedFetch("/api/crm/reports/campaigns"),
+        ]);
+        if (!isMounted) return;
+        if (roiRes.ok) {
+          const roiData = await roiRes.json();
+          if (roiData.success && roiData.data) setGlobalROI(roiData.data);
+        }
+        if (reportsRes.ok) {
+          const reportsData = await reportsRes.json();
+          if (reportsData.success && reportsData.data) setReports(reportsData.data);
+        }
+      } catch (err) {
+        console.error("Failed to load campaign dashboard data:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadCampaignMetrics();
+    const handleRevalidated = (e: any) => {
+      if (e?.detail?.url?.includes("/api/crm")) {
+        loadCampaignMetrics();
+      }
+    };
+    window.addEventListener("aup:revalidated", handleRevalidated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("aup:revalidated", handleRevalidated);
+    };
   }, []);
 
   return (

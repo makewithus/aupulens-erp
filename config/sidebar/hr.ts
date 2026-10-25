@@ -20,6 +20,7 @@ export const hrSidebarConfig: SidebarSection[] = [
     title: "Overview",
     items: [
       { title: "Dashboard", href: "/hr/dashboard", icon: LayoutDashboard },
+      { title: "Analytics", href: "/hr/analytics", icon: BarChart3 },
     ],
   },
   {

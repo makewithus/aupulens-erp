@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { computeExpansionForecast } from "@/lib/crm/expansionForecast";
 import { runExpansionEngine, getExpansionSummary } from "@/lib/crm/expansionEngine";
+import { getCachedData, setCachedData, invalidateCache } from "@/lib/api/serverCache";
 
 // ─── GET /api/crm/expansion?account_id=<id>&horizon=12 ───────────────────────
 export async function GET(req: NextRequest) {
@@ -10,22 +11,37 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false }, { status: 401 });
 
-  await dbConnect();
+  const tenantId = session.user.tenantId;
+  const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
   const url = new URL(req.url);
   const accountId = url.searchParams.get("account_id");
   const horizon = parseInt(url.searchParams.get("horizon") || "12");
 
+  const cacheKey = `crm-expansion:${tenantId}:${accountId || "all"}:${horizon}`;
+  if (!isFresh) {
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+  }
+
+  await dbConnect();
+
   if (accountId) {
     const [summary, forecast] = await Promise.all([
-      getExpansionSummary(accountId, session.user.tenantId),
-      computeExpansionForecast(session.user.tenantId, horizon),
+      getExpansionSummary(accountId, tenantId),
+      computeExpansionForecast(tenantId, horizon),
     ]);
-    return NextResponse.json({ success: true, data: { summary, forecast } });
+    const payload = { success: true, data: { summary, forecast } };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   }
 
   // Tenant-wide forecast
-  const forecast = await computeExpansionForecast(session.user.tenantId, horizon);
-  return NextResponse.json({ success: true, data: forecast });
+  const forecast = await computeExpansionForecast(tenantId, horizon);
+  const payload = { success: true, data: forecast };
+  setCachedData(cacheKey, payload, 20_000);
+  return NextResponse.json(payload);
 }
 
 // ─── POST /api/crm/expansion — Run engine for account ────────────────────────
@@ -50,5 +66,6 @@ export async function POST(req: NextRequest) {
     session.user.id
   );
 
+  invalidateCache(`crm-expansion:${session.user.tenantId}`);
   return NextResponse.json({ success: true, data: recommendations });
 }

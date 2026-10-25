@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -32,7 +32,7 @@ import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 
 export default function SalesDashboardPage() {
   const { data: session, status } = useSession();
@@ -40,116 +40,154 @@ export default function SalesDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedSummary = getInstantCachedData<any>("/api/sales/summary");
+  const cachedAnalytics = getInstantCachedData<any>("/api/sales/analytics");
+  const cachedOrders = getInstantCachedData<any>("/api/sales/orders?limit=5");
+
+  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedSummary);
+
+  const initRev = cachedSummary?.totalRevenue ?? 0;
+  const initOrders = cachedSummary?.totalOrders ?? 0;
+  const initQuotes = cachedSummary?.totalQuotations ?? 0;
+  const initAov = initOrders > 0 ? Math.round(initRev / initOrders) : 0;
+  const initConv = initQuotes > 0 ? Math.min(100, Math.round((initOrders / initQuotes) * 100)) : 0;
 
   // Sales-specific parameters & KPIs (Dynamic with database isolation)
-  const [salesKPIs, setSalesKPIs] = useState({
-    netRevenue: 0,
-    revenueGrowthMoM: 0,
-    openPipelineValue: 0,
-    openQuotesCount: 0,
-    averageOrderValue: 0,
-    aovChange: 0,
-    q2cConversionRate: 0,
-    activeSubscriptionsARR: 0,
+  const [salesKPIs, setSalesKPIs] = useState(() => ({
+    netRevenue: initRev,
+    revenueGrowthMoM: cachedSummary?.trends?.revenue ?? 0,
+    openPipelineValue: initQuotes * initAov,
+    openQuotesCount: initQuotes,
+    averageOrderValue: initAov,
+    aovChange: cachedSummary?.trends?.orders ?? 0,
+    q2cConversionRate: initConv,
+    activeSubscriptionsARR: initRev * 12,
     activeTenants: 1,
+  }));
+
+  const [channelDistribution, setChannelDistribution] = useState<{ name: string; value: number }[]>(() => {
+    if (Array.isArray(cachedAnalytics?.topProducts) && cachedAnalytics.topProducts.length > 0) {
+      return cachedAnalytics.topProducts.map((p: any) => ({ name: p.name, value: p.value }));
+    }
+    return [];
+  });
+  const [recentOrders, setRecentOrders] = useState<any[]>(() => {
+    if (cachedOrders?.items && Array.isArray(cachedOrders.items)) {
+      return cachedOrders.items.map((ord: any) => ({
+        id: ord.name || ord.code || (ord._id ? `SO-${ord._id.slice(-6).toUpperCase()}` : "SO-NEW"),
+        customer: ord.partnerId?.name || ord.customerName || "Customer",
+        amount: ord.totals?.amountTotal || ord.totalAmount || 0,
+        stage: ord.status === "sale" || ord.status === "done" ? "Accepted" : (ord.status === "invoiced" ? "Invoiced" : "Draft"),
+        date: ord.createdAt ? new Date(ord.createdAt).toLocaleDateString("en-IN") : "Recent",
+        status: ord.status || "Pending",
+      }));
+    }
+    return [];
+  });
+  const [q2cPipelineStages, setQ2cPipelineStages] = useState<any[]>(() => [
+    { name: "Draft Quotations", count: initQuotes, value: `₹${(initQuotes * initAov).toLocaleString("en-IN")}`, percent: initQuotes > 0 ? 100 : 0, color: BRAND_COLORS.accent.blue },
+    { name: "Confirmed Orders", count: initOrders, value: `₹${initRev.toLocaleString("en-IN")}`, percent: initConv, color: BRAND_COLORS.accent.green },
+  ]);
+  const [dailyOrders, setDailyOrders] = useState<any[]>(() => cachedAnalytics?.dailyOrders ?? []);
+  const [tradingLineData, setTradingLineData] = useState<any[]>(() => {
+    if (Array.isArray(cachedAnalytics?.revenue)) {
+      return cachedAnalytics.revenue.map((r: any) => ({ date: r.month, value: r.amount }));
+    }
+    return [];
   });
 
-  const [channelDistribution, setChannelDistribution] = useState<{ name: string; value: number }[]>([]);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  const [q2cPipelineStages, setQ2cPipelineStages] = useState<any[]>([]);
-  const [dailyOrders, setDailyOrders] = useState<any[]>([]);
-  const [tradingLineData, setTradingLineData] = useState<any[]>([]);
+  const loadSalesDashboard = useCallback(async () => {
+    try {
+      const fetchJson = async (url: string) => {
+        try {
+          const r = await cachedFetch(url);
+          return r.ok ? await r.json() : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const [summaryRes, analyticsRes, ordersRes] = await Promise.all([
+        fetchJson("/api/sales/summary"),
+        fetchJson("/api/sales/analytics"),
+        fetchJson("/api/sales/orders?limit=5"),
+      ]);
+
+      const rev = summaryRes?.totalRevenue ?? 0;
+      const ordersCount = summaryRes?.totalOrders ?? 0;
+      const quotesCount = summaryRes?.totalQuotations ?? 0;
+      const aov = ordersCount > 0 ? Math.round(rev / ordersCount) : 0;
+      const convRate = quotesCount > 0 ? Math.min(100, Math.round((ordersCount / quotesCount) * 100)) : 0;
+
+      setSalesKPIs({
+        netRevenue: rev,
+        revenueGrowthMoM: summaryRes?.trends?.revenue ?? 0,
+        openPipelineValue: quotesCount * aov,
+        openQuotesCount: quotesCount,
+        averageOrderValue: aov,
+        aovChange: summaryRes?.trends?.orders ?? 0,
+        q2cConversionRate: convRate,
+        activeSubscriptionsARR: rev * 12,
+        activeTenants: 1,
+      });
+
+      // Top products / channels
+      if (Array.isArray(analyticsRes?.topProducts) && analyticsRes.topProducts.length > 0) {
+        setChannelDistribution(analyticsRes.topProducts.map((p: any) => ({ name: p.name, value: p.value })));
+      } else {
+        setChannelDistribution([]);
+      }
+
+      // Daily orders for DailyBrickBarChart
+      if (Array.isArray(analyticsRes?.dailyOrders)) {
+        setDailyOrders(analyticsRes.dailyOrders);
+      } else {
+        setDailyOrders([]);
+      }
+
+      // Trading line monthly revenue
+      if (Array.isArray(analyticsRes?.revenue)) {
+        setTradingLineData(analyticsRes.revenue.map((r: any) => ({ date: r.month, value: r.amount })));
+      } else {
+        setTradingLineData([]);
+      }
+
+      // Pipeline stages
+      setQ2cPipelineStages([
+        { name: "Draft Quotations", count: quotesCount, value: `₹${(quotesCount * aov).toLocaleString("en-IN")}`, percent: quotesCount > 0 ? 100 : 0, color: BRAND_COLORS.accent.blue },
+        { name: "Confirmed Orders", count: ordersCount, value: `₹${rev.toLocaleString("en-IN")}`, percent: convRate, color: BRAND_COLORS.accent.green },
+      ]);
+
+      // Recent orders
+      if (ordersRes?.items && Array.isArray(ordersRes.items)) {
+        setRecentOrders(ordersRes.items.map((ord: any) => ({
+          id: ord.name || ord.code || (ord._id ? `SO-${ord._id.slice(-6).toUpperCase()}` : "SO-NEW"),
+          customer: ord.partnerId?.name || ord.customerName || "Customer",
+          amount: ord.totals?.amountTotal || ord.totalAmount || 0,
+          stage: ord.status === "sale" || ord.status === "done" ? "Accepted" : (ord.status === "invoiced" ? "Invoiced" : "Draft"),
+          date: ord.createdAt ? new Date(ord.createdAt).toLocaleDateString("en-IN") : "Recent",
+          status: ord.status || "Pending",
+        })));
+      } else {
+        setRecentOrders([]);
+      }
+    } catch (err) {
+      console.error("Failed to load sales dashboard:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    async function loadSalesDashboard() {
-      try {
-        setIsLoading(true);
-        const fetchJson = async (url: string) => {
-          try {
-            const r = await cachedFetch(url);
-            return r.ok ? await r.json() : null;
-          } catch {
-            return null;
-          }
-        };
-
-        const [summaryRes, analyticsRes, ordersRes] = await Promise.all([
-          fetchJson("/api/sales/summary"),
-          fetchJson("/api/sales/analytics"),
-          fetchJson("/api/sales/orders?limit=5"),
-        ]);
-
-        if (isMounted) {
-          const rev = summaryRes?.totalRevenue || 0;
-          const ordersCount = summaryRes?.totalOrders || 0;
-          const quotesCount = summaryRes?.totalQuotations || 0;
-          const aov = ordersCount > 0 ? Math.round(rev / ordersCount) : 0;
-          const convRate = quotesCount > 0 ? Math.min(100, Math.round((ordersCount / quotesCount) * 100)) : (ordersCount > 0 ? 100 : 0);
-
-          setSalesKPIs({
-            netRevenue: rev,
-            revenueGrowthMoM: summaryRes?.trends?.revenue || 0,
-            openPipelineValue: 0,
-            openQuotesCount: quotesCount,
-            averageOrderValue: aov,
-            aovChange: summaryRes?.trends?.orders || 0,
-            q2cConversionRate: convRate,
-            activeSubscriptionsARR: 0,
-            activeTenants: 1,
-          });
-
-          // Top products / channels
-          if (Array.isArray(analyticsRes?.topProducts) && analyticsRes.topProducts.length > 0) {
-            setChannelDistribution(analyticsRes.topProducts.map((p: any) => ({ name: p.name, value: p.value })));
-          } else {
-            setChannelDistribution([]);
-          }
-
-          // Daily orders for DailyBrickBarChart
-          if (Array.isArray(analyticsRes?.dailyOrders)) {
-            setDailyOrders(analyticsRes.dailyOrders);
-          } else {
-            setDailyOrders([]);
-          }
-
-          // Trading line monthly revenue
-          if (Array.isArray(analyticsRes?.revenue)) {
-            setTradingLineData(analyticsRes.revenue.map((r: any) => ({ date: r.month, value: r.amount })));
-          } else {
-            setTradingLineData([]);
-          }
-
-          // Pipeline stages
-          setQ2cPipelineStages([
-            { name: "Draft Quotations", count: quotesCount, value: `₹${(quotesCount * aov).toLocaleString("en-IN")}`, percent: quotesCount > 0 ? 100 : 0, color: BRAND_COLORS.accent.blue },
-            { name: "Confirmed Orders", count: ordersCount, value: `₹${rev.toLocaleString("en-IN")}`, percent: convRate, color: BRAND_COLORS.accent.green },
-          ]);
-
-          // Recent orders
-          if (ordersRes?.items && Array.isArray(ordersRes.items)) {
-            setRecentOrders(ordersRes.items.map((ord: any) => ({
-              id: ord.name || ord.code || (ord._id ? `SO-${ord._id.slice(-6).toUpperCase()}` : "SO-NEW"),
-              customer: ord.partnerId?.name || ord.customerName || "Customer",
-              amount: ord.totals?.amountTotal || ord.totalAmount || 0,
-              stage: ord.status === "sale" || ord.status === "done" ? "Accepted" : (ord.status === "invoiced" ? "Invoiced" : "Draft"),
-              date: ord.createdAt ? new Date(ord.createdAt).toLocaleDateString("en-IN") : "Recent",
-              status: ord.status || "Pending",
-            })));
-          } else {
-            setRecentOrders([]);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load sales dashboard:", err);
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    }
     loadSalesDashboard();
-    return () => { isMounted = false; };
-  }, []);
+    const handleRevalidated = (e: any) => {
+      if (e?.detail?.url?.includes("/api/sales")) {
+        loadSalesDashboard();
+      }
+    };
+    window.addEventListener("aup:revalidated", handleRevalidated);
+    return () => window.removeEventListener("aup:revalidated", handleRevalidated);
+  }, [loadSalesDashboard]);
 
   return (
     <DashboardLayout
@@ -281,8 +319,8 @@ export default function SalesDashboardPage() {
             size="sm"
             className="text-xs font-mono h-9 gap-1.5 shrink-0"
           >
-            <Link href="/sales/visualization">
-              View Visualizations
+            <Link href="/sales/analytics">
+              View Sales Analytics
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </Button>

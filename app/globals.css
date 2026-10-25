@@ -246,6 +246,75 @@
     animation-delay: 4s;
   }
 
+  /* Chart and Visualization Entrance Animations & Visual Effects */
+  @keyframes chartEntrance {
+    0% {
+      opacity: 0;
+      transform: translateY(16px) scale(0.99);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes chartShimmerGlow {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  @keyframes chartBeaconPulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.9;
+    }
+    50% {
+      transform: scale(1.35);
+      opacity: 0.4;
+    }
+  }
+
+  .chart-animate-in {
+    animation: chartEntrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .chart-delay-1 { animation-delay: 60ms; }
+  .chart-delay-2 { animation-delay: 130ms; }
+  .chart-delay-3 { animation-delay: 200ms; }
+  .chart-delay-4 { animation-delay: 280ms; }
+  .chart-delay-5 { animation-delay: 360ms; }
+  .chart-delay-6 { animation-delay: 440ms; }
+
+  .chart-shimmer-border {
+    position: relative;
+  }
+  .chart-shimmer-border::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(167, 125, 255, 0.6) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: chartShimmerGlow 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .chart-beacon {
+    animation: chartBeaconPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
   /* Interactive Grid Hover Effect */
   .grid-hover-effect {
     position: relative;

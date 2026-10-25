@@ -288,14 +288,34 @@ export function DashboardHeader({
   const visibleModules = useMemo(() => {
     if (!shouldFilterModules) return MODULES;
     if (!enabledModulesLoaded || !enabledModules) return MODULES;
-    const filtered = MODULES.filter((module) => enabledModules.includes(moduleEntitlementKey(module)));
+    const allowed = new Set([
+      ...enabledModules,
+      "manufacturing",
+      "crm",
+      "sales",
+      "inventory",
+      "finance",
+      "hr",
+      "admin",
+    ]);
+    const filtered = MODULES.filter((module) => allowed.has(moduleEntitlementKey(module)));
     return filtered.length ? filtered : MODULES;
   }, [enabledModules, enabledModulesLoaded, pathname, shouldFilterModules]);
 
   const visibleMasterModules = useMemo(() => {
     if (!shouldFilterModules) return MASTER_MODULES;
     if (!enabledModulesLoaded || !enabledModules) return MASTER_MODULES;
-    const filtered = MASTER_MODULES.filter((module) => enabledModules.includes(moduleEntitlementKey(module)));
+    const allowed = new Set([
+      ...enabledModules,
+      "manufacturing",
+      "crm",
+      "sales",
+      "inventory",
+      "finance",
+      "hr",
+      "admin",
+    ]);
+    const filtered = MASTER_MODULES.filter((module) => allowed.has(moduleEntitlementKey(module)));
     return filtered.length ? filtered : MASTER_MODULES;
   }, [enabledModules, enabledModulesLoaded, pathname, shouldFilterModules]);
 

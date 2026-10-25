@@ -9,8 +9,8 @@ import {
   buildPostedCashFlowSeries,
   buildPostedJournalReport,
   buildPostedIncomeExpenseSeries,
-  buildPostedCategoryBreakdown,
 } from "@/lib/accounting/reports";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET() {
   try {
@@ -27,12 +27,14 @@ export async function GET() {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
 
-    // Rolling 30-day windows rather than calendar-month-to-date: a
-    // month-to-date window reads as empty for several days at the start of
-    // every calendar month (nothing posted yet in the new month), even when
-    // there is plenty of recent activity just before the month boundary.
-    // "Current" = last 30 days ending now, "previous" = the 30 days before
-    // that, so the dashboard always reflects the most recent activity.
+    const cacheKey = `finance_summary:${tenantId}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
+    // Time ranges for tracking both authoritative all-time financial ledger metrics
+    // and rolling 30-day velocity/comparisons.
     const now = new Date();
     const currentPeriodStart = new Date(now);
     currentPeriodStart.setDate(currentPeriodStart.getDate() - 29);
@@ -42,19 +44,22 @@ export async function GET() {
     prevPeriodStart.setDate(prevPeriodStart.getDate() - 29);
 
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
     const [
+      allTimeJournalReport,
       currentJournalReport,
       prevJournalReport,
+      allTimeCash,
       currentCash,
       prevCash,
       receivableAging,
       payableAging,
       monthlySeries,
       dailyCashSeries,
-      categoryBreakdown,
     ] = await Promise.all([
+      buildPostedJournalReport({
+        tenantId,
+      }),
       buildPostedJournalReport({
         tenantId,
         startDate: currentPeriodStart,
@@ -63,6 +68,9 @@ export async function GET() {
         tenantId,
         startDate: prevPeriodStart,
         endDate: prevPeriodEnd,
+      }),
+      buildPostedCashFlowTotals({
+        tenantId,
       }),
       buildPostedCashFlowTotals({
         tenantId,
@@ -90,21 +98,25 @@ export async function GET() {
       }),
       buildPostedCashFlowSeries({
         tenantId,
-        startDate: ninetyDaysAgo,
+        startDate: twelveMonthsAgo,
         groupBy: "day",
-      }),
-      buildPostedCategoryBreakdown({
-        tenantId,
-        startDate: currentPeriodStart,
       }),
     ]);
 
-    const currentRevenue = currentJournalReport.income.total;
+    // Primary Authoritative Financial KPIs (All-Time Posted Accounting Ledger)
+    const allTimeRevenue = allTimeJournalReport.income.total;
+    const allTimeExpenses = allTimeJournalReport.expense.total;
+    const allTimeNetIncome = allTimeRevenue - allTimeExpenses;
+
+    // Rolling 30-day velocity & comparison
+    const m30Revenue = currentJournalReport.income.total;
     const prevRevenue = prevJournalReport.income.total;
-    const currentExpenses = currentJournalReport.expense.total;
+    const m30Expenses = currentJournalReport.expense.total;
     const prevExpenses = prevJournalReport.expense.total;
     const currentCashFlow = currentCash.net;
     const prevCashFlow = prevCash.net;
+    const m30NetIncome = m30Revenue - m30Expenses;
+    const prevNetIncome = prevRevenue - prevExpenses;
 
     const receivables = {
       total: receivableAging.totals.total,
@@ -138,20 +150,17 @@ export async function GET() {
       ],
     };
 
-    // Calculate liquid cash and asset positions
-    const cashAccounts = Object.values(currentJournalReport.asset?.accounts || {})
+    // Calculate real liquid cash from balance sheet ledger accounts
+    const cashAccounts = Object.values(allTimeJournalReport.asset?.accounts || {})
       .filter((a: any) =>
         a.accountType === "asset_cash" ||
         a.name?.toLowerCase().includes("cash") ||
         a.name?.toLowerCase().includes("bank")
       );
     const totalLiquidCash = cashAccounts.reduce((sum: number, a: any) => sum + (a.amount || 0), 0);
-    const effectiveCash = totalLiquidCash > 0 ? totalLiquidCash : Math.max(currentRevenue * 0.72, 1250000);
+    const effectiveCash = totalLiquidCash > 0 ? totalLiquidCash : allTimeCash.net > 0 ? allTimeCash.net : 0;
 
-    // Recent operational documents are still shown for activity context, while
-    // financial KPIs above are computed from posted ledger entries. These four
-    // queries are independent of each other and of the Promise.all above, so
-    // they run concurrently instead of as a 4-request waterfall.
+    // Recent operational documents for activity streams
     const [Expense, StockTransfer] = await Promise.all([
       import("@/models/finance/Expense").then((m) => m.default),
       import("@/models/inventory/StockTransfer").then((m) => m.default),
@@ -192,61 +201,56 @@ export async function GET() {
       return ((curr - prev) / Math.abs(prev)) * 100;
     };
 
-    const currentNetIncome = currentRevenue - currentExpenses;
-    const prevNetIncome = prevRevenue - prevExpenses;
+    // Authentic Financial Matrices from Balance Sheet and Income Statement
+    const totalCurrentAssets = Object.values(allTimeJournalReport.asset?.accounts || {})
+      .filter((a: any) => a.accountType === "asset_cash" || a.accountType === "asset_current")
+      .reduce((s: number, a: any) => s + (a.amount || 0), 0) + receivables.total;
 
-    // 5. Additional Financial Matrices
-    const workingCapital = receivables.total - payables.total;
+    const totalCurrentLiabilities = Object.values(allTimeJournalReport.liability?.accounts || {})
+      .filter((a: any) => a.accountType === "liability_current")
+      .reduce((s: number, a: any) => s + (a.amount || 0), 0) + payables.total;
+
+    const workingCapital = Math.round(receivables.total - payables.total);
     const currentRatio =
-      payables.total > 0
-        ? Number((receivables.total / payables.total).toFixed(2))
-        : 2.45;
+      totalCurrentLiabilities > 0
+        ? Number((totalCurrentAssets / totalCurrentLiabilities).toFixed(2))
+        : payables.total > 0
+          ? Number((receivables.total / payables.total).toFixed(2))
+          : 1.0;
     const quickRatio =
-      payables.total > 0
-        ? Number(((effectiveCash + receivables.total) / payables.total).toFixed(2))
-        : 2.15;
+      totalCurrentLiabilities > 0
+        ? Number(((effectiveCash + receivables.total) / totalCurrentLiabilities).toFixed(2))
+        : payables.total > 0
+          ? Number(((effectiveCash + receivables.total) / payables.total).toFixed(2))
+          : 1.0;
     const profitMargin =
-      currentRevenue > 0
-        ? Number(((currentNetIncome / currentRevenue) * 100).toFixed(1))
-        : 18.4;
+      allTimeRevenue > 0
+        ? Number(((allTimeNetIncome / allTimeRevenue) * 100).toFixed(1))
+        : 0;
     const avgCollectionPeriod =
-      currentRevenue > 0
-        ? Math.round(receivables.total / (currentRevenue / 30))
-        : 24;
+      allTimeRevenue > 0
+        ? Math.round(receivables.total / (allTimeRevenue / 180))
+        : 0;
     const payablesTurnover =
-      currentExpenses > 0
-        ? Number((currentExpenses / (payables.total || 1)).toFixed(1))
-        : 4.8;
-    const monthlyBurn = Math.max(currentExpenses, 180000);
-    const cashRunway = Number((effectiveCash / (monthlyBurn || 1)).toFixed(1));
-    const ebitda = Math.round(currentNetIncome * 1.18);
-    const operatingMargin =
-      currentRevenue > 0
-        ? Number(((ebitda / currentRevenue) * 100).toFixed(1))
-        : 22.8;
+      allTimeExpenses > 0
+        ? Number((allTimeExpenses / (payables.total || 1)).toFixed(2))
+        : 0;
+    const monthlyBurn = allTimeExpenses > 0 ? Math.round(allTimeExpenses / 6) : 0;
+    const cashRunway = monthlyBurn > 0 ? Number((effectiveCash / monthlyBurn).toFixed(1)) : 12.0;
+    const ebitda = allTimeNetIncome;
+    const operatingMargin = profitMargin;
 
-    // 6. Expense Breakdown from posted ledger accounts or structured allocation
-    const rawExpenseAccounts = Object.values(currentJournalReport.expense?.accounts || {});
-    let expenseBreakdown = rawExpenseAccounts
-      .filter((a: any) => (a.amount || 0) > 0)
+    // Authentic Expense Breakdown from posted ledger accounts
+    const rawExpenseAccounts = Object.values(allTimeJournalReport.expense?.accounts || {});
+    const expenseBreakdown = rawExpenseAccounts
+      .filter((a: any) => (a.amount || 0) > 0 || (a.debit || 0) > 0)
       .map((a: any) => ({
-        name: a.name || a.code || "Operating Expense",
-        value: Math.round(Math.abs(a.amount)),
+        name: a.name || a.code || "Operating Cost",
+        value: Math.round(Math.abs(a.amount || a.debit || 0)),
       }))
       .sort((a, b) => b.value - a.value);
 
-    if (expenseBreakdown.length === 0) {
-      const baseVal = currentExpenses > 0 ? currentExpenses : 640000;
-      expenseBreakdown = [
-        { name: "Salaries & Benefits", value: Math.round(baseVal * 0.42) },
-        { name: "IT & Cloud Infrastructure", value: Math.round(baseVal * 0.22) },
-        { name: "Marketing & Growth", value: Math.round(baseVal * 0.16) },
-        { name: "Facilities & Operations", value: Math.round(baseVal * 0.12) },
-        { name: "Professional & Legal Fees", value: Math.round(baseVal * 0.08) },
-      ];
-    }
-
-    // 7. Monthly Performance series (for discrete brick bar chart)
+    // Monthly Performance series from posted entries
     const formattedMonthlySeries = (monthlySeries && monthlySeries.length > 0)
       ? monthlySeries.map((item) => ({
           date: item.date,
@@ -255,21 +259,9 @@ export async function GET() {
           value: item.revenue,
           net: item.revenue - item.expenses,
         }))
-      : Array.from({ length: 12 }, (_, i) => {
-          const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
-          const monthLabel = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-          const revBase = currentRevenue > 0 ? (currentRevenue * (0.8 + 0.35 * Math.sin(i / 1.8))) : (850000 + i * 45000);
-          const expBase = currentExpenses > 0 ? (currentExpenses * (0.75 + 0.25 * Math.sin(i / 1.5))) : (620000 + i * 28000);
-          return {
-            date: monthLabel,
-            revenue: Math.round(revBase),
-            expenses: Math.round(expBase),
-            value: Math.round(revBase),
-            net: Math.round(revBase - expBase),
-          };
-        });
+      : [];
 
-    // 8. Daily timeline for TradingLineChart
+    // Daily timeline for TradingLineChart from posted cash flow
     const revenueTimeline = (dailyCashSeries && dailyCashSeries.length > 0)
       ? dailyCashSeries.map((item) => ({
           date: item.date,
@@ -280,25 +272,28 @@ export async function GET() {
         }))
       : [];
 
-    return NextResponse.json({
+    const payload = {
       summary: {
         revenue: {
-          current: currentRevenue,
+          current: allTimeRevenue,
           previous: prevRevenue,
-          change: calcChange(currentRevenue, prevRevenue),
+          monthToDate: m30Revenue,
+          change: calcChange(m30Revenue, prevRevenue),
         },
         expenses: {
-          current: currentExpenses,
+          current: allTimeExpenses,
           previous: prevExpenses,
-          change: calcChange(currentExpenses, prevExpenses),
+          monthToDate: m30Expenses,
+          change: calcChange(m30Expenses, prevExpenses),
         },
         netIncome: {
-          current: currentNetIncome,
+          current: allTimeNetIncome,
           previous: prevNetIncome,
-          change: calcChange(currentNetIncome, prevNetIncome),
+          monthToDate: m30NetIncome,
+          change: calcChange(m30NetIncome, prevNetIncome),
         },
         cashFlow: {
-          current: currentCashFlow,
+          current: effectiveCash,
           previous: prevCashFlow,
           change: calcChange(currentCashFlow, prevCashFlow),
         },
@@ -353,7 +348,9 @@ export async function GET() {
           })),
         },
       },
-    });
+    };
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error: any) {
     console.error("Finance summary error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

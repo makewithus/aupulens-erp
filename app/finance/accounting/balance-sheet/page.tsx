@@ -30,8 +30,6 @@ export default function BalanceSheetPage() {
       const query = date ? `?date=${encodeURIComponent(date)}` : "";
       const res = await cachedFetch(
         `/api/finance/reports/balance-sheet${query}`,
-        undefined,
-        { noCache: true },
       );
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || "load failed");

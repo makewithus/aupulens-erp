@@ -21,13 +21,15 @@ import {
   BarChart3,
   Truck,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
+import { toast } from "sonner";
 import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import {
   PRODUCTION_STATUS_LABELS,
   PRODUCTION_STATUS_COLORS,
@@ -51,25 +53,35 @@ interface ManufacturingSummary {
 export default function ManufacturingDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [summary, setSummary] = useState<ManufacturingSummary>({
-    demandForecast: 0,
-    inProduction: 0,
-    qcPending: 0,
-    rework: 0,
-    finished: 0,
-    totalBoms: 0,
-    totalProducts: 0,
-    totalOrders: 0,
-    totalShipments: 0,
-    oee: 0,
-    recentOrders: [],
-  });
 
-  const fetchSummary = useCallback(async () => {
+  const [summary, setSummary] = useState<ManufacturingSummary | null>(() => {
+    const cached = getInstantCachedData<any>("/api/manufacturing/summary");
+    if (!cached) return null;
+    const stats = cached.stats || {};
+    const sum = cached.summary || {};
+    return {
+      demandForecast: sum.demandForecast ?? stats.demandForecast ?? 0,
+      inProduction: sum.inProduction ?? stats.inProduction ?? 0,
+      qcPending: sum.qcPending ?? stats.qcPending ?? 0,
+      rework: sum.rework ?? stats.rework ?? 0,
+      finished: sum.finished ?? stats.finished ?? 0,
+      totalBoms: sum.totalBoms ?? stats.totalBoms ?? 0,
+      totalProducts: sum.totalProducts ?? stats.totalProducts ?? 0,
+      totalOrders: stats.totalOrders ?? 0,
+      totalShipments: stats.totalShipments ?? 0,
+      oee: stats.oee ?? 0,
+      recentOrders: cached.recentOrders ?? [],
+    };
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => !getInstantCachedData<any>("/api/manufacturing/summary"));
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchSummary = useCallback(async (fresh: boolean = false) => {
     try {
-      setIsLoading(true);
-      const res = await cachedFetch("/api/manufacturing/summary");
+      if (fresh) setIsRefreshing(true);
+      const res = await cachedFetch(`/api/manufacturing/summary${fresh ? "?fresh=true" : ""}`, {
+        cache: fresh ? "no-store" : "default",
+      });
       if (!res.ok) throw new Error("Failed to load manufacturing summary");
       const data = await res.json();
 
@@ -88,17 +100,27 @@ export default function ManufacturingDashboard() {
         totalOrders: stats.totalOrders ?? 0,
         totalShipments: stats.totalShipments ?? 0,
         oee: stats.oee ?? 0,
-        recentOrders: recent,
+        recentOrders: recent ?? [],
       });
+      if (fresh) toast.success("Live manufacturing data synchronized");
     } catch (err) {
       console.error("Error fetching manufacturing summary:", err);
+      if (fresh) toast.error("Failed to sync live manufacturing data");
     } finally {
+      if (fresh) setIsRefreshing(false);
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSummary();
+    fetchSummary(false);
+    const handleRevalidated = (e: any) => {
+      if (e?.detail?.url?.includes("/api/manufacturing")) {
+        fetchSummary(false);
+      }
+    };
+    window.addEventListener("aup:revalidated", handleRevalidated);
+    return () => window.removeEventListener("aup:revalidated", handleRevalidated);
   }, [fetchSummary]);
 
   return (
@@ -130,6 +152,17 @@ export default function ManufacturingDashboard() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchSummary(true)}
+              disabled={isRefreshing}
+              className="h-9 gap-1.5 border-border/60 hover:bg-muted/30"
+              title="Query live MongoDB records"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`} />
+              <span>{isRefreshing ? "Syncing..." : "Live Sync"}</span>
+            </Button>
             <Button asChild size="sm" className="h-9 gap-1.5 font-bold shadow-sm">
               <Link href="/manufacturing/manufacturing">
                 <Plus className="w-3.5 h-3.5" />
@@ -142,6 +175,12 @@ export default function ManufacturingDashboard() {
                 Configure BoM
               </Link>
             </Button>
+            <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 shadow-xs font-semibold">
+              <Link href="/manufacturing/analytics">
+                <BarChart3 className="w-3.5 h-3.5" />
+                Manufacturing Analytics
+              </Link>
+            </Button>
             <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 border-border/60">
               <Link href="/manufacturing/reports">
                 <BarChart3 className="w-3.5 h-3.5" />
@@ -152,7 +191,7 @@ export default function ManufacturingDashboard() {
         </div>
 
         {/* Top Operational Status KPIs */}
-        {isLoading ? (
+        {isLoading || !summary ? (
           <StatsRowSkeleton count={5} />
         ) : (
           <div className="space-y-1">
@@ -322,7 +361,7 @@ export default function ManufacturingDashboard() {
               </Button>
             </CardHeader>
             <CardContent className="p-6">
-              {summary.recentOrders.length === 0 ? (
+              {!summary || summary.recentOrders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <Factory className="h-10 w-10 mb-2 opacity-20" />
                   <p className="text-sm">No manufacturing orders recorded yet</p>

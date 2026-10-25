@@ -126,7 +126,7 @@ vi.mock("@/models/platform/OrganizationEntitlement", () => ({
 vi.mock("@/models/platform/Plan", () => ({
   default: {
     findOne: (filter: any) => ({
-      lean: async () => dbMock.planDocs.get(filter.key) ?? null,
+      lean: async () => dbMock.planDocs.get(filter.key) ?? (PLAN_DEFINITIONS[filter.key] ? { key: filter.key, features: PLAN_DEFINITIONS[filter.key].features } : null),
     }),
   },
 }));

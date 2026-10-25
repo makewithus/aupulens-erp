@@ -89,21 +89,22 @@ export function ChurnRiskChart() {
       if (!ctx) return;
       ctx.clearRect(0, 0, size, size);
       let startAngle = -Math.PI / 2;
-      const ap = Math.min(progress, 1);
+      const ap = Math.max(0, Math.min(progress, 1));
+      const radiusScale = 0.88 + 0.12 * ap;
 
       cohorts.forEach((c, i) => {
         const sliceAngle = (c.value / total) * Math.PI * 2 * ap;
         const endAngle = startAngle + sliceAngle;
         const isHovered = hIdx === i;
-        const r = isHovered ? outerR + 4 : outerR;
+        const r = (isHovered ? outerR + 4 : outerR) * radiusScale;
+        const inR = innerR * radiusScale;
 
         ctx.beginPath();
         ctx.arc(cx, cy, r, startAngle, endAngle);
-        ctx.arc(cx, cy, innerR, endAngle, startAngle, true);
+        ctx.arc(cx, cy, inR, endAngle, startAngle, true);
         ctx.closePath();
 
-        // Flat fill — no glow/radial gradient, matches the minimal palette
-        // used across the Reports page's line charts.
+        // Flat fill — matches the minimal palette
         ctx.fillStyle = isHovered ? c.color : hexToRgba(c.color, 0.85);
         ctx.fill();
 
@@ -118,15 +119,22 @@ export function ChurnRiskChart() {
 
     drawRef.current = drawDonut;
 
-    function animateIn() {
-      animProgress += 0.025;
-      drawDonut(hoveredIdxRef.current, animProgress);
-      if (animProgress < 1) {
+    const startTime = performance.now();
+    const duration = 850;
+    function animateIn(now: number) {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const easeOut = 1 - Math.pow(1 - t, 3);
+      drawDonut(hoveredIdxRef.current, easeOut);
+      if (t < 1) {
         animFrame = requestAnimationFrame(animateIn);
+      } else {
+        drawDonut(hoveredIdxRef.current, 1);
       }
     }
 
     const handleMouseMove = (e: MouseEvent) => {
+      cancelAnimationFrame(animFrame);
       const rect = canvas.getBoundingClientRect();
       const mx = (e.clientX - rect.left) * (size / rect.width);
       const my = (e.clientY - rect.top) * (size / rect.height);
@@ -176,7 +184,7 @@ export function ChurnRiskChart() {
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
 
-    animateIn();
+    animFrame = requestAnimationFrame(animateIn);
 
     return () => {
       cancelAnimationFrame(animFrame);
@@ -186,7 +194,7 @@ export function ChurnRiskChart() {
   }, [isDark, cohorts, defaultCenterVal]);
 
   return (
-    <div className={`rounded-lg p-6 font-mono w-full relative flex flex-col border ${
+    <div className={`chart-animate-in chart-shimmer-border rounded-lg p-6 font-mono w-full relative flex flex-col border ${
       isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-foreground"
     }`}>
       <div className="flex justify-between items-center gap-4 mb-4">

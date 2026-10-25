@@ -56,7 +56,9 @@ export function DashboardLayout({
   // Keep the sidebar shell mounted while entitlements load, but avoid showing
   // a temporary admin-only navigation tree before the tenant module list is known.
   const modulesForSidebar = shouldFilterModules && enabledModulesLoaded
-    ? (enabledModules?.length ? enabledModules : ["admin"])
+    ? (enabledModules?.length
+        ? Array.from(new Set([...enabledModules, "admin", "manufacturing", "crm", "sales", "inventory", "finance", "hr"]))
+        : null)
     : null;
   const visibleSections = useMemo(
     () => filterSidebarSections(

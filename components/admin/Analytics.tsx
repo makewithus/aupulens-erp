@@ -256,7 +256,7 @@ export default function AdminAnalytics() {
     onRefresh: () => void;
     isRefreshing: boolean;
   }) => (
-    <Card className="h-full flex flex-col border-blue-800/20">
+    <Card className="chart-animate-in chart-shimmer-border h-full flex flex-col border-blue-800/20">
       <CardHeader className="shrink-0 pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold text-blue-800">
@@ -415,6 +415,9 @@ export default function AdminAnalytics() {
                       outerRadius={120}
                       fill="#8884d8"
                       dataKey="value"
+                      isAnimationActive={true}
+                      animationDuration={1000}
+                      animationEasing="ease-out"
                     >
                       {analyticsData.sales.topProducts.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -524,6 +527,9 @@ export default function AdminAnalytics() {
                       outerRadius={120}
                       fill="#8884d8"
                       dataKey="value"
+                      isAnimationActive={true}
+                      animationDuration={1000}
+                      animationEasing="ease-out"
                     >
                       {analyticsData.manufacturing.status.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

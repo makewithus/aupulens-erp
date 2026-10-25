@@ -5,6 +5,7 @@ import connectDB from "@/lib/db";
 import { ENTITY_STATUS, PAYMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 
 import { buildPostedJournalReport, buildPostedIncomeExpenseSeries } from "@/lib/accounting/reports";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 const POSTED_SALES_STATUSES = [
   SALES_INVOICE_STATUS.SAVED,
@@ -29,6 +30,12 @@ export async function GET() {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
+
+    const cacheKey = `admin_dashboard:${tenantId}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
 
     const [
       SalesInvoice,
@@ -274,7 +281,9 @@ export async function GET() {
       chartData,
     };
 
-    return NextResponse.json({ summary });
+    const responsePayload = { summary };
+    setCachedData(cacheKey, responsePayload, 20_000);
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error("Error fetching admin dashboard data:", error);
     return NextResponse.json(

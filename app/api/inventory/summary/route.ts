@@ -7,6 +7,7 @@ import Stock from "@/models/inventory/Stock";
 import StockTransfer from "@/models/inventory/StockTransfer";
 import ManufacturingOrder from "@/models/manufacturing/ManufacturingOrder";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET() {
   try {
@@ -18,10 +19,17 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
+
+    const cacheKey = `inventory_summary:${tenantId}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
+    await connectDB();
 
     // These 6 reads are independent of each other, so run them concurrently
     // instead of as a sequential waterfall.
@@ -125,7 +133,9 @@ export async function GET() {
       },
     };
 
-    return NextResponse.json({ summary });
+    const responsePayload = { summary };
+    setCachedData(cacheKey, responsePayload, 20_000);
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error("Error fetching inventory summary:", error);
     return NextResponse.json(

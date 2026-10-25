@@ -199,8 +199,24 @@ export function expandSparseToDailyTimeline(
   const rng = createRng(777);
 
   if (checkpoints.length === 1) {
-    const targetVal = checkpoints[0].value || 500000;
-    return generate730HistoricalData({ startVal: targetVal * 0.35, volatility: targetVal * 0.015 });
+    const targetVal = checkpoints[0].value || 0;
+    if (targetVal <= 0) return generateZeroHistoricalData(90);
+    return [
+      ...generateZeroHistoricalData(89),
+      {
+        date: checkpoints[0].date,
+        value: targetVal,
+        open: targetVal,
+        high: targetVal,
+        low: targetVal,
+        close: targetVal,
+        label: checkpoints[0].date,
+      },
+    ];
+  }
+
+  if (checkpoints.every((c) => c.value === 0)) {
+    return generateZeroHistoricalData(90);
   }
 
   const spanDays = Math.min(totalDays, Math.max(90, checkpoints.length * 30));
@@ -553,13 +569,15 @@ export function TradingLineChart({
 
   // Canvas drawing routine
   const renderCanvas = useCallback(
-    (currentHoverIdx: number | null) => {
+    (currentHoverIdx: number | null, animProgress: number = 1) => {
       const canvas = canvasRef.current;
       const container = containerRef.current;
       if (!canvas || !container || visibleData.length === 0) return;
 
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+
+      const progress = Math.max(0, Math.min(1, animProgress));
 
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
@@ -601,7 +619,8 @@ export function TradingLineChart({
 
       const n = visibleData.length;
       const getX = (i: number) => cL + (n <= 1 ? cW / 2 : (i / (n - 1)) * cW);
-      const getY = (val: number) => cB - ((val - yMin) / yRange) * cH;
+      const getY = (val: number) => cB - ((val - yMin) / yRange) * cH * progress;
+      const getGridY = (val: number) => cB - ((val - yMin) / yRange) * cH;
 
       // ── 1. Gridlines and Y-axis Labels ──
       const yTickCount = 5;
@@ -611,7 +630,7 @@ export function TradingLineChart({
 
       for (let k = 0; k <= yTickCount; k++) {
         const val = yMin + (yRange * k) / yTickCount;
-        const y = getY(val);
+        const y = getGridY(val);
 
         ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(15, 23, 42, 0.09)";
         ctx.lineWidth = 1;
@@ -695,6 +714,25 @@ export function TradingLineChart({
       ctx.lineWidth = 2.2;
       ctx.stroke();
 
+      // Leading beacon effect during animation
+      if (progress < 1 && currentHoverIdx === null && n > 0) {
+        const frontierIdx = Math.min(n - 1, Math.floor((n - 1) * Math.min(1, progress * 1.05)));
+        if (frontierIdx >= 0 && visibleData[frontierIdx]) {
+          const fx = getX(frontierIdx);
+          const fy = getY(visibleData[frontierIdx].value);
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(fx, fy, 9, 0, Math.PI * 2);
+          ctx.fillStyle = themeColors.mainGlow;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
       // If all values are 0 (e.g. fresh organization without transactions)
       if (maxVal === 0) {
         ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.40)" : "rgba(15, 23, 42, 0.40)";
@@ -775,9 +813,58 @@ export function TradingLineChart({
     [visibleData, currencyPrefix, isDark, themeColors]
   );
 
+  const animRef = useRef<number | null>(null);
+  const hasAnimatedRef = useRef<boolean>(false);
+
   useEffect(() => {
-    renderCanvas(hoveredIdx);
-  }, [renderCanvas, hoveredIdx]);
+    if (hasAnimatedRef.current) {
+      renderCanvas(hoveredIdx, 1);
+      return;
+    }
+
+    let startTime: number | null = null;
+    const duration = 800;
+
+    if (animRef.current) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const easeOut = 1 - Math.pow(1 - t, 3);
+      renderCanvas(hoveredIdx, easeOut);
+
+      if (t < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      } else {
+        animRef.current = null;
+        hasAnimatedRef.current = true;
+        renderCanvas(hoveredIdx, 1);
+      }
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+    };
+  }, [visibleData, renderCanvas, hoveredIdx]);
+
+  useEffect(() => {
+    if (hoveredIdx !== null) {
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+      renderCanvas(hoveredIdx, 1);
+    }
+  }, [hoveredIdx, renderCanvas]);
 
   // Stable ref to renderCanvas to avoid ResizeObserver thrashing
   const renderCanvasRef = useRef(renderCanvas);
@@ -1033,7 +1120,7 @@ export function TradingLineChart({
   return (
     <div
       className={cn(
-        "relative flex min-h-0 min-w-0 flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200",
+        "relative flex min-h-0 min-w-0 flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200 chart-animate-in chart-shimmer-border",
         isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2] shadow-lg" : "bg-white border-[#e5e5e5] text-slate-900 shadow-sm",
         className
       )}

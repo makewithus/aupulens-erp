@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { buildPostedJournalReport } from "@/lib/accounting/reports";
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,6 +19,12 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
+    const cacheKey = `finance_pl:${tenantId}:${startDate || "all"}:${endDate || "all"}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
     await connectDB();
 
     const report = await buildPostedJournalReport({
@@ -29,7 +36,7 @@ export async function GET(req: NextRequest) {
     const totalIncome = report.income.total;
     const totalExpenses = report.expense.total;
 
-    return NextResponse.json({
+    const payload = {
       income: report.income,
       expense: report.expense,
       netProfit: totalIncome - totalExpenses,
@@ -39,7 +46,10 @@ export async function GET(req: NextRequest) {
         totalCredits: report.totals.credit,
         trialBalanceBalanced: report.totals.balanced,
       },
-    });
+    };
+
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error: any) {
     console.error("P&L Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

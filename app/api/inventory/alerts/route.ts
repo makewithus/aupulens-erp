@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import InventoryItem from '@/models/inventory/InventoryItem';
+import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 function buildExprConditions(statusFilter: string | null) {
   // Base: every item at or below its reorder level — matches the original
@@ -31,14 +32,23 @@ export async function GET(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    await connectDB();
 
     const { searchParams } = new URL(req.url);
-    const statusFilter = searchParams.get('status');
-    const warehouse = searchParams.get('warehouse');
-    const search = searchParams.get('search')?.trim();
+    const statusFilter = searchParams.get('status') || '';
+    const warehouse = searchParams.get('warehouse') || '';
+    const search = searchParams.get('search')?.trim() || '';
+    const pageKey = searchParams.get('page') || 'all';
+    const limitKey = searchParams.get('limit') || 'all';
 
-    const query: any = { tenantId, $expr: buildExprConditions(statusFilter) };
+    const cacheKey = `inv-alerts:${tenantId}:${statusFilter}:${warehouse}:${search}:${pageKey}:${limitKey}`;
+    const cached = getCachedData<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
+    await connectDB();
+
+    const query: any = { tenantId, $expr: buildExprConditions(statusFilter || null) };
     if (warehouse && warehouse !== 'all') query.warehouse = warehouse;
     if (search) {
       const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
@@ -93,14 +103,17 @@ export async function GET(req: NextRequest) {
       baseQuery.skip(skip).limit(limit).lean(),
     ]);
 
-    return NextResponse.json({
+    const payload = {
       alerts,
       total,
       page,
       totalPages: Math.max(1, Math.ceil(total / limit)),
       kpis,
       warehouses,
-    });
+    };
+
+    setCachedData(cacheKey, payload, 20_000);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error('Error fetching alerts:', error);
     return NextResponse.json({ error: 'Failed to fetch alerts' }, { status: 500 });

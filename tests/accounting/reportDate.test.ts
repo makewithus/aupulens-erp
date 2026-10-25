@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isValidDateOnly } from "@/lib/accounting/reportDate";
-import { toDateEndInTimeZone } from "@/lib/accounting/reports";
+import { toDateEndInTimeZone, toDateStartInTimeZone } from "@/lib/accounting/reports";
 
 describe("isValidDateOnly", () => {
   it("accepts real calendar dates and rejects malformed or impossible dates", () => {
@@ -32,3 +32,20 @@ describe("toDateEndInTimeZone", () => {
       .toBe("2026-03-31T23:59:59.999Z");
   });
 });
+
+describe("toDateStartInTimeZone", () => {
+  it("starts the selected calendar date at 00:00:00 in the organization timezone", () => {
+    const date = new Date("2026-10-01T00:00:00.000Z");
+    // In Asia/Kolkata (UTC+5:30), 2026-10-01 00:00:00 local is 2026-09-30 18:30:00 UTC
+    expect(toDateStartInTimeZone(date, "Asia/Kolkata").toISOString())
+      .toBe("2026-09-30T18:30:00.000Z");
+    expect(toDateStartInTimeZone(date, "UTC").toISOString())
+      .toBe("2026-10-01T00:00:00.000Z");
+  });
+
+  it("falls back to UTC for an invalid timezone", () => {
+    expect(toDateStartInTimeZone(new Date("2026-10-01T00:00:00.000Z"), "Invalid/Zone").toISOString())
+      .toBe("2026-10-01T00:00:00.000Z");
+  });
+});
+

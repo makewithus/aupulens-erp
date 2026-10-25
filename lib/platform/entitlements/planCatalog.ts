@@ -68,7 +68,7 @@ export const PLAN_DEFINITIONS: Record<
     priceMonthly: 2999,
     priceYearly: 29990,
     features: {
-      modules: ["admin", "finance", "sales", "inventory", "crm"],
+      modules: ["admin", "finance", "sales", "inventory", "crm", "manufacturing", "hr", "project"],
       maxUsers: 15,
       maxCompanies: 1,
       storageGb: 25,

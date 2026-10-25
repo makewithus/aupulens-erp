@@ -199,7 +199,9 @@ export function DailyBrickBarChart({
   const chartData = useMemo<DailyDataPoint[]>(() => {
     if (data && Array.isArray(data)) {
       if (data.length === 0) {
-        return generateZeroDailyData(initialDays);
+        return seedDemonstration
+          ? generate365DailyData(year, { base: 18000, variance: 8000, seed: 1337, totalDays: initialDays })
+          : generateZeroDailyData(initialDays);
       }
       return data.map((item, idx) => {
         const rawDate = item[dateKey] || item.date;
@@ -432,13 +434,15 @@ export function DailyBrickBarChart({
 
   // Main canvas render routine
   const renderChart = useCallback(
-    (highlightIdx?: number) => {
+    (highlightIdx?: number, animProgress: number = 1) => {
       const canvas = canvasRef.current;
       const container = containerRef.current;
       if (!canvas || !container || visibleData.length === 0) return;
 
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+
+      const progress = Math.max(0, Math.min(1, animProgress));
 
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
@@ -532,7 +536,14 @@ export function DailyBrickBarChart({
         const val = item.value ?? 0;
         const x = cL + i * colWidth + gapX / 2;
 
-        const valRatio = Math.min(1, Math.max(0, val / yMax));
+        const staggerDelay = (i / n) * 0.22;
+        const colProgress = progress >= 1 ? 1 : Math.max(0, Math.min(1, (progress - staggerDelay) / (1 - staggerDelay)));
+        const easedCol = progress >= 1 ? 1 : 1 - Math.pow(1 - colProgress, 3);
+        const animVal = val * easedCol;
+
+        if (animVal <= 0 && val > 0 && progress < 1) continue;
+
+        const valRatio = Math.min(1, Math.max(0, animVal / yMax));
         const numBricks = Math.max(1, Math.round(valRatio * totalPossibleBricks));
         const isHovered = highlightIdx === i;
 
@@ -639,23 +650,62 @@ export function DailyBrickBarChart({
     renderChartRef.current = renderChart;
   });
 
+  // Animation frame on mount or data changes
+  const animRef = useRef<number | null>(null);
+  const hasAnimatedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (hasAnimatedRef.current) {
+      renderChart(undefined, 1);
+      return;
+    }
+
+    let startTime: number | null = null;
+    const duration = 850;
+
+    if (animRef.current) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const easeOut = 1 - Math.pow(1 - t, 3);
+      renderChart(undefined, easeOut);
+
+      if (t < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      } else {
+        animRef.current = null;
+        hasAnimatedRef.current = true;
+        renderChart(undefined, 1);
+      }
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+    };
+  }, [visibleData, renderChart]);
+
   // Stable single ResizeObserver on mount
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const ro = new ResizeObserver(() => {
-      renderChartRef.current();
+      renderChartRef.current(undefined, 1);
     });
 
     ro.observe(container);
     return () => ro.disconnect();
   }, []);
-
-  // Redraw when visible data or display parameters update
-  useEffect(() => {
-    renderChart();
-  }, [renderChart]);
 
   // ── Native Non-Passive Mouse-Wheel Zoom In & Zoom Out Handler ──
   // High-performance RAF-batched smooth zoom with firm, decisive step progression.
@@ -922,7 +972,7 @@ export function DailyBrickBarChart({
   return (
     <div
       className={cn(
-        "relative flex min-h-0 min-w-0 flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200",
+        "relative flex min-h-0 min-w-0 flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200 chart-animate-in chart-shimmer-border",
         isDark ? "bg-[#0b0e11] border-border text-white shadow-lg" : "bg-white border-slate-200 text-slate-900 shadow-sm",
         className
       )}
