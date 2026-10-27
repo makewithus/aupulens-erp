@@ -48,15 +48,9 @@ export async function GET() {
     try {
       credits = await getAiCreditBalance(tenantId, getAiPeriod(now), now);
     } catch {
-      credits = {
-        planKey: "default",
-        used: 0,
-        reserved: 0,
-        limit: 100000,
-        remaining: 100000,
-        resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString(),
-        windows: {},
-      };
+      // Missing credit configuration is not a zero balance and must not be
+      // presented as a large, changing allowance. Keep request quotas usable
+      // while allowing the UI to show credits as unavailable.
     }
 
     const data: AiUsageSummary = {
@@ -65,7 +59,7 @@ export async function GET() {
         new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
         new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))),
       scope: "workspace", serverTime: new Date().toISOString(),
-      credits: { ...credits, resetsAt: credits.resetsAt ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString() },
+      ...(credits ? { credits } : {}),
     };
     return NextResponse.json({ success: true, data }, { headers });
   } catch (error) {

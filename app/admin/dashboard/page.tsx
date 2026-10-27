@@ -67,9 +67,21 @@ interface DashboardSummary {
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(() => {
+    if (typeof window !== "undefined") {
+      const cached = getInstantCachedData<{ summary: DashboardSummary }>("/api/admin/dashboard", { allowPreHydration: true });
+      return cached?.summary || null;
+    }
+    return null;
+  });
   const [healthRefreshKey, setHealthRefreshKey] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const cached = getInstantCachedData<{ summary: DashboardSummary }>("/api/admin/dashboard", { allowPreHydration: true });
+      return !cached?.summary;
+    }
+    return true;
+  });
   const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(session?.user?.role === "admin");
   const visibleModules = enabledModulesLoaded
     ? Array.from(new Set([...(enabledModules ?? []), "admin", "manufacturing", "crm", "sales", "inventory", "finance", "hr"]))
@@ -85,14 +97,15 @@ export default function AdminDashboard() {
       ) {
         router.replace("/auth/admin");
       } else {
-        fetchDashboardData();
+        fetchDashboardData(false);
       }
     }
   }, [status, session, router]);
 
   const fetchDashboardData = async (forceRefresh = false) => {
     try {
-      const res = await cachedFetch("/api/admin/dashboard", undefined, { force: forceRefresh });
+      const url = forceRefresh ? "/api/admin/dashboard?fresh=true" : "/api/admin/dashboard";
+      const res = await cachedFetch(url, { cache: forceRefresh ? "no-store" : "default" }, { force: forceRefresh });
       if (res.status === 401 || res.status === 403) {
         router.replace("/auth/admin");
         return;
@@ -125,7 +138,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const handleRevalidate = (e: any) => {
       if (e?.detail?.url?.includes("/api/admin/dashboard")) {
-        fetchDashboardData();
+        fetchDashboardData(true);
       }
     };
     if (typeof window !== "undefined") {
@@ -173,9 +186,8 @@ export default function AdminDashboard() {
   if (status === "loading") return <AuthSplash />;
   if (!isAuthorizedAdmin) return <AuthSplash message="Redirecting to sign in…" />;
 
-  // Authenticated admin from here — the data-loading skeleton (dashboard chrome)
-  // is fine to show because auth is confirmed.
-  if (isLoading) {
+  // Authenticated admin from here — only show skeleton on first cold load when no data exists yet.
+  if (isLoading && !summary) {
     return (
       <DashboardLayout
         sidebarSections={adminSidebarConfig}

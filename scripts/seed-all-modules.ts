@@ -71,7 +71,7 @@ async function main() {
 
     // 0.1 Update or insert admin in `users` collection
     const adminUserRes = await db.collection("users").findOneAndUpdate(
-      { email: "admin@aupulens.com" },
+      { email: "admin@aupulens.com", tenantId: TENANT_ID },
       {
         $set: {
           name: "Aupulens Admin",

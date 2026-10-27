@@ -38,13 +38,29 @@ export default function HRDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [summaryData, setSummaryData] = useState<any>(null);
-  const [pendingLeavesList, setPendingLeavesList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [summaryData, setSummaryData] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      return getInstantCachedData<any>("/api/hr/summary", { allowPreHydration: true }) || null;
+    }
+    return null;
+  });
+  const [pendingLeavesList, setPendingLeavesList] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      const ld = getInstantCachedData<any>("/api/hr/leave?status=pending&limit=5", { allowPreHydration: true });
+      return ld?.leaveRequests || ld?.leaves || [];
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return !getInstantCachedData<any>("/api/hr/summary", { allowPreHydration: true });
+    }
+    return true;
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    const cachedHR = getInstantCachedData<any>("/api/hr/summary");
+    const cachedHR = getInstantCachedData<any>("/api/hr/summary", { allowPreHydration: true });
     if (cachedHR) {
       setSummaryData(cachedHR);
       setIsLoading(false);

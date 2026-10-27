@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { normalizeModuleList, type TenantModuleKey } from "@/lib/modules/visibility";
 
+import { cachedFetch } from "@/lib/api/cachedFetch";
+
 const cachedModules = new Map<string, TenantModuleKey[]>();
 const inflight = new Map<string, Promise<TenantModuleKey[]>>();
 
@@ -48,14 +50,14 @@ async function fetchEnabledModules(tenantId: string): Promise<TenantModuleKey[]>
   if (pending) return pending;
 
   const request = (async () => {
-    const settingsRes = await fetch("/api/admin/org-settings", { cache: "no-store" });
+    const settingsRes = await cachedFetch("/api/admin/org-settings");
     if (settingsRes.ok) {
       const payload = await settingsRes.json();
       const modules = normalizeModuleList(payload?.data?.settings?.enabledModules ?? payload?.data?.entitlements?.modules);
       if (modules.length) return modules;
     }
 
-    const entitlementRes = await fetch("/api/admin/entitlements", { cache: "no-store" });
+    const entitlementRes = await cachedFetch("/api/admin/entitlements");
     if (entitlementRes.ok) {
       const payload = await entitlementRes.json();
       const modules = normalizeModuleList(payload?.data?.modules ?? payload?.modules);
@@ -79,8 +81,9 @@ async function fetchEnabledModules(tenantId: string): Promise<TenantModuleKey[]>
 export function useEnabledModules(shouldLoad: boolean) {
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
-  const [modules, setModules] = useState<TenantModuleKey[] | null>(null);
-  const [loaded, setLoaded] = useState(!shouldLoad);
+  const initialModules = tenantId ? readCachedModules(tenantId) : null;
+  const [modules, setModules] = useState<TenantModuleKey[] | null>(initialModules);
+  const [loaded, setLoaded] = useState(!shouldLoad || initialModules !== null);
 
   useEffect(() => {
     if (!shouldLoad) {

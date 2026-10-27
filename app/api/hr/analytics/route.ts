@@ -1,6 +1,6 @@
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireTenantId, getEffectiveTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Employee from "@/models/hr/Employee";
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
-    const tenantId = (session.user as any).tenantId;
+    const tenantId = getEffectiveTenantId(session);
 
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
     const range = req.nextUrl.searchParams.get("range") || "30D";

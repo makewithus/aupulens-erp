@@ -26,3 +26,16 @@ export function requireTenantId(session: any): NextResponse | null {
   }
   return null;
 }
+
+/**
+ * Returns the effective business tenantId for ERP queries.
+ * Master-admin and global admin users (whose session tenant is "master" or "global")
+ * inspect the primary enterprise tenant ("default-tenant").
+ */
+export function getEffectiveTenantId(session: any): string {
+  const raw = (session?.user as any)?.tenantId;
+  if (!raw || raw === "master" || raw === "global") {
+    return process.env.ADMIN_TENANT || "default-tenant";
+  }
+  return raw;
+}

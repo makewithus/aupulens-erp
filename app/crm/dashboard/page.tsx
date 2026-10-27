@@ -61,13 +61,31 @@ function CrmDashboardSkeleton() {
 }
 
 export default function CRMDashboardPage() {
-  const [pipelineData, setPipelineData] = useState<any>(null);
-  const [healthData, setHealthData] = useState<any>(null);
+  const [pipelineData, setPipelineData] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      const cached = getInstantCachedData<any>("/api/crm/pipeline/analytics", { allowPreHydration: true });
+      return cached?.data || null;
+    }
+    return null;
+  });
+  const [healthData, setHealthData] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      const cached = getInstantCachedData<any>("/api/crm/health", { allowPreHydration: true });
+      return cached?.data || null;
+    }
+    return null;
+  });
   const [churnData, setChurnData] = useState<any>(null);
   const [renewalData, setRenewalData] = useState<any>(null);
   const [expansionData, setExpansionData] = useState<any>(null);
   const [highValueDeals, setHighValueDeals] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const cached = getInstantCachedData<any>("/api/crm/pipeline/analytics", { allowPreHydration: true });
+      return !cached?.data;
+    }
+    return true;
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchJson = async (url: string, fresh: boolean = false) => {

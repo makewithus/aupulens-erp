@@ -35,30 +35,29 @@ export function getInstantCachedData<T = any>(
   _options?: { allowPreHydration?: boolean }
 ): T | null {
   if (typeof window === "undefined") return null;
-  // During SSR or initial client hydration, never return client-only storage data
-  // to prevent hydration mismatch between server-rendered HTML and client VDOM.
-  if (!hasHydrated) {
-    if (document.readyState === "complete") {
-      hasHydrated = true;
-    } else {
-      return null;
-    }
-  }
+  // Storage is client-only and may disagree with the server-rendered markup.
+  // Keep it out of the first render; callers can opt in only when they render
+  // the cached value in a hydration-safe boundary.
+  if (!hasHydrated) return null;
 
-  const mem = cache.get(url);
+  const baseUrl = url.split("?")[0];
+  const mem = cache.get(url) || cache.get(baseUrl);
   if (mem?.json) return mem.json as T;
-  const sess = getSessionCached(url);
+
+  const sess = getSessionCached(url) || getSessionCached(baseUrl);
   if (sess?.body) {
     try {
       const parsed = JSON.parse(sess.body);
-      cache.set(url, {
+      const entry = {
         res: new Response(sess.body, {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
         json: parsed,
         ts: sess.ts,
-      });
+      };
+      cache.set(url, entry);
+      if (url !== baseUrl) cache.set(baseUrl, entry);
       return parsed as T;
     } catch {
       return null;
@@ -197,6 +196,8 @@ export async function cachedFetch(
     return res;
   }
 
+  const isForced = Boolean(opts?.force || init?.cache === "no-store" || init?.cache === "reload");
+
   if (opts?.noCache) return fetch(input as any, init);
 
   const ttl = opts?.ttl ?? DEFAULT_TTL;
@@ -206,21 +207,26 @@ export async function cachedFetch(
 
   // 2. Check browser sessionStorage for instant render across page reloads
   if (!cached) {
-    const stored = getSessionCached(url);
+    const baseUrl = url.split("?")[0];
+    const stored = getSessionCached(url) || getSessionCached(baseUrl);
     if (stored) {
+      let parsedJson: any = null;
+      try { parsedJson = JSON.parse(stored.body); } catch {}
       cached = {
         res: new Response(stored.body, {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
+        json: parsedJson,
         ts: stored.ts,
       };
       cache.set(url, cached);
+      if (url !== baseUrl) cache.set(baseUrl, cached);
     }
   }
 
   // 3. If cached copy exists and not forced, return it immediately (0ms wait)
-  if (!opts?.force && cached) {
+  if (!isForced && cached) {
     // If older than TTL, revalidate in the background
     if (Date.now() - cached.ts > ttl) {
       void networkLoad(url, init).catch(() => {});
@@ -228,7 +234,7 @@ export async function cachedFetch(
     return cached.res.clone();
   }
 
-  // 4. First-time fetch
+  // 4. First-time or forced fetch
   const fresh = await networkLoad(url, init);
   return fresh.clone();
 }

@@ -144,9 +144,21 @@ export default function FinanceSummaryPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [summary, setSummary] = useState<FinanceSummary | null>(() => {
+    if (typeof window !== "undefined") {
+      const cached = getInstantCachedData<{ summary: FinanceSummary }>("/api/finance/summary", { allowPreHydration: true });
+      return cached?.summary || null;
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const cached = getInstantCachedData<{ summary: FinanceSummary }>("/api/finance/summary", { allowPreHydration: true });
+      return !cached?.summary;
+    }
+    return true;
+  });
   const [error, setError] = useState("");
-  const [summary, setSummary] = useState<FinanceSummary | null>(null);
 
   const fetchSummary = useCallback(async (force = false) => {
     try {

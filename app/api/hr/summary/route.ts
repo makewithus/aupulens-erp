@@ -1,6 +1,6 @@
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireTenantId, getEffectiveTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Employee from "@/models/hr/Employee";
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
-    const tenantId = (session.user as any).tenantId;
+    const tenantId = getEffectiveTenantId(session);
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
         lifecycleStatus: "exited",
         updatedAt: { $gte: thirtyDaysAgo },
       }),
-      Department.countDocuments({ ...tenantMatch, isActive: true }),
+      Department.countDocuments({ ...tenantMatch, isActive: { $ne: false } }),
       LeaveRequest.countDocuments({ ...tenantMatch, status: "pending" }),
       Payroll.find({
         ...tenantMatch,
@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
         };
 
     // Department-wise employee distribution from authoritative Department master
-    const allDepartments = await Department.find({ ...tenantMatch, isActive: true }).select("_id name code").sort({ name: 1 }).lean();
+    const allDepartments = await Department.find({ ...tenantMatch, isActive: { $ne: false } }).select("_id name code").sort({ name: 1 }).lean();
     const empDeptCounts = await Employee.aggregate([
       { $match: { ...tenantMatch, lifecycleStatus: { $ne: "exited" } } },
       {

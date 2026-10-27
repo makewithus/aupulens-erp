@@ -111,7 +111,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (portal.includes("/auth/master")) {
             user = await User.findOne({ email, role: "master-admin" });
           } else {
-            if (expectedTenantId && expectedTenantId !== "default-tenant") {
+            if (expectedTenantId) {
               user = await User.findOne({ email, tenantId: expectedTenantId });
             }
             if (!user) {
