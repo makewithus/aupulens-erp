@@ -363,6 +363,13 @@ export async function buildPostedJournalReport({
   for (const entry of entries) {
     for (const line of entry.lineIds || []) {
       const account = line.accountId as any;
+      const debit = Number(line.debit) || 0;
+      const credit = Number(line.credit) || 0;
+      // Journal balance is a property of the posted lines, even when a legacy
+      // account reference no longer resolves during populate. Count every
+      // line in the control total, then skip only its account classification.
+      report.totals.debit += debit;
+      report.totals.credit += credit;
       if (!account) continue;
 
       const { internalGroup, accountType } = resolveAccountGroupAndType(
@@ -370,14 +377,9 @@ export async function buildPostedJournalReport({
         accountTypeMap,
       );
       const group = report[internalGroup] || report.off_balance;
-      const debit = Number(line.debit) || 0;
-      const credit = Number(line.credit) || 0;
       const id = account._id?.toString() || String(line.accountId);
       const key = account.code || account.accountCode || id;
       const name = account.name || account.accountName || "Unknown Account";
-
-      report.totals.debit += debit;
-      report.totals.credit += credit;
 
       if (!group.accounts[key]) {
         group.accounts[key] = {

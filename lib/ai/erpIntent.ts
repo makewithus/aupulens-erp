@@ -426,9 +426,10 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   ) {
     const cleanQ = q.replace(/[?.!]+$/g, "").trim();
     const codeMatch = cleanQ.match(/\b[A-Z0-9]+-[A-Z0-9_-]+\b/i);
+    const billRefMatch = cleanQ.match(/\bBILL[-/][A-Z0-9][A-Z0-9/_-]*\b/i);
     const trailingSupplier = cleanQ.match(/\b(?:owe|owed|due\s+to|for|to)\s+(?:us\s+)?(?:the\s+)?(.+?\s+(?:supplier|vendor))$/i);
     const leadingSupplier = cleanQ.match(/\b(?:supplier|vendor)\s+(?:named\s+)?(.+)$/i);
-    const referenceMatch = codeMatch?.[0] && /^BILL-/i.test(codeMatch[0]) ? codeMatch[0] : undefined;
+    const referenceMatch = billRefMatch?.[0] || (codeMatch?.[0] && /\bBILL\b/i.test(codeMatch[0]) ? codeMatch[0] : undefined);
     const suppMatch = (codeMatch && !referenceMatch ? codeMatch[0] : undefined) || trailingSupplier?.[1] || leadingSupplier?.[1];
     return {
       type: "vendor_bill_query",
@@ -440,7 +441,7 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
 
   // Customer outstanding balance / Total sales & receivables (SYS-07, SYS-27)
   if (
-    /\b(?:how\s+much\s+does|amount\s+owed|outstanding\s+balance|total\s+sales\s+and\s+(?:outstanding\s+)?receivables|receivables\s+and\s+sales)\b/i.test(q) ||
+    /\b(?:how\s+much\s+does|how\s+much\s+(?:do\s+)?(?:my\s+)?customers?\s+(?:still\s+)?owe|amount\s+owed|outstanding\s+balance|total\s+sales\s+and\s+(?:outstanding\s+)?receivables|receivables\s+and\s+sales)\b/i.test(q) ||
     (/\b(?:owe|owed|outstanding|receivables?)\b/i.test(q) && /\b(?:customer|sales?|balance)\b/i.test(q))
   ) {
     const custMatch = q.match(/\b(?:customer|for|does)\s+([A-Za-z0-9_-]+)(?:\s+owe|\s+balance|\s*$)/i) ||

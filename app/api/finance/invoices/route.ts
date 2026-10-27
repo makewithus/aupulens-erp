@@ -14,6 +14,7 @@ import {
 } from "@/lib/constants/statuses";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { getStartOfCurrentDay, isInvoiceOverdue } from "@/lib/sales/invoiceStatus";
 
 function serializeInvoice(invoice: any) {
   const partner = invoice.partnerId;
@@ -21,11 +22,11 @@ function serializeInvoice(invoice: any) {
     invoice.paymentState !== PAYMENT_STATE.PAID &&
     invoice.state === DOCUMENT_STATUS.POSTED &&
     invoice.dueDate &&
-    new Date(invoice.dueDate).getTime() < Date.now();
+    isInvoiceOverdue(invoice.dueDate);
   const paymentStatus =
     invoice.paymentState === PAYMENT_STATE.PAID
       ? "paid"
-      : invoice.paymentState === PAYMENT_STATE.OVERDUE || isOverdue
+      : isOverdue
         ? "overdue"
         : invoice.state === DOCUMENT_STATUS.POSTED
           ? "sent"
@@ -78,7 +79,7 @@ export async function GET(req: Request) {
       } else {
         query.state = DOCUMENT_STATUS.POSTED;
         query.paymentState = { $ne: PAYMENT_STATE.PAID };
-        query.dueDate = { $lt: new Date() };
+        query.dueDate = { $lt: getStartOfCurrentDay() };
       }
     } else if (state && PAYMENT_STATE_VALUES.includes(state as any)) {
       query.paymentState = state;

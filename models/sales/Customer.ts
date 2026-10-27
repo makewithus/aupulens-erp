@@ -101,6 +101,7 @@ export interface ICustomer extends Document {
   isActive?: boolean; // Additive — drives the "Active/Inactive Customers" system views
   isCustomer?: boolean;
   isSupplier?: boolean;
+  legacyVendorId?: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -111,6 +112,7 @@ const CustomerSchema: Schema<ICustomer> = new Schema(
     tenantId: { type: String, index: true , immutable: true },
     isCustomer: { type: Boolean, default: true, index: true },
     isSupplier: { type: Boolean, default: false, index: true },
+    legacyVendorId: { type: Schema.Types.ObjectId, ref: "Vendor", immutable: true },
     header: {
       name: { type: String, required: true, trim: true },
       is_company: { type: Boolean, default: false },
@@ -252,6 +254,10 @@ CustomerSchema.index({ tenantId: 1, "header.displayName": 1 });
 CustomerSchema.index({ tenantId: 1, "header.name": 1, _id: 1 });
 CustomerSchema.index({ tenantId: 1, isActive: 1 });
 CustomerSchema.index({ tenantId: 1, createdAt: -1 });
+CustomerSchema.index(
+  { tenantId: 1, legacyVendorId: 1 },
+  { unique: true, partialFilterExpression: { legacyVendorId: { $exists: true } } },
+);
 
 // Keep the legacy header.name populated for any existing consumer (invoice PDFs,
 // popups, etc.) that never learned about displayName.

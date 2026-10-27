@@ -64,25 +64,31 @@ export function SalesVisualization({
   const tooltipDateRef = useRef<HTMLDivElement>(null);
   const tooltipValueRef = useRef<HTMLDivElement>(null);
   const hasAnimatedRef = useRef<boolean>(false);
+  const fetchSequenceRef = useRef(0);
 
   // Fetch only persisted data so an empty or slow workspace never displays invented figures.
   const fetchVisualizationData = useCallback(async () => {
     if (!selectedDataType) return;
+    const sequence = ++fetchSequenceRef.current;
     try {
       setIsLoadingViz(true);
+      setVisualizationData([]);
+      setLoadError(false);
       const res = await cachedFetch(
         `/api/sales/visualization?type=${selectedDataType}&dateRange=${dateRange}&groupBy=${groupBy}`,
       );
       if (!res.ok) throw new Error("Failed to fetch visualization data");
       const result = await res.json();
+      if (sequence !== fetchSequenceRef.current) return;
       setVisualizationData(Array.isArray(result.data) ? result.data : []);
       setLoadError(false);
     } catch (err) {
+      if (sequence !== fetchSequenceRef.current) return;
       console.error("Error fetching visualization:", err);
       setVisualizationData([]);
       setLoadError(true);
     } finally {
-      setIsLoadingViz(false);
+      if (sequence === fetchSequenceRef.current) setIsLoadingViz(false);
     }
   }, [selectedDataType, dateRange, groupBy]);
 

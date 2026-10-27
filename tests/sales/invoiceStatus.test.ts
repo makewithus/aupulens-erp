@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
+import { getStartOfCurrentDay, isInvoiceOverdue, resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
 
 describe("resolveInvoiceStatus", () => {
   it("keeps draft and cancelled as explicitly requested regardless of payments", () => {
@@ -27,6 +27,21 @@ describe("resolveInvoiceStatus", () => {
   it("resolves to saved when unpaid and not yet due", () => {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [], dueDate: tomorrow })).toBe("saved");
+  });
+
+  it("treats a date-only due date stored at midnight as due through the end of that day", () => {
+    const dueDate = new Date("2026-10-26T00:00:00.000Z");
+    expect(isInvoiceOverdue(dueDate, new Date("2026-10-26T23:59:59.000Z"))).toBe(false);
+    expect(isInvoiceOverdue(dueDate, new Date("2026-10-27T00:00:01.000Z"))).toBe(true);
+  });
+
+  it("uses the start of today as the overdue database cutoff", () => {
+    const now = new Date("2026-10-26T15:30:00.000Z");
+    const cutoff = getStartOfCurrentDay(now);
+    expect(cutoff.getTime()).toBeLessThanOrEqual(now.getTime());
+    expect(cutoff.getDate()).toBe(now.getDate());
+    expect(cutoff.getHours()).toBe(0);
+    expect(cutoff.getMinutes()).toBe(0);
   });
 
   it("SYS-05: is NOT overdue on its due date (26 October 2026)", () => {

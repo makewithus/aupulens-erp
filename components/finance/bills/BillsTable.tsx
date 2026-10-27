@@ -20,6 +20,7 @@ const STATE_COLORS: Record<string, string> = {
 interface BillsTableProps {
   filteredBills: any[];
   handleOpenEdit: (bill: any) => void;
+  handleApprove: (bill: any) => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
   handleGenerateInvoiceFromBill: (bill: any) => void;
 }
@@ -27,6 +28,7 @@ interface BillsTableProps {
 export function BillsTable({
   filteredBills,
   handleOpenEdit,
+  handleApprove,
   handleDelete,
   handleGenerateInvoiceFromBill,
 }: BillsTableProps) {
@@ -111,6 +113,16 @@ export function BillsTable({
               >
                 View
               </Button>
+
+              {bill.state === "pending_approval" && (
+                <Button
+                  variant="ghost"
+                  onClick={() => handleApprove(bill)}
+                  className="h-8 px-2 text-xs rounded-none text-[#8AE06C] hover:bg-white/5 font-medium"
+                >
+                  Approve
+                </Button>
+              )}
 
               <Button
                 variant="ghost"

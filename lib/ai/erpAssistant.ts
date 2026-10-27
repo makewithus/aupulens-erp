@@ -17,7 +17,7 @@ import Payment from "@/models/sales/Payment";
 import { COMMAND_ACTIONS } from "./commandActions";
 import { buildPostedJournalReport, toDateStartInTimeZone, toDateEndInTimeZone } from "@/lib/accounting/reports";
 import { issuedInvoiceFilter, invoiceRevenueExpression } from "@/lib/sales/invoiceEligibility";
-import { AI_ACTION_STATUS as A, DOCUMENT_STATUS, PAYMENT_STATUS } from "@/lib/constants/statuses";
+import { AI_ACTION_STATUS as A, DOCUMENT_STATUS, PAYMENT_STATE, PAYMENT_STATUS } from "@/lib/constants/statuses";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "./conversationContext";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import connectDB from "@/lib/db";
@@ -1329,7 +1329,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         tenantId: scope.tenantId,
         moveType: "in_invoice",
         state: { $nin: [DOCUMENT_STATUS.DRAFT, DOCUMENT_STATUS.REJECTED, DOCUMENT_STATUS.CANCELLED] },
-        paymentState: { $ne: PAYMENT_STATUS.PAID },
+        paymentState: { $ne: PAYMENT_STATE.PAID },
       };
       const andConditions: any[] = [];
 
@@ -1377,11 +1377,10 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         const outstandingFor = (b: any) => {
           const gross = Number(b.amountTotal) || 0;
           const residual = Number(b.amountResidual);
-          // Approval-pending bills are not yet in the payment ledger; treat
-          // their full gross as payable even when the ledger residual defaults to zero.
-          return b.state === DOCUMENT_STATUS.PENDING_APPROVAL || b.state === DOCUMENT_STATUS.APPROVED
-            ? (residual > 0 ? residual : gross)
-            : (Number.isFinite(residual) ? residual : gross);
+          // Unpaid bills can have a zero residual before payment allocation
+          // initializes it. Paid bills are excluded by the query above, so use
+          // the gross amount as the safe fallback for every unpaid state.
+          return residual > 0 ? residual : gross;
         };
         const totalAmount = bills.reduce((sum, b: any) => sum + outstandingFor(b), 0);
         const lines = bills.map((b: any) => {

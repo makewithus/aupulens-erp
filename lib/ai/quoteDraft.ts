@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import Product from "@/models/inventory/Product";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
-import { resolveCustomer, ErpToolError, escapeRegex, customerName, currency, requireSalesAccess } from "./erpQuery";
+import { resolveCustomer, ErpToolError, escapeRegex, flexibleNameRegex, customerName, currency, requireSalesAccess } from "./erpQuery";
 import { normalizeErpText } from "./erpIntent";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import Customer from "@/models/sales/Customer";
@@ -51,6 +51,13 @@ export async function prepareQuoteDraft(scope: Scope, text: string, requestId: s
     ek: "1", do: "2", teen: "3", chaar: "4", paanch: "5",
   };
   q = q.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|ek|do|teen|chaar|paanch)\b/gi, (w) => wordNumbers[w.toLowerCase()] || w);
+
+  // Common Hinglish order: "2 unit <product> ka quote banao <customer> ke liye".
+  // Convert it to the canonical parser form before generic phrase cleanup.
+  const hindiQuantityFirst = q.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(?:units?|pcs|pieces?|nos)\s+(.+?)\s+(?:ka\s+)?quote\s+(?:banao|banayein|karo|taiyar|banana)\s+(.+?)\s+(?:ke\s+liye|ko)$/i);
+  if (hindiQuantityFirst) {
+    q = `quote for ${hindiQuantityFirst[1]} units ${hindiQuantityFirst[2]} for ${hindiQuantityFirst[3]}`;
+  }
 
   // Normalise Hindi phrasing to English structure for quote extraction
   q = q.replace(/(?:ke\s+liye|ko)\s+/gi, "for ")
@@ -113,14 +120,33 @@ export async function prepareQuoteDraft(scope: Scope, text: string, requestId: s
   const tenantFilter = scope.tenantId === "default" || scope.tenantId === "default-tenant"
     ? { $in: ["default", "default-tenant"] }
     : scope.tenantId;
-  const products = await Product.find({
+  let products = await Product.find({
     tenantId: tenantFilter,
     "header.sale_ok": { $ne: false },
     $or: [
-      { "header.name": { $regex: productText.split(/\s+/).map(escapeRegex).join(".*"), $options: "i" } },
-      { "tab_general_information.default_code": { $regex: escapeRegex(productText), $options: "i" } },
+      { "header.name": flexibleNameRegex(productText) },
+      { "tab_general_information.default_code": flexibleNameRegex(productText) },
     ],
   }).select("header tab_general_information").limit(6).maxTimeMS(5000).lean();
+  // A user may give the identifying words without every catalog word, such
+  // as “ergonomic chair” for “Ergonomic Office Chair”. Fetch a small,
+  // tenant-scoped candidate set containing every query word, then let the
+  // deterministic scorer below resolve ambiguity.
+  if (!products.length) {
+    const words = productText.split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      products = await Product.find({
+        tenantId: tenantFilter,
+        "header.sale_ok": { $ne: false },
+        $and: words.map((word) => ({
+          $or: [
+            { "header.name": { $regex: escapeRegex(word), $options: "i" } },
+            { "tab_general_information.default_code": { $regex: escapeRegex(word), $options: "i" } },
+          ],
+        })),
+      }).select("header tab_general_information").limit(6).maxTimeMS(5000).lean();
+    }
+  }
   const exact = products.filter(p =>
     p.header.name.toLowerCase() === productText.toLowerCase() ||
     p.tab_general_information?.default_code?.toLowerCase() === productText.toLowerCase()

@@ -27,6 +27,9 @@ export interface IOrganization extends Document {
   // Per-tier usage caps (synced from TIER_LIMITS at create time, overridable)
   maxUsers: number;
   aiCallsPerMonth: number;
+  /** Legacy manually assigned AI credit balance, retained during migration. */
+  aiCreditBalance?: number;
+  aiCreditsIncluded?: number;
   // Global Admin control plane (docs/admin/BRIEF-GLOBAL-ADMIN.md Phase 2) —
   // additive, distinct from `subscriptionStatus` (billing-cycle state) and
   // `isActive` (a pre-existing binary login gate `SUSPENDED` also flips, see
@@ -122,6 +125,8 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
     },
     maxUsers: { type: Number, default: 5 },
     aiCallsPerMonth: { type: Number, default: 100 },
+    aiCreditBalance: { type: Number, min: 0 },
+    aiCreditsIncluded: { type: Number, min: 0 },
     // ── Global Admin control plane additions (Phase 2) ──────────────────────
     status: { type: String, enum: ORGANIZATION_STATUS_VALUES },
     organizationType: { type: String, enum: ORGANIZATION_TYPE_VALUES },

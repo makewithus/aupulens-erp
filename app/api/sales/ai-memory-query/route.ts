@@ -870,7 +870,7 @@ Rules:
         FinanceInvoice.countDocuments(query),
         (FinanceInvoice as any).find(query).populate("partnerId", "header").sort({ invoiceDate: -1, createdAt: -1 }).limit(10).lean(),
       ]);
-      const totalAgg = total > 0 ? await FinanceInvoice.aggregate([{ $match: query }, { $group: { _id: null, sum: { $sum: "$amountTotal" } } }]) : [];
+      const totalAgg = total > 0 ? await FinanceInvoice.aggregate([{ $match: query }, { $group: { _id: null, sum: { $sum: { $cond: [{ $eq: ["$paymentState", PAYMENT_STATE.PAID] }, 0, { $cond: [{ $gt: [{ $ifNull: ["$amountResidual", 0] }, 0] }, "$amountResidual", "$amountTotal"] }] } } } }]) : [];
       const sumAmount = totalAgg[0]?.sum || 0;
 
       let route: string | undefined;
@@ -901,7 +901,8 @@ Rules:
       } else {
         const lines = bills.slice(0, 10).map((b: any) => {
           const vendorName = b.partnerId ? customerDisplayName(b.partnerId) : "Unknown vendor";
-          return `- ${b.name} — ${vendorName} — ${formatCurrency(b.amountTotal)} — ${String(b.state).replace(/_/g, " ")} — ${formatDate(b.invoiceDate)}`;
+          const outstanding = b.paymentState === PAYMENT_STATE.PAID ? 0 : (b.amountResidual > 0 ? b.amountResidual : b.amountTotal ?? 0);
+          return `- ${b.name} — ${vendorName} — Outstanding: ${formatCurrency(outstanding)} — Due Date: ${formatDate(b.dueDate || b.invoiceDateDue || b.invoiceDate)} — Status: ${String(b.state).replace(/_/g, " ")}`;
         });
         const more = total > 10 ? `\n\n…and ${total - 10} more.` : "";
         const openNote = route ? "\n\nOpening the filtered list for you now." : "";

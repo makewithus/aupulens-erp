@@ -17,6 +17,7 @@ import {
 } from "@/lib/constants/statuses";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
 import { comparePurchaseLineTax } from "@/lib/tax/purchaseTaxCompare";
+import { getStartOfCurrentDay, isInvoiceOverdue } from "@/lib/sales/invoiceStatus";
 
 function serializeBill(bill: any) {
   const partner = bill.partnerId;
@@ -25,11 +26,11 @@ function serializeBill(bill: any) {
     bill.paymentState !== PAYMENT_STATE.PAID &&
     bill.state === DOCUMENT_STATUS.POSTED &&
     bill.dueDate &&
-    new Date(bill.dueDate).getTime() < Date.now();
+    isInvoiceOverdue(bill.dueDate);
   const paymentStatus =
     bill.paymentState === PAYMENT_STATE.PAID
       ? "paid"
-      : bill.paymentState === PAYMENT_STATE.OVERDUE || isOverdue
+      : isOverdue
         ? "overdue"
         : bill.state === DOCUMENT_STATUS.POSTED
           ? "posted"
@@ -95,8 +96,7 @@ export async function GET(req: NextRequest) {
         query.state = { $nin: [DOCUMENT_STATUS.CANCELLED, DOCUMENT_STATUS.REJECTED] };
         query.paymentState = { $ne: PAYMENT_STATE.PAID };
         query.$or = [
-          { paymentState: PAYMENT_STATE.OVERDUE },
-          { state: DOCUMENT_STATUS.POSTED, dueDate: { $lt: new Date() } },
+          { state: DOCUMENT_STATUS.POSTED, dueDate: { $lt: getStartOfCurrentDay() } },
         ];
       }
     } else if (state && PAYMENT_STATE_VALUES.includes(state as any)) {
@@ -125,6 +125,7 @@ export async function GET(req: NextRequest) {
     const statsMatch: any = { tenantId, moveType: "in_invoice" };
     if (query.invoiceDate) statsMatch.invoiceDate = query.invoiceDate;
     const now = new Date();
+    const overdueCutoff = getStartOfCurrentDay(now);
 
     const [total, items, statsAgg] = await Promise.all([
       Invoice.countDocuments(query),
@@ -190,11 +191,10 @@ export async function GET(req: NextRequest) {
                       { $ne: ["$state", DOCUMENT_STATUS.REJECTED] },
                       {
                         $or: [
-                          { $eq: ["$paymentState", PAYMENT_STATE.OVERDUE] },
                           {
                             $and: [
                               { $eq: ["$state", DOCUMENT_STATUS.POSTED] },
-                              { $lt: ["$dueDate", now] },
+                              { $lt: ["$dueDate", overdueCutoff] },
                             ],
                           },
                         ],

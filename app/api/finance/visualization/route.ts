@@ -6,6 +6,7 @@ import Invoice from '@/models/finance/Invoice';
 import Asset from '@/models/finance/Asset';
 import BankReconciliation from '@/models/finance/BankReconciliation';
 import { DOCUMENT_STATUS, PAYMENT_STATE } from '@/lib/constants/statuses';
+import { isInvoiceOverdue } from '@/lib/sales/invoiceStatus';
 import {
   buildPostedCashFlowSeries,
   buildPostedCategoryBreakdown,
@@ -30,15 +31,23 @@ function isBillPaid(bill: { paymentState?: string; paidDate?: Date | null }) {
   return bill.paymentState === PAYMENT_STATE.PAID || Boolean(bill.paidDate);
 }
 
-function isBillOverdue(bill: { paymentState?: string; paidDate?: Date | null; dueDate: Date; amountResidual?: number }) {
-  return !isBillPaid(bill) && (Number(bill.amountResidual) || 0) > 0 && new Date(bill.dueDate) < new Date();
+function isOutstandingInvoice(invoice: { state?: string; paymentState?: string; paidDate?: Date | null }) {
+  return invoice.state === DOCUMENT_STATUS.POSTED &&
+    invoice.paymentState !== PAYMENT_STATE.PAID &&
+    !invoice.paidDate;
 }
 
-const OPEN_PAYMENT_STATES = new Set<string>([
-  PAYMENT_STATE.NOT_PAID,
-  PAYMENT_STATE.IN_PAYMENT,
-  PAYMENT_STATE.PARTIAL,
-]);
+function isInvoiceOrBillOverdue(invoice: {
+  state?: string;
+  paymentState?: string;
+  paidDate?: Date | null;
+  dueDate?: Date | string | null;
+  amountResidual?: number;
+}) {
+  return isOutstandingInvoice(invoice) &&
+    (Number(invoice.amountResidual) || 0) > 0 &&
+    isInvoiceOverdue(invoice.dueDate);
+}
 
 const EXCLUDED_BILL_STATUSES = new Set<string>([
   DOCUMENT_STATUS.REJECTED,
@@ -103,16 +112,16 @@ await connectDB();
           receivables: {
             paid: invoices.filter(i => i.paymentState === PAYMENT_STATE.PAID).reduce((sum, i) => sum + i.amountTotal, 0),
             pending: invoices
-              .filter(i => OPEN_PAYMENT_STATES.has(i.paymentState))
+              .filter(i => isOutstandingInvoice(i) && !isInvoiceOrBillOverdue(i))
               .reduce((sum, i) => sum + (Number(i.amountResidual) || 0), 0),
-            overdue: invoices.filter(i => i.paymentState === PAYMENT_STATE.OVERDUE).reduce((sum, i) => sum + (Number(i.amountResidual) || 0), 0),
+            overdue: invoices.filter(isInvoiceOrBillOverdue).reduce((sum, i) => sum + (Number(i.amountResidual) || 0), 0),
           },
           payables: {
             paid: bills.filter(isBillPaid).reduce((sum, b) => sum + b.amountTotal, 0),
             pending: bills
-              .filter(b => !isBillPaid(b) && !isBillOverdue(b) && !EXCLUDED_BILL_STATUSES.has(b.state))
+              .filter(b => isOutstandingInvoice(b) && !isInvoiceOrBillOverdue(b) && !EXCLUDED_BILL_STATUSES.has(b.state))
               .reduce((sum, b) => sum + (Number(b.amountResidual) || 0), 0),
-            overdue: bills.filter(isBillOverdue).reduce((sum, b) => sum + (Number(b.amountResidual) || 0), 0),
+            overdue: bills.filter(isInvoiceOrBillOverdue).reduce((sum, b) => sum + (Number(b.amountResidual) || 0), 0),
           },
         };
 
@@ -140,9 +149,9 @@ await connectDB();
         const invoiceStatusTotals = {
           paid: allInvoices.filter(i => i.paymentState === PAYMENT_STATE.PAID).reduce((sum, i) => sum + i.amountTotal, 0),
           pending: allInvoices
-            .filter(i => OPEN_PAYMENT_STATES.has(i.paymentState))
+            .filter(i => isOutstandingInvoice(i) && !isInvoiceOrBillOverdue(i))
             .reduce((sum, i) => sum + i.amountTotal, 0),
-          overdue: allInvoices.filter(i => i.paymentState === PAYMENT_STATE.OVERDUE).reduce((sum, i) => sum + i.amountTotal, 0),
+          overdue: allInvoices.filter(isInvoiceOrBillOverdue).reduce((sum, i) => sum + i.amountTotal, 0),
         };
 
         data = [
@@ -158,9 +167,9 @@ await connectDB();
         const billStatusTotals = {
           paid: allBills.filter(isBillPaid).reduce((sum, b) => sum + b.amountTotal, 0),
           pending: allBills
-            .filter(b => !isBillPaid(b) && !isBillOverdue(b) && !EXCLUDED_BILL_STATUSES.has(b.state))
+            .filter(b => isOutstandingInvoice(b) && !isInvoiceOrBillOverdue(b) && !EXCLUDED_BILL_STATUSES.has(b.state))
             .reduce((sum, b) => sum + (Number(b.amountResidual) || 0), 0),
-          overdue: allBills.filter(isBillOverdue).reduce((sum, b) => sum + (Number(b.amountResidual) || 0), 0),
+          overdue: allBills.filter(isInvoiceOrBillOverdue).reduce((sum, b) => sum + (Number(b.amountResidual) || 0), 0),
         };
 
         data = [

@@ -25,7 +25,7 @@ export async function GET() {
         { slug: tenantId },
         ...(mongoose.isValidObjectId(tenantId) ? [{ _id: tenantId }] : []),
       ],
-    }, { tier: 1, isActive: 1, subscriptionStatus: 1, trialEndDate: 1, "settings.ai.usagePolicy": 1 }).lean();
+    }, { tier: 1, isActive: 1, subscriptionStatus: 1, trialEndDate: 1, aiCreditBalance: 1, aiCreditsIncluded: 1, "settings.ai.usagePolicy": 1 }).lean();
 
     if (!org && (tenantId === "default" || tenantId === "default-tenant" || tenantId.includes("test") || tenantId.startsWith("tenant-"))) {
       org = (await Organization.findOne({ subdomain: { $in: ["default", "default-tenant"] } }, { tier: 1, isActive: 1, subscriptionStatus: 1, trialEndDate: 1, "settings.ai.usagePolicy": 1 }).lean()) || ({
@@ -53,13 +53,26 @@ export async function GET() {
       // while allowing the UI to show credits as unavailable.
     }
 
+    // Older organizations may still carry a manually assigned credit balance
+    // while plan entitlement records are being migrated. Preserve visibility
+    // of that configured balance without inventing a reset window.
+    if (!credits && Number.isFinite(org.aiCreditBalance)) {
+      const limit = Number(org.aiCreditsIncluded) || Number(org.aiCreditBalance);
+      const usedCredits = Math.max(0, limit - Number(org.aiCreditBalance));
+      credits = { planKey: org.tier || "legacy", limit, used: usedCredits, reserved: 0,
+        remaining: Math.max(0, Number(org.aiCreditBalance)) };
+    }
+
     const data: AiUsageSummary = {
       ...windows,
       monthly: usageMetric(used, getTierLimits(org.tier).aiCallsPerMonth,
         new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
         new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))),
       scope: "workspace", serverTime: new Date().toISOString(),
-      ...(credits ? { credits } : {}),
+      ...(credits ? { credits: {
+        ...credits,
+        resetsAt: credits.resetsAt ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString(),
+      } } : {}),
     };
     return NextResponse.json({ success: true, data }, { headers });
   } catch (error) {

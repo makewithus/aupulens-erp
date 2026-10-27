@@ -91,22 +91,19 @@ describe("System Overview accounting", () => {
     expect(data.inventory.totalStockTransfers).toBe(3);
   });
 
-  it("shows posted net income with zero expenses without claiming a final 100% margin", async () => {
+  it("marks revenue without posted costs incomplete instead of claiming profit", async () => {
     entries = [journal([line("bank", "asset", 9319640), line("sales", "income", 0, 9319640)])];
     const data = await summary();
-    expect(data.finance).toMatchObject({ totalRevenue: 9319640, totalExpenses: 0, netIncome: 9319640, profitAvailable: true });
+    expect(data.finance).toMatchObject({ totalRevenue: 9319640, totalExpenses: 0, netIncome: null, profitAvailable: false });
     const html = profitMarkup(data);
-    expect(html).not.toContain("Unavailable");
+    expect(html).toContain("Review ledger");
     expect(html).not.toContain("profit margin");
-    expect(html).toContain("INR 9319640</p>");
-    expect(html).toContain("No expense entries have been posted yet.");
+    expect(html).toContain("Cost of goods sold and operating expenses have not been posted");
     const metrics = renderToStaticMarkup(createElement(DashboardMetrics, { summary: data, formatCurrency, enabledModules: ["finance"] }));
-    expect(metrics).not.toContain("Unavailable");
-    expect(metrics).toContain("INR 9319640");
+    expect(metrics).toContain("Review ledger");
     const charts = renderToStaticMarkup(createElement(DashboardCharts, { summary: data, formatCurrency, enabledModules: ["finance"] }));
     expect(charts).not.toContain("100.0%");
-    expect(charts).not.toContain("Unavailable");
-    expect(charts).toContain("No posted costs");
+    expect(charts).toContain("Review ledger");
   });
 
   it("uses accounting dates for monthly totals and excludes other months", async () => {

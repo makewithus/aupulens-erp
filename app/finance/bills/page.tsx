@@ -240,6 +240,24 @@ function VendorBillsPageInner() {
     }
   };
 
+  const handleApproveBill = async (bill: any) => {
+    try {
+      const res = await cachedFetch(`/api/finance/bills/${bill._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: DOCUMENT_STATUS.APPROVED }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to approve bill");
+      }
+      toast.success("Bill approved");
+      await load(page, true);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve bill");
+    }
+  };
+
   const handleGenerateInvoiceFromBill = (bill: any) => {
     const invoiceData = {
       moveType: "out_invoice",
@@ -358,6 +376,7 @@ function VendorBillsPageInner() {
               <BillsTable
                 filteredBills={filteredBills}
                 handleOpenEdit={handleOpenEdit}
+                handleApprove={handleApproveBill}
                 handleDelete={handleDelete}
                 handleGenerateInvoiceFromBill={handleGenerateInvoiceFromBill}
               />

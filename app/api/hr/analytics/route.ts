@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
     const tenantId = getEffectiveTenantId(session);
 
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
-    const range = req.nextUrl.searchParams.get("range") || "30D";
+    const requestedRange = req.nextUrl.searchParams.get("range") || "30d";
+    const range = requestedRange.toUpperCase();
     const cacheKey = `hr-analytics-live:${tenantId}:${range}`;
 
     if (!isFresh) {
@@ -336,7 +337,7 @@ export async function GET(req: NextRequest) {
     const statutory = (Number(payrollAgg.totalPf) || 0) + (Number(payrollAgg.totalEsi) || 0) + (Number(payrollAgg.totalTds) || 0);
     const grossPayroll = Number(payrollAgg.totalGross) || 0;
 
-    const payrollAllocation = [
+    const payrollAllocation = grossPayroll > 0 ? [
       {
         component: "Base Fixed Salaries",
         amount: baseFixed,
@@ -352,7 +353,7 @@ export async function GET(req: NextRequest) {
         amount: statutory,
         percentage: grossPayroll > 0 ? Math.round((statutory / grossPayroll) * 100) : 0,
       },
-    ];
+    ] : [];
 
     // 6. Dynamic Weekly Attendance Trends
     const totalAttLogs = attendanceAggRaw.reduce((sum: number, day: any) => sum + day.total, 0);
@@ -409,12 +410,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const performanceDistribution = Object.values(perfDistributionMap).map((item) => ({
+    const performanceDistribution = perfTotal > 0 ? Object.values(perfDistributionMap).map((item) => ({
       rating: item.label,
       count: item.count,
       percentage: perfTotal > 0 ? Math.round((item.count / perfTotal) * 100) : 0,
       color: item.color,
-    }));
+    })) : [];
 
     // Turnover Rate
     const turnoverDenominator = activeHeadcount + exitedEmployees;

@@ -16,6 +16,7 @@ import Payment from "@/models/sales/Payment";
 import Payroll from "@/models/hr/Payroll";
 import SalesInvoice from "@/models/sales/SalesInvoice";
 import Invoice from "@/models/finance/Invoice";
+import { DOCUMENT_STATUS, PAYMENT_STATE, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 
 export interface UnifiedEvent {
   id: string;
@@ -87,10 +88,9 @@ export async function getCalendarEvents(
 
   // Finance: payments recorded + sales invoices due + vendor bills due.
   if (can("finance") || can("hr")) {
-    const seenRefs = new Set<string>();
     tasks.push(
       Payment.find({ tenantId, paymentDate: { $gte: from, $lte: to } })
-        .select("amount paymentDate reference customerId")
+        .select("amountReceived paymentDate reference customerId status")
         .sort({ paymentDate: 1 })
         .limit(1000)
         .lean()
@@ -100,44 +100,48 @@ export async function getCalendarEvents(
               id: String(p._id),
               source: "payment",
               type: "payment",
-              title: `Payment ${p.reference || ""} — ₹${p.amount ?? 0}`.trim(),
+              title: `Payment ${p.reference || ""} — ₹${p.amountReceived ?? 0}`.trim(),
               start: iso(p.paymentDate),
               allDay: true,
               url: "/finance/payments",
-              meta: { amount: p.amount, direction: "payment" },
+              meta: { amount: p.amountReceived, status: p.status, direction: "payment" },
             });
           }
         }),
       SalesInvoice.find({
         tenantId,
         dueDate: { $gte: from, $lte: to },
-        status: { $nin: ["draft", "cancelled", "paid"] },
+        status: { $nin: [SALES_INVOICE_STATUS.DRAFT, SALES_INVOICE_STATUS.CANCELLED, SALES_INVOICE_STATUS.PAID] },
       })
-        .select("number totalAmount dueDate status")
+        .select("number totalAmount dueDate status markedFullyPaid payments.amount")
         .sort({ dueDate: 1 })
         .limit(1000)
         .lean()
         .then((rows: any[]) => {
           for (const inv of rows) {
-            if (inv.number) seenRefs.add(inv.number);
+            const paid = (inv.payments || []).reduce((sum: number, payment: any) => sum + (Number(payment.amount) || 0), 0);
+            const outstanding = inv.markedFullyPaid ? 0 : Math.max(0, (Number(inv.totalAmount) || 0) - paid);
+            if (outstanding <= 0) continue;
             events.push({
               id: String(inv._id),
               source: "payment",
               type: "invoice:receivable",
-              title: `Invoice ${inv.number} Due — ₹${inv.totalAmount ?? 0}`,
+              title: `Invoice ${inv.number} Due — ₹${outstanding}`,
               start: iso(inv.dueDate),
               allDay: true,
               url: `/sales/invoices/${inv._id}`,
-              meta: { amount: inv.totalAmount, status: inv.status, direction: "receivable" },
+              meta: { amount: outstanding, status: inv.status, direction: "receivable", reference: inv.number, recordSource: "sales" },
             });
           }
         }),
       Invoice.find({
         tenantId,
         dueDate: { $gte: from, $lte: to },
-        state: { $nin: ["draft", "cancelled", "paid"] },
+        state: { $nin: [DOCUMENT_STATUS.DRAFT, DOCUMENT_STATUS.REJECTED, DOCUMENT_STATUS.CANCELLED] },
+        paymentState: { $ne: PAYMENT_STATE.PAID },
+        moveType: { $in: ["in_invoice", "out_invoice"] },
       })
-        .select("name migrationOriginalBillNumber amountTotal dueDate state moveType")
+        .select("name migrationOriginalBillNumber amountTotal amountResidual dueDate state moveType")
         .sort({ dueDate: 1 })
         .limit(1000)
         .lean()
@@ -145,27 +149,44 @@ export async function getCalendarEvents(
           for (const inv of rows) {
             const isBill = inv.moveType === "in_invoice";
             const refName = inv.migrationOriginalBillNumber || inv.name;
-            if (refName && seenRefs.has(refName)) continue;
-            if (refName) seenRefs.add(refName);
+            const balance = Number(inv.amountResidual);
+            // Older and newly-created bills often carry amountResidual=0
+            // until their first payment is applied. Since paid bills are
+            // excluded by the query above, a zero residual here means the
+            // payable balance has not been initialized; use the document
+            // total so the due date still appears on the calendar.
+            const outstanding = balance > 0 ? balance : Number(inv.amountTotal) || 0;
+            if (outstanding <= 0) continue;
             events.push({
               id: String(inv._id),
               source: "payment",
               type: isBill ? "bill:payable" : "invoice:receivable",
               title: isBill
-                ? `Supplier Bill ${refName || "Bill"} Due — ₹${inv.amountTotal ?? 0}`
-                : `Invoice ${refName || "Invoice"} Due — ₹${inv.amountTotal ?? 0}`,
+                ? `Supplier Bill ${refName || "Bill"} Due — ₹${outstanding}`
+                : `Invoice ${refName || "Invoice"} Due — ₹${outstanding}`,
               start: iso(inv.dueDate),
               allDay: true,
               url: isBill ? `/finance/bills/${inv._id}` : `/finance/invoices/${inv._id}`,
-              meta: { amount: inv.amountTotal, status: inv.state, direction: isBill ? "payable" : "receivable" },
+              meta: { amount: outstanding, status: inv.state, direction: isBill ? "payable" : "receivable", reference: refName, recordSource: "finance" },
             });
           }
         }),
     );
   }
 
-  await Promise.all(tasks.map((p) => p.catch(() => {})));
-  return events.sort((a, b) => a.start.localeCompare(b.start));
+  await Promise.all(tasks);
+  const financialEvents = new Set<string>();
+  const deduplicated = [...events].sort((a, b) =>
+    (a.meta?.recordSource === "sales" ? 0 : 1) - (b.meta?.recordSource === "sales" ? 0 : 1),
+  ).filter((event) => {
+    const reference = event.meta?.reference;
+    if (!reference || !["invoice:receivable", "bill:payable"].includes(event.type)) return true;
+    const key = `${event.type}:${String(reference).toLowerCase()}`;
+    if (financialEvents.has(key)) return false;
+    financialEvents.add(key);
+    return true;
+  });
+  return deduplicated.sort((a, b) => a.start.localeCompare(b.start));
 }
 
 // ── Deterministic conflict detection (the AI layer prioritises/explains these) ─

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireTenantId, getEffectiveTenantId } from "@/lib/auth/requireTenantId";
 import { getCalendarEvents, detectConflicts } from "@/lib/calendar/aggregateEvents";
 import { prioritizeConflicts } from "@/lib/calendar/conflictInsight";
 
@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const guard = requireTenantId(session);
   if (guard) return guard;
   const role = ((session.user as any).role || "").toLowerCase();
+  const tenantId = getEffectiveTenantId(session);
 
   const url = new URL(req.url);
   const now = new Date();
@@ -21,13 +22,22 @@ export async function GET(req: NextRequest) {
   const to = url.searchParams.get("to") ? new Date(url.searchParams.get("to")!) : new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const useAi = url.searchParams.get("ai") === "true";
 
-  const events = await getCalendarEvents(session.user.tenantId, role, from, to);
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from > to) {
+    return NextResponse.json({ success: false, message: "Invalid calendar date range" }, { status: 400 });
+  }
+  let events;
+  try {
+    events = await getCalendarEvents(tenantId, role, from, to);
+  } catch (error) {
+    console.error("Calendar conflict aggregation failed:", error);
+    return NextResponse.json({ success: false, message: "Calendar data is temporarily unavailable" }, { status: 503 });
+  }
   const conflicts = detectConflicts(events);
 
   if (!useAi) {
     return NextResponse.json({ success: true, data: { conflicts, aiUsed: false } });
   }
 
-  const insight = await prioritizeConflicts(session.user.tenantId, conflicts);
+  const insight = await prioritizeConflicts(tenantId, conflicts);
   return NextResponse.json({ success: true, data: { conflicts: insight.conflicts, summary: insight.summary, aiUsed: insight.aiUsed } });
 }

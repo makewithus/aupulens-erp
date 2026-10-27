@@ -2,8 +2,6 @@ import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from "vitest
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
-process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_remediation_sys25";
-
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
@@ -12,6 +10,7 @@ import Stock from "@/models/inventory/Stock";
 import StockTransfer from "@/models/inventory/StockTransfer";
 import ManufacturingOrder from "@/models/manufacturing/ManufacturingOrder";
 import { invalidateServerCache } from "@/lib/api/serverCache";
+import { disposableMongoUri } from "./disposableMongoUri";
 
 const TENANT = "kk-metals-sys25";
 
@@ -33,6 +32,7 @@ let alertsGET: typeof import("@/app/api/inventory/alerts/route").GET;
 
 describe("SYS-25: Stock-On-Hand, In-Stock Rate & Stock-Out Alerts", () => {
   beforeAll(async () => {
+    process.env.MONGODB_URI = disposableMongoUri("sys25_inventory_dashboard");
     await mongoose.connect(process.env.MONGODB_URI!);
     await Product.init();
     await Stock.init();

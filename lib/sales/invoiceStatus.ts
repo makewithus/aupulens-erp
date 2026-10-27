@@ -42,6 +42,18 @@ export function isInvoiceOverdue(dueDate: Date | string | undefined | null, now:
 }
 
 /**
+ * Returns the start of the current local calendar day for database filters.
+ * A date-only due date is stored as midnight, so comparing it with `now`
+ * incorrectly marks it overdue throughout its due date. Querying strictly
+ * before today's start matches the end-of-day rule used by isInvoiceOverdue.
+ */
+export function getStartOfCurrentDay(now: Date | string = new Date()): Date {
+  const current = now instanceof Date ? new Date(now) : new Date(now);
+  current.setHours(0, 0, 0, 0);
+  return current;
+}
+
+/**
  * Server-side status resolution: payment state and due date always win over a
  * client-supplied status (except explicit cancel/draft), so the list/detail
  * views can never show "saved" on an overdue or fully-paid invoice or vice versa.

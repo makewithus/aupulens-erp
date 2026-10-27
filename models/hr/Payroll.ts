@@ -179,6 +179,7 @@ PayrollSchema.index({
   "payrollPeriod.year": 1,
 });
 PayrollSchema.index({ tenantId: 1, status: 1 });
+PayrollSchema.index({ tenantId: 1, status: 1, disbursedAt: 1 });
 
 const Payroll: Model<IPayroll> =
   (mongoose.models.Payroll as Model<IPayroll>) ||

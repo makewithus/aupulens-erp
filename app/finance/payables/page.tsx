@@ -230,6 +230,25 @@ export default function PayablesPage() {
     }
   };
 
+  const handleApproveBill = async (billId: string) => {
+    try {
+      const res = await cachedFetch(`/api/finance/bills/${billId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'approved' }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to approve bill');
+      }
+      fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo);
+      fetchAllBillsForStats(dateFrom, dateTo);
+    } catch (err) {
+      console.error('Error approving bill:', err);
+      setError('Failed to approve bill');
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
@@ -242,6 +261,7 @@ export default function PayablesPage() {
     const config = {
       draft: { className: 'bg-muted text-muted-foreground border-border', label: 'Draft' },
       approved: { className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', label: 'Approved' },
+      pending_approval: { className: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20', label: 'Awaiting Approval' },
       pending: { className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', label: 'Pending' },
       paid: { className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Paid' },
       overdue: { className: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Overdue' },
@@ -546,6 +566,7 @@ export default function PayablesPage() {
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="pending_approval">Awaiting Approval</SelectItem>
                     <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="posted">Posted</SelectItem>
@@ -609,6 +630,17 @@ export default function PayablesPage() {
                             >
                               <CheckCircle className="mr-1 h-3 w-3" />
                               Mark Paid
+                            </Button>
+                          )}
+                          {bill.status === 'pending_approval' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleApproveBill(bill._id)}
+                              className="h-8"
+                            >
+                              <CheckCircle className="mr-1 h-3 w-3" />
+                              Approve
                             </Button>
                           )}
                         </TableCell>

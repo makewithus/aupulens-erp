@@ -16,10 +16,10 @@ import Stock from "@/models/inventory/Stock";
 import { getCalendarEvents } from "@/lib/calendar/aggregateEvents";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { getInstantCachedData } from "@/lib/api/cachedFetch";
+import { disposableMongoUri } from "./disposableMongoUri";
 
-// We use an isolated disposable test database target
-const TEST_PORT = process.env.QA_DISPOSABLE_MONGO_PORT || "27183";
-const TEST_URI = `mongodb://127.0.0.1:${TEST_PORT}/aupulens_test_sys_parts_7_8_9`;
+// Each run gets a unique test database; never connect to the configured app database directly.
+const TEST_URI = disposableMongoUri("parts_7_8_9");
 const TEST_TENANT = `tenant-p789-${Date.now()}`;
 const OTHER_TENANT = `tenant-other-${Date.now()}`;
 

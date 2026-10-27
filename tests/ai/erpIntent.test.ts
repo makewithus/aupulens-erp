@@ -14,6 +14,7 @@ describe("ERP intent and financial validation", () => {
     ["rajesh kumr pending paymnt", { entity: "invoice", customer: "rajesh kumar", status: "unpaid" }],
     ["Rajesh ka kitna payment pending hai?", { entity: "invoice", customer: "Rajesh", status: "unpaid" }],
     ["What's the status of SO-000019?", { entity: "sales_order", identifier: "SO-000019" }],
+    ["How much do customers still owe me?", { type: "customer_receivables" }],
     ["What is our biggest invoice?", { entity: "invoice", sort: "amount_desc", status: "issued", limit: 1 }],
     ["How many customers do we have?", { entity: "customer", operation: "count" }],
     ["Show quotes for Himalaya Fitness Studio", { entity: "quote", customer: "Himalaya Fitness Studio" }],

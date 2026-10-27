@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireTenantId, getEffectiveTenantId } from "@/lib/auth/requireTenantId";
 import { getCalendarEvents } from "@/lib/calendar/aggregateEvents";
 import CalendarEvent from "@/models/shared/CalendarEvent";
 
@@ -17,14 +17,23 @@ export async function GET(req: NextRequest) {
   const guard = requireTenantId(session);
   if (guard) return guard;
   const role = ((session.user as any).role || "").toLowerCase();
+  const tenantId = getEffectiveTenantId(session);
 
   const url = new URL(req.url);
   const now = new Date();
   const from = url.searchParams.get("from") ? new Date(url.searchParams.get("from")!) : new Date(now.getFullYear(), now.getMonth(), 1);
   const to = url.searchParams.get("to") ? new Date(url.searchParams.get("to")!) : new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  const events = await getCalendarEvents(session.user.tenantId, role, from, to);
-  return NextResponse.json({ success: true, data: events });
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from > to) {
+    return NextResponse.json({ success: false, message: "Invalid calendar date range" }, { status: 400 });
+  }
+  try {
+    const events = await getCalendarEvents(tenantId, role, from, to);
+    return NextResponse.json({ success: true, data: events });
+  } catch (error) {
+    console.error("Calendar aggregation failed:", error);
+    return NextResponse.json({ success: false, message: "Calendar data is temporarily unavailable" }, { status: 503 });
+  }
 }
 
 export async function POST(req: NextRequest) {

@@ -519,7 +519,7 @@ export default function HRDashboardPage() {
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-[10px] px-2 py-0.5">
-                {departmentDistribution.length} Depts
+                {totalDepartments} Depts
               </Badge>
             </CardHeader>
             <CardContent className="p-5 flex-1 flex flex-col justify-center items-center">

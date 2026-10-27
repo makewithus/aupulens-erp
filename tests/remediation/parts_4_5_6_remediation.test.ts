@@ -19,10 +19,11 @@ import Vendor from "@/models/admin/Vendor";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import StockTransfer from "@/models/inventory/StockTransfer";
 import { invalidateServerCache } from "@/lib/api/serverCache";
+import { disposableMongoUri } from "./disposableMongoUri";
 
 // Helpers & logic under test
 import { isInvoiceOverdue } from "@/lib/sales/invoiceStatus";
-import { invoiceRevenueExpression, invoiceGrossValueExpression } from "@/lib/sales/invoiceEligibility";
+import { invoiceRevenueExpression, invoiceGrossValueExpression, invoiceRevenueFromDocument } from "@/lib/sales/invoiceEligibility";
 import { plainNumberFmtY, plainNumberFmtTooltip } from "@/components/charts/DailyBrickBarChart";
 import { seedChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { seedNewChartOfAccounts } from "@/lib/accounting/coa-feature-seeder";
@@ -68,6 +69,7 @@ function makeUserScope(tenantId = TENANT_A) {
 
 describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug IDs)", () => {
   beforeAll(async () => {
+    process.env.MONGODB_URI = disposableMongoUri("parts_4_5_6");
     await connectDB();
     await Account.init();
     await AccountType.init();
@@ -166,6 +168,21 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
       expect(agg[0].authoritativeRevenue).toBe(5000); // Excludes GST
       expect(agg[0].grossInvoiceValue).toBe(5900); // Gross invoice total
       expect(agg[0].authoritativeRevenue).not.toBe(agg[0].grossInvoiceValue);
+      expect(invoiceRevenueFromDocument({
+        taxableAmount: 5000,
+        totalAmount: 5900,
+        taxes: { gstBreakup: [{ amount: 450 }, { amount: 450 }] },
+      })).toBe(5000);
+
+      const session = mockSession(TENANT_A);
+      vi.mocked(auth).mockResolvedValue(session as any);
+      const { GET: visualizationGET } = await import("@/app/api/sales/visualization/route");
+      const visualizationRes = await visualizationGET(
+        new NextRequest("http://localhost:3000/api/sales/visualization?type=revenue_trend&dateRange=30")
+      );
+      const visualizationJson = await visualizationRes.json();
+      const invoiceDay = new Date("2026-10-15").toISOString().slice(0, 10);
+      expect(visualizationJson.data.find((point: any) => point.date === invoiceDay)?.revenue).toBe(5000);
     });
 
     it("SYS-04: Returns structured incomplete status for unposted COGS; never fabricates 100% margin", async () => {
@@ -225,6 +242,13 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
       expect(json.summary.matrices.profitStatus).toBe("incomplete");
       expect(json.summary.matrices.profitMargin).toBeNull();
       expect(json.summary.matrices.profitUnavailableReason).toMatch(/costs unposted|general ledger/i);
+
+      const { GET: adminGET } = await import("@/app/api/admin/dashboard/route");
+      const adminRes = await adminGET();
+      const adminJson = await adminRes.json();
+      expect(adminJson.summary.finance.profitAvailable).toBe(false);
+      expect(adminJson.summary.finance.netIncome).toBeNull();
+      expect(adminJson.summary.finance.profitUnavailableReason).toMatch(/costs|expenses/i);
     });
 
     it("SYS-05: Invoice is NOT marked overdue on its due date; only after due date passes", () => {
@@ -405,6 +429,10 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
       expect(response.message).toMatch(/₹5,900/); // Outstanding balance
       expect(response.message).toMatch(/₹5,000/); // Taxable sales / Recognized revenue
       expect(response.message).not.toMatch(/₹0 per customer/);
+
+      const portfolio = await callAssistant("How much do customers still owe me?");
+      expect(portfolio.message).toMatch(/₹5,900/);
+      expect(portfolio.message).toMatch(/including GST/i);
     });
 
     it("SYS-08: AI answers both order shipment status and actual payments received in multi-part queries", async () => {
@@ -434,7 +462,7 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
         ],
       });
 
-      await SalesInvoice.create({
+      const invoice = await SalesInvoice.create({
         tenantId: TENANT_A,
         number: "INV-000042",
         customerId: cust._id,
@@ -453,11 +481,16 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
         ],
       });
 
+      await SaleOrder.updateOne({ _id: so._id, tenantId: TENANT_A }, { $set: { salesInvoiceIds: [invoice._id] } });
+
       const response = await callAssistant(
-        "What's the status of SO-000042?"
+        "What's the status of SO-000042 and how much has the customer paid so far?"
       );
 
-      expect(response.message).toBeDefined();
+      expect(response.message).toMatch(/SO-000042/);
+      expect(response.message).toMatch(/shipment status/i);
+      expect(response.message).toMatch(/payments received/i);
+      expect(response.message).toMatch(/₹5,000/);
     });
 
     it("SYS-09: AI responses never leak another tenant's test data or contain 'not ₹99 lakh'", async () => {
@@ -619,6 +652,15 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
       expect(draftRes.totals.subtotal).toBe(2000);
       expect(draftRes.totals.totalTax).toBe(360);
       expect(draftRes.totals.totalAmount).toBe(2360);
+
+      const hindiDraft = await prepareQuoteDraft(
+        makeUserScope(TENANT_A),
+        "2 unit CLOUD-TEST-PRODUCT-001 ka quote banao CLOUD-TEST-CUSTOMER-001 ke liye",
+        "req-29-hi"
+      );
+      expect(hindiDraft.customerName).toBe("CLOUD-TEST-CUSTOMER-001");
+      expect(hindiDraft.line.qty).toBe(2);
+      expect(hindiDraft.totals.totalAmount).toBe(2360);
     });
 
     it("SYS-30: AI customer mobile update supports English & Tamil with review, safe proposal & confirmed persistence", async () => {

@@ -159,7 +159,7 @@ export default function HrAnalyticsPage() {
 
     const headers = ["Report Section", "Dimension / Category", "Metric", "Value", "Unit / Proportion", "Reporting Period"];
     const rows: string[][] = [];
-    const periodLabel = timeRange === "1Y" ? "Last 1 Year" : timeRange === "90D" ? "Last 90 Days" : "Last 30 Days";
+    const periodLabel = timeRange.toUpperCase() === "1Y" ? "Last 1 Year" : timeRange.toUpperCase() === "90D" ? "Last 90 Days" : "Last 30 Days";
 
     // 1. Executive Summary
     rows.push(["Executive Summary", "Workforce", "Total Active Headcount", String(kpis.totalHeadcount), "Staff", periodLabel]);
@@ -226,18 +226,18 @@ export default function HrAnalyticsPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/25 rounded-md flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3" /> Live People Intelligence
+              <Sparkles className="w-3 h-3" /> Recorded HR Data
             </span>
             <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-md flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Real-Time MongoDB
+              Database-backed
             </span>
           </div>
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground break-words leading-none">
             HR Workforce Analytics & Demographics
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Longitudinal headcount trajectory, departmental staffing density, attendance patterns, and performance appraisal distributions.
+            Metrics and charts reflect records saved for this account. Empty sections indicate no matching HR records.
           </p>
         </div>
 
@@ -319,7 +319,7 @@ export default function HrAnalyticsPage() {
             title="Average Tenure"
             value={`${kpis.avgTenureYears} Years`}
             visual={<UsersGraph />}
-            subtitle="High team continuity & stability"
+            subtitle="Among active employees with a joining date"
           />
         </div>
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
@@ -392,7 +392,7 @@ export default function HrAnalyticsPage() {
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-[10px]">
-                {departmentDistribution.length} Depts
+                {kpis.totalDepartments} Depts
               </Badge>
             </div>
           </CardHeader>
