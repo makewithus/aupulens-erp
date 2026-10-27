@@ -16,8 +16,6 @@
 __tests__/
 ci-tests.json
 
-# scripts & utilities
-/scripts/
 
 # documentation (all reports reside in docs/)
 docs/

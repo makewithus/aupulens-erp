@@ -72,7 +72,7 @@ describe("every Sarvam call is metered as its own provider", () => {
     expect((await AiUsageRecord.findOne({ tenantId: T }).lean() as any).estimatedCostUsd).toBe(0);
   });
   it("THE SEED SCRIPT's rate reaches real cost figures (script → AiCostRate → recordSarvamUsage → breakdown)", async () => {
-    const { seedSarvamCostRates } = await import("../../scripts/seed-platform-sarvam-cost-rates");
+    const { seedSarvamCostRates } = await import("../../lib/platform/ai/seedSarvamCostRates");
     const seeded = await seedSarvamCostRates({ SARVAM_COST_PER_1K_CHARS_USD: "0.004", SARVAM_COST_PER_1K_CHARS_USD_DETECT: "0.001" } as any);
     expect(seeded.map((r) => r.modelName).sort()).toEqual(["sarvam-detect", "sarvam-translate", "sarvam-transliterate"]);
     const rates = await AiCostRate.find({ provider: "sarvam" }).lean();
@@ -82,7 +82,7 @@ describe("every Sarvam call is metered as its own provider", () => {
     expect(b.rows.find((r) => r.provider === "sarvam")!.estimatedCostUsd).toBeCloseTo(0.004, 10);
   });
   it("the seed script REFUSES to invent a price when none is configured (blank ≠ 0)", async () => {
-    const { seedSarvamCostRates } = await import("../../scripts/seed-platform-sarvam-cost-rates");
+    const { seedSarvamCostRates } = await import("../../lib/platform/ai/seedSarvamCostRates");
     for (const env of [{}, { SARVAM_COST_PER_1K_CHARS_USD: "" }, { SARVAM_COST_PER_1K_CHARS_USD: "   " }]) {
       expect(await seedSarvamCostRates(env as any)).toEqual([]);
     }
