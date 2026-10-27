@@ -24,14 +24,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (idGuard) return idGuard;
     await connectDB();
     const wantsDownload = req.nextUrl.searchParams.get("download") === "1";
-    const doc = await DocumentModel.findOneAndUpdate(
-      { _id: id, tenantId },
-      { $inc: { download_count: 1 } },
-      { new: true },
-    ).lean();
+    const wantsPreview = req.nextUrl.searchParams.get("preview") === "1";
+    const doc = wantsDownload
+      ? await DocumentModel.findOneAndUpdate(
+          { _id: id, tenantId },
+          { $inc: { download_count: 1 } },
+          { new: true },
+        ).lean()
+      : await DocumentModel.findOne({ _id: id, tenantId }).lean();
     if (!doc) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
-    if (wantsDownload) {
+    if (wantsDownload || wantsPreview) {
       let fileUrl: URL;
       try {
         fileUrl = new URL(doc.file_url);
@@ -53,9 +56,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: "Failed to retrieve document file" }, { status: 502 });
       }
       const safeName = String(doc.name || "document").replace(/[\\"\r\n]/g, "_");
+      const safeDispositionName = encodeURIComponent(doc.name || "document");
       const headers = new Headers({
         "Content-Type": doc.file_type || fileResponse.headers.get("content-type") || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(doc.name || "document")}`,
+        "Content-Disposition": `${wantsDownload ? "attachment" : "inline"}; filename="${safeName}"; filename*=UTF-8''${safeDispositionName}`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       });

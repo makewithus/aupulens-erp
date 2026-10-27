@@ -81,9 +81,11 @@ async function fetchEnabledModules(tenantId: string): Promise<TenantModuleKey[]>
 export function useEnabledModules(shouldLoad: boolean) {
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
-  const initialModules = tenantId ? readCachedModules(tenantId) : null;
-  const [modules, setModules] = useState<TenantModuleKey[] | null>(initialModules);
-  const [loaded, setLoaded] = useState(!shouldLoad || initialModules !== null);
+  // Keep the first render identical on the server and browser. Reading
+  // sessionStorage here made cached tenants render a different sidebar during
+  // hydration in production.
+  const [modules, setModules] = useState<TenantModuleKey[] | null>(null);
+  const [loaded, setLoaded] = useState(!shouldLoad);
 
   useEffect(() => {
     if (!shouldLoad) {

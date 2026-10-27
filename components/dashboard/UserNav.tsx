@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,9 +12,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Shield, User, ChevronDown } from "lucide-react";
+import { LogOut, Shield, User, ChevronDown, PackageCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { PLAN_KEY_LABELS, type PlanKeyType } from "@/lib/constants/statuses";
 
 interface UserNavProps {
   userName: string;
@@ -30,6 +32,43 @@ export function UserNav({
   onSignOut,
   profilePath,
 }: UserNavProps) {
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [planLoading, setPlanLoading] = useState(Boolean(userRole && userRole !== "master-admin"));
+
+  const refreshPlan = useCallback(async () => {
+    if (userRole === "master-admin") return;
+    try {
+      const response = await fetch("/api/billing/subscription", { cache: "no-store" });
+      if (!response.ok) return;
+      const result = await response.json();
+      const planKey = result?.data?.subscription?.planKey as PlanKeyType | undefined;
+      if (planKey) {
+        setCurrentPlan(PLAN_KEY_LABELS[planKey] || planKey);
+      }
+    } catch {
+      // Keep the last known plan visible during a temporary network failure.
+    } finally {
+      setPlanLoading(false);
+    }
+  }, [userRole]);
+
+  useEffect(() => {
+    if (!userRole || userRole === "master-admin") return;
+
+    void refreshPlan();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refreshPlan();
+    };
+    const timer = window.setInterval(refreshPlan, 15000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [userRole, refreshPlan]);
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -49,7 +88,7 @@ export function UserNav({
   const profileLink = profilePath || defaultProfilePath;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => { if (open) void refreshPlan(); }}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
@@ -96,6 +135,15 @@ export function UserNav({
                   <Shield className="mr-1 h-3 w-3" />
                   {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
                 </Badge>
+              )}
+              {userRole && userRole !== "master-admin" && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <PackageCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Current plan</span>
+                  <span className="ml-auto font-medium text-foreground">
+                    {currentPlan || (planLoading ? "Loading…" : "Unavailable")}
+                  </span>
+                </div>
               )}
             </div>
           </div>

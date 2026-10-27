@@ -3,6 +3,7 @@ import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
+import Item from "@/models/manufacturing/Item";
 import ItemBOM from "@/models/manufacturing/ItemBOM";
 
 export async function GET(req: NextRequest) {
@@ -26,8 +27,10 @@ export async function GET(req: NextRequest) {
     }
 
     const baseQuery = ItemBOM.find(filter)
-      .populate("itemToProduceId", "name unit type")
-      .populate("components.itemId", "name unit")
+      // Explicit model bindings keep production's route bundle independent of
+      // import order and avoid MissingSchemaError during populate().
+      .populate({ path: "itemToProduceId", select: "name unit type", model: Item })
+      .populate({ path: "components.itemId", select: "name unit", model: Item })
       .sort({ createdAt: -1 });
 
     const pageParam = searchParams.get("page");

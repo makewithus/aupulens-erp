@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { AuthSplash } from '@/components/dashboard/AuthSplash';
 import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, FileText, Download, Upload, Eye, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { confirmDialog } from '@/components/providers/ConfirmRoot';
 import { uploadToCloudinary } from '@/lib/upload';
 
@@ -47,6 +49,10 @@ export default function DocumentationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [previewDocument, setPreviewDocument] = useState<DocumentRow | null>(null);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchDocuments = useCallback(async () => {
@@ -95,7 +101,26 @@ export default function DocumentationPage() {
   };
 
   const handleView = async (doc: DocumentRow) => {
-    window.open(doc.file_url, '_blank', 'noopener,noreferrer');
+    setPreviewDocument(doc);
+    setPreviewHtml('');
+    setPreviewError('');
+    const extension = doc.name.split('.').pop()?.toLowerCase();
+    const isWordDocument = extension === 'docx' || (doc.file_type || '').includes('wordprocessingml.document');
+    if (!isWordDocument) return;
+
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/manufacturing/documents/${doc._id}?preview=1`);
+      if (!res.ok) throw new Error('Could not retrieve this document for preview.');
+      const arrayBuffer = await res.arrayBuffer();
+      const mammoth = (await import('mammoth')).default;
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      setPreviewHtml(result.value);
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : 'Preview is unavailable.');
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleDownload = async (doc: DocumentRow) => {
@@ -265,6 +290,61 @@ export default function DocumentationPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!previewDocument} onOpenChange={(open) => { if (!open) setPreviewDocument(null); }}>
+        <DialogContent className="w-[min(96vw,1100px)] max-w-none h-[min(90vh,850px)] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="pr-8 truncate">{previewDocument?.name || 'Document preview'}</DialogTitle>
+            <DialogDescription>Preview only. Use the download button to save a copy.</DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-auto rounded border border-border bg-background">
+            {previewLoading ? (
+              <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Preparing preview…
+              </div>
+            ) : previewError ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+                <p>{previewError}</p>
+                <Button onClick={() => previewDocument && handleDownload(previewDocument)}>
+                  <Download className="mr-2 h-4 w-4" /> Download document
+                </Button>
+              </div>
+            ) : previewDocument && ((previewDocument.file_type || '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(previewDocument.name)) ? (
+              <div className="relative h-full min-h-[60vh] w-full">
+                <Image
+                  src={`/api/manufacturing/documents/${previewDocument._id}?preview=1`}
+                  alt={previewDocument.name}
+                  fill
+                  unoptimized
+                  sizes="96vw"
+                  className="object-contain p-4"
+                />
+              </div>
+            ) : previewDocument && ((previewDocument.file_type || '').includes('pdf') || previewDocument.name.toLowerCase().endsWith('.pdf')) ? (
+              <iframe
+                title={`Preview of ${previewDocument.name}`}
+                src={`/api/manufacturing/documents/${previewDocument._id}?preview=1`}
+                className="h-full min-h-[60vh] w-full"
+              />
+            ) : previewHtml ? (
+              <iframe
+                title={`Preview of ${previewDocument?.name || 'Word document'}`}
+                sandbox=""
+                srcDoc={`<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Arial,sans-serif;line-height:1.6;max-width:850px;margin:40px auto;padding:0 24px;color:#222}img{max-width:100%;height:auto}table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #aaa;padding:6px}</style></head><body>${previewHtml}</body></html>`}
+                className="h-full min-h-[60vh] w-full bg-white"
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+                <FileText className="h-8 w-8 opacity-50" />
+                <p>Preview is not available for this file type.</p>
+                <Button onClick={() => previewDocument && handleDownload(previewDocument)}>
+                  <Download className="mr-2 h-4 w-4" /> Download document
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
