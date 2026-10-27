@@ -60,7 +60,9 @@ export default function SalesOrderDetailPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Update failed");
       setOrder(data.data);
-      load();
+      // Re-read the canonical record after the mutation so the page reflects
+      // persisted lifecycle fields and populated customer/invoice references.
+      await load();
       toast.success("Sales order updated");
     } catch (e: any) {
       toast.error(e.message);

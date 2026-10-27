@@ -1,6 +1,6 @@
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
-import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
+import { issuedInvoiceFilter, invoiceRevenueExpression } from "@/lib/sales/invoiceEligibility";
 import { tryErpAssistant, safeErpError, providerFailure } from "@/lib/ai/erpAssistant";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from 'next/server';
@@ -168,7 +168,7 @@ async function fetchSalesData(tenantId: string) {
     SaleOrder.countDocuments({ tenantId }),
     SalesInvoice.aggregate([
       { $match: { tenantId, ...issuedInvoiceFilter() } },
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      { $group: { _id: null, total: { $sum: invoiceRevenueExpression } } },
     ]).exec(),
     (Organization as any).findOne({
       $or: [
@@ -203,7 +203,7 @@ async function fetchSalesData(tenantId: string) {
             year: { $year: '$invoiceDate' },
             month: { $month: '$invoiceDate' },
           },
-          total: { $sum: { $ifNull: ['$totalAmount', 0] } },
+          total: { $sum: invoiceRevenueExpression },
         },
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } },
@@ -215,7 +215,7 @@ async function fetchSalesData(tenantId: string) {
     summary: {
       totalOrders,
       totalRevenue,
-      revenueBasis: "Issued invoice gross value including tax, excluding drafts/cancellations",
+      revenueBasis: "Issued invoice taxable value excluding GST, excluding drafts/cancellations",
       averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
     },
     topProducts,

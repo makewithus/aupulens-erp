@@ -6,15 +6,6 @@ import { useThemeStore } from "@/store/themeStore";
 import { Send, BarChart3, TrendingUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_CHART_DATA = [
-  { month: "May", revenue: 420000, orders: 18 },
-  { month: "Jun", revenue: 580000, orders: 24 },
-  { month: "Jul", revenue: 650000, orders: 29 },
-  { month: "Aug", revenue: 890000, orders: 38 },
-  { month: "Sep", revenue: 1120000, orders: 48 },
-  { month: "Oct", revenue: 2278941, orders: 68 },
-];
-
 interface DashboardChartsProps {
   summary: any;
   formatCurrency: (value: number) => string;
@@ -136,7 +127,7 @@ function RevenueCanvas({
   const tooltipRef = useRef<HTMLDivElement>(null);
   const hasAnimatedRef = useRef(false);
 
-  const chartPoints = Array.isArray(data) && data.length > 0 ? data : DEFAULT_CHART_DATA;
+  const chartPoints = Array.isArray(data) ? data : [];
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -478,7 +469,7 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const hasAnimatedRef = useRef(false);
 
-  const chartPoints = Array.isArray(data) && data.length > 0 ? data : DEFAULT_CHART_DATA;
+  const chartPoints = Array.isArray(data) ? data : [];
 
   useEffect(() => {
     const canvas = canvasRef.current;

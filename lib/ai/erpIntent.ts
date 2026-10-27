@@ -5,6 +5,9 @@ import { extractCustomerFields } from "./customerDraft";
 export function normalizeErpText(text: string) {
   return text
     .replace(/\b(invocies|invoce|invioce)\b/gi, "invoices")
+    .replace(/\bwat\b/gi, "what")
+    .replace(/\babt\b/gi, "about")
+    .replace(/\bshiped\b/gi, "shipped")
     .replace(/\bhw\b/gi, "how")
     .replace(/\br\b/gi, "are")
     .replace(/\bpaymnt\b/gi, "payment")
@@ -52,6 +55,7 @@ export type ErpIntent =
   | { type: "product_draft" }
   | { type: "customer_receivables"; customer?: string }
   | { type: "vendor_bill_query"; supplier?: string; billReference?: string; status?: string }
+  | { type: "sales_period_summary"; period: "this_month" | "last_month" | "this_year" | "last_30_days" }
   | { type: "plan"; feature?: string }
   | { type: "organization_info" }
   | {
@@ -417,15 +421,20 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   // Supplier / Vendor bill questions (SYS-19, SYS-28)
   if (
     /\b(?:supplier\s+bills?|vendor\s+bills?|pending\s+bills?|bills?\s+due|bills?\s+pending|what\s+do\s+we\s+owe)\b/i.test(q) ||
-    (/\bbills?\b/i.test(q) && /\b(?:supplier|vendor|owe|due|pending|payable)\b/i.test(q))
+    (/\b(?:supplier|vendor)\b/i.test(q) && /\b(?:owe|owed|due|pending|payable|bill)\b/i.test(q)) ||
+    (/\b(?:how\s+much\s+do\s+we\s+owe|what\s+do\s+we\s+owe)\b/i.test(q) && /\b(?:supplier|vendor)\b/i.test(q))
   ) {
-    const suppMatch = q.match(/\b(?:supplier|vendor|to|for|owe)\s+([A-Za-z0-9_-]+)/i) ||
-                      q.match(/\b([A-Z0-9]+-[A-Z0-9_-]+)\b/i);
-    const billRefMatch = q.match(/\b(?:BILL-[A-Za-z0-9_-]+)\b/i);
+    const cleanQ = q.replace(/[?.!]+$/g, "").trim();
+    const codeMatch = cleanQ.match(/\b[A-Z0-9]+-[A-Z0-9_-]+\b/i);
+    const trailingSupplier = cleanQ.match(/\b(?:owe|owed|due\s+to|for|to)\s+(?:us\s+)?(?:the\s+)?(.+?\s+(?:supplier|vendor))$/i);
+    const leadingSupplier = cleanQ.match(/\b(?:supplier|vendor)\s+(?:named\s+)?(.+)$/i);
+    const referenceMatch = codeMatch?.[0] && /^BILL-/i.test(codeMatch[0]) ? codeMatch[0] : undefined;
+    const suppMatch = (codeMatch && !referenceMatch ? codeMatch[0] : undefined) || trailingSupplier?.[1] || leadingSupplier?.[1];
     return {
       type: "vendor_bill_query",
-      supplier: suppMatch ? suppMatch[1].trim() : undefined,
-      billReference: billRefMatch ? billRefMatch[0] : undefined,
+      supplier: suppMatch?.trim(),
+      billReference: referenceMatch,
+      status: /\b(?:pending|unpaid|due|owe|owed|payable)\b/i.test(q) ? "pending" : undefined,
     };
   }
 
@@ -436,9 +445,14 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   ) {
     const custMatch = q.match(/\b(?:customer|for|does)\s+([A-Za-z0-9_-]+)(?:\s+owe|\s+balance|\s*$)/i) ||
                       q.match(/\b([A-Z0-9]+-[A-Z0-9_-]+)\b/i);
+    const asksAboutPreviousCustomer = /\b(?:that|this)\s+customer\b/i.test(q);
+    const previousCustomer = (context?.lastErpQuery as any)?.type === "customer_receivables"
+      ? (context?.lastErpQuery as any)?.customer
+      : undefined;
+    if (asksAboutPreviousCustomer && !previousCustomer) return null;
     return {
       type: "customer_receivables",
-      customer: custMatch ? custMatch[1].trim() : undefined,
+      customer: asksAboutPreviousCustomer ? previousCustomer : custMatch ? custMatch[1].trim() : undefined,
     };
   }
 
@@ -744,6 +758,20 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   }
 
   // Revenue queries
+  if (
+    /\b(?:revenue|sales)\b/i.test(q) &&
+    /\b(?:payments?\s+received|cash\s+collected|collections?)\b/i.test(q)
+  ) {
+    const period = /\b(?:last|previous)\s+month\b/i.test(q)
+      ? "last_month"
+      : /\b(?:this|current)\s+year\b/i.test(q)
+      ? "this_year"
+      : /\b(?:this|current)\s+month\b/i.test(q)
+      ? "this_month"
+      : "last_30_days";
+    return { type: "sales_period_summary", period };
+  }
+
   if (/\brevenue\b/i.test(q)) {
     const days = Number(q.match(/last\s+(\d+)\s+days/i)?.[1] ?? 30);
     if (days < 1 || days > 3660) return null;
@@ -762,7 +790,16 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
     if (/\b(?:smallest|lowest)\b/i.test(q)) Object.assign(query, { status: "issued", sort: "amount_asc", limit: 1 });
   }
   const forCustomer = q.match(/\bfor\s+(.+?)[?.!]?$/i)?.[1];
-  if (forCustomer && ["invoice", "quote", "sales_order"].includes(entity)) query.customer = forCustomer.trim();
+  if (forCustomer && ["invoice", "quote", "sales_order"].includes(entity)) {
+    const customerPhrase = forCustomer
+      .replace(/[;,].*$/g, "")
+      .replace(/\s+(?:is\s+it|has\s+it|did\s+it|is\s+this|is\s+the\s+order|shipped\??).*$/i, "")
+      .trim();
+    const refersToPreviousCustomer = /^(?:that|the\s+same|this)\s+customer$/i.test(customerPhrase);
+    const previousCustomer = (context?.lastErpQuery as any)?.customer;
+    if (refersToPreviousCustomer && previousCustomer) query.customer = previousCustomer;
+    else if (!refersToPreviousCustomer && customerPhrase) query.customer = customerPhrase;
+  }
   if (entity === "customer" && query.operation === "search") {
     const name = q.match(/\bcustomer\s+(.+?)[?.!]?$/i)?.[1];
     if (name) query.name = name.trim();

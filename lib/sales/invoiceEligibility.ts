@@ -31,6 +31,21 @@ export const invoiceRevenueExpression = {
 };
 export const invoiceGrossValueExpression = { $ifNull: ["$totalAmount", 0] };
 
+/** Runtime equivalent of invoiceRevenueExpression for an already loaded invoice. */
+export function invoiceRevenueFromDocument(invoice: {
+  taxableAmount?: number | null;
+  totalAmount?: number | null;
+  taxes?: { gstBreakup?: Array<{ amount?: number | null }> | null } | null;
+}): number {
+  const taxable = Number(invoice.taxableAmount);
+  if (Number.isFinite(taxable) && taxable > 0) return taxable;
+  const gst = (invoice.taxes?.gstBreakup || []).reduce(
+    (sum, tax) => sum + (Number(tax.amount) || 0),
+    0,
+  );
+  return Math.max(0, (Number(invoice.totalAmount) || 0) - gst);
+}
+
 export const invoicePaidAmountExpression = {
   $cond: [
     { $gt: [{ $size: { $ifNull: ["$payments", []] } }, 0] },

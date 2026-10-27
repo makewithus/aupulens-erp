@@ -7,16 +7,17 @@ import Organization from "@/models/admin/Organization";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import User from "@/models/auth/User";
 import { parseErpIntent, normalizeErpText, type ErpIntentContext } from "./erpIntent";
-import { executeErpQuery, ErpToolError, currency, customerName, requireSalesAccess, resolveCustomer } from "./erpQuery";
+import { executeErpQuery, ErpToolError, currency, customerName, flexibleNameRegex, requireSalesAccess, resolveCustomer } from "./erpQuery";
 import { prepareQuoteDraft, confirmQuoteDraft, updateQuoteDraft } from "./quoteDraft";
 import { prepareCustomerDraft, updateCustomerDraft, confirmCustomerDraft, cancelCustomerDraft, prepareUpdateCustomerMobile, confirmUpdateCustomerMobile, cancelUpdateCustomerMobile } from "./customerDraft";
 import { prepareProductDraft, confirmProductDraft, cancelProductDraft } from "./productDraft";
 import Vendor from "@/models/admin/Vendor";
 import Customer from "@/models/sales/Customer";
+import Payment from "@/models/sales/Payment";
 import { COMMAND_ACTIONS } from "./commandActions";
 import { buildPostedJournalReport, toDateStartInTimeZone, toDateEndInTimeZone } from "@/lib/accounting/reports";
-import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
-import { AI_ACTION_STATUS as A, DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { issuedInvoiceFilter, invoiceRevenueExpression } from "@/lib/sales/invoiceEligibility";
+import { AI_ACTION_STATUS as A, DOCUMENT_STATUS, PAYMENT_STATUS } from "@/lib/constants/statuses";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "./conversationContext";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import connectDB from "@/lib/db";
@@ -176,6 +177,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   const isProfitLossQuery = intent === "profit_loss" || (typeof intent === "object" && intent !== null && (intent as any).type === "profit_loss");
   const isVendorBillQuery = typeof intent === "object" && intent !== null && (intent as any).type === "vendor_bill_query";
   const isCustomerReceivablesQuery = typeof intent === "object" && intent !== null && (intent as any).type === "customer_receivables";
+  const isSalesPeriodSummaryQuery = typeof intent === "object" && intent !== null && (intent as any).type === "sales_period_summary";
   const isProductDraftQuery = intent === "product_draft" || intent === "product_confirm" || intent === "product_cancel" || (typeof intent === "object" && intent !== null && (intent as any).type === "product_draft");
   const isFinanceSpecializedQuery =
     typeof intent === "object" &&
@@ -194,6 +196,9 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
     if (!["admin", "master-admin"].includes(input.role)) throw new ErpToolError("PERMISSION_DENIED", "Billing plan details aren't accessible with your current permissions.", 403);
   } else if (isOrgQuery) {
     // Basic tenant identity context is accessible to all authenticated tenant users
+  } else if (isSalesPeriodSummaryQuery) {
+    requireSalesAccess(input.role);
+    await requireWorkspaceModuleAccess("sales", input.tenantId);
   } else if (isProfitLossQuery || isFinanceSpecializedQuery || isVendorBillQuery) {
     if (!["admin", "master-admin", "finance"].includes(input.role)) {
       throw new ErpToolError("PERMISSION_DENIED", "Financial and accounting analysis requires administrative or finance permissions.", 403);
@@ -1263,37 +1268,98 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       }
       if (proposalId) await cancelProductDraft(scope, proposalId);
       message = "Product draft cancelled. No product record was created.";
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "sales_period_summary") {
+      const period = (intent as any).period as "this_month" | "last_month" | "this_year" | "last_30_days";
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date;
+      let periodLabel: string;
+
+      if (period === "last_30_days") {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        endDate = now;
+        periodLabel = "the last 30 days";
+      } else {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "Asia/Kolkata", year: "numeric", month: "numeric",
+        }).formatToParts(now);
+        const currentYear = Number(parts.find((p) => p.type === "year")?.value);
+        const currentMonth = Number(parts.find((p) => p.type === "month")?.value) - 1;
+        const firstMonth = period === "this_year" ? 0 : currentMonth + (period === "last_month" ? -1 : 0);
+        const first = new Date(Date.UTC(currentYear, firstMonth, 1));
+        const next = new Date(Date.UTC(currentYear, firstMonth + (period === "this_year" ? 12 : 1), 1));
+        const isoDate = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+        startDate = new Date(`${isoDate(first)}T00:00:00+05:30`);
+        endDate = new Date(`${isoDate(next)}T00:00:00+05:30`);
+        periodLabel = period === "this_year"
+          ? `this year (${first.getUTCFullYear()})`
+          : new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(first);
+      }
+
+      const dateRange = { $gte: startDate, $lt: endDate };
+      const [revenueRows, paymentRows, legacyRows] = await Promise.all([
+        SalesInvoice.aggregate([
+          { $match: { tenantId: input.tenantId, ...issuedInvoiceFilter(), invoiceDate: dateRange } },
+          { $group: { _id: null, revenue: { $sum: invoiceRevenueExpression }, count: { $sum: 1 } } },
+        ]).option({ maxTimeMS: 10_000 }),
+        Payment.aggregate([
+          { $match: { tenantId: input.tenantId, status: PAYMENT_STATUS.PAID, paymentDate: dateRange } },
+          { $group: { _id: null, received: { $sum: "$amountReceived" }, count: { $sum: 1 } } },
+        ]).option({ maxTimeMS: 10_000 }),
+        SalesInvoice.aggregate([
+          { $match: { tenantId: input.tenantId, ...issuedInvoiceFilter(), payments: { $elemMatch: { date: dateRange, paymentId: { $exists: false } } } } },
+          { $unwind: "$payments" },
+          { $match: { "payments.date": dateRange, "payments.paymentId": { $exists: false } } },
+          { $group: { _id: null, received: { $sum: "$payments.amount" }, count: { $sum: 1 } } },
+        ]).option({ maxTimeMS: 10_000 }),
+      ]);
+
+      const revenue = Number(revenueRows[0]?.revenue) || 0;
+      const invoiceCount = Number(revenueRows[0]?.count) || 0;
+      const paymentsReceived = (Number(paymentRows[0]?.received) || 0) + (Number(legacyRows[0]?.received) || 0);
+      const paymentCount = (Number(paymentRows[0]?.count) || 0) + (Number(legacyRows[0]?.count) || 0);
+      message = `For ${periodLabel}:\n\n` +
+        `- **Recognized revenue (excluding GST):** ${currency(revenue)} across ${invoiceCount} issued invoice(s), by invoice date.\n` +
+        `- **Payments received:** ${currency(paymentsReceived)} across ${paymentCount} recorded payment(s), by payment date.`;
+      structured = { type: "sales_period_summary" as any, period: periodLabel, revenue, invoiceCount, paymentsReceived, paymentCount };
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "vendor_bill_query") {
       const q = intent as { type: "vendor_bill_query"; supplier?: string; billReference?: string; status?: string };
       await connectDB();
-      const filter: any = { tenantId: scope.tenantId, moveType: "in_invoice" };
+      const filter: any = {
+        tenantId: scope.tenantId,
+        moveType: "in_invoice",
+        state: { $nin: [DOCUMENT_STATUS.DRAFT, DOCUMENT_STATUS.REJECTED, DOCUMENT_STATUS.CANCELLED] },
+        paymentState: { $ne: PAYMENT_STATUS.PAID },
+      };
+      const andConditions: any[] = [];
 
       if (q.billReference) {
-        filter.$or = [
+        andConditions.push({ $or: [
           { name: { $regex: `^${escapeRegex(q.billReference)}$`, $options: "i" } },
           { migrationOriginalBillNumber: { $regex: `^${escapeRegex(q.billReference)}$`, $options: "i" } },
-        ];
+        ] });
       }
 
       let targetSupplierName: string | undefined;
       if (q.supplier) {
         targetSupplierName = q.supplier.trim();
-        const rx = new RegExp(escapeRegex(targetSupplierName), "i");
+        const rx = flexibleNameRegex(targetSupplierName);
         const [vendors, partners] = await Promise.all([
           Vendor.find({ tenantId: scope.tenantId, name: rx }).select("_id name").lean(),
           Customer.find({ tenantId: scope.tenantId, "header.name": rx }).select("_id header").lean(),
         ]);
         const vendorIds = vendors.map(v => v._id);
         const partnerIds = partners.map(p => p._id);
-        filter.$or = [
-          { vendorId: { $in: vendorIds } },
-          { partnerId: { $in: partnerIds } },
+        andConditions.push({ $or: [
+          ...(vendorIds.length ? [{ vendorId: { $in: vendorIds } }] : []),
+          ...(partnerIds.length ? [{ partnerId: { $in: partnerIds } }] : []),
           { migrationVendorSourceId: rx },
           { migrationOriginalBillNumber: rx },
           { invoiceNumber: rx },
           { name: rx },
-        ];
+        ] });
       }
+      if (andConditions.length) filter.$and = andConditions;
 
       const bills = await Invoice.find(filter)
         .populate("partnerId", "header")
@@ -1308,16 +1374,24 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           : "No pending supplier bills were found in your accessible records.\n\nYou can review all vendor bills in Finance under **Finance > Vendor Bills** (/finance/bills).";
         structured = { type: "vendor_bills" as any, total: 0, count: 0, bills: [], route: "/finance/bills" };
       } else {
-        const totalAmount = bills.reduce((sum, b: any) => sum + (Number(b.amountTotal) || 0), 0);
+        const outstandingFor = (b: any) => {
+          const gross = Number(b.amountTotal) || 0;
+          const residual = Number(b.amountResidual);
+          // Approval-pending bills are not yet in the payment ledger; treat
+          // their full gross as payable even when the ledger residual defaults to zero.
+          return b.state === DOCUMENT_STATUS.PENDING_APPROVAL || b.state === DOCUMENT_STATUS.APPROVED
+            ? (residual > 0 ? residual : gross)
+            : (Number.isFinite(residual) ? residual : gross);
+        };
+        const totalAmount = bills.reduce((sum, b: any) => sum + outstandingFor(b), 0);
         const lines = bills.map((b: any) => {
           const suppName = b.vendorId?.name || b.partnerId?.header?.name || b.migrationVendorSourceId || "Supplier";
           const billRef = (b.name && b.name !== "Draft") ? b.name : (b.invoiceNumber || b.migrationOriginalBillNumber || b.name || "Bill");
-          const amountStr = currency(b.amountTotal || 0);
+          const amountStr = currency(outstandingFor(b));
           const rawDueDate = b.invoiceDateDue || b.dueDate;
           const dueStr = rawDueDate ? new Date(rawDueDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" }) : "Not specified";
           const stateStr = b.state === "approved" ? "Approved" : b.state === "posted" ? "Posted" : "Pending approval";
-          const approverStr = b.approverId || b.approvedBy ? String(b.approverId || b.approvedBy) : "None assigned (Pending approval)";
-          return `- **${billRef}** — ${suppName} — Amount: **${amountStr}** — Due Date: **${dueStr}** — Status: **${stateStr}** (Approver: ${approverStr})`;
+          return `- **${billRef}** — ${suppName} — Outstanding: **${amountStr}** — Due Date: **${dueStr}** — Status: **${stateStr}**`;
         });
 
         message = `Found **${bills.length}** supplier bill(s) totaling **${currency(totalAmount)}**:\n\n${lines.join("\n")}\n\nYou can view and manage these bills under **Finance > Vendor Bills** (/finance/bills).`;
@@ -1331,13 +1405,14 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
             amount: b.amountTotal || 0,
             dueDate: b.invoiceDateDue || b.dueDate,
             state: b.state,
-            approver: b.approverId || b.approvedBy || null,
+            outstanding: outstandingFor(b),
           })),
           route: "/finance/bills",
         };
       }
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "customer_receivables") {
       const q = intent as { type: "customer_receivables"; customer?: string };
+      query = q;
       await connectDB();
       const filter: any = { tenantId: scope.tenantId, ...issuedInvoiceFilter() };
 

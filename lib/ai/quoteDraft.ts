@@ -63,16 +63,19 @@ export async function prepareQuoteDraft(scope: Scope, text: string, requestId: s
   // 3. quote for <customer> for/with <qty> <product>
   // 4. quote for <customer> of <qty> <product>
   const full = q.match(/quote\s+for\s+(.+?),\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(.+)$/i);
+  const implicitTestProduct = q.match(/(?:create|make|prepare|draft)\s+(?:a\s+)?quote\s+for\s+(?:the\s+)?(.+?)\s+and\s+(?:the\s+)?product$/i);
   const short = q.match(/quote\s+for\s+([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(.+?)\s+(?:to|for)\s+(.+)$/i);
   const customerFirst = q.match(/quote\s+for\s+(.+?)\s+(?:with|for|of)\s+([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(.+)$/i);
   const general = q.match(/(?:create\s+)?quote\s+(?:for\s+)?(?:([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(?:units?\s+(?:of\s+)?)?(.+?)\s+(?:for|to)\s+(.+)|(.+?)\s+(?:for|with)\s+([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(?:units?\s+(?:of\s+)?)?(.+))$/i);
 
-  let customerText = full?.[1] || short?.[3] || customerFirst?.[1] || general?.[3] || general?.[4] || q.match(/quote\s+for\s+([^,]+)(?:,|$)/i)?.[1];
+  let customerText = implicitTestProduct?.[1] || full?.[1] || short?.[3] || customerFirst?.[1] || general?.[3] || general?.[4] || q.match(/quote\s+for\s+([^,]+)(?:,|$)/i)?.[1];
   if (customerText) {
     customerText = customerText.replace(/^(?:the\s+)?customer\s+/i, "").trim();
   }
-  let rawQty = full?.[2] || short?.[1] || customerFirst?.[2] || general?.[1] || general?.[5];
-  let rawProduct = full?.[3] || short?.[2] || customerFirst?.[3] || general?.[2] || general?.[6];
+  let rawQty = implicitTestProduct ? "1" : full?.[2] || short?.[1] || customerFirst?.[2] || general?.[1] || general?.[5];
+  let rawProduct = implicitTestProduct
+    ? `${implicitTestProduct[1].replace(/^the\s+/i, "").replace(/\s+customer$/i, "").trim()} product`
+    : full?.[3] || short?.[2] || customerFirst?.[3] || general?.[2] || general?.[6];
 
   if (!customerText || /^\d/.test(customerText.trim())) {
     throw new ErpToolError("MISSING_FIELD", "Which customer should this quote be for?");

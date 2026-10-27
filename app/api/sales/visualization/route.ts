@@ -6,7 +6,7 @@ import SaleOrder from "@/models/sales/SaleOrder";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { DOCUMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
-import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
+import { issuedInvoiceFilter, invoiceRevenueFromDocument } from "@/lib/sales/invoiceEligibility";
 
 // A SaleOrder row is a real, confirmed order regardless of which UI created
 // it — see the matching comment in app/api/sales/summary/route.ts. Filtering
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const [orders, quotations, invoices] = await Promise.all([
       SaleOrder.find({ tenantId, createdAt: { $gte: from }, ...REAL_ORDER_MATCH }).lean(),
       SalesQuotation.find({ tenantId, createdAt: { $gte: from } }).select("status createdAt").lean(),
-      (SalesInvoice as any).find({ tenantId, invoiceDate: { $gte: from }, ...issuedInvoiceFilter() }).select("totalAmount invoiceDate createdAt").lean(),
+      (SalesInvoice as any).find({ tenantId, invoiceDate: { $gte: from }, ...issuedInvoiceFilter() }).select("totalAmount taxableAmount taxes.gstBreakup invoiceDate createdAt").lean(),
     ]);
 
     if (type === "product_performance") {
@@ -120,7 +120,11 @@ export async function GET(req: NextRequest) {
       const dateVal = inv.invoiceDate || inv.createdAt;
       if (!dateVal) return;
       const key = new Date(dateVal).toISOString().slice(0, 10);
-      if (byDate[key]) byDate[key].revenue += inv.totalAmount || 0;
+      if (byDate[key]) {
+        // Match Finance, Admin, and Sales summary revenue: GST collected for
+        // the tax authority is not business revenue.
+        byDate[key].revenue += invoiceRevenueFromDocument(inv);
+      }
     });
 
     quotations.forEach((q: any) => {

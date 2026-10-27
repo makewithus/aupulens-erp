@@ -14,51 +14,6 @@ interface SalesVisualizationProps {
   className?: string;
 }
 
-// ── Organic looking wave dummy data generators when DB is empty ──
-const getDummyData = (type: string, dateRangeStr: string) => {
-  const days = Number(dateRangeStr) || 30;
-  const data: any[] = [];
-
-  if (type.includes("status_breakdown") || type.includes("status")) {
-    return [
-      { name: "Draft", value: 18 },
-      { name: "Sent", value: 32 },
-      { name: "Posted", value: 76 },
-      { name: "Closed", value: 44 },
-      { name: "Cancelled", value: 9 },
-    ];
-  }
-
-  const from = new Date();
-  from.setDate(from.getDate() - days);
-
-  let seed = 1337;
-  function rng() {
-    seed = (seed * 16807 + 0) % 2147483647;
-    return (seed - 1) / 2147483646;
-  }
-
-  for (let i = 0; i <= days; i++) {
-    const d = new Date(from);
-    d.setDate(from.getDate() + i);
-    const dateStr = d.toISOString().slice(0, 10);
-
-    const cycle = Math.sin((i / days) * Math.PI * 2.5);
-    const baseOrders = Math.round(18 + cycle * 8 + rng() * 10);
-    const baseQuotations = Math.round(26 + cycle * 12 + rng() * 14);
-    const baseRevenue = Math.round(160000 + cycle * 60000 + rng() * 80000);
-
-    data.push({
-      date: dateStr,
-      orders: Math.max(2, baseOrders),
-      quotations: Math.max(4, baseQuotations),
-      revenue: Math.max(10000, baseRevenue),
-    });
-  }
-
-  return data;
-};
-
 const months = [
   "Jan",
   "Feb",
@@ -98,11 +53,9 @@ export function SalesVisualization({
   const [dateRange, setDateRange] = useState("30");
   const [groupBy, setGroupBy] = useState("day");
 
-  const [visualizationData, setVisualizationData] = useState<any[]>(() =>
-    getDummyData(defaultDataType || availableDataTypes[0]?.value || "orders_trend", "30")
-  );
-  const [isLoadingViz, setIsLoadingViz] = useState(false);
-  const [isDemo, setIsDemo] = useState(false);
+  const [visualizationData, setVisualizationData] = useState<any[]>([]);
+  const [isLoadingViz, setIsLoadingViz] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,7 +65,7 @@ export function SalesVisualization({
   const tooltipValueRef = useRef<HTMLDivElement>(null);
   const hasAnimatedRef = useRef<boolean>(false);
 
-  // ── Fetch dynamic DB values or fallback to dummy waves ──
+  // Fetch only persisted data so an empty or slow workspace never displays invented figures.
   const fetchVisualizationData = useCallback(async () => {
     if (!selectedDataType) return;
     try {
@@ -122,19 +75,12 @@ export function SalesVisualization({
       );
       if (!res.ok) throw new Error("Failed to fetch visualization data");
       const result = await res.json();
-      if (!result.data || result.data.length === 0) {
-        const dummy = getDummyData(selectedDataType, dateRange);
-        setVisualizationData(dummy);
-        setIsDemo(true);
-      } else {
-        setVisualizationData(result.data);
-        setIsDemo(false);
-      }
+      setVisualizationData(Array.isArray(result.data) ? result.data : []);
+      setLoadError(false);
     } catch (err) {
       console.error("Error fetching visualization:", err);
-      const dummy = getDummyData(selectedDataType, dateRange);
-      setVisualizationData(dummy);
-      setIsDemo(true);
+      setVisualizationData([]);
+      setLoadError(true);
     } finally {
       setIsLoadingViz(false);
     }
@@ -157,7 +103,7 @@ export function SalesVisualization({
   }, [selectedDataType, availableDataTypes]);
 
   const headerVal = useMemo(() => {
-    if (visualizationData.length === 0) return "0";
+    if (visualizationData.length === 0) return isLoadingViz ? "Loading…" : loadError ? "Unavailable" : "No data";
     if (isRevenue) {
       const sum = visualizationData.reduce((acc, d) => acc + (d.revenue || 0), 0);
       return "₹" + sum.toLocaleString("en-IN");
@@ -176,7 +122,7 @@ export function SalesVisualization({
       return sum.toLocaleString() + " records";
     }
     return "0";
-  }, [visualizationData, isRevenue, isOrders, isConversion, isStatus]);
+  }, [visualizationData, isRevenue, isOrders, isConversion, isStatus, isLoadingViz, loadError]);
 
   // Start the slider at the most recent data whenever the series changes.
   useEffect(() => {
@@ -541,7 +487,7 @@ export function SalesVisualization({
     >
       <div className="flex flex-col gap-1 mb-6">
         <span className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground/60">
-          Charts & Analytics {isDemo && <span className="text-amber-500/70 ml-2 font-mono normal-case tracking-normal">(Demo Data - DB Empty)</span>}
+          Charts &amp; Analytics
         </span>
         <h3 className="text-xl font-medium tracking-tight text-foreground uppercase">
           {title}
@@ -660,7 +606,7 @@ export function SalesVisualization({
         ) : visualizationData.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground/40 border border-dashed border-border/40">
             <p className="text-xs font-semibold uppercase tracking-wider">
-              No data available
+              {loadError ? "Unable to load chart data. Retry by changing the filters." : "No records for this period."}
             </p>
           </div>
         ) : (

@@ -97,9 +97,10 @@ export async function GET(req?: Request) {
     const hasExpenseActivity = Object.values(ledger.expense.accounts).some(
       (account) => account.debit !== 0 || account.credit !== 0,
     );
-    // Zero posted expenses is a valid ledger result, not a connection error.
-    // Match Finance P&L while retaining the check for an unbalanced ledger.
-    const profitAvailable = ledger.totals.balanced;
+    // A balanced entry does not prove profitability when no costs have been
+    // posted. Use the same completeness rule as Finance so revenue alone is
+    // never presented as profit at an invented 100% margin.
+    const profitAvailable = ledger.totals.balanced && totalRevenue > 0 && hasExpenseActivity;
 
     // Sales: Orders & Direct Invoices
     const [
@@ -262,7 +263,11 @@ export async function GET(req?: Request) {
         netIncome: profitAvailable ? totalRevenue - totalExpenses : null,
         profitAvailable,
         profitUnavailableReason: profitAvailable ? null
-          : "The posted ledger is out of balance. Review the finance reports before assessing profit.",
+          : !ledger.totals.balanced
+            ? "The posted ledger is out of balance. Review the finance reports before assessing profit."
+            : totalRevenue > 0 && !hasExpenseActivity
+              ? "Product costs and operating expenses have not been posted to the general ledger."
+              : "Revenue and expense records are not yet available.",
         profitNote: ledger.activity.postedEntryCount === 0
           ? "No accounting entries have been posted yet."
           : !hasExpenseActivity ? "Based on posted entries. No expense entries have been posted yet." : null,

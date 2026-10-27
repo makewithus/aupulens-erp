@@ -26,11 +26,12 @@ export type ErpQuery = z.infer<typeof erpQuerySchema>;
 export const currency = (n: number) => `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 export const customerName = (c: any) => c?.header?.displayName || c?.header?.companyName || c?.header?.name || "Unnamed customer";
 export const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export const flexibleNameRegex = (s: string) => new RegExp(escapeRegex(s.trim()).replace(/\s+/g, "[\\s._-]+"), "i");
 export function requireSalesAccess(role: string) {
   if (!["sales", "admin", "master-admin"].includes(role)) throw new ErpToolError("PERMISSION_DENIED", "You don't have permission to access Sales records.", 403);
 }
 export async function resolveCustomer(tenantId: string, name: string) {
-  const search = (exact: boolean) => Customer.find({ tenantId, $or: ["header.displayName", "header.companyName", "header.name"].map(field => ({ [field]: { $regex: `${exact ? "^" : ""}${escapeRegex(name)}${exact ? "$" : ""}`, $options: "i" } })) }).select("header").limit(6).maxTimeMS(5000).lean();
+  const search = (exact: boolean) => Customer.find({ tenantId, $or: ["header.displayName", "header.companyName", "header.name"].map(field => ({ [field]: exact ? { $regex: `^${escapeRegex(name)}$`, $options: "i" } : flexibleNameRegex(name) })) }).select("header").limit(6).maxTimeMS(5000).lean();
   let matches = await search(true);
   if (!matches.length) matches = await search(false);
   if (!matches.length) throw new ErpToolError("NOT_FOUND", `No customer matching “${name}” was found in your accessible records.`, 404);

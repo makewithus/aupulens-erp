@@ -46,7 +46,6 @@ export async function GET(req: NextRequest) {
       pendingLeaves,
       currentMonthPayrolls,
       recentHires,
-      empPayrollAgg,
     ] = await Promise.all([
       Employee.countDocuments(tenantMatch),
       Employee.countDocuments({ ...tenantMatch, lifecycleStatus: "active" }),
@@ -68,16 +67,6 @@ export async function GET(req: NextRequest) {
         .sort({ dateOfJoining: -1 })
         .limit(5)
         .lean(),
-      Employee.aggregate([
-        { $match: tenantMatch },
-        {
-          $group: {
-            _id: null,
-            totalGross: { $sum: "$salary.grossSalary" },
-            totalNet: { $sum: "$salary.netSalary" },
-          },
-        },
-      ]),
     ]);
 
     // Get attendance stats for today
@@ -107,8 +96,8 @@ export async function GET(req: NextRequest) {
       attendanceBreakdown[item._id] = item.count;
     });
 
-    // Payroll summary from active payroll or live employee compensation contracts
-    const empPayroll = empPayrollAgg[0] || {};
+    // Payroll totals come from payroll runs only; salary contracts are not
+    // evidence that payroll was calculated or paid for this period.
     const payrollSummary = currentMonthPayrolls.length > 0
       ? {
           totalGross: currentMonthPayrolls.reduce(
@@ -122,9 +111,9 @@ export async function GET(req: NextRequest) {
           status: currentMonthPayrolls[0]?.status || "not_started",
         }
       : {
-          totalGross: empPayroll.totalGross || 0,
-          totalNet: empPayroll.totalNet || 0,
-          status: "active_disbursement",
+          totalGross: 0,
+          totalNet: 0,
+          status: "not_started",
         };
 
     // Department-wise employee distribution from authoritative Department master
