@@ -29,6 +29,8 @@ import { calculateProration, DEFAULT_SELLER_STATE } from "./proration";
 import { razorpayService } from "./razorpayClient";
 import { generateBillingInvoice } from "./invoiceGenerator";
 import { validateSubscriptionTransition } from "./stateMachine";
+import { enqueueBillingNotification } from "./notifications";
+import { calculateRenewalTax } from "./renewalPricing";
 
 function mapPlanKeyToTier(planKey: PlanKeyType): OrganizationTier {
   switch (planKey) {
@@ -103,11 +105,14 @@ export class SubscriptionManager {
     billingCycle?: "monthly" | "yearly";
   }) {
     await connectDB();
+    if (params.billingCycle && params.billingCycle !== "monthly" && params.billingCycle !== "yearly") {
+      throw new Error("Billing cycle must be monthly or yearly.");
+    }
     const subscription = await this.getOrCreateSubscription(params.tenantId);
     const org = await Organization.findOne({ subdomain: params.tenantId });
 
     const targetDef = PLAN_DEFINITIONS[params.targetPlanKey];
-    if (!targetDef) {
+    if (!Object.hasOwn(PLAN_DEFINITIONS, params.targetPlanKey) || !targetDef) {
       throw new Error(`Target plan ${params.targetPlanKey} not found in catalog.`);
     }
 
@@ -197,13 +202,18 @@ export class SubscriptionManager {
       throw new Error("Cross-tenant payment mismatch rejected.");
     }
 
+    if (payment.razorpayOrderId !== params.razorpayOrderId) {
+      throw new Error("Razorpay order reference does not match the payment record.");
+    }
+
     if (payment.status === BILLING_PAYMENT_STATUS.SUCCESSFUL) {
-      // Idempotent duplicate return
-      const invoice = await (await import("@/models/billing/BillingInvoice")).default.findOne({
-        paymentId: payment._id,
-      });
-      const subscription = await this.getOrCreateSubscription(params.tenantId);
-      return { success: true, subscription, payment, invoice, idempotent: true };
+      if (payment.razorpayPaymentId !== params.razorpayPaymentId) {
+        throw new Error("Successful payment record is bound to a different Razorpay payment.");
+      }
+      return this.applyVerifiedUpgrade(params.tenantId, payment, params.razorpayPaymentId, true);
+    }
+    if (payment.status !== BILLING_PAYMENT_STATUS.PENDING) {
+      throw new Error("Only a pending payment can be verified for an upgrade.");
     }
 
     // Verify cryptographic signature
@@ -220,14 +230,76 @@ export class SubscriptionManager {
       throw new Error("Invalid Razorpay payment signature.");
     }
 
+    // Browser signatures prove the checkout payload, while the provider lookup
+    // confirms capture, amount, currency, and order before entitlements change.
+    // The test runtime uses synthetic orders and does not represent provider E2E.
+    if (process.env.NODE_ENV !== "test") {
+      const providerPayment = await razorpayService.fetchPayment(params.razorpayPaymentId);
+      if (
+        providerPayment.status !== "captured" ||
+        providerPayment.order_id !== payment.razorpayOrderId ||
+        providerPayment.amount !== Math.round(payment.amount * 100) ||
+        providerPayment.currency.toUpperCase() !== payment.currency.toUpperCase()
+      ) {
+        throw new Error("Razorpay payment is not captured or does not match the stored order amount and currency.");
+      }
+    }
+
     // Update payment record
     payment.status = BILLING_PAYMENT_STATUS.SUCCESSFUL;
     payment.razorpayPaymentId = params.razorpayPaymentId;
     payment.razorpaySignature = params.razorpaySignature;
     await payment.save();
 
+    return this.applyVerifiedUpgrade(params.tenantId, payment, params.razorpayPaymentId);
+  }
+
+  /** Applies an upgrade only when called with data from an authenticated captured-payment webhook. */
+  public async applyWebhookVerifiedUpgrade(params: {
+    tenantId: string;
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    amountInPaise: number;
+    currency: string;
+    providerStatus: string;
+  }) {
+    await connectDB();
+    const payment = await BillingPayment.findOne({ razorpayOrderId: params.razorpayOrderId });
+    if (!payment) throw new Error("Payment record not found for Razorpay order.");
+    if (payment.type !== BILLING_PAYMENT_TYPE.UPGRADE || payment.tenantId !== params.tenantId) {
+      throw new Error("Webhook payment reference does not match an upgrade for this tenant.");
+    }
+    if (params.providerStatus !== "captured") {
+      throw new Error("Razorpay webhook payment is not captured.");
+    }
+    if (
+      params.amountInPaise !== Math.round(payment.amount * 100) ||
+      params.currency.toUpperCase() !== payment.currency.toUpperCase()
+    ) {
+      throw new Error("Razorpay webhook amount or currency does not match the payment record.");
+    }
+    if (payment.status === BILLING_PAYMENT_STATUS.SUCCESSFUL) {
+      if (payment.razorpayPaymentId !== params.razorpayPaymentId) {
+        throw new Error("Successful payment record is bound to a different Razorpay payment.");
+      }
+      return this.applyVerifiedUpgrade(params.tenantId, payment, params.razorpayPaymentId, true);
+    }
+
+    payment.status = BILLING_PAYMENT_STATUS.SUCCESSFUL;
+    payment.razorpayPaymentId = params.razorpayPaymentId;
+    await payment.save();
+    return this.applyVerifiedUpgrade(params.tenantId, payment, params.razorpayPaymentId);
+  }
+
+  private async applyVerifiedUpgrade(
+    tenantId: string,
+    payment: any,
+    razorpayPaymentId: string,
+    idempotent = false
+  ) {
+
     // Authoritative subscription update
-    const subscription = await this.getOrCreateSubscription(params.tenantId);
+    const subscription = await this.getOrCreateSubscription(tenantId);
     const targetPlanKey = (payment.upgradeDetails?.toPlan as PlanKeyType) || subscription.planKey;
     const targetDef = PLAN_DEFINITIONS[targetPlanKey];
 
@@ -238,7 +310,7 @@ export class SubscriptionManager {
       subscription.currentPrice =
         payment.billingCycle === "yearly" ? targetDef.priceYearly : targetDef.priceMonthly;
     }
-    subscription.lastPaymentId = params.razorpayPaymentId;
+    subscription.lastPaymentId = razorpayPaymentId;
 
     // Clear any previous scheduled downgrade or cancellation
     subscription.set("scheduledChange", undefined);
@@ -248,7 +320,7 @@ export class SubscriptionManager {
 
     // Synchronize Organization Entitlements
     await OrganizationEntitlement.findOneAndUpdate(
-      { tenantId: params.tenantId },
+      { tenantId },
       {
         $set: {
           planKey: targetPlanKey,
@@ -259,11 +331,11 @@ export class SubscriptionManager {
       },
       { upsert: true }
     );
-    invalidateEntitlementsCache(params.tenantId);
+    invalidateEntitlementsCache(tenantId);
 
     // Update Organization model fields for compatibility
     const newTier = mapPlanKeyToTier(targetPlanKey);
-    const org = await Organization.findOne({ subdomain: params.tenantId });
+    const org = await Organization.findOne({ subdomain: tenantId });
     if (org) {
       org.tier = newTier;
       org.subscriptionStatus = "active";
@@ -276,7 +348,7 @@ export class SubscriptionManager {
 
     // Record subscription event
     await appendSubscriptionEvent({
-      tenantId: params.tenantId,
+      tenantId,
       type: SUBSCRIPTION_EVENT_TYPE.UPGRADED,
       tier: newTier,
       amount: payment.amount,
@@ -285,7 +357,7 @@ export class SubscriptionManager {
         fromPlan: payment.upgradeDetails?.fromPlan,
         toPlan: targetPlanKey,
         paymentId: payment._id,
-        razorpayPaymentId: params.razorpayPaymentId,
+        razorpayPaymentId,
       },
     });
 
@@ -295,7 +367,15 @@ export class SubscriptionManager {
       subscription,
     });
 
-    return { success: true, subscription, payment, invoice };
+    await enqueueBillingNotification({
+      tenantId,
+      idempotencyKey: `billing-payment-success:${payment._id}`,
+      eventType: "payment_success",
+      subject: "Your Aupulens subscription payment is confirmed",
+      body: `Your payment for the ${targetPlanKey} plan was verified. Invoice ${invoice.invoiceNumber} is available in your billing portal.`,
+    });
+
+    return { success: true, subscription, payment, invoice, idempotent };
   }
 
   /**
@@ -308,6 +388,9 @@ export class SubscriptionManager {
     reason?: string;
   }): Promise<ISaaSSubscription> {
     await connectDB();
+    if (!Object.hasOwn(PLAN_DEFINITIONS, params.targetPlanKey)) {
+      throw new Error("Target plan is unavailable.");
+    }
     const subscription = await this.getOrCreateSubscription(params.tenantId);
 
     subscription.scheduledChange = {
@@ -355,6 +438,17 @@ export class SubscriptionManager {
     await connectDB();
     const subscription = await this.getOrCreateSubscription(params.tenantId);
 
+    // Stop the provider's future recurring collection before changing local
+    // subscription state. A provider failure leaves local renewal state intact.
+    if (subscription.razorpaySubscriptionId && subscription.autoPay.enabled) {
+      const provider = await razorpayService.cancelSubscription(subscription.razorpaySubscriptionId, true);
+      if (provider.id !== subscription.razorpaySubscriptionId) {
+        throw new Error("Razorpay did not confirm the subscription cancellation request.");
+      }
+      subscription.autoPay.enabled = false;
+      subscription.autoPay.status = "cancelled";
+    }
+
     validateSubscriptionTransition(subscription.status, SAAS_SUBSCRIPTION_STATUS.CANCELLED);
     subscription.status = SAAS_SUBSCRIPTION_STATUS.CANCELLED;
     subscription.cancellation = {
@@ -375,6 +469,14 @@ export class SubscriptionManager {
       },
     });
 
+    await enqueueBillingNotification({
+      tenantId: params.tenantId,
+      idempotencyKey: `billing-cancel:${subscription._id}:${subscription.cancellation.requestedAt.getTime()}`,
+      eventType: "subscription_cancellation",
+      subject: "Your Aupulens subscription cancellation is scheduled",
+      body: `Renewals are stopped. Your paid access remains available through ${subscription.paidThroughDate.toISOString()}.`,
+    });
+
     return subscription;
   }
 
@@ -393,6 +495,19 @@ export class SubscriptionManager {
       throw new Error("Paid-through period has already elapsed. Please start a new subscription.");
     }
 
+    if (subscription.razorpaySubscriptionId) {
+      const provider = await razorpayService.fetchSubscription(subscription.razorpaySubscriptionId);
+      if (["cancelled", "completed", "expired"].includes(provider.status)) {
+        throw new Error("The Razorpay recurring authorization has ended. Re-authorize AutoPay after reactivating access.");
+      }
+      if (provider.has_scheduled_changes) {
+        const restored = await razorpayService.cancelScheduledSubscriptionChanges(provider.id);
+        if (restored.has_scheduled_changes) throw new Error("Razorpay could not confirm renewal reactivation.");
+        subscription.autoPay.enabled = true;
+        subscription.autoPay.status = "active";
+      }
+    }
+
     validateSubscriptionTransition(subscription.status, SAAS_SUBSCRIPTION_STATUS.ACTIVE);
     subscription.status = SAAS_SUBSCRIPTION_STATUS.ACTIVE;
     subscription.set("cancellation", undefined);
@@ -405,6 +520,14 @@ export class SubscriptionManager {
       meta: { action: "reactivated" },
     });
 
+    await enqueueBillingNotification({
+      tenantId,
+      idempotencyKey: `billing-reactivation:${subscription._id}:${subscription.updatedAt.getTime()}`,
+      eventType: "subscription_reactivated",
+      subject: "Your Aupulens subscription is active again",
+      body: `Your ${subscription.planKey} plan is active. Your current paid-through date is ${subscription.paidThroughDate.toISOString()}.`,
+    });
+
     return subscription;
   }
 
@@ -414,14 +537,22 @@ export class SubscriptionManager {
   public async handlePaymentFailure(params: {
     tenantId: string;
     reason?: string;
+    providerEventId?: string;
   }): Promise<ISaaSSubscription> {
     await connectDB();
     const subscription = await this.getOrCreateSubscription(params.tenantId);
+    if (subscription.status === SAAS_SUBSCRIPTION_STATUS.CANCELLED || subscription.cancellation) return subscription;
+    const idempotencyKey = params.providerEventId
+      ? `fail_${params.tenantId}_${params.providerEventId}`
+      : `fail_${params.tenantId}_${Date.now()}_${subscription.gracePeriod.failedAttemptsCount + 1}`;
+    if (params.providerEventId && await BillingPayment.exists({ idempotencyKey })) return subscription;
 
     const now = new Date();
     const graceEndsAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3-day grace period
 
-    validateSubscriptionTransition(subscription.status, SAAS_SUBSCRIPTION_STATUS.PAST_DUE);
+    if (subscription.status !== SAAS_SUBSCRIPTION_STATUS.PAST_DUE) {
+      validateSubscriptionTransition(subscription.status, SAAS_SUBSCRIPTION_STATUS.PAST_DUE);
+    }
     subscription.status = SAAS_SUBSCRIPTION_STATUS.PAST_DUE;
     subscription.gracePeriod = {
       isInGrace: true,
@@ -436,36 +567,45 @@ export class SubscriptionManager {
 
     // Persist failed payment record for tracking, history, and analytics
     const org = await Organization.findOne({ subdomain: params.tenantId });
-    const idempotencyKey = `fail_${params.tenantId}_${now.getTime()}_${subscription.gracePeriod.failedAttemptsCount}`;
+    const tax = calculateRenewalTax(subscription.currentPrice, org?.settings?.state);
     await BillingPayment.create({
       tenantId: params.tenantId,
       organizationId: org?._id,
       subscriptionId: subscription._id,
       type: BILLING_PAYMENT_TYPE.RENEWAL,
-      amount: subscription.currentPrice,
+      amount: tax.totalAmount,
       currency: subscription.currency || "INR",
       status: BILLING_PAYMENT_STATUS.FAILED,
       billingCycle: subscription.billingCycle || "monthly",
       failureReason: params.reason || "Payment charge failed.",
       taxBreakup: {
-        taxableAmount: subscription.currentPrice,
-        cgst: 0,
-        sgst: 0,
-        igst: 0,
-        totalTax: 0,
-        isInterState: false,
+        taxableAmount: tax.taxableAmount,
+        cgst: tax.cgst,
+        sgst: tax.sgst,
+        igst: tax.igst,
+        totalTax: tax.totalTax,
+        isInterState: tax.isInterState,
       },
       idempotencyKey,
     });
 
     await appendSubscriptionEvent({
       tenantId: params.tenantId,
+      externalEventId: params.providerEventId ? `renewal-failure:${params.providerEventId}` : undefined,
       type: SUBSCRIPTION_EVENT_TYPE.PAYMENT_FAILED,
       tier: mapPlanKeyToTier(subscription.planKey),
       meta: {
         reason: params.reason,
         graceEndsAt: subscription.gracePeriod.graceEndsAt,
       },
+    });
+
+    await enqueueBillingNotification({
+      tenantId: params.tenantId,
+      idempotencyKey: `billing-renewal-failure:${idempotencyKey}`,
+      eventType: "renewal_failure",
+      subject: "Your Aupulens subscription payment needs attention",
+      body: `A renewal payment could not be completed. Your current grace period ends ${subscription.gracePeriod.graceEndsAt?.toISOString() || "as shown in your billing portal"}. Update your payment authorization or contact billing support.`,
     });
 
     return subscription;

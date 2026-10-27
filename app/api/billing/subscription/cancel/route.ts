@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { subscriptionManager } from "@/lib/billing/subscriptionManager";
 import { handleRouteError } from "@/lib/api/validateId";
+import { requireBillingOperator } from "@/lib/billing/authz";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +10,8 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    const forbidden = requireBillingOperator(session.user);
+    if (forbidden) return forbidden;
 
     const tenantId = session.user.tenantId;
     const body = await req.json().catch(() => ({}));

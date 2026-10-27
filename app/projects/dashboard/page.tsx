@@ -28,11 +28,19 @@ import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
-import { cn } from "@/lib/utils";
+import { cn, toLocalDateString } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 
 function computeProjectDashboardData(projects: any[]) {
+  const projectStatusLabels: Record<string, string> = {
+    planning: "Planning",
+    active: "Active",
+    in_progress: "In Progress",
+    on_hold: "On Hold",
+    completed: "Completed",
+    cancelled: "Cancelled",
+  };
   const total = projects.length;
   const active = projects.filter((p: any) => p.status === "in_progress" || p.status === "active").length;
   const planning = projects.filter((p: any) => p.status === "planning").length;
@@ -71,20 +79,32 @@ function computeProjectDashboardData(projects: any[]) {
     budgetConsumed: "Configured",
     milestone: p.status || "Active",
     dueDate: p.dueDate ? new Date(p.dueDate).toLocaleDateString() : "Ongoing",
-    status: p.status === "completed" ? "Completed" : p.status === "in_progress" ? "On Schedule" : "In Review",
-    color: p.status === "completed" ? BRAND_COLORS.accent.green : BRAND_COLORS.accent.blue,
+    status: projectStatusLabels[p.status] || "In Review",
+    color: p.status === "completed" ? BRAND_COLORS.accent.green : p.status === "cancelled" ? BRAND_COLORS.accent.red : BRAND_COLORS.accent.blue,
   }));
 
   const countsByDate = new Map<string, number>();
   for (const proj of projects) {
-    const d = proj.createdAt || proj.updatedAt;
+    const d = proj.createdAt || proj.startDate || proj.updatedAt;
     if (!d) continue;
-    const dateStr = new Date(d).toISOString().slice(0, 10);
+    const dateStr = toLocalDateString(d);
+    if (!dateStr) continue;
     countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + 1);
   }
 
   const dailyDeliverables = countsByDate.size > 0
-    ? Array.from(countsByDate.entries()).map(([date, count]) => ({ date, count }))
+    ? Array.from(countsByDate.entries())
+        .map(([date, count]) => {
+          const dObj = new Date(date + "T00:00:00");
+          return {
+            date,
+            count,
+            label: isNaN(dObj.getTime())
+              ? date
+              : dObj.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          };
+        })
+        .sort((a, b) => a.date.localeCompare(b.date))
     : [];
 
   return {

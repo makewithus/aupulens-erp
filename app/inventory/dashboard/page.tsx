@@ -30,7 +30,7 @@ import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
-import { cn } from "@/lib/utils";
+import { cn, toLocalDateString } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 
@@ -140,12 +140,12 @@ export default function InventoryDashboardPage() {
       setRecentMovements(
         cachedMoves.items.slice(0, 5).map((m: any) => ({
           id: m.reference || m._id?.slice(-8) || "SM-MOVE",
-          sku: m.productName || m.productSku || "SKU-UNIT",
-          from: m.sourceLocation || "Primary Hub",
-          to: m.destinationLocation || "Production Floor",
-          qty: `${m.quantity || 1} units`,
-          status: m.state === "done" ? "Completed" : "In-Transit",
+          type: m.moveType === "incoming" ? "Inbound Receipt" : m.moveType === "outgoing" ? "Outbound Dispatch" : "Internal Transfer",
+          partner: m.partnerName || m.responsibleId?.name || "Warehouse Staff",
+          warehouse: m.sourceLocation?.warehouseId?.name || m.destinationLocation?.warehouseId?.name || "Main Warehouse",
+          units: `${Array.isArray(m.lines) ? m.lines.reduce((acc: number, l: any) => acc + (l.demand || l.quantity || 1), 0) : (m.quantity || 1)} Units`,
           time: m.createdAt ? new Date(m.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recent",
+          status: m.moveStatus || (m.state === "done" ? "Done" : "In-Transit"),
         }))
       );
     }
@@ -266,16 +266,19 @@ export default function InventoryDashboardPage() {
     for (const move of stockMoves) {
       const d = move.scheduledDate || move.createdAt;
       if (!d) continue;
-      const dateStr = new Date(d).toISOString().slice(0, 10);
+      const dateStr = toLocalDateString(d);
+      if (!dateStr) continue;
       const totalUnits = Array.isArray(move.lines)
         ? move.lines.reduce((s: number, l: any) => s + (l.demand || l.quantity || 1), 0)
         : 1;
       countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + totalUnits);
     }
-    return Array.from(countsByDate.entries()).map(([date, count]) => ({
-      date,
-      count,
-    }));
+    return Array.from(countsByDate.entries())
+      .map(([date, count]) => ({
+        date,
+        count,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }, [stockMoves]);
 
   const formatCurrency = (val: number) => {
@@ -766,14 +769,14 @@ export default function InventoryDashboardPage() {
                           <span
                             className={cn(
                               "px-2 py-0.5 text-[10px] font-semibold border",
-                              move.type.includes("Inbound")
+                              (move.type || "").includes("Inbound")
                                 ? isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-300"
-                                : move.type.includes("Outbound")
+                                : (move.type || "").includes("Outbound")
                                 ? isDark ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-blue-50 text-blue-700 border-blue-300"
                                 : isDark ? "bg-purple-500/10 text-purple-400 border-purple-500/30" : "bg-purple-50 text-purple-700 border-purple-300"
                             )}
                           >
-                            {move.type}
+                            {move.type || "Transfer"}
                           </span>
                         </td>
                         <td className="p-3 text-muted-foreground whitespace-nowrap">{move.partner}</td>

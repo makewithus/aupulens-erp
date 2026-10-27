@@ -36,64 +36,6 @@ function adjustHexOpacity(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/**
- * Returns the exact fill color for an individual brick in a segmented bar.
- * Uses the series color (or brand purple default) rather than flat monochrome gray,
- * with authentic discrete texture variation and high-contrast readability in both light & dark mode.
- */
-function getBrickFill(
-  color: string | undefined,
-  isDark: boolean,
-  isHighlight: boolean,
-  brickIdx: number,
-  totalBricks: number
-): string {
-  const base = color || (isDark ? "#c084fc" : "#7c3aed");
-
-  // If deliberate monochrome / white
-  if (base === "#ffffff" || base === "white" || base === "#fff") {
-    if (isDark) {
-      if (isHighlight) return "#ffffff";
-      if (totalBricks > 6) {
-        const rel = brickIdx / totalBricks;
-        if (rel >= 0.72 && rel <= 0.86) return "#71717a";
-        if (brickIdx % 7 === 4 && totalBricks > 10) return "#71717a";
-      }
-      return "#d4d4d8";
-    } else {
-      if (isHighlight) return "#0f172a";
-      if (totalBricks > 6) {
-        const rel = brickIdx / totalBricks;
-        if (rel >= 0.72 && rel <= 0.86) return "#64748b";
-        if (brickIdx % 7 === 4 && totalBricks > 10) return "#64748b";
-      }
-      return "#334155";
-    }
-  }
-
-  // Colored series (purple, blue, emerald, amber, etc.)
-  if (isDark) {
-    if (isHighlight) return "#ffffff";
-    if (totalBricks > 6) {
-      const rel = brickIdx / totalBricks;
-      // Image 2 bright white brick mixture band
-      if (rel >= 0.72 && rel <= 0.86) return "#ffffff";
-      if (brickIdx % 7 === 4 && totalBricks > 10) return adjustHexOpacity(base, 0.8);
-    }
-    return base;
-  } else {
-    // In light mode: ensure high contrast!
-    if (isHighlight) return "#0f172a";
-    if (totalBricks > 6) {
-      const rel = brickIdx / totalBricks;
-      // Image 2 contrasting dark brick mixture band in light mode
-      if (rel >= 0.72 && rel <= 0.86) return "#1e293b";
-      if (brickIdx % 7 === 4 && totalBricks > 10) return adjustHexOpacity(base, 0.88);
-    }
-    return base;
-  }
-}
-
 export interface SeriesConfig {
   key: string;
   name: string;
@@ -523,15 +465,11 @@ export function CanvasBarChart({
           ctx.fillText(dispName, x, cB + 10);
         });
 
-        // Draw vertical segmented brick bars
+        // Draw vertical solid bars
         const groupW = cW / data.length;
         const totalBarW = Math.max(1, groupW * 0.75);
         const singleBarW = Math.max(1, totalBarW / series.length);
         const groupGap = (groupW - totalBarW) / 2;
-
-        const bH = 3.5;
-        const bG = 1.2;
-        const unitH = bH + bG;
 
         data.forEach((d, i) => {
           const isSelected = highlightIdx === i;
@@ -546,22 +484,12 @@ export function CanvasBarChart({
             if (val <= 0) return;
             const barH = ((val * progress) / ticksMax) * cH;
             const bx = cL + i * groupW + groupGap + sIdx * singleBarW;
-            const totalBricks = Math.max(1, Math.round(barH / unitH));
-
-            for (let b = 0; b < totalBricks; b++) {
-              const by = cB - (b + 1) * unitH + bG;
-              ctx.fillStyle = getBrickFill(s.color, isDark, isSelected, b, totalBricks);
-              ctx.fillRect(
-                Math.round(bx),
-                Math.round(by),
-                Math.max(1, Math.round(singleBarW - 1)),
-                Math.round(bH)
-              );
-            }
+            const barTopY = cB - barH;
+            ctx.fillStyle = s.color;
+            ctx.fillRect(Math.round(bx), Math.round(barTopY), Math.max(1, Math.round(singleBarW - 1)), Math.max(1, Math.round(barH)));
 
             // Numeric value directly above each bar so user can read directly
             if (progress >= 0.85 || isSelected) {
-              const barTopY = cB - totalBricks * unitH;
               ctx.save();
               ctx.font = 'bold 9px "Roboto Mono", monospace';
               ctx.textAlign = "center";
@@ -603,15 +531,11 @@ export function CanvasBarChart({
           ctx.fillText(dispName, cL - 10, y);
         });
 
-        // Draw horizontal segmented brick bars
+        // Draw horizontal solid bars
         const groupH = cH / data.length;
         const totalBarH = Math.max(2, groupH * 0.75);
         const singleBarH = Math.max(1, totalBarH / series.length);
         const groupGap = (groupH - totalBarH) / 2;
-
-        const bW = 4;
-        const bG = 1.5;
-        const unitW = bW + bG;
 
         data.forEach((d, i) => {
           const isSelected = highlightIdx === i;
@@ -626,22 +550,12 @@ export function CanvasBarChart({
             if (val <= 0) return;
             const barW = ((val * progress) / ticksMax) * cW;
             const by = cT + i * groupH + groupGap + sIdx * singleBarH;
-            const totalBricks = Math.max(1, Math.round(barW / unitW));
-
-            for (let b = 0; b < totalBricks; b++) {
-              const bx = cL + b * unitW;
-              ctx.fillStyle = getBrickFill(s.color, isDark, isSelected, b, totalBricks);
-              ctx.fillRect(
-                Math.round(bx),
-                Math.round(by),
-                Math.round(bW),
-                Math.max(1, Math.round(singleBarH - 1))
-              );
-            }
+            ctx.fillStyle = s.color;
+            ctx.fillRect(Math.round(cL), Math.round(by), Math.max(1, Math.round(barW)), Math.max(1, Math.round(singleBarH - 1)));
 
             // Numeric value directly at the end of each bar so user can read directly
             if (progress >= 0.85 || isSelected) {
-              const barRightX = cL + totalBricks * unitW;
+              const barRightX = cL + barW;
               ctx.save();
               ctx.font = 'bold 9px "Roboto Mono", monospace';
               ctx.textAlign = "left";
@@ -989,10 +903,13 @@ export function CanvasPieChart({
       }
 
       let angle = Math.atan2(dy, dx);
-      if (angle < -Math.PI / 2) angle += Math.PI * 2;
-      else if (angle < 0) angle += Math.PI * 2;
+      if (angle < 0) angle += Math.PI * 2;
 
-      let startAngle = -Math.PI / 2;
+      // Keep pointer and slice angles in the same [0, 2π) coordinate space.
+      // Comparing a normalized pointer angle to a negative start angle caused
+      // slices crossing the top of the donut (including the first purple item)
+      // to miss their hover target.
+      let startAngle = Math.PI * 1.5;
       let matchedIdx = -1;
 
       for (let i = 0; i < data.length; i++) {
@@ -1001,11 +918,7 @@ export function CanvasPieChart({
         const sliceAngle = (val / totalVal) * Math.PI * 2;
         const endAngle = startAngle + sliceAngle;
 
-        let adjustedAngle = angle;
-        if (angle >= -Math.PI / 2 && angle < startAngle) {
-          adjustedAngle += Math.PI * 2;
-        }
-
+        const adjustedAngle = angle < Math.PI * 1.5 ? angle + Math.PI * 2 : angle;
         if (adjustedAngle >= startAngle && adjustedAngle < endAngle) {
           matchedIdx = i;
           break;
@@ -1069,10 +982,9 @@ export function CanvasPieChart({
       }
 
       let angle = Math.atan2(dy, dx);
-      if (angle < -Math.PI / 2) angle += Math.PI * 2;
-      else if (angle < 0) angle += Math.PI * 2;
+      if (angle < 0) angle += Math.PI * 2;
 
-      let startAngle = -Math.PI / 2;
+      let startAngle = Math.PI * 1.5;
       let matchedIdx = -1;
 
       for (let i = 0; i < data.length; i++) {
@@ -1081,11 +993,7 @@ export function CanvasPieChart({
         const sliceAngle = (val / totalVal) * Math.PI * 2;
         const endAngle = startAngle + sliceAngle;
 
-        let adjustedAngle = angle;
-        if (angle >= -Math.PI / 2 && angle < startAngle) {
-          adjustedAngle += Math.PI * 2;
-        }
-
+        const adjustedAngle = angle < Math.PI * 1.5 ? angle + Math.PI * 2 : angle;
         if (adjustedAngle >= startAngle && adjustedAngle < endAngle) {
           matchedIdx = i;
           break;
@@ -1104,7 +1012,7 @@ export function CanvasPieChart({
       const pct = ((val / totalVal) * 100).toFixed(1);
 
       tooltip.innerHTML = `<div class="font-bold text-xs pb-1 border-b border-border/40 flex items-center gap-1.5">
-        <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${palette[matchedIdx % palette.length]}"></span>
+        <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${d.color || palette[matchedIdx % palette.length]}"></span>
         ${d[nameKey]}
       </div>
       <div class="flex items-center justify-between gap-6 mt-1.5 font-mono text-xs">
@@ -1408,15 +1316,11 @@ export function CanvasComposedChart({
         ctx.fillText(dispName, x, cB + 10);
       });
 
-      // Draw vertical segmented brick bars
+      // Draw vertical solid bars
       const groupW = cW / data.length;
       const totalBarW = Math.max(1, groupW * 0.7);
       const singleBarW = Math.max(1, totalBarW / barSeries.length);
       const groupGap = (groupW - totalBarW) / 2;
-
-      const bH = 3.5;
-      const bG = 1.2;
-      const unitH = bH + bG;
 
       data.forEach((d, i) => {
         const isSelected = highlightIdx === i;
@@ -1431,22 +1335,12 @@ export function CanvasComposedChart({
           if (val <= 0) return;
           const barH = (((val) * progress) / yBarMax) * cH;
           const bx = cL + i * groupW + groupGap + sIdx * singleBarW;
-          const totalBricks = Math.max(1, Math.round(barH / unitH));
-
-          for (let b = 0; b < totalBricks; b++) {
-            const by = cB - (b + 1) * unitH + bG;
-            ctx.fillStyle = getBrickFill(s.color, isDark, isSelected, b, totalBricks);
-            ctx.fillRect(
-              Math.round(bx),
-              Math.round(by),
-              Math.max(1, Math.round(singleBarW - 1)),
-              Math.round(bH)
-            );
-          }
+          const barTopY = cB - barH;
+          ctx.fillStyle = s.color;
+          ctx.fillRect(Math.round(bx), Math.round(barTopY), Math.max(1, Math.round(singleBarW - 1)), Math.max(1, Math.round(barH)));
 
           // Numeric value directly above each bar so user can read directly
           if (progress >= 0.85 || isSelected) {
-            const barTopY = cB - totalBricks * unitH;
             ctx.save();
             ctx.font = 'bold 9px "Roboto Mono", monospace';
             ctx.textAlign = "center";

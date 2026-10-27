@@ -76,7 +76,7 @@ export default function ChartsDemoPage() {
             Aupulens ERP — Complete Charts Showcase
           </h1>
           <p className="text-xs text-[#757575] mt-1 max-w-3xl">
-            Inspecting interactive Binance/TradingView line charts, discrete segmented brick bars, and branded architecture visualizations with 100% readability in both light &amp; dark mode.
+            Inspecting interactive line charts, clean solid bar charts, and branded architecture visualizations with 100% readability in both light &amp; dark mode.
           </p>
         </div>
 

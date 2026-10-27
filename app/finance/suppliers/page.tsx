@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
 import { cachedFetch } from "@/lib/api/cachedFetch";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { financeSidebarConfig } from "@/config/sidebar/finance";
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -140,7 +142,17 @@ export default function SuppliersPage() {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <DashboardLayout
+      sidebarSections={financeSidebarConfig}
+      dashboardTitle="Finance"
+      pageName="Suppliers"
+      breadcrumbs={[
+        { label: "Finance", href: "/finance/summary" },
+        { label: "Purchases", href: "/finance/suppliers" },
+        { label: "Suppliers" },
+      ]}
+    >
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-primary flex items-center gap-3">
@@ -389,6 +401,7 @@ export default function SuppliersPage() {
           </div>
         </form>
       </ModularModal>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

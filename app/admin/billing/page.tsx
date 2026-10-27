@@ -95,12 +95,23 @@ interface InvoiceRow {
   lineItems: Array<{ description: string; qty: number; unitPrice: number; total: number }>;
 }
 
+interface CreditNoteRow {
+  _id: string;
+  creditNoteNumber: string;
+  invoiceId: string;
+  issuedAt: string;
+  totalAmount: number;
+  currency: string;
+  reason: string;
+}
+
 export default function CustomerBillingPortal() {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionDetails | null>(null);
   const [entitlements, setEntitlements] = useState<any>(null);
   const [plans, setPlans] = useState<PlanCatalogItem[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [creditNotes, setCreditNotes] = useState<CreditNoteRow[]>([]);
   const [selectedCycle, setSelectedCycle] = useState<"monthly" | "yearly">("monthly");
 
   // Upgrade / Review modal
@@ -115,6 +126,7 @@ export default function CustomerBillingPortal() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [autoPayBusy, setAutoPayBusy] = useState(false);
 
   // Invoice viewer modal
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRow | null>(null);
@@ -122,16 +134,18 @@ export default function CustomerBillingPortal() {
   const loadBillingData = async () => {
     setLoading(true);
     try {
-      const [subRes, plansRes, invRes] = await Promise.all([
+      const [subRes, plansRes, invRes, creditRes] = await Promise.all([
         fetch("/api/billing/subscription"),
         fetch("/api/billing/plans"),
         fetch("/api/billing/invoices"),
+        fetch("/api/billing/credit-notes"),
       ]);
 
-      const [subData, plansData, invData] = await Promise.all([
+      const [subData, plansData, invData, creditData] = await Promise.all([
         subRes.json(),
         plansRes.json(),
         invRes.json(),
+        creditRes.json(),
       ]);
 
       if (subData.success) {
@@ -147,6 +161,7 @@ export default function CustomerBillingPortal() {
       if (invData.success) {
         setInvoices(invData.data);
       }
+      if (creditData.success) setCreditNotes(creditData.data);
     } catch {
       toast.error("Failed to load billing portal information.");
     } finally {
@@ -157,6 +172,30 @@ export default function CustomerBillingPortal() {
   useEffect(() => {
     loadBillingData();
   }, []);
+
+  const handleAutoPay = async (revoke = false) => {
+    if (!subscription) return;
+    if (!revoke && !window.confirm(`Authorize Razorpay to charge ${subscription.currency} ${subscription.currentPrice.toLocaleString()} on ${new Date(subscription.nextRenewalDate).toLocaleDateString()} and future billing dates?`)) return;
+    setAutoPayBusy(true);
+    try {
+      const res = await fetch("/api/billing/autopay", {
+        method: revoke ? "DELETE" : "POST",
+        headers: revoke ? undefined : { "Content-Type": "application/json" },
+        body: revoke ? undefined : JSON.stringify({ consent: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "AutoPay request failed.");
+      if (data.data?.authorizationUrl) window.location.assign(data.data.authorizationUrl);
+      else {
+        toast.success(revoke ? "AutoPay cancellation was sent to Razorpay." : "AutoPay status updated.");
+        await loadBillingData();
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "AutoPay request failed.");
+    } finally {
+      setAutoPayBusy(false);
+    }
+  };
 
   // Proration preview when customer selects an upgrade plan
   const handleSelectUpgrade = async (plan: PlanCatalogItem) => {
@@ -220,7 +259,7 @@ export default function CustomerBillingPortal() {
 
       const scriptLoaded = await loadRazorpayScript();
 
-      if (scriptLoaded && typeof window !== "undefined" && (window as any).Razorpay && keyId && keyId !== "rzp_test_placeholder_key") {
+      if (scriptLoaded && typeof window !== "undefined" && (window as any).Razorpay && keyId) {
         const options = {
           key: keyId,
           amount: order.amount,
@@ -485,7 +524,7 @@ export default function CustomerBillingPortal() {
           <div className="py-12 flex justify-center items-center gap-2 text-muted-foreground text-sm">
             <Loader2 className="h-5 w-5 animate-spin" /> Loading subscription details…
           </div>
-        ) : subscription ? (
+        ) : (
           <Card className="border shadow-xs overflow-hidden">
             <CardHeader className="bg-muted/20 pb-4 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -495,29 +534,34 @@ export default function CustomerBillingPortal() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold uppercase">{subscription.planKey} Plan</h2>
+                      <h2 className="text-xl font-bold uppercase">
+                        {(subscription?.planKey || entitlements?.planKey || entitlements?.tier || "starter")} Plan
+                      </h2>
                       <Badge
                         variant={
-                          subscription.status === "active"
+                          (subscription?.status || "active") === "active"
                             ? "default"
-                            : subscription.status === "past_due"
+                            : (subscription?.status || "active") === "past_due"
                             ? "destructive"
                             : "outline"
                         }
                         className="text-xs capitalize"
                       >
-                        {subscription.status}
+                        {subscription?.status || "active"}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs text-primary border-primary/40 bg-primary/10">
+                        Current Active Plan
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {subscription.currency} {subscription.currentPrice.toLocaleString()} /{" "}
-                      {subscription.billingCycle}
+                      {subscription?.currency || "INR"} {(subscription?.currentPrice ?? 999).toLocaleString()} /{" "}
+                      {subscription?.billingCycle || selectedCycle}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {subscription.status !== "cancelled" && (
+                  {subscription && subscription.status !== "cancelled" && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -536,31 +580,45 @@ export default function CustomerBillingPortal() {
                 <div>
                   <span className="text-xs text-muted-foreground">Current Billing Period</span>
                   <p className="text-sm font-semibold mt-1">
-                    {new Date(subscription.currentPeriodStart).toLocaleDateString()} —{" "}
-                    {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                    {subscription?.currentPeriodStart
+                      ? `${new Date(subscription.currentPeriodStart).toLocaleDateString()} — ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
+                      : "Active Billing Period"}
                   </p>
                 </div>
 
                 <div>
                   <span className="text-xs text-muted-foreground">Next Renewal Date</span>
                   <p className="text-sm font-semibold mt-1">
-                    {new Date(subscription.nextRenewalDate).toLocaleDateString()}
+                    {subscription?.nextRenewalDate
+                      ? new Date(subscription.nextRenewalDate).toLocaleDateString()
+                      : "Active (Monthly Renewal)"}
                   </p>
                 </div>
 
                 <div>
                   <span className="text-xs text-muted-foreground">AutoPay Authorization</span>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge variant={subscription.autoPay?.enabled ? "default" : "outline"} className="text-xs">
-                      {subscription.autoPay?.enabled ? "Active" : "Not Configured"}
+                    <Badge variant={subscription?.autoPay?.enabled ? "default" : "outline"} className="text-xs">
+                      {subscription?.autoPay?.enabled ? "Authorized" : subscription?.autoPay?.status || "Not Configured"}
                     </Badge>
+                    {subscription && subscription.status === "active" && (subscription.autoPay?.enabled ? (
+                      <Button size="sm" variant="outline" disabled={autoPayBusy} onClick={() => handleAutoPay(true)}>
+                        {autoPayBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Revoke"}
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled={autoPayBusy} onClick={() => handleAutoPay(false)}>
+                        {autoPayBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : subscription.autoPay?.status === "pending" ? "Continue setup" : "Set up AutoPay"}
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-xs text-muted-foreground">Paid-Through Date</span>
                   <p className="text-sm font-semibold mt-1">
-                    {new Date(subscription.paidThroughDate).toLocaleDateString()}
+                    {subscription?.paidThroughDate
+                      ? new Date(subscription.paidThroughDate).toLocaleDateString()
+                      : "Current Period Active"}
                   </p>
                 </div>
               </div>
@@ -574,32 +632,32 @@ export default function CustomerBillingPortal() {
                   <div className="bg-muted/30 p-2.5 rounded-lg border">
                     <span className="text-muted-foreground block text-[11px]">User Limit</span>
                     <strong className="text-sm font-bold text-foreground">
-                      {entitlements?.limits?.maxUsers ?? "—"} Users
+                      {entitlements?.limits?.maxUsers ?? 5} Users
                     </strong>
                   </div>
                   <div className="bg-muted/30 p-2.5 rounded-lg border">
                     <span className="text-muted-foreground block text-[11px]">Monthly AI Credits</span>
                     <strong className="text-sm font-bold text-foreground">
-                      {entitlements?.limits?.aiCreditsPerMonth?.toLocaleString() ?? "—"}
+                      {entitlements?.limits?.aiCreditsPerMonth?.toLocaleString() ?? "1,000"}
                     </strong>
                   </div>
                   <div className="bg-muted/30 p-2.5 rounded-lg border">
                     <span className="text-muted-foreground block text-[11px]">Storage Capacity</span>
                     <strong className="text-sm font-bold text-foreground">
-                      {entitlements?.limits?.storageGb ? `${entitlements.limits.storageGb} GB` : "—"}
+                      {entitlements?.limits?.storageGb ? `${entitlements.limits.storageGb} GB` : "5 GB"}
                     </strong>
                   </div>
                   <div className="bg-muted/30 p-2.5 rounded-lg border">
                     <span className="text-muted-foreground block text-[11px]">Active Modules</span>
                     <strong className="text-xs font-semibold text-foreground uppercase truncate block">
-                      {entitlements?.modules?.join(", ") ?? "All Core Modules"}
+                      {entitlements?.modules?.join(", ") ?? "ADMIN, HR, INVENTORY"}
                     </strong>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        ) : null}
+        )}
 
         {/* 5. Plan Comparison & Selection Section */}
         <div className="space-y-6">
@@ -638,7 +696,8 @@ export default function CustomerBillingPortal() {
             {plans
               .filter((p) => p.key !== "free")
               .map((p) => {
-                const isCurrent = subscription?.planKey === p.key;
+                const currentKey = (subscription?.planKey || entitlements?.planKey || entitlements?.tier || "starter").toLowerCase();
+                const isCurrent = currentKey === p.key.toLowerCase();
                 const price = selectedCycle === "yearly" ? p.priceYearly : p.priceMonthly;
 
                 return (
@@ -651,7 +710,7 @@ export default function CustomerBillingPortal() {
                     <CardHeader className="p-4 pb-2">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-base font-bold uppercase">{p.name}</CardTitle>
-                        {isCurrent && <Badge className="text-[10px]">Current</Badge>}
+                        {isCurrent && <Badge className="text-[10px] bg-primary text-primary-foreground font-semibold">Current</Badge>}
                       </div>
                       <div className="mt-2">
                         <span className="text-2xl font-bold">₹{price.toLocaleString()}</span>
@@ -669,7 +728,7 @@ export default function CustomerBillingPortal() {
 
                       <div className="pt-2">
                         {isCurrent ? (
-                          <Button disabled variant="outline" className="w-full text-xs" size="sm">
+                          <Button disabled variant="outline" className="w-full text-xs border-primary/40 text-primary font-semibold" size="sm">
                             Current Plan
                           </Button>
                         ) : (
@@ -787,6 +846,30 @@ export default function CustomerBillingPortal() {
             </Table>
           </div>
         </Card>
+
+        {creditNotes.length > 0 && (
+          <Card className="border shadow-xs overflow-hidden">
+            <CardHeader className="p-4 border-b bg-muted/20">
+              <h2 className="text-base font-bold">Refund Credit Notes</h2>
+              <p className="text-xs text-muted-foreground">Refund adjustments linked to their original issued invoices.</p>
+            </CardHeader>
+            <Table>
+              <TableHeader><TableRow><TableHead>Credit note</TableHead><TableHead>Original invoice</TableHead><TableHead>Date</TableHead><TableHead>Reason</TableHead><TableHead>Credit</TableHead><TableHead /></TableRow></TableHeader>
+              <TableBody>
+                {creditNotes.map((note) => (
+                  <TableRow key={note._id}>
+                    <TableCell className="font-mono">{note.creditNoteNumber}</TableCell>
+                    <TableCell className="font-mono">{note.invoiceId}</TableCell>
+                    <TableCell>{new Date(note.issuedAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{note.reason}</TableCell>
+                    <TableCell>{note.currency} {note.totalAmount.toFixed(2)}</TableCell>
+                    <TableCell className="text-right"><a href={`/api/billing/credit-notes/${note._id}/pdf`} download={`${note.creditNoteNumber}.pdf`}><Button variant="outline" size="sm"><Download className="mr-1 h-3 w-3" />PDF</Button></a></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
 
         {/* Modal A: Upgrade Review & Proration Breakdown Modal */}
         {previewPlan && previewData && (

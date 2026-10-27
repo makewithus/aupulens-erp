@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { IBillingInvoice } from "@/models/billing/BillingInvoice";
+import type { IBillingCreditNote } from "@/models/billing/BillingCreditNote";
 
 // Helper to format currency values cleanly for standard PDF fonts
 const formatINR = (n: number) =>
@@ -281,4 +282,47 @@ export async function generateInvoicePdf(invoice: IBillingInvoice | any): Promis
   drawText("4. For questions, invoice adjustments, or enterprise GST credits, please contact billing@aupulens.com.", margin, 7, font, rgb(0.4, 0.4, 0.4));
 
   return await pdfDoc.save();
+}
+
+export async function generateCreditNotePdf(creditNote: IBillingCreditNote | any): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const page = pdfDoc.addPage([595.28, 841.89]);
+  const left = 48;
+  let y = 780;
+  const draw = (text: string, size = 10, useBold = false) => {
+    page.drawText(safeText(text), { x: left, y, size, font: useBold ? bold : font, color: rgb(0.12, 0.12, 0.14) });
+    y -= size + 12;
+  };
+
+  page.drawRectangle({ x: 35, y: 744, width: 525, height: 75, color: rgb(0.08, 0.15, 0.28) });
+  page.drawText("AUPULENS TECHNOLOGIES", { x: left, y: 788, size: 16, font: bold, color: rgb(1, 1, 1) });
+  page.drawText("CREDIT NOTE", { x: 420, y: 788, size: 13, font: bold, color: rgb(1, 1, 1) });
+  page.drawText(safeText(creditNote.creditNoteNumber), { x: left, y: 765, size: 10, font, color: rgb(1, 1, 1) });
+
+  y = 715;
+  draw(`Issued: ${new Date(creditNote.issuedAt).toLocaleDateString("en-IN")}`);
+  draw(`Original invoice: ${creditNote.invoiceId}`);
+  draw(`Payment reference: ${creditNote.paymentId}`);
+  draw(`Refund reason: ${creditNote.reason}`);
+  y -= 8;
+  draw(`Seller: ${creditNote.seller?.name || "Aupulens Technologies"}`, 10, true);
+  draw(`Customer: ${creditNote.customer?.name || creditNote.tenantId}`, 10, true);
+  draw(`Currency: ${creditNote.currency}`);
+  y -= 8;
+  draw("Adjustment", 12, true);
+  for (const line of creditNote.lines || []) {
+    draw(safeText(line.description));
+    draw(`Taxable adjustment: ${creditNote.currency} ${Number(line.taxableAmount).toFixed(2)}`);
+    draw(`CGST: ${creditNote.currency} ${Number(line.cgst).toFixed(2)} | SGST: ${creditNote.currency} ${Number(line.sgst).toFixed(2)} | IGST: ${creditNote.currency} ${Number(line.igst).toFixed(2)}`);
+    draw(`Total credit: ${creditNote.currency} ${Number(line.total).toFixed(2)}`, 10, true);
+  }
+  y -= 12;
+  draw(`Credit total: ${creditNote.currency} ${Number(creditNote.totalAmount).toFixed(2)}`, 14, true);
+  draw(`Allocation basis: ${creditNote.allocationMethod}`);
+  page.drawText("This credit note adjusts the referenced invoice; the original invoice remains unchanged.", {
+    x: left, y: 90, size: 8, font, color: rgb(0.4, 0.4, 0.4), maxWidth: 500,
+  });
+  return pdfDoc.save();
 }

@@ -19,6 +19,7 @@ import { TradingLineChart } from '@/components/charts/TradingLineChart';
 import { StatCard } from '@/components/admin/StatCard';
 import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
 import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
+import { toLocalDateString } from '@/lib/utils';
 
 interface Warehouse {
   _id: string;
@@ -270,28 +271,28 @@ export default function InventoryAnalyticsPage() {
   // Real Daily Throughput Data for DailyBrickBarChart
   const dailyThroughputData = useMemo(() => {
     const map = new Map<string, number>();
-    const toDateStr = (val: any) => {
-      if (!val) return "";
-      if (typeof val === 'string') return val.split("T")[0];
-      try { return new Date(val).toISOString().split("T")[0]; } catch { return ""; }
-    };
-
     stockMoves.forEach((m) => {
-      const d = toDateStr(m.scheduledDate || m.createdAt);
+      const d = toLocalDateString(m.scheduledDate || m.createdAt);
       if (d) {
         const linesCount = (m.lines || []).reduce((s: number, l: any) => s + (l.quantity || l.done || l.demand || 1), 0);
         map.set(d, (map.get(d) || 0) + linesCount);
       }
     });
     filteredOrders.forEach((o) => {
-      const d = toDateStr(o.orderDate || (o as any).createdAt);
+      const d = toLocalDateString(o.orderDate || (o as any).createdAt);
       if (d) {
         map.set(d, (map.get(d) || 0) + (o.totalQuantity || 1));
       }
     });
-    return Array.from(map.entries())
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 364);
+    return Array.from({ length: 365 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const dateKey = toLocalDateString(date);
+      return { date: dateKey, count: map.get(dateKey) || 0 };
+    });
   }, [stockMoves, filteredOrders]);
 
   // Top Items by Quantity (Bar Chart)
@@ -432,7 +433,7 @@ export default function InventoryAnalyticsPage() {
                 Daily Throughput & Inventory Flow (365 Days)
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Full 365-day timeline tracking each day individually with discrete segmented brick stacks
+                Full 365-day timeline tracking each day with solid bars
               </p>
             </div>
           </CardHeader>
@@ -441,6 +442,7 @@ export default function InventoryAnalyticsPage() {
               data={dailyThroughputData}
               metricLabel="Movements"
               valueKey="count"
+              unit="number"
               height="100%"
             />
           </CardContent>

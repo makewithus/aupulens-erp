@@ -42,12 +42,21 @@ export async function GET() {
       .lean();
     const orgBySubdomain = new Map(orgs.map((o) => [o.subdomain, o]));
 
-    const workspaces = memberships.map((m) => ({
+    // The workspace switcher is for organization workspaces. Platform-level
+    // master-admin access has its own entry point and should not appear as a
+    // selectable tenant in this list.
+    const workspaces = memberships.filter((m) => m.role !== "master-admin").map((m) => ({
       tenantId: m.tenantId,
       role: m.role,
       name: orgBySubdomain.get(m.tenantId)?.name
         || (m.tenantId === DEFAULT_TENANT_ID ? "Aupulens (no organization)" : m.tenantId),
-      url: m.tenantId === DEFAULT_TENANT_ID ? APP_BASE_URL : buildTenantUrl(m.tenantId),
+      // Master-admin accounts are authenticated on the main app host, not a
+      // tenant subdomain. Treating the legacy tenantId "master" as a
+      // subdomain generated master.<root-domain>, which is not provisioned in
+      // production and fails at DNS before the login page can load.
+      url: m.role === "master-admin" || m.tenantId === DEFAULT_TENANT_ID
+        ? APP_BASE_URL
+        : buildTenantUrl(m.tenantId),
       current: m.tenantId === session.user.tenantId,
     }));
 
@@ -62,7 +71,9 @@ export async function GET() {
           tenantId: fallbackTenant,
           role: session.user.role,
           name: fallbackTenant === DEFAULT_TENANT_ID ? "Aupulens (no organization)" : fallbackTenant,
-          url: fallbackTenant === DEFAULT_TENANT_ID ? APP_BASE_URL : buildTenantUrl(fallbackTenant),
+          url: session.user.role === "master-admin" || fallbackTenant === DEFAULT_TENANT_ID
+            ? APP_BASE_URL
+            : buildTenantUrl(fallbackTenant),
           current: true,
         },
       ],

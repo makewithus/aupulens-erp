@@ -52,6 +52,18 @@ export interface IRefundDetails {
   razorpayRefundId?: string;
 }
 
+const RefundSchema = new Schema<IRefundDetails>(
+  {
+    refundId: { type: String },
+    amount: { type: Number },
+    reason: { type: String },
+    refundedAt: { type: Date },
+    status: { type: String, enum: ["processed", "pending", "failed"] },
+    razorpayRefundId: { type: String },
+  },
+  { _id: false }
+);
+
 export interface IBillingPayment extends Document {
   tenantId: string;
   organizationId?: mongoose.Types.ObjectId;
@@ -70,6 +82,8 @@ export interface IBillingPayment extends Document {
   receiptNumber?: string;
   upgradeDetails?: IUpgradeDetails;
   refund?: IRefundDetails;
+  refundedAmountPaise: number;
+  refundReservedAmountPaise: number;
   failureReason?: string;
   idempotencyKey: string;
   metadata?: Record<string, unknown>;
@@ -115,14 +129,11 @@ const BillingPaymentSchema = new Schema<IBillingPayment>(
       totalDaysInCycle: { type: Number },
       prorationFraction: { type: Number },
     },
-    refund: {
-      refundId: { type: String },
-      amount: { type: Number },
-      reason: { type: String },
-      refundedAt: { type: Date },
-      status: { type: String, enum: ["processed", "pending", "failed"], default: "processed" },
-      razorpayRefundId: { type: String },
-    },
+    // A missing refund must remain absent. An implicit empty subdocument made
+    // every payment appear refunded to the refund route's duplicate guard.
+    refund: { type: RefundSchema, default: undefined },
+    refundedAmountPaise: { type: Number, min: 0, default: 0 },
+    refundReservedAmountPaise: { type: Number, min: 0, default: 0 },
     failureReason: { type: String },
     idempotencyKey: { type: String, required: true, unique: true, index: true },
     metadata: { type: Schema.Types.Mixed },

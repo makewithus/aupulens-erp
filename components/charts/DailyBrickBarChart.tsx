@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalDateString } from "@/lib/utils";
 import { Calendar } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
 
@@ -28,7 +28,9 @@ export interface DailyBrickBarChartProps {
   showXAxis?: boolean;
   showToolbar?: boolean;
   isDark?: boolean;
+  /** @deprecated Bars are rendered solid; retained for caller compatibility. */
   brickHeight?: number;
+  /** @deprecated Bars are rendered solid; retained for caller compatibility. */
   brickGap?: number;
   className?: string;
   seedDemonstration?: boolean;
@@ -112,7 +114,7 @@ export function generate365DailyData(
     val = Math.max(2500, Math.round(val));
 
     result.push({
-      date: curDate.toISOString().split("T")[0],
+      date: toLocalDateString(curDate),
       value: val,
       label: curDate.toLocaleDateString("en-US", {
         month: "short",
@@ -135,7 +137,7 @@ export function generateZeroDailyData(totalDays = 90): DailyDataPoint[] {
     const curDate = new Date(startDate);
     curDate.setDate(startDate.getDate() + d);
     result.push({
-      date: curDate.toISOString().split("T")[0],
+      date: toLocalDateString(curDate),
       value: 0,
       label: curDate.toLocaleDateString("en-US", {
         month: "short",
@@ -194,8 +196,6 @@ export function DailyBrickBarChart({
   showXAxis = true,
   showToolbar = true,
   isDark: propIsDark,
-  brickHeight = 3.5,
-  brickGap = 1.2,
   className,
   seedDemonstration = false,
   onHover,
@@ -220,25 +220,25 @@ export function DailyBrickBarChart({
           ? generate365DailyData(year, { base: 18000, variance: 8000, seed: 1337, totalDays: initialDays })
           : generateZeroDailyData(initialDays);
       }
-      return data.map((item, idx) => {
-        const rawDate = item[dateKey] || item.date;
-        let dStr = "";
-        if (rawDate instanceof Date) {
-          dStr = rawDate.toISOString().split("T")[0];
-        } else if (typeof rawDate === "string") {
-          dStr = rawDate.split("T")[0];
-        } else {
-          dStr = `Day ${idx + 1}`;
-        }
+      return data
+        .map((item, idx) => {
+          const rawDate = item[dateKey] || item.date;
+          let dStr = "";
+          if (rawDate instanceof Date || typeof rawDate === "string") {
+            dStr = toLocalDateString(rawDate);
+          } else {
+            dStr = `Day ${idx + 1}`;
+          }
 
-        const val = Number(item[valueKey] ?? item.value ?? item.count ?? item.amount ?? 0);
-        return {
-          ...item,
-          date: dStr,
-          value: isNaN(val) ? 0 : val,
-          label: item.label || dStr,
-        };
-      });
+          const val = Number(item[valueKey] ?? item.value ?? item.count ?? item.amount ?? 0);
+          return {
+            ...item,
+            date: dStr,
+            value: isNaN(val) ? 0 : val,
+            label: item.label || dStr,
+          };
+        })
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
     }
 
     if (seedDemonstration) {
@@ -519,16 +519,11 @@ export function DailyBrickBarChart({
       ctx.lineTo(cR, Math.round(cB) + 0.5);
       ctx.stroke();
 
-      // ── 3. Draw segmented brick bars for each day in visible window ──
+      // ── 3. Draw solid bars for each day in the visible window ──
       const n = visibleData.length;
       const colWidth = cW / n;
       const gapX = Math.max(0.6, Math.min(4, colWidth * 0.18));
       const barWidth = Math.max(1, colWidth - gapX);
-
-      const dynamicBrickHeight = Math.max(2.5, Math.min(8, colWidth * 0.8));
-      const dynamicBrickGap = Math.max(0.8, dynamicBrickHeight * 0.28);
-      const slotHeight = dynamicBrickHeight + dynamicBrickGap;
-      const totalPossibleBricks = Math.floor(cH / slotHeight);
 
       const fmtBarVal = (v: number) => {
         if (v >= 10000000) return (v / 10000000).toFixed(1) + "Cr";
@@ -558,44 +553,33 @@ export function DailyBrickBarChart({
         const easedCol = progress >= 1 ? 1 : 1 - Math.pow(1 - colProgress, 3);
         const animVal = val * easedCol;
 
-        if (animVal <= 0 && val > 0 && progress < 1) continue;
-
-        const valRatio = Math.min(1, Math.max(0, animVal / yMax));
-        const numBricks = Math.max(1, Math.round(valRatio * totalPossibleBricks));
         const isHovered = highlightIdx === i;
-
-        for (let b = 0; b < numBricks; b++) {
-          const brickY = cB - (b + 1) * slotHeight;
-          if (brickY < cT - 2) break;
-
-          const brickProgress = b / totalPossibleBricks;
-          const rel = b / numBricks;
-
+        if (val <= 0 || animVal <= 0) {
           if (isHovered) {
-            ctx.fillStyle = themeColors.hoverGlow;
-            ctx.shadowColor = themeColors.hoverGlow;
-            ctx.shadowBlur = 4;
-          } else if (numBricks > 6 && rel >= 0.72 && rel <= 0.86) {
-            // Image 2 contrast white/dark brick mixture band
-            ctx.fillStyle = isDark ? "#FFFFFF" : "#1E293B";
-            ctx.shadowBlur = 0;
-          } else if (brickProgress > 0.65) {
-            ctx.fillStyle = themeColors.accentBrick;
-            ctx.shadowBlur = 0;
-          } else if (b % 4 === 0) {
-            ctx.fillStyle = themeColors.secondaryBrick;
-            ctx.shadowBlur = 0;
-          } else {
-            ctx.fillStyle = themeColors.primaryBrick;
-            ctx.shadowBlur = 0;
+            ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.moveTo(x + barWidth / 2, cT);
+            ctx.lineTo(x + barWidth / 2, cB);
+            ctx.stroke();
+            ctx.setLineDash([]);
           }
-
-          ctx.fillRect(Math.round(x), Math.round(brickY), Math.max(1, Math.round(barWidth)), Math.round(dynamicBrickHeight));
-          ctx.shadowBlur = 0;
+          continue;
         }
 
+        const barH = Math.min(cH, Math.max(0, (animVal / yMax) * cH));
+        const barTopY = cB - barH;
+        ctx.save();
+        ctx.fillStyle = themeColors.primaryBrick;
+        if (isHovered) {
+          ctx.shadowColor = themeColors.hoverGlow;
+          ctx.shadowBlur = 4;
+        }
+        ctx.fillRect(Math.round(x), Math.round(barTopY), Math.max(1, Math.round(barWidth)), Math.max(1, Math.round(barH)));
+        ctx.restore();
+
         // Numeric value directly above each bar so user can read directly
-        const barTopY = cB - numBricks * slotHeight;
         const shouldDrawValue =
           isHovered ||
           n <= 35 ||

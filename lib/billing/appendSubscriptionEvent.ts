@@ -24,6 +24,7 @@ export async function appendSubscriptionEvent(params: {
   tier: OrganizationTier;
   amount?: number;
   currency?: string;
+  externalEventId?: string;
   meta?: Record<string, unknown>;
 }, session?: ClientSession): Promise<void> {
   await dbConnect();
@@ -33,9 +34,14 @@ export async function appendSubscriptionEvent(params: {
     tier: params.tier,
     amount: params.amount ?? 0,
     currency: params.currency ?? "USD",
+    externalEventId: params.externalEventId,
     occurredAt: new Date(),
     meta: params.meta,
   };
-  if (session) await SubscriptionEvent.create([data], { session });
-  else await SubscriptionEvent.create(data);
+  try {
+    if (session) await SubscriptionEvent.create([data], { session });
+    else await SubscriptionEvent.create(data);
+  } catch (error: any) {
+    if (error?.code !== 11000 || !params.externalEventId) throw error;
+  }
 }

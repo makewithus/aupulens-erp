@@ -5,23 +5,8 @@ import connectDB from "@/lib/db";
 import SaleOrder from "@/models/sales/SaleOrder";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
-import { DOCUMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { issuedInvoiceFilter, invoiceRevenueFromDocument } from "@/lib/sales/invoiceEligibility";
-
-// A SaleOrder row is a real, confirmed order regardless of which UI created
-// it — see the matching comment in app/api/sales/summary/route.ts. Filtering
-// only on the legacy `status` field (as this route previously did) misses
-// every order created via the modern /sales/sales-orders flow, since that
-// flow never touches `status` and leaves it at its unset schema default.
-const REAL_ORDER_MATCH = {
-  $or: [
-    { salesOrderStatus: { $ne: null } },
-    { status: { $in: [DOCUMENT_STATUS.APPROVED, DOCUMENT_STATUS.POSTED, DOCUMENT_STATUS.CLOSED] } },
-    // See the matching comment in app/api/sales/summary/route.ts — a few
-    // older rows still carry pre-migration Odoo state values.
-    { status: { $in: ["sale", "done"] } },
-  ],
-};
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,15 +29,24 @@ export async function GET(req: NextRequest) {
     const days = Math.min(Math.max(dateRange, 7), 365);
 
     const from = new Date();
-    from.setUTCDate(from.getUTCDate() - days);
+    // A range of 7 means seven calendar dates including today.
+    from.setUTCDate(from.getUTCDate() - (days - 1));
     from.setUTCHours(0, 0, 0, 0);
 
-    // Real confirmed orders (both the legacy Odoo-style and modern
-    // Zoho-style creation flows), real quotations, and real invoiced
-    // revenue (excluding cancelled) — the three sources the AI Assistant
-    // and RAG layer already read correctly (see docs/_context/MEMORY.md).
+    // Orders mirror the records shown in Sales Orders; quotations and
+    // recognized invoice revenue use their own persisted document sources.
     const [orders, quotations, invoices] = await Promise.all([
-      SaleOrder.find({ tenantId, createdAt: { $gte: from }, ...REAL_ORDER_MATCH }).lean(),
+      // The sales orders table filters by header.dateOrder. Use that business
+      // date for chart buckets as well, falling back to createdAt only for
+      // older records that have no order date.
+      SaleOrder.find({
+        tenantId,
+        $or: [
+          { "header.dateOrder": { $gte: from } },
+          { "header.dateOrder": { $exists: false }, createdAt: { $gte: from } },
+          { "header.dateOrder": null, createdAt: { $gte: from } },
+        ],
+      }).lean(),
       SalesQuotation.find({ tenantId, createdAt: { $gte: from } }).select("status createdAt").lean(),
       (SalesInvoice as any).find({ tenantId, invoiceDate: { $gte: from }, ...issuedInvoiceFilter() }).select("totalAmount taxableAmount taxes.gstBreakup invoiceDate createdAt").lean(),
     ]);
@@ -103,7 +97,7 @@ export async function GET(req: NextRequest) {
       string,
       { orders: number; revenue: number; quotations: number }
     > = {};
-    for (let i = 0; i <= days; i++) {
+    for (let i = 0; i < days; i++) {
       const d = new Date(from);
       d.setUTCDate(from.getUTCDate() + i);
       const key = d.toISOString().slice(0, 10);
@@ -111,8 +105,9 @@ export async function GET(req: NextRequest) {
     }
 
     orders.forEach((o: any) => {
-      if (!o.createdAt) return;
-      const key = new Date(o.createdAt).toISOString().slice(0, 10);
+      const orderDate = o.header?.dateOrder || o.createdAt;
+      if (!orderDate) return;
+      const key = new Date(orderDate).toISOString().slice(0, 10);
       if (byDate[key]) byDate[key].orders += 1;
     });
 

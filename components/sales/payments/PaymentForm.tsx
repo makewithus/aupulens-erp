@@ -15,6 +15,7 @@ import { Settings, X, AlertTriangle, Loader2 } from "lucide-react";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { formatSalesDate, formatSalesCurrency } from "@/lib/sales/formatters";
+import { getTodayLocalDateString } from "@/lib/utils";
 
 interface InvoiceRow {
   _id: string;
@@ -43,7 +44,7 @@ export function PaymentForm() {
 
   const [amountReceived, setAmountReceived] = useState("");
   const [bankCharges, setBankCharges] = useState("");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useState(() => getTodayLocalDateString());
 
   const [displayNumber, setDisplayNumber] = useState("");
   const [manualNumber, setManualNumber] = useState(false);

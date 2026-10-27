@@ -39,17 +39,7 @@ class NodemailerEmailService implements EmailService {
         },
       });
     } else {
-      console.log("No SMTP credentials found. Creating Ethereal test account...");
-      const testAccount = await nodemailer.createTestAccount();
-      this.transporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
+      throw new Error("SMTP is not configured.");
     }
   }
 
@@ -64,16 +54,13 @@ class NodemailerEmailService implements EmailService {
         ...(message.html && { html: message.html }),
       });
 
-      console.log(`[nodemailer] Message sent: %s`, info.messageId);
-      const testUrl = nodemailer.getTestMessageUrl(info);
-      if (testUrl) {
-        console.log(`[nodemailer] Preview URL: %s`, testUrl);
-      }
-
-      return { success: true, provider: "nodemailer", message: "Email sent successfully" };
-    } catch (error: any) {
-      console.error("[nodemailer] Error sending email:", error);
-      return { success: false, provider: "nodemailer", message: error.message };
+      return { success: true, provider: "smtp", message: "Email sent successfully" };
+    } catch {
+      return {
+        success: false,
+        provider: "smtp",
+        message: this.transporter ? "Email delivery failed." : "Email delivery is not configured.",
+      };
     }
   }
 }

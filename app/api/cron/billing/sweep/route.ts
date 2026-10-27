@@ -7,6 +7,8 @@ import {
   runExpiredCancellationsSweep,
   runAutoRenewalSweep,
 } from "@/lib/billing/scheduler";
+import { processBillingNotificationQueue } from "@/lib/billing/notifications";
+import { reconcilePendingRefunds } from "@/lib/billing/refundManager";
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,11 +33,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const [downgrades, graceExpiry, cancellations, renewals] = await Promise.all([
+    const [downgrades, graceExpiry, cancellations, renewals, notifications, refunds] = await Promise.all([
       runScheduledDowngradesSweep(),
       runGracePeriodExpirySweep(),
       runExpiredCancellationsSweep(),
       runAutoRenewalSweep(),
+      processBillingNotificationQueue(),
+      reconcilePendingRefunds(),
     ]);
 
     return NextResponse.json({
@@ -46,6 +50,8 @@ export async function GET(req: NextRequest) {
         gracePeriodExpirations: graceExpiry,
         expiredCancellations: cancellations,
         autoRenewals: renewals,
+        notifications,
+        refundReconciliation: refunds,
       },
     });
   } catch (error: any) {

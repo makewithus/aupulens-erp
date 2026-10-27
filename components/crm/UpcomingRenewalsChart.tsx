@@ -140,29 +140,12 @@ export function UpcomingRenewalsChart() {
           ctx.fillRect(cL + slot * i, cT, slot, cH);
         }
 
-        const bH = 4;
-        const bG = 1.5;
-        const unitH = bH + bG;
-        const totalBricks = Math.max(1, Math.round(barH / unitH));
-        const activeBricks = Math.round(totalBricks * easedP);
-
-        for (let br = 0; br < activeBricks; br++) {
-          const by = cB - (br + 1) * unitH + bG;
-          let brickColor = b.color;
-          if (isHighlight) {
-            brickColor = isDark ? "#FFFFFF" : "#111827";
-          } else if (totalBricks > 6) {
-            const rel = br / totalBricks;
-            if (rel >= 0.72 && rel <= 0.86) {
-              brickColor = isDark ? "#F2F2F2" : "#1F2937";
-            }
-          }
-          ctx.fillStyle = brickColor;
-          ctx.fillRect(Math.round(x - barW / 2), Math.round(by), Math.max(1, Math.round(barW)), Math.round(bH));
-        }
+        const animatedBarH = barH * easedP;
+        const barTopY = cB - animatedBarH;
+        ctx.fillStyle = b.color;
+        ctx.fillRect(Math.round(x - barW / 2), Math.round(barTopY), Math.max(1, Math.round(barW)), Math.max(1, Math.round(animatedBarH)));
 
         if (easedP >= 0.7) {
-          const barTopY = cB - activeBricks * unitH;
           ctx.save();
           ctx.globalAlpha = Math.min(1, (easedP - 0.7) / 0.3);
           ctx.fillStyle = isHighlight ? (isDark ? "#ffffff" : "#111827") : (isDark ? "#F2F2F2" : "#1F2937");

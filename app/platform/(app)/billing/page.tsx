@@ -100,6 +100,7 @@ export default function PlatformBillingDashboard() {
   const [refundPaymentId, setRefundPaymentId] = useState("");
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
+  const [refundRequestId, setRefundRequestId] = useState("");
   const [refundLoading, setRefundLoading] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
 
@@ -154,11 +155,12 @@ export default function PlatformBillingDashboard() {
     try {
       const res = await fetch("/api/platform/billing/refund", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": refundRequestId },
         body: JSON.stringify({
           paymentId: refundPaymentId,
           amount: refundAmount ? Number(refundAmount) : undefined,
           reason: refundReason,
+          idempotencyKey: refundRequestId,
         }),
       });
       const data = await res.json();
@@ -168,6 +170,7 @@ export default function PlatformBillingDashboard() {
         setRefundPaymentId("");
         setRefundAmount("");
         setRefundReason("");
+        setRefundRequestId("");
         loadData();
       } else {
         toast.error(data.error || "Failed to process refund.");
@@ -407,6 +410,7 @@ export default function PlatformBillingDashboard() {
                               className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10"
                               onClick={() => {
                                 setRefundPaymentId(u.paymentReference || u.id);
+                                setRefundRequestId(crypto.randomUUID());
                                 setShowRefundModal(true);
                               }}
                             >
@@ -456,7 +460,7 @@ export default function PlatformBillingDashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowRefundModal(true)}
+                onClick={() => { setRefundRequestId(crypto.randomUUID()); setShowRefundModal(true); }}
                 className="text-xs"
               >
                 Issue Refund
@@ -542,6 +546,7 @@ export default function PlatformBillingDashboard() {
                           size="sm"
                           onClick={() => {
                             setRefundPaymentId(s._id);
+                            setRefundRequestId(crypto.randomUUID());
                             setShowRefundModal(true);
                           }}
                           className="h-7 px-2 text-[11px]"

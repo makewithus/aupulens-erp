@@ -102,17 +102,19 @@ export default function AdminAnalytics() {
       const inventorySummary = inventorySummaryRes && inventorySummaryRes.ok ? await inventorySummaryRes.json() : null;
 
       // Fetch analytics data for charts (time-series data) via cachedFetch
-      const [financeAnalyticsRes, salesAnalyticsRes, inventoryAnalyticsRes, manufacturingAnalyticsRes] = await Promise.all([
+      const [financeAnalyticsRes, salesAnalyticsRes, inventoryAnalyticsRes, manufacturingAnalyticsRes, clearancesRes] = await Promise.all([
         cachedFetch('/api/finance/analytics').catch(() => null),
         cachedFetch('/api/sales/analytics').catch(() => null),
         cachedFetch('/api/inventory/analytics').catch(() => null),
         cachedFetch('/api/manufacturing/analytics').catch(() => null),
+        cachedFetch('/api/manufacturing/customs-clearance').catch(() => null),
       ]);
 
       const financeAnalytics = financeAnalyticsRes && financeAnalyticsRes.ok ? await financeAnalyticsRes.json() : null;
       const salesAnalytics = salesAnalyticsRes && salesAnalyticsRes.ok ? await salesAnalyticsRes.json() : null;
       const inventoryAnalytics = inventoryAnalyticsRes && inventoryAnalyticsRes.ok ? await inventoryAnalyticsRes.json() : null;
       const manufacturingAnalytics = manufacturingAnalyticsRes && manufacturingAnalyticsRes.ok ? await manufacturingAnalyticsRes.json() : null;
+      const clearancesData = clearancesRes && clearancesRes.ok ? await clearancesRes.json() : null;
 
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -150,29 +152,26 @@ export default function AdminAnalytics() {
       // Transform manufacturing data - Real API data only
       let manufacturingChartData: ChartDataPoint[] = [];
       if (manufacturingAnalytics) {
-        const shipmentsMap = new Map();
+        const shipmentsMap = new Map<string, number>();
         if (Array.isArray(manufacturingAnalytics.shipmentsData)) {
           manufacturingAnalytics.shipmentsData.forEach((item: any) => {
-            const month = monthNames[item._id.month - 1];
+            const month = `${item._id.year}-${String(item._id.month).padStart(2, '0')}`;
             shipmentsMap.set(month, item.count);
           });
         }
-        
-        const costsMap = new Map();
-        if (Array.isArray(manufacturingAnalytics.costsData)) {
-          manufacturingAnalytics.costsData.forEach((item: any) => {
-            const month = monthNames[item._id.month - 1];
-            costsMap.set(month, item.amount);
-          });
-        }
-        
-        const allMonths = new Set([...shipmentsMap.keys(), ...costsMap.keys()]);
-        allMonths.forEach(month => {
+        const productionMap = new Map<string, number>();
+        (manufacturingAnalytics.dailyOutput || []).forEach((item: any) => {
+          const month = String(item.day || '').slice(0, 7);
+          if (month) productionMap.set(month, (productionMap.get(month) || 0) + (Number(item.actual) || 0));
+        });
+        const allMonths = [...new Set([...shipmentsMap.keys(), ...productionMap.keys()])].sort();
+        allMonths.forEach((month) => {
+          const [year, monthNumber] = month.split('-').map(Number);
+          const label = `${monthNames[monthNumber - 1] || month} ${year}`;
           manufacturingChartData.push({
-            time: month,
-            production: shipmentsMap.get(month) || 0,
+            time: label,
+            production: productionMap.get(month) || 0,
             shipments: shipmentsMap.get(month) || 0,
-            costs: costsMap.get(month) || 0,
           });
         });
       }
@@ -202,13 +201,13 @@ export default function AdminAnalytics() {
         inventory: {
           totalItems: inventorySummary?.summary?.totalItems?.current || (inventoryChartData.length > 0 ? inventoryChartData[inventoryChartData.length - 1]?.stockLevel : 0) || 0,
           lowStock: inventorySummary?.summary?.lowStock?.current || 0,
-          outOfStock: 0,
+          outOfStock: inventorySummary?.summary?.outOfStock?.current || 0,
           chartData: inventoryChartData,
         },
         manufacturing: {
-          totalProduction: manufacturingChartData.reduce((sum, item) => sum + (item.production || 0), 0) || 0,
-          totalShipments: manufacturingChartData.reduce((sum, item) => sum + (item.shipments || 0), 0) || 0,
-          activeClearances: 0,
+          totalProduction: manufacturingAnalytics?.kpis?.totalProductionOutput || 0,
+          totalShipments: manufacturingAnalytics?.kpis?.totalShipments || 0,
+          activeClearances: (clearancesData?.clearances || []).filter((clearance: any) => !['approved', 'rejected', 'cancelled', 'closed'].includes(String(clearance.status).toLowerCase())).length,
           chartData: manufacturingChartData,
         },
       });

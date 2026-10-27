@@ -19,9 +19,15 @@ export async function POST(req: NextRequest) {
     const targetPlanKey = body.targetPlanKey as PlanKeyType;
     const billingCycle = (body.billingCycle || "monthly") as "monthly" | "yearly";
 
-    if (!targetPlanKey || !PLAN_DEFINITIONS[targetPlanKey]) {
+    if (typeof targetPlanKey !== "string" || !Object.hasOwn(PLAN_DEFINITIONS, targetPlanKey)) {
       return NextResponse.json(
         { success: false, error: "Valid targetPlanKey is required." },
+        { status: 400 }
+      );
+    }
+    if (billingCycle !== "monthly" && billingCycle !== "yearly") {
+      return NextResponse.json(
+        { success: false, error: "billingCycle must be monthly or yearly." },
         { status: 400 }
       );
     }

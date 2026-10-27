@@ -193,7 +193,7 @@ export default function FinanceAnalyticsPage() {
                       </CardTitle>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Discrete segmented brick bars visualizing periodic billing intake and cash realization.
+                      Solid bars visualizing periodic billing intake and cash realization.
                     </p>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">

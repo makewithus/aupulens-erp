@@ -7,7 +7,8 @@ export interface IBillingWebhookEvent extends Document {
   payload: Record<string, unknown>;
   processed: boolean;
   processedAt?: Date;
-  status: "processed" | "ignored" | "failed";
+  status: "processing" | "processed" | "ignored" | "failed";
+  processingAt?: Date;
   error?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -21,10 +22,11 @@ const BillingWebhookEventSchema = new Schema<IBillingWebhookEvent>(
     payload: { type: Schema.Types.Mixed, required: true },
     processed: { type: Boolean, default: false },
     processedAt: { type: Date },
+    processingAt: { type: Date },
     status: {
       type: String,
-      enum: ["processed", "ignored", "failed"],
-      default: "processed",
+      enum: ["processing", "processed", "ignored", "failed"],
+      default: "processing",
       index: true,
     },
     error: { type: String },

@@ -1,9 +1,5 @@
 import connectDB from "@/lib/db";
 import SaaSSubscription, { SAAS_SUBSCRIPTION_STATUS } from "@/models/billing/SaaSSubscription";
-import BillingPayment, {
-  BILLING_PAYMENT_STATUS,
-  BILLING_PAYMENT_TYPE,
-} from "@/models/billing/BillingPayment";
 import Organization from "@/models/admin/Organization";
 import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 import { appendSubscriptionEvent } from "@/lib/billing/appendSubscriptionEvent";
@@ -16,8 +12,9 @@ import {
 } from "@/lib/constants/statuses";
 import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
 import { invalidateEntitlementsCache } from "@/lib/platform/entitlements/resolve";
-import { generateBillingInvoice } from "./invoiceGenerator";
-import { DEFAULT_SELLER_STATE } from "./proration";
+import { enqueueBillingNotification } from "@/lib/billing/notifications";
+import { razorpayService } from "@/lib/billing/razorpayClient";
+import { subscriptionManager } from "@/lib/billing/subscriptionManager";
 
 function mapPlanKeyToTier(planKey: PlanKeyType): OrganizationTier {
   switch (planKey) {
@@ -200,24 +197,24 @@ export async function runExpiredCancellationsSweep(): Promise<{ expiredCount: nu
 /**
  * Reconciles automatic renewals for subscriptions due for recurring billing.
  */
-export async function runAutoRenewalSweep(): Promise<{ renewedCount: number }> {
+export async function runAutoRenewalSweep(): Promise<{ renewedCount: number; blockedCount: number }> {
   await connectDB();
   const now = new Date();
   const dueRenewals = await SaaSSubscription.find({
     status: SAAS_SUBSCRIPTION_STATUS.ACTIVE,
-    "autoPay.enabled": true,
     nextRenewalDate: { $lte: now },
   });
 
   let renewedCount = 0;
+  let blockedCount = 0;
   for (const sub of dueRenewals) {
-    const org = await Organization.findOne({ subdomain: sub.tenantId });
     const renewalPrice = sub.currentPrice;
 
     if (renewalPrice <= 0) {
       // Free plan automatic period rollover
       const nextEnd = new Date(sub.nextRenewalDate);
-      nextEnd.setMonth(nextEnd.getMonth() + 1);
+      if (sub.billingCycle === "yearly") nextEnd.setFullYear(nextEnd.getFullYear() + 1);
+      else nextEnd.setMonth(nextEnd.getMonth() + 1);
       sub.currentPeriodStart = sub.nextRenewalDate;
       sub.currentPeriodEnd = nextEnd;
       sub.paidThroughDate = nextEnd;
@@ -226,82 +223,86 @@ export async function runAutoRenewalSweep(): Promise<{ renewedCount: number }> {
       continue;
     }
 
-    // Process renewal payment
-    const idempotencyKey = `ren_${sub.tenantId}_${Date.now()}`;
-    const gstRate = 18;
-    const isInterState =
-      (org?.settings?.state || DEFAULT_SELLER_STATE).toLowerCase() !==
-      DEFAULT_SELLER_STATE.toLowerCase();
-
-    let cgst = 0,
-      sgst = 0,
-      igst = 0;
-    if (isInterState) {
-      igst = Math.round(((renewalPrice * gstRate) / 100) * 100) / 100;
-    } else {
-      cgst = Math.round(((renewalPrice * (gstRate / 2)) / 100) * 100) / 100;
-      sgst = cgst;
+    if (sub.autoPay.enabled && sub.autoPay.status === "active" && sub.razorpaySubscriptionId) {
+      try {
+        const provider = await razorpayService.fetchSubscription(sub.razorpaySubscriptionId);
+        if (["active", "authenticated"].includes(provider.status)) {
+          // Razorpay owns the charge schedule and retries for Subscriptions.
+          // A due local date alone is not evidence of a failed collection; wait
+          // for the signed charged/pending/halted callback.
+          blockedCount++;
+          continue;
+        }
+        if (["pending", "halted"].includes(provider.status)) {
+          await subscriptionManager.handlePaymentFailure({
+            tenantId: sub.tenantId,
+            reason: `Razorpay renewal is ${provider.status}; provider retries remain authoritative.`,
+            providerEventId: `status_${provider.id}_${provider.status}_${provider.paid_count}`,
+          });
+          blockedCount++;
+          continue;
+        }
+        await subscriptionManager.handlePaymentFailure({
+          tenantId: sub.tenantId,
+          reason: `Razorpay subscription ended in ${provider.status} state before the renewal was collected.`,
+          providerEventId: `terminal_${provider.id}_${provider.status}_${provider.paid_count}`,
+        });
+        blockedCount++;
+        continue;
+      } catch {
+        // An unavailable provider lookup is an unknown state. Keep access dates
+        // unchanged and retry reconciliation on the next sweep.
+        blockedCount++;
+        continue;
+      }
     }
-    const totalTax = cgst + sgst + igst;
-    const totalAmount = Math.round((renewalPrice + totalTax) * 100) / 100;
 
-    const payment = await BillingPayment.create({
-      tenantId: sub.tenantId,
-      organizationId: org?._id,
-      subscriptionId: sub._id,
-      type: BILLING_PAYMENT_TYPE.RENEWAL,
-      amount: totalAmount,
-      currency: sub.currency,
-      status: BILLING_PAYMENT_STATUS.SUCCESSFUL,
-      billingCycle: sub.billingCycle,
-      razorpayPaymentId: `pay_auto_${Date.now()}`,
-      paymentMethod: sub.autoPay.paymentMethod?.type || "mandate",
-      taxBreakup: {
-        taxableAmount: renewalPrice,
-        cgst,
-        sgst,
-        igst,
-        totalTax,
-        isInterState,
+    // No provider-authorized renewal exists. Never synthesize success or extend
+    // paid access; enter the existing grace workflow and await manual recovery.
+    const graceEndsAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const updated = await SaaSSubscription.findOneAndUpdate(
+      {
+        _id: sub._id,
+        status: SAAS_SUBSCRIPTION_STATUS.ACTIVE,
+        nextRenewalDate: { $lte: now },
       },
-      idempotencyKey,
-    });
+      {
+        $set: {
+          status: SAAS_SUBSCRIPTION_STATUS.PAST_DUE,
+          "gracePeriod.isInGrace": true,
+          "gracePeriod.graceStartedAt": now,
+          "gracePeriod.graceEndsAt": graceEndsAt,
+          "gracePeriod.lastFailedAt": now,
+          "gracePeriod.lastFailureReason": "Automatic renewal blocked: no active customer-authorized provider subscription exists.",
+        },
+      },
+      { new: true }
+    );
+    if (!updated) continue;
 
-    const nextEnd = new Date(sub.nextRenewalDate);
-    if (sub.billingCycle === "yearly") {
-      nextEnd.setFullYear(nextEnd.getFullYear() + 1);
-    } else {
-      nextEnd.setMonth(nextEnd.getMonth() + 1);
-    }
-
-    sub.currentPeriodStart = sub.nextRenewalDate;
-    sub.currentPeriodEnd = nextEnd;
-    sub.paidThroughDate = nextEnd;
-    sub.nextRenewalDate = nextEnd;
-    sub.gracePeriod.isInGrace = false;
-    sub.lastPaymentId = payment.razorpayPaymentId;
-    await sub.save();
-
-    await generateBillingInvoice({
-      payment,
-      subscription: sub,
-      description: `Subscription Renewal for ${sub.planKey.toUpperCase()} Plan (${sub.billingCycle})`,
-    });
-
+    await Organization.updateOne(
+      { subdomain: sub.tenantId },
+      { $set: { subscriptionStatus: "past_due" } }
+    );
     await appendSubscriptionEvent({
       tenantId: sub.tenantId,
-      type: SUBSCRIPTION_EVENT_TYPE.RENEWED,
+      type: SUBSCRIPTION_EVENT_TYPE.RENEWAL_BLOCKED,
       tier: mapPlanKeyToTier(sub.planKey),
-      amount: totalAmount,
-      currency: sub.currency,
       meta: {
-        paymentId: payment._id,
-        nextRenewalDate: nextEnd,
+        action: "renewal_blocked_provider_charge_unavailable",
+        reason: "No active customer-authorized provider subscription exists.",
+        graceEndsAt,
       },
     });
-
-    renewedCount++;
+    await enqueueBillingNotification({
+      tenantId: sub.tenantId,
+      idempotencyKey: `billing-renewal-blocked:${sub._id}:${sub.nextRenewalDate.getTime()}`,
+      eventType: "renewal_failure",
+      subject: "Action required to renew your Aupulens subscription",
+      body: `We could not automatically renew your ${sub.planKey} plan because a provider-authorized recurring payment is not configured. The current grace period ends ${graceEndsAt.toISOString()}.`,
+    });
+    blockedCount++;
   }
 
-  return { renewedCount };
+  return { renewedCount, blockedCount };
 }

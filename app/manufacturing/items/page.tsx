@@ -212,13 +212,15 @@ export default function ItemsPage() {
       if (search) params.set("query", search);
       const res = await fetch(`/api/manufacturing/item-bom?${params.toString()}`);
       const json = await res.json();
-      if (json.success) {
-        setBoms(json.data || []);
-        setBomTotal(json.total ?? 0);
-        setBomTotalPages(json.totalPages ?? 1);
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || `Request failed (${res.status})`);
       }
-    } catch {
-      toast.error("Failed to load BOMs");
+      setBoms(Array.isArray(json.data) ? json.data : []);
+      setBomTotal(json.total ?? 0);
+      setBomTotalPages(json.totalPages ?? 1);
+    } catch (error) {
+      console.error("Failed to load manufacturing BOMs:", error);
+      toast.error(error instanceof Error ? `Failed to load BOMs: ${error.message}` : "Failed to load BOMs");
     } finally {
       setBomsLoading(false);
     }

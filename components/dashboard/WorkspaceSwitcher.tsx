@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Building2, Check, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,7 +45,7 @@ export function WorkspaceSwitcher({ mobileFullWidth = false }: { mobileFullWidth
     fetch("/api/auth/my-workspaces")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) setWorkspaces(data.data);
+        if (data.success) setWorkspaces(data.data.filter((workspace: Workspace) => workspace.role !== "master-admin"));
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -54,6 +55,27 @@ export function WorkspaceSwitcher({ mobileFullWidth = false }: { mobileFullWidth
   if (loading || workspaces.length <= 1) return null;
 
   const current = workspaces.find((w) => w.current);
+
+  async function switchWorkspace(event: React.MouseEvent<HTMLAnchorElement>, ws: Workspace) {
+    if (ws.current) {
+      event.preventDefault();
+      return;
+    }
+
+    // Tenant sessions may share cookies across subdomains. Clear the current
+    // session first so the destination's sign-in page is not redirected back
+    // into the workspace the user is leaving.
+    event.preventDefault();
+    const loginPath = ws.role === "master-admin" ? "/auth/master" : "/auth";
+    const email = session?.user?.email;
+    const destination = `${ws.url}${loginPath}${email ? `?email=${encodeURIComponent(email)}` : ""}`;
+    try {
+      await signOut({ redirect: false });
+      window.location.assign(destination);
+    } catch {
+      toast.error("Could not switch workspaces. Please try again.");
+    }
+  }
 
   return (
     <DropdownMenu>
@@ -77,10 +99,10 @@ export function WorkspaceSwitcher({ mobileFullWidth = false }: { mobileFullWidth
               href={
                 ws.current
                   ? undefined
-                  : `${ws.url}/auth${session?.user?.email ? `?email=${encodeURIComponent(session.user.email)}` : ""}`
+                  : `${ws.url}${ws.role === "master-admin" ? "/auth/master" : "/auth"}${session?.user?.email ? `?email=${encodeURIComponent(session.user.email)}` : ""}`
               }
               className="flex items-center justify-between cursor-pointer"
-              onClick={(e) => ws.current && e.preventDefault()}
+              onClick={(e) => void switchWorkspace(e, ws)}
             >
               <div>
                 <div className="text-sm font-medium">{ws.name}</div>

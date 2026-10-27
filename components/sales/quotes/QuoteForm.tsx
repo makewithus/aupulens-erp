@@ -18,6 +18,7 @@ import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoice
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { cachedFetch } from "@/lib/api/cachedFetch";
+import { getTodayLocalDateString } from "@/lib/utils";
 
 interface QuoteLineItem {
   itemId?: string;
@@ -51,7 +52,7 @@ export interface QuoteFormValue {
 
 export const EMPTY_QUOTE: QuoteFormValue = {
   customerId: "",
-  quoteDate: new Date().toISOString().slice(0, 10),
+  quoteDate: getTodayLocalDateString(),
   lineItems: [{ name: "", qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0, hsn: "", gstTreatment: "", taxReference: undefined }],
   extraDiscount: 0,
   extraDiscountMode: "amount",

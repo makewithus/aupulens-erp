@@ -44,21 +44,25 @@ export default function ManufacturingAnalyticsPage() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const loadData = useCallback(async (fresh: boolean = false) => {
     try {
+      setLoadError(false);
+      setIsLoading(true);
       if (fresh) setIsRefreshing(true);
       const url = `/api/manufacturing/analytics?range=${timeRange}${fresh ? "&fresh=true" : ""}`;
       const res = await cachedFetch(url, {
         cache: fresh ? "no-store" : "default",
       });
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-        if (fresh) toast.success("Live manufacturing database synchronized");
-      }
+      if (!res.ok) throw new Error("Manufacturing analytics request failed");
+      const json = await res.json();
+      setData(json);
+      setLoadError(false);
+      if (fresh) toast.success("Live manufacturing database synchronized");
     } catch (e) {
       console.error("Failed to load fresh manufacturing analytics:", e);
+      setLoadError(true);
       if (fresh) toast.error("Failed to sync live manufacturing data");
     } finally {
       setIsLoading(false);
@@ -83,14 +87,14 @@ export default function ManufacturingAnalyticsPage() {
   }, [loadData]);
 
   const kpis = data?.kpis || {
-    overallOee: 0,
-    availability: 0,
-    performance: 0,
-    qualityRate: 0,
+    overallOee: null,
+    availability: null,
+    performance: null,
+    qualityRate: null,
     totalProductionOutput: 0,
     inProductionUnits: 0,
-    onTimeDispatchRate: 0,
-    qcFirstPassYield: 0,
+    onTimeDispatchRate: null,
+    qcFirstPassYield: null,
     totalBoms: 0,
     totalShipments: 0,
   };
@@ -109,26 +113,17 @@ export default function ManufacturingAnalyticsPage() {
     }));
   }, [dailyOutput]);
 
-  // Work Center Load Bar Chart Data
-  const workCenterChartData = useMemo(() => {
-    return workCenters.map((wc: any) => ({
-      name: wc.name.split(":")[0],
-      "Load %": wc.load,
-      "Available %": Math.max(0, 100 - wc.load),
-    }));
-  }, [workCenters]);
-
   const exportCsv = () => {
     const headers = ["Metric", "Value"];
     const rows = [
-      ["Overall OEE (%)", `${kpis.overallOee}%`],
-      ["Machine Availability (%)", `${kpis.availability}%`],
-      ["Line Performance Rate (%)", `${kpis.performance}%`],
-      ["Quality Pass Rate (%)", `${kpis.qualityRate}%`],
+      ["Overall OEE (%)", kpis.overallOee == null ? "Unavailable" : `${kpis.overallOee}%`],
+      ["Machine Availability (%)", kpis.availability == null ? "Unavailable" : `${kpis.availability}%`],
+      ["Line Performance Rate (%)", kpis.performance == null ? "Unavailable" : `${kpis.performance}%`],
+      ["Quality Pass Rate (%)", kpis.qualityRate == null ? "Unavailable" : `${kpis.qualityRate}%`],
       ["Total Output (Units)", kpis.totalProductionOutput],
       ["In-Production (Units)", kpis.inProductionUnits],
-      ["First-Pass QC Yield (%)", `${kpis.qcFirstPassYield}%`],
-      ["On-Time Dispatch (%)", `${kpis.onTimeDispatchRate}%`],
+      ["First-Pass QC Yield (%)", kpis.qcFirstPassYield == null ? "Unavailable" : `${kpis.qcFirstPassYield}%`],
+      ["On-Time Dispatch (%)", kpis.onTimeDispatchRate == null ? "Unavailable" : `${kpis.onTimeDispatchRate}%`],
     ];
     const csvContent = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -168,7 +163,7 @@ export default function ManufacturingAnalyticsPage() {
                 <Sparkles className="w-3 h-3" /> Industrial Telemetry
               </span>
               <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-md">
-                OEE Benchmark 85%+
+                Production Metrics
               </span>
             </div>
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground break-words leading-none">
@@ -228,6 +223,11 @@ export default function ManufacturingAnalyticsPage() {
 
         {isLoading && !data ? (
           <AnalyticsPageSkeleton />
+        ) : loadError && !data ? (
+          <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center">
+            <p className="text-sm text-muted-foreground">Manufacturing analytics could not be loaded. No figures are available until the data request succeeds.</p>
+            <Button variant="outline" onClick={() => void loadData(true)}>Retry</Button>
+          </div>
         ) : (
           <>
             {/* Top 5 Metric Cards */}
@@ -235,9 +235,9 @@ export default function ManufacturingAnalyticsPage() {
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="Overall OEE"
-              value={`${kpis.overallOee}%`}
+              value={kpis.overallOee == null ? "N/A" : `${kpis.overallOee}%`}
               visual={<ActivePulse />}
-              subtitle="World-class benchmark target"
+              subtitle="Requires machine runtime and cycle-time readings"
             />
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
@@ -251,23 +251,23 @@ export default function ManufacturingAnalyticsPage() {
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="First-Pass QC Yield"
-              value={`${kpis.qcFirstPassYield}%`}
+              value={kpis.qcFirstPassYield == null ? "N/A" : `${kpis.qcFirstPassYield}%`}
               visual={<InactiveOrbit />}
-              subtitle="Zero-defect pass rate"
+              subtitle="Based on recorded QC results"
             />
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
-              title="Shop Floor Load"
-              value={`${workCenters.length > 0 ? Math.round(workCenters.reduce((acc: number, w: any) => acc + (w.load || 0), 0) / workCenters.length) : 0}%`}
+              title="Work Center Capacity"
+              value="N/A"
               visual={<UsersGraph />}
-              subtitle={`Across ${workCenters.length} work centers`}
+              subtitle="No work center capacity records are configured"
             />
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="On-Time Dispatch"
-              value={`${kpis.onTimeDispatchRate}%`}
+              value={kpis.onTimeDispatchRate == null ? "N/A" : `${kpis.onTimeDispatchRate}%`}
               visual={<ActivePulse />}
               subtitle={`${kpis.totalShipments || 0} shipments recorded`}
             />
@@ -290,7 +290,7 @@ export default function ManufacturingAnalyticsPage() {
                   </p>
                 </div>
                 <Badge variant="outline" className="font-mono text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                  {kpis.overallOee}% Overall
+                    {kpis.overallOee == null ? "OEE unavailable" : `${kpis.overallOee}% Overall`}
                 </Badge>
               </div>
             </CardHeader>
@@ -299,14 +299,13 @@ export default function ManufacturingAnalyticsPage() {
               <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-foreground">Machine Availability</span>
-                  <span className="text-emerald-400 font-bold">{kpis.availability}%</span>
+                  <span className="text-emerald-400 font-bold">{kpis.availability == null ? "N/A" : `${kpis.availability}%`}</span>
                 </div>
                 <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${kpis.availability}%` }} />
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${kpis.availability || 0}%` }} />
                 </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Operating Time / Planned Time</span>
-                  <span>Target: 90%</span>
+                  <span>Requires recorded machine runtime</span>
                 </div>
               </div>
 
@@ -314,14 +313,13 @@ export default function ManufacturingAnalyticsPage() {
               <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-foreground">Line Performance Rate</span>
-                  <span className="text-blue-400 font-bold">{kpis.performance}%</span>
+                  <span className="text-blue-400 font-bold">{kpis.performance == null ? "N/A" : `${kpis.performance}%`}</span>
                 </div>
                 <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${kpis.performance}%` }} />
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${kpis.performance || 0}%` }} />
                 </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Actual Speed / Ideal Run Rate</span>
-                  <span>Target: 88%</span>
+                  <span>Requires ideal cycle-time data</span>
                 </div>
               </div>
 
@@ -329,14 +327,13 @@ export default function ManufacturingAnalyticsPage() {
               <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-foreground">Output Quality Factor</span>
-                  <span className="text-purple-400 font-bold">{kpis.qualityRate}%</span>
+                  <span className="text-purple-400 font-bold">{kpis.qualityRate == null ? "N/A" : `${kpis.qualityRate}%`}</span>
                 </div>
                 <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500 rounded-full" style={{ width: `${kpis.qualityRate}%` }} />
+                  <div className="h-full bg-purple-500 rounded-full" style={{ width: `${kpis.qualityRate || 0}%` }} />
                 </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Good Units / Total Units Run</span>
-                  <span>Target: 96%</span>
+                  <span>Based on recorded QC inspection outcomes</span>
                 </div>
               </div>
             </CardContent>
@@ -352,7 +349,7 @@ export default function ManufacturingAnalyticsPage() {
                     Daily Production Throughput vs Planned Target (Units)
                   </CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    14-day execution tracking units completed against scheduled shifts.
+                    {timeRange === "7d" ? "7" : timeRange === "90d" ? "90" : "30"}-day completed output against scheduled order quantities.
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-xs font-mono">
@@ -367,12 +364,14 @@ export default function ManufacturingAnalyticsPage() {
             </CardHeader>
             <CardContent className="p-6 pt-4">
               <div className="h-[280px] w-full">
-                <CanvasComposedChart
+                {outputChartData.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No production orders in this period.</div>
+                ) : <CanvasComposedChart
                   data={outputChartData}
                   xAxisKey="name"
                   barSeries={[{ key: "Actual Output", color: "#3b82f6", name: "Actual Units" }]}
                   lineSeries={{ key: "Target Output", color: "#f59e0b", name: "Target Line" }}
-                />
+                />}
               </div>
             </CardContent>
           </Card>
@@ -396,7 +395,7 @@ export default function ManufacturingAnalyticsPage() {
                 <CanvasPieChart
                   data={qcYieldDistribution.map((item: any) => ({
                     name: item.name,
-                    value: item.value,
+                    value: item.count,
                     color: item.color,
                   }))}
                 />
@@ -409,7 +408,7 @@ export default function ManufacturingAnalyticsPage() {
                       <span className="text-foreground font-medium">{item.name}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-muted-foreground">{item.count.toLocaleString("en-IN")} pcs</span>
+                      <span className="text-muted-foreground">{item.count.toLocaleString("en-IN")} orders</span>
                       <span className="font-bold text-foreground">{item.value}%</span>
                     </div>
                   </div>
@@ -432,11 +431,12 @@ export default function ManufacturingAnalyticsPage() {
                   </p>
                 </div>
                 <Badge variant="outline" className="font-mono text-xs bg-primary/10 text-primary border-primary/20">
-                  5 Work Centers
+                  {workCenters.length} Work Centers
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-3 space-y-3 font-mono text-xs">
+              {workCenters.length === 0 && <p className="text-muted-foreground">No work center capacity data is recorded.</p>}
               {workCenters.map((wc: any) => {
                 const isHeavy = wc.load >= 90;
                 return (
@@ -485,6 +485,7 @@ export default function ManufacturingAnalyticsPage() {
               </p>
             </CardHeader>
             <CardContent className="p-6 pt-3 space-y-3 font-mono text-xs">
+              {freightLogistics.length === 0 && <p className="text-muted-foreground">No shipment data is recorded for this period.</p>}
               {freightLogistics.map((f: any) => (
                 <div key={f.mode} className="p-3 rounded-lg border border-border/40 bg-muted/10 space-y-1.5">
                   <div className="flex justify-between items-center">

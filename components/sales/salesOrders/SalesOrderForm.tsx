@@ -17,6 +17,7 @@ import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoice
 import { uploadToCloudinary } from "@/lib/upload";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { cachedFetch } from "@/lib/api/cachedFetch";
+import { getTodayLocalDateString } from "@/lib/utils";
 
 interface LineItem {
   itemId?: string;
@@ -53,7 +54,7 @@ export function SalesOrderForm() {
   const [savingNumberSettings, setSavingNumberSettings] = useState(false);
 
   const [referenceNumber, setReferenceNumber] = useState("");
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
+  const [orderDate, setOrderDate] = useState(() => getTodayLocalDateString());
   const [expectedShipmentDate, setExpectedShipmentDate] = useState("");
   const [paymentTermsLabel, setPaymentTermsLabel] = useState("Due on Receipt");
   const [deliveryMethod, setDeliveryMethod] = useState("");

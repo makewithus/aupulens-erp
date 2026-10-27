@@ -23,14 +23,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 interface CustomsClearance {
   _id: string;
-  declarationNumber: string;
-  shipmentId: string;
+  declarationNumber?: string;
+  clearanceNumber?: string;
+  shipmentId?: string;
+  shipmentNumber?: string;
   status: string;
-  submissionDate: string;
+  submissionDate?: string;
+  submittedDate?: string;
+  createdAt?: string;
   clearanceDate?: string;
   customsOffice: string;
-  dutyAmount: number;
-  currency: string;
+  dutyAmount?: number;
+  totalDuty?: number;
+  currency?: string;
 }
 
 export default function CustomsClearancePage() {
@@ -216,11 +221,14 @@ export default function CustomsClearancePage() {
     setShowVisualization(true);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+  const getStatusColor = (status?: string) => {
+    switch ((status || '').toLowerCase()) {
       case 'cleared':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'approved':
+        return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300';
       case 'pending':
+      case 'draft':
+      case 'pending_approval':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       case 'under-review':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
@@ -429,19 +437,27 @@ export default function CustomsClearancePage() {
                   ) : (
                     clearances.map((clearance) => (
                       <TableRow key={clearance._id} className="border-b dark:border-border hover:bg-muted dark:hover:bg-accent">
-                        <TableCell className="p-3 text-foreground dark:text-white font-medium">{clearance.declarationNumber}</TableCell>
-                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">{clearance.shipmentId}</TableCell>
-                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">{clearance.customsOffice}</TableCell>
+                        <TableCell className="p-3 text-foreground dark:text-white font-medium">
+                          {clearance.declarationNumber || clearance.clearanceNumber || "—"}
+                        </TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
+                          {clearance.shipmentNumber || clearance.shipmentId || "—"}
+                        </TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
+                          {clearance.customsOffice || "—"}
+                        </TableCell>
                         <TableCell className="p-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(clearance.status)}`}>
-                            {clearance.status}
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(clearance.status)}`}>
+                            {clearance.status?.replace('_', ' ') || "Draft"}
                           </span>
                         </TableCell>
-                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
-                          {clearance.currency} {clearance.dutyAmount.toFixed(2)}
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground font-mono">
+                          {clearance.currency || "INR"} {(Number(clearance.dutyAmount ?? clearance.totalDuty ?? 0)).toFixed(2)}
                         </TableCell>
                         <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
-                          {new Date(clearance.submissionDate).toLocaleDateString()}
+                          {(clearance.submissionDate || clearance.submittedDate || clearance.createdAt)
+                            ? new Date(clearance.submissionDate || clearance.submittedDate || clearance.createdAt!).toLocaleDateString()
+                            : "—"}
                         </TableCell>
                         <TableCell className="p-3">
                           <div className="flex gap-2">

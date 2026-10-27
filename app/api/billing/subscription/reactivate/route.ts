@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { subscriptionManager } from "@/lib/billing/subscriptionManager";
 import { handleRouteError } from "@/lib/api/validateId";
+import { requireBillingOperator } from "@/lib/billing/authz";
 
 export async function POST(_req: NextRequest) {
   try {
@@ -9,13 +10,17 @@ export async function POST(_req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    const forbidden = requireBillingOperator(session.user);
+    if (forbidden) return forbidden;
 
     const tenantId = session.user.tenantId;
     const subscription = await subscriptionManager.reactivateSubscription(tenantId);
 
     return NextResponse.json({
       success: true,
-      message: "Subscription successfully reactivated. Automatic renewals have been restored.",
+      message: subscription.autoPay.enabled
+        ? "Subscription successfully reactivated. Razorpay renewals have been restored."
+        : "Subscription successfully reactivated through the paid-through date. Set up AutoPay separately to enable future provider renewals.",
       data: subscription,
     });
   } catch (error: any) {

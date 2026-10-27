@@ -32,7 +32,7 @@ import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
 export const crmSidebarConfig: SidebarSection[] = [
   {
-    title: "CRM",
+    title: "Overview",
     items: [
       {
         title: "Dashboard",
@@ -44,6 +44,11 @@ export const crmSidebarConfig: SidebarSection[] = [
         href: "/crm/analytics",
         icon: BarChart3,
       },
+    ],
+  },
+  {
+    title: "CRM",
+    items: [
       {
         title: "Leads",
         href: "/crm/leads",

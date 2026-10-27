@@ -5,7 +5,7 @@ import { useState, useEffect, Suspense, useMemo, useRef } from "react";
 import { signIn, getProviders } from "next-auth/react";
 
 type OAuthProvider = NonNullable<Awaited<ReturnType<typeof getProviders>>>[string];
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -35,6 +35,7 @@ export function SignInForm() {
 
 function SignInFormContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
   const isSessionExpired = authError === "SessionExpired" || authError === "SessionRequired";
@@ -154,7 +155,7 @@ function SignInFormContent() {
         email: emailValue,
         password: passwordValue,
         tenantId: tenantId || "default",
-        portal: "/auth",
+        portal: pathname === "/auth/master" ? "/auth/master" : "/auth",
         redirect: false,
       });
 

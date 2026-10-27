@@ -1,7 +1,8 @@
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireTenantId, getEffectiveTenantId } from "@/lib/auth/requireTenantId";
+import { invalidateServerCache } from "@/lib/api/serverCache";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import LeaveRequest from "@/models/hr/LeaveRequest";
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
-    const tenantId = (session.user as any).tenantId;
+    const tenantId = getEffectiveTenantId(session);
     await connectDB();
 
     const { searchParams } = new URL(req.url);
@@ -91,7 +92,15 @@ export async function GET(req: NextRequest) {
         .lean(),
     ]);
 
-    return NextResponse.json({ items: leaves, total, page, totalPages: Math.ceil(total / limit), stats });
+    return NextResponse.json({
+      items: leaves,
+      leaves,
+      leaveRequests: leaves,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      stats,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
@@ -106,7 +115,7 @@ export async function POST(req: NextRequest) {
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
-    const tenantId = (session.user as any).tenantId;
+    const tenantId = getEffectiveTenantId(session);
     const body = stripProtectedFields(await req.json());
     await connectDB();
 
@@ -158,6 +167,7 @@ if (!body.employeeId || !body.leaveType || !body.startDate || !body.endDate || !
     });
 
     await leave.save();
+    invalidateServerCache(`hr-summary:${tenantId}`);
 
     return NextResponse.json({ success: true, leave }, { status: 201 });
 

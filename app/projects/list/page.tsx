@@ -18,9 +18,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Loader2, FolderKanban } from "lucide-react";
+import { getTodayLocalDateString } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
-  planning: "Planning", active: "Active", on_hold: "On Hold", completed: "Completed", cancelled: "Cancelled",
+  planning: "Planning", active: "Active", in_progress: "In Progress", on_hold: "On Hold", completed: "Completed", cancelled: "Cancelled",
 };
 const STATUS_COLORS: Record<string, string> = {
   planning: "border-blue-900/50 text-blue-400",
@@ -36,7 +37,14 @@ export default function ProjectsListPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", status: "planning", priority: "Medium", dueDate: "" });
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    status: "planning",
+    priority: "Medium",
+    startDate: getTodayLocalDateString(),
+    dueDate: "",
+  });
 
   // AI-native pre-fill (sweep): open the create dialog with AI-extracted fields.
   useAiPrefill("project", (p) => {
@@ -65,7 +73,14 @@ export default function ProjectsListPage() {
       const data = await res.json();
       if (data.success) {
         toast.success("Project created");
-        setForm({ name: "", description: "", status: "planning", priority: "Medium", dueDate: "" });
+        setForm({
+          name: "",
+          description: "",
+          status: "planning",
+          priority: "Medium",
+          startDate: getTodayLocalDateString(),
+          dueDate: "",
+        });
         setOpen(false);
         fetchProjects();
       } else {
@@ -129,9 +144,15 @@ export default function ProjectsListPage() {
                     </Select>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Due Date</Label>
-                  <Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Start Date</Label>
+                    <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Due Date</Label>
+                    <Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+                  </div>
                 </div>
               </div>
               <DialogFooter>

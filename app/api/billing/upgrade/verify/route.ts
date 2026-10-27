@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { subscriptionManager } from "@/lib/billing/subscriptionManager";
+import { requireBillingOperator } from "@/lib/billing/authz";
 import { handleRouteError } from "@/lib/api/validateId";
 
 export async function POST(req: NextRequest) {
@@ -9,12 +10,18 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    const forbidden = requireBillingOperator(session.user);
+    if (forbidden) return forbidden;
 
     const tenantId = session.user.tenantId;
     const body = await req.json().catch(() => ({}));
     const { paymentId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 
-    if (!paymentId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    if (
+      [paymentId, razorpayOrderId, razorpayPaymentId, razorpaySignature].some(
+        (value) => typeof value !== "string" || value.trim().length === 0
+      )
+    ) {
       return NextResponse.json(
         {
           success: false,

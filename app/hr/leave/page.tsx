@@ -1,5 +1,5 @@
 "use client";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
@@ -170,6 +170,16 @@ export default function LeavePage() {
     setIsModalOpen(true);
   });
 
+  const notifyHrDataChanged = () => {
+    invalidateCache("/api/hr/summary");
+    invalidateCache("/api/hr/leave");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("aup:revalidated", { detail: { url: "/api/hr/leave" } }));
+      window.dispatchEvent(new CustomEvent("aup:revalidated", { detail: { url: "/api/hr/summary" } }));
+    }
+    load();
+  };
+
   const handleSubmit = async () => {
     if (!formData.employeeId || !formData.startDate || !formData.endDate || !formData.reason) {
       toast.error("All fields are required");
@@ -185,7 +195,7 @@ export default function LeavePage() {
       if (res.ok) {
         toast.success("Leave request created");
         setIsModalOpen(false);
-        load();
+        notifyHrDataChanged();
       } else {
         const err = await res.json();
         toast.error(err.error || "Failed to create");
@@ -211,7 +221,7 @@ export default function LeavePage() {
       if (res.ok) {
         toast.success(`Leave ${action}`);
         setIsModalOpen(false);
-        load();
+        notifyHrDataChanged();
       } else {
         const err = await res.json();
         toast.error(err.error || `Failed to ${action}`);
@@ -227,7 +237,7 @@ export default function LeavePage() {
       const res = await cachedFetch(`/api/hr/leave/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Deleted");
-        load();
+        notifyHrDataChanged();
       } else {
         const err = await res.json();
         toast.error(err.error || "Delete failed");

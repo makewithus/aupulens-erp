@@ -117,32 +117,11 @@ export function CRMLeadChannelsChart() {
         }
 
         const barH = (values[i] / yMax) * cH;
-        const bH = 4;
-        const bG = 1.5;
-        const unitH = bH + bG;
-        const totalBricks = Math.max(1, Math.round(barH / unitH));
-
-        for (let b = 0; b < totalBricks; b++) {
-          const by = cB - (b + 1) * unitH + bG;
-          let brickColor = isDark
-            ? isHighlight ? "#FFFFFF" : "#A77DFF"
-            : isHighlight ? "#6E38D9" : "#8C5CE6";
-
-          if (!isHighlight && totalBricks > 6) {
-            const rel = b / totalBricks;
-            if (rel >= 0.72 && rel <= 0.86) {
-              brickColor = isDark ? "#FFFFFF" : "#1E293B";
-            } else if (b % 7 === 4 && totalBricks > 10) {
-              brickColor = isDark ? "#B595FF" : "#6D28D9";
-            }
-          }
-
-          ctx.fillStyle = brickColor;
-          ctx.fillRect(Math.round(x), Math.round(by), Math.max(1, Math.round(barWidth)), Math.round(bH));
-        }
+        const barTopY = cB - barH;
+        ctx.fillStyle = isDark ? "#A77DFF" : "#8C5CE6";
+        ctx.fillRect(Math.round(x), Math.round(barTopY), Math.max(1, Math.round(barWidth)), Math.max(1, Math.round(barH)));
 
         // Numeric value directly on top of each bar so user can read directly
-        const barTopY = cB - totalBricks * unitH;
         ctx.save();
         ctx.font = 'bold 10px "Roboto Mono", monospace';
         ctx.textAlign = "center";

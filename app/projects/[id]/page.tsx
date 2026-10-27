@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Save, Trash2 } from "lucide-react";
+import { toLocalDateString } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
   { value: "planning", label: "Planning" },
@@ -50,7 +51,8 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
             status: data.data.status,
             priority: data.data.priority,
             progress: data.data.progress || 0,
-            dueDate: data.data.dueDate ? data.data.dueDate.slice(0, 10) : "",
+            startDate: data.data.startDate ? toLocalDateString(data.data.startDate) : (data.data.createdAt ? toLocalDateString(data.data.createdAt) : ""),
+            dueDate: data.data.dueDate ? toLocalDateString(data.data.dueDate) : "",
           });
         }
         setLoading(false);
@@ -63,7 +65,12 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
       const res = await fetch(`/api/projects/${params.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, progress: Number(form.progress) }),
+        body: JSON.stringify({
+          ...form,
+          progress: Number(form.progress),
+          startDate: form.startDate ? new Date(form.startDate) : undefined,
+          dueDate: form.dueDate ? new Date(form.dueDate) : undefined,
+        }),
       });
       const data = await res.json();
       if (data.success) toast.success("Saved");
@@ -131,10 +138,14 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label className="text-xs">Progress (%)</Label>
               <Input type="number" min={0} max={100} value={form.progress} onChange={(e) => setForm({ ...form, progress: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Start Date</Label>
+              <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Due Date</Label>

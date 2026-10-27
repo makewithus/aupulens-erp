@@ -1,6 +1,7 @@
 import { handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireTenantId, getEffectiveTenantId } from "@/lib/auth/requireTenantId";
+import { invalidateServerCache } from "@/lib/api/serverCache";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import LeaveRequest from "@/models/hr/LeaveRequest";
@@ -19,7 +20,7 @@ export async function PATCH(
     const { id } = await params;
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
-    const tenantId = (session.user as any).tenantId;
+    const tenantId = getEffectiveTenantId(session);
     const body = stripProtectedFields(await req.json());
     await connectDB();
 
@@ -75,6 +76,7 @@ const leave = await LeaveRequest.findOne({ _id: id, tenantId });
     }
 
     await leave.save();
+    invalidateServerCache(`hr-summary:${tenantId}`);
 
     return NextResponse.json({ success: true, leave });
 
@@ -96,7 +98,7 @@ export async function DELETE(
     const { id } = await params;
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
-    const tenantId = (session.user as any).tenantId;
+    const tenantId = getEffectiveTenantId(session);
     await connectDB();
 
 
@@ -108,6 +110,7 @@ const leave = await LeaveRequest.findOneAndDelete({ _id: id, tenantId });
       );
     }
 
+    invalidateServerCache(`hr-summary:${tenantId}`);
     return NextResponse.json({ success: true });
 
   } catch (error: any) {

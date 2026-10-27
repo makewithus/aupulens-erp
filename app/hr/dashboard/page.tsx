@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData, invalidateCache } from "@/lib/api/cachedFetch";
 import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,7 @@ import {
   CalendarCheck,
   BarChart3,
   RefreshCw,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
@@ -47,10 +48,11 @@ export default function HRDashboardPage() {
   const [pendingLeavesList, setPendingLeavesList] = useState<any[]>(() => {
     if (typeof window !== "undefined") {
       const ld = getInstantCachedData<any>("/api/hr/leave?status=pending&limit=5", { allowPreHydration: true });
-      return ld?.leaveRequests || ld?.leaves || [];
+      return ld?.items || ld?.leaveRequests || ld?.leaves || [];
     }
     return [];
   });
+  const [processingLeaveId, setProcessingLeaveId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return !getInstantCachedData<any>("/api/hr/summary", { allowPreHydration: true });
@@ -67,7 +69,11 @@ export default function HRDashboardPage() {
     }
   }, []);
 
-  const fetchHRData = useCallback(async (fresh: boolean = false) => {
+  const isFetchingRef = useRef(false);
+
+  const fetchHRData = useCallback(async (fresh: boolean = false, isUserInitiated: boolean = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       if (fresh) setIsRefreshing(true);
       const [sumRes, leaveRes] = await Promise.all([
@@ -78,34 +84,44 @@ export default function HRDashboardPage() {
       if (sumRes.ok) {
         const d = await sumRes.json();
         setSummaryData(d);
-        if (fresh) toast.success("HR dashboard updated");
+        if (isUserInitiated) toast.success("HR dashboard updated");
       }
       if (leaveRes.ok) {
         const ld = await leaveRes.json();
-        setPendingLeavesList(ld.leaveRequests || ld.leaves || []);
+        setPendingLeavesList(ld.items || ld.leaveRequests || ld.leaves || []);
       }
     } catch (e) {
       console.error("Failed to fetch HR dashboard data", e);
-      if (fresh) toast.error("Failed to sync live HR data");
+      if (isUserInitiated) toast.error("Failed to sync live HR data");
     } finally {
+      isFetchingRef.current = false;
       if (fresh) setIsRefreshing(false);
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchHRData(false);
+    fetchHRData(false, false);
   }, [fetchHRData]);
 
   useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
     const handleRevalidate = (e: any) => {
-      if (e?.detail?.url?.includes("/api/hr")) {
-        fetchHRData(true);
+      const url = e?.detail?.url;
+      if (!url || typeof url !== "string" || url.includes("fresh=true")) return;
+      if (url.includes("/api/hr")) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          fetchHRData(false, false);
+        }, 1500);
       }
     };
     if (typeof window !== "undefined") {
       window.addEventListener("aup:revalidated", handleRevalidate);
-      return () => window.removeEventListener("aup:revalidated", handleRevalidate);
+      return () => {
+        if (timer) clearTimeout(timer);
+        window.removeEventListener("aup:revalidated", handleRevalidate);
+      };
     }
   }, [fetchHRData]);
 
@@ -115,7 +131,8 @@ export default function HRDashboardPage() {
   const presentToday = summaryData?.todayAttendance?.present || 0;
   const onLeaveToday = summaryData?.todayAttendance?.on_leave || 0;
   const todayAttendanceRate = activeEmployees > 0 ? Number(((presentToday / activeEmployees) * 100).toFixed(1)) : 0;
-  const pendingLeavesCount = summaryData?.stats?.pendingLeaves || 0;
+  const pendingLeavesCount = summaryData?.stats?.pendingLeaves ?? summaryData?.leaveStats?.pending ?? 0;
+  const totalLeavesCount = summaryData?.stats?.totalLeaves ?? summaryData?.leaveStats?.total ?? 0;
   const monthlyGrossPayroll = summaryData?.payrollSummary?.totalGross || 0;
   const monthlyNetPayroll = summaryData?.payrollSummary?.totalNet || 0;
   const totalDepartments = summaryData?.stats?.totalDepartments || 0;
@@ -128,11 +145,92 @@ export default function HRDashboardPage() {
     presentToday,
     onLeaveToday,
     pendingLeavesCount,
+    totalLeavesCount,
     monthlyGrossPayroll,
     monthlyNetPayroll,
     attritionRate: 0,
     totalDepartments,
     openJobRequisitions: 0,
+  };
+
+  const handleApproveLeave = async (id: string) => {
+    try {
+      setProcessingLeaveId(id);
+      const res = await cachedFetch(`/api/hr/leave/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "approved" }),
+      });
+      if (res.ok) {
+        toast.success("Leave request approved");
+        setPendingLeavesList((prev) => prev.filter((r) => (r._id || r.id) !== id));
+        setSummaryData((prev: any) => {
+          if (!prev) return prev;
+          const currentPending = prev.stats?.pendingLeaves ?? 0;
+          return {
+            ...prev,
+            stats: {
+              ...prev.stats,
+              pendingLeaves: Math.max(0, currentPending - 1),
+              approvedLeaves: (prev.stats?.approvedLeaves ?? 0) + 1,
+            },
+          };
+        });
+        invalidateCache("/api/hr/summary");
+        invalidateCache("/api/hr/leave");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("aup:revalidated", { detail: { url: "/api/hr/leave" } }));
+          window.dispatchEvent(new CustomEvent("aup:revalidated", { detail: { url: "/api/hr/summary" } }));
+        }
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Failed to approve leave request");
+      }
+    } catch {
+      toast.error("Failed to approve leave request");
+    } finally {
+      setProcessingLeaveId(null);
+    }
+  };
+
+  const handleRejectLeave = async (id: string) => {
+    try {
+      setProcessingLeaveId(id);
+      const res = await cachedFetch(`/api/hr/leave/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "rejected", rejectionReason: "Rejected from dashboard queue" }),
+      });
+      if (res.ok) {
+        toast.success("Leave request rejected");
+        setPendingLeavesList((prev) => prev.filter((r) => (r._id || r.id) !== id));
+        setSummaryData((prev: any) => {
+          if (!prev) return prev;
+          const currentPending = prev.stats?.pendingLeaves ?? 0;
+          return {
+            ...prev,
+            stats: {
+              ...prev.stats,
+              pendingLeaves: Math.max(0, currentPending - 1),
+              rejectedLeaves: (prev.stats?.rejectedLeaves ?? 0) + 1,
+            },
+          };
+        });
+        invalidateCache("/api/hr/summary");
+        invalidateCache("/api/hr/leave");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("aup:revalidated", { detail: { url: "/api/hr/leave" } }));
+          window.dispatchEvent(new CustomEvent("aup:revalidated", { detail: { url: "/api/hr/summary" } }));
+        }
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Failed to reject leave request");
+      }
+    } catch {
+      toast.error("Failed to reject leave request");
+    } finally {
+      setProcessingLeaveId(null);
+    }
   };
 
   const departmentDistribution = useMemo(() => {
@@ -161,15 +259,30 @@ export default function HRDashboardPage() {
 
   const pendingLeaveRequests = useMemo(() => {
     if (!pendingLeavesList.length) return [];
-    return pendingLeavesList.map((req: any) => ({
-      id: req._id || req.id,
-      name: req.employee ? `${req.employee.firstName || ""} ${req.employee.lastName || ""}`.trim() : (req.employeeName || "Employee"),
-      department: req.employee?.department?.name || req.department || "Staff",
-      type: req.leaveType || req.type || "Leave",
-      period: `${req.startDate ? new Date(req.startDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""} - ${req.endDate ? new Date(req.endDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""}`,
-      reason: req.reason || "Personal",
-      appliedOn: req.createdAt ? new Date(req.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Recent",
-    }));
+    return pendingLeavesList.map((req: any) => {
+      const emp = req.employeeId || req.employee;
+      const empName = emp
+        ? `${emp.firstName || ""} ${emp.lastName || ""}`.trim()
+        : (req.employeeName || "Employee");
+      const empCode = emp?.employeeCode || "";
+      const deptName =
+        emp?.departmentId?.name ||
+        emp?.department?.name ||
+        req.department ||
+        "Staff";
+
+      return {
+        id: req._id || req.id,
+        name: empName,
+        code: empCode,
+        department: deptName,
+        type: req.leaveType || req.type || "Leave",
+        days: req.totalDays || req.days || 1,
+        period: `${req.startDate ? new Date(req.startDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""} - ${req.endDate ? new Date(req.endDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""}`,
+        reason: req.reason || "Personal",
+        appliedOn: req.createdAt ? new Date(req.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Recent",
+      };
+    });
   }, [pendingLeavesList]);
 
   const formatCurrency = (val: number) => {
@@ -203,7 +316,7 @@ export default function HRDashboardPage() {
 
         <div className="flex items-center gap-2">
           <Button
-            onClick={() => fetchHRData(true)}
+            onClick={() => fetchHRData(true, true)}
             disabled={isRefreshing}
             variant="outline"
             size="sm"
@@ -364,7 +477,7 @@ export default function HRDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 4: Low Attrition & Approvals */}
+        {/* Card 4: Pending Leave Requests */}
         <Card
           className={cn(
             "border border-border/60 shadow-sm",
@@ -373,9 +486,9 @@ export default function HRDashboardPage() {
         >
           <CardContent className="p-5">
             <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
-              <span>Annualized Attrition Rate</span>
+              <span>Pending Leave Requests</span>
               <span className="p-1.5 bg-yellow-500/10 text-yellow-400 rounded border border-yellow-500/20">
-                <ShieldCheck className="w-4 h-4" />
+                <Clock className="w-4 h-4" />
               </span>
             </div>
             {isLoading ? (
@@ -385,11 +498,20 @@ export default function HRDashboardPage() {
               </div>
             ) : (
               <>
-                <div className="text-2xl font-black tracking-tight text-foreground">
-                  {hrStats.attritionRate}%
+                <div className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+                  <span>{hrStats.pendingLeavesCount}</span>
+                  <span className="text-xs font-normal text-muted-foreground">pending approvals</span>
                 </div>
-                <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-500 font-semibold">
-                  <span>{hrStats.pendingLeavesCount} leave approvals pending</span>
+                <div className="flex items-center justify-between gap-1.5 mt-2 text-[11px]">
+                  <span className={cn(
+                    "font-semibold",
+                    hrStats.pendingLeavesCount > 0 ? "text-yellow-500" : "text-emerald-400"
+                  )}>
+                    {hrStats.pendingLeavesCount > 0 ? "Requires manager sign-off" : "All approvals cleared"}
+                  </span>
+                  <span className="text-muted-foreground font-mono">
+                    {hrStats.attritionRate}% attrition
+                  </span>
                 </div>
               </>
             )}
@@ -570,7 +692,7 @@ export default function HRDashboardPage() {
                 size="sm"
                 className="text-xs font-mono h-8 border-border/60 self-start sm:self-auto"
               >
-                <Link href="/hr/leave">All Leaves ({hrStats.pendingLeavesCount})</Link>
+                <Link href="/hr/leave">Manage Leaves ({hrStats.pendingLeavesCount} Pending)</Link>
               </Button>
             </CardHeader>
             <CardContent className="p-0">
@@ -608,26 +730,59 @@ export default function HRDashboardPage() {
                       </tr>
                     ) : (
                       pendingLeaveRequests.map((req, i) => (
-                        <tr key={i} className="hover:bg-muted/10 transition-colors">
+                        <tr key={req.id || i} className="hover:bg-muted/10 transition-colors">
                           <td className="p-3 pl-5">
                             <div className="font-bold text-foreground">{req.name}</div>
-                            <div className="text-[10px] text-muted-foreground">{req.department}</div>
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                              {req.code && <span className="text-primary font-semibold">{req.code}</span>}
+                              {req.code && <span>•</span>}
+                              <span>{req.department}</span>
+                            </div>
                           </td>
-                          <td className="p-3 text-muted-foreground">{req.type}</td>
+                          <td className="p-3">
+                            <Badge variant="outline" className="text-[10px] capitalize font-mono border-yellow-500/30 text-yellow-500 bg-yellow-500/10">
+                              {req.type}
+                            </Badge>
+                          </td>
                           <td className="p-3">
                             <div className="font-semibold text-foreground">{req.period}</div>
-                            <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                              {req.reason}
+                            <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                              {req.days} {req.days === 1 ? "day" : "days"} • {req.reason}
                             </div>
                           </td>
                           <td className="p-3 pr-5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <Button
                                 size="sm"
-                                className="h-7 text-[10px] font-mono bg-emerald-600 hover:bg-emerald-700 text-white"
-                                asChild
+                                disabled={processingLeaveId === req.id}
+                                onClick={() => handleApproveLeave(req.id)}
+                                className="h-7 px-2.5 text-[10px] font-mono bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                title="Approve Leave Request"
                               >
-                                <Link href="/hr/leave">Approve</Link>
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={processingLeaveId === req.id}
+                                onClick={() => handleRejectLeave(req.id)}
+                                className="h-7 px-2.5 text-[10px] font-mono cursor-pointer"
+                                title="Reject Leave Request"
+                              >
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Reject
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                asChild
+                                title="View Details in Leave Module"
+                              >
+                                <Link href="/hr/leave">
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </Link>
                               </Button>
                             </div>
                           </td>

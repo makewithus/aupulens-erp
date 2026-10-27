@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus } from "lucide-react";
+import { Plus, RotateCcw, SearchX } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
@@ -231,10 +231,38 @@ export default function FinanceReturnsPage() {
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <p className="text-muted-foreground font-mono text-xs">
-                  No returns found
+              <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-12 text-center sm:min-h-[340px]">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-border/60 bg-muted/30">
+                  {debouncedQuery || dateFrom || dateTo ? (
+                    <SearchX className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <RotateCcw className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <h4 className="text-base font-medium text-foreground">
+                  {debouncedQuery || dateFrom || dateTo ? "No matching returns" : "No returns yet"}
+                </h4>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  {debouncedQuery || dateFrom || dateTo
+                    ? "Try changing the search or date range to find a return."
+                    : "Create a return to track returned goods and their processing status."}
                 </p>
+                {debouncedQuery || dateFrom || dateTo ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => { setQuery(""); setDateFrom(""); setDateTo(""); }}
+                    className="mt-5 rounded-none"
+                  >
+                    Clear filters
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleCreate}
+                    className="mt-5 rounded-none bg-tertiary text-primary border border-secondary hover:bg-muted"
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> New Return
+                  </Button>
+                )}
               </div>
             ) : (
               <>

@@ -6,7 +6,6 @@ import connectDB from "@/lib/db";
 import ManufacturingOrder from "@/models/manufacturing/ManufacturingOrder";
 import BillOfMaterial from "@/models/manufacturing/BillOfMaterial";
 import Shipment from "@/models/manufacturing/Shipment";
-import Product from "@/models/inventory/Product";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
@@ -21,7 +20,12 @@ export async function GET(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
 
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
-    const cacheKey = `mfg-analytics-live:${tenantId}`;
+    const rangeKey = req.nextUrl.searchParams.get("range") || "30d";
+    const rangeDays = rangeKey === "7d" ? 7 : rangeKey === "90d" ? 90 : 30;
+    const rangeStart = new Date();
+    rangeStart.setDate(rangeStart.getDate() - (rangeDays - 1));
+    rangeStart.setHours(0, 0, 0, 0);
+    const cacheKey = `mfg-analytics-live:${tenantId}:${rangeKey}`;
 
     if (!isFresh) {
       const cached = getCachedData<any>(cacheKey);
@@ -36,30 +40,35 @@ export async function GET(req: NextRequest) {
     const [
       ordersList,
       totalBomsCount,
-      totalShipmentsCount,
+      shipmentsList,
       shipmentModesRaw,
-      productsCount,
     ] = await Promise.all([
-      ManufacturingOrder.find({ tenantId })
+      ManufacturingOrder.find({
+        tenantId,
+        $or: [
+          { "header.scheduledDate": { $gte: rangeStart } },
+          { "header.scheduledDate": { $exists: false }, createdAt: { $gte: rangeStart } },
+          { "header.scheduledDate": null, createdAt: { $gte: rangeStart } },
+        ],
+      })
         .populate("header.productId", "header.name header.sku")
         .sort({ updatedAt: -1 })
         .lean(),
-      BillOfMaterial.countDocuments({ tenantId }).catch(() => 0),
-      Shipment.countDocuments({ tenantId }).catch(() => 0),
+      BillOfMaterial.countDocuments({ tenantId }),
+      Shipment.find({ tenantId, createdAt: { $gte: rangeStart } })
+        .select("shipmentType actualDelivery estimatedDelivery createdAt")
+        .lean(),
       Shipment.aggregate([
-        { $match: { tenantId } },
+        { $match: { tenantId, createdAt: { $gte: rangeStart } } },
         { $group: { _id: "$shipmentType", count: { $sum: 1 }, totalVal: { $sum: "$totalValue" } } },
-      ]).catch(() => []),
-      Product.countDocuments({ tenantId }).catch(() => 0),
+      ]),
     ]);
 
     // 2. Compute Live Operational Metrics
     let finishedQty = 0;
     let inProductionQty = 0;
-    let qcPendingQty = 0;
-    let reworkQty = 0;
-    let totalScheduledQty = 0;
-    let totalDefects = 0;
+    let qcPassedQty = 0;
+    let qcFailedQty = 0;
 
     const statusCounts: Record<string, number> = {
       finished: 0,
@@ -75,8 +84,7 @@ export async function GET(req: NextRequest) {
     const dailyOutputMap = new Map<string, { actual: number; target: number; scrap: number }>();
 
     for (const order of ordersList) {
-      const qty = order.header?.quantity || 1;
-      totalScheduledQty += qty;
+      const qty = Number(order.header?.quantity) || 0;
       const status = String(order.productionStatus || order.status || "demand_forecast");
       statusCounts[status] = (statusCounts[status] || 0) + 1;
 
@@ -84,16 +92,13 @@ export async function GET(req: NextRequest) {
         finishedQty += qty;
       } else if (["in_production", "material_issued", "material_reserved", "production_order"].includes(status)) {
         inProductionQty += qty;
-      } else if (status === "qc_pending") {
-        qcPendingQty += qty;
-      } else if (["rework", "qc_failed"].includes(status)) {
-        reworkQty += qty;
-        totalDefects += qty;
       }
+      if (order.qcDetails?.result === "passed") qcPassedQty += qty;
+      if (order.qcDetails?.result === "failed") qcFailedQty += qty;
 
       // Group into dynamic daily execution buckets from actual units
-      const orderDate = new Date(order.header?.scheduledDate || order.updatedAt || order.createdAt || Date.now());
-      const dayKey = orderDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const orderDate = new Date(order.header?.scheduledDate || order.createdAt);
+      const dayKey = orderDate.toISOString().slice(0, 10);
       const currentDay = dailyOutputMap.get(dayKey) || { actual: 0, target: 0, scrap: 0 };
       currentDay.actual += (status === "finished" || status === "qc_passed") ? qty : 0;
       currentDay.target += qty;
@@ -104,33 +109,28 @@ export async function GET(req: NextRequest) {
     // Authoritative totals from database
     const finalTotalOutput = finishedQty;
     const finalInProduction = inProductionQty;
-    const totalInspectionUnits = finishedQty + qcPendingQty + reworkQty;
+    const totalInspectionUnits = qcPassedQty + qcFailedQty;
     const firstPassYield = totalInspectionUnits > 0
-      ? Number(((finishedQty / totalInspectionUnits) * 100).toFixed(1))
-      : (ordersList.length === 0 ? 0 : 100);
+      ? Number(((qcPassedQty / totalInspectionUnits) * 100).toFixed(1))
+      : null;
 
-    // Dynamic OEE Calculation based on real order throughput and QC yield
-    const availabilityRate = totalScheduledQty > 0
-      ? Number(Math.min(100, Math.max(0, ((inProductionQty + finishedQty) / totalScheduledQty) * 100)).toFixed(1))
-      : (ordersList.length === 0 ? 0 : 100);
-    const performanceRate = (finishedQty + inProductionQty) > 0
-      ? Number(Math.min(100, Math.max(0, (finishedQty / (finishedQty + inProductionQty)) * 100)).toFixed(1))
-      : (ordersList.length === 0 ? 0 : 100);
-    const qualityRate = totalInspectionUnits > 0
-      ? Number(Math.min(100, Math.max(0, (finishedQty / totalInspectionUnits) * 100)).toFixed(1))
-      : (ordersList.length === 0 ? 0 : 100);
-    const overallOee = Number(((availabilityRate * performanceRate * qualityRate) / 10000).toFixed(1));
+    // OEE requires machine runtime and ideal cycle-time readings which these
+    // production records do not contain.
+    const availabilityRate = null;
+    const performanceRate = null;
+    const qualityRate = firstPassYield;
+    const overallOee = null;
 
     // Format Daily Output Array directly from live orders
-    let dailyOutput = Array.from(dailyOutputMap.entries()).map(([day, val]) => ({
+    const dailyOutput = Array.from(dailyOutputMap.entries()).map(([day, val]) => ({
       day,
       actual: val.actual,
-      target: Math.max(val.target, val.actual),
+      target: val.target,
       scrap: val.scrap,
-    }));
+    })).sort((a, b) => a.day.localeCompare(b.day));
 
     // 3. Dynamic QC Yield Breakdown from Real Order Statuses
-    const passedOrders = (statusCounts["finished"] || 0) + (statusCounts["qc_passed"] || 0);
+    const passedOrders = statusCounts["qc_passed"] || 0;
     const pendingOrders = statusCounts["qc_pending"] || 0;
     const reworkOrders = (statusCounts["rework"] || 0) + (statusCounts["qc_failed"] || 0);
     const totalQcOrders = passedOrders + pendingOrders + reworkOrders;
@@ -164,93 +164,15 @@ export async function GET(req: NextRequest) {
     }
 
     // 4. Dynamic Work Center Utilization Mapped to Active Orders
-    const totalOrdersCount = Math.max(ordersList.length, 1);
-    const workCenters = [
-      {
-        name: "Line 1: SMT Electronics Assembly",
-        capacity: 100,
-        load: Math.min(100, Math.round((Math.max(1, inProductionQty) / Math.max(totalScheduledQty, 1)) * 100)),
-        status: inProductionQty > 0 ? "In Production" : "Available",
-        activeJobs: Math.max(1, inProductionQty),
-      },
-      {
-        name: "Line 2: CNC Machining & Fabrication",
-        capacity: 100,
-        load: Math.min(100, Math.round(((statusCounts["production_order"] || 1) / totalOrdersCount) * 100)),
-        status: statusCounts["production_order"] ? "Running Jobs" : "Available",
-        activeJobs: statusCounts["production_order"] || 1,
-      },
-      {
-        name: "Line 3: Quality Control & Automated Testing",
-        capacity: 100,
-        load: Math.min(100, Math.round(((statusCounts["qc_pending"] || 1) / totalOrdersCount) * 100)),
-        status: statusCounts["qc_pending"] ? "Inspecting" : "Standby",
-        activeJobs: Math.max(1, statusCounts["qc_pending"] || 0),
-      },
-      {
-        name: "Line 4: Finished Goods Packaging & Dispatch",
-        capacity: 100,
-        load: Math.min(100, Math.round(((passedOrders || 1) / totalOrdersCount) * 100)),
-        status: passedOrders > 0 ? "Dispatch Ready" : "Available",
-        activeJobs: Math.max(1, passedOrders),
-      },
-      {
-        name: "Line 5: Material Staging & Buffer",
-        capacity: 100,
-        load: Math.min(100, Math.round(((statusCounts["demand_forecast"] || 1) / totalOrdersCount) * 100)),
-        status: "Staged",
-        activeJobs: Math.max(1, statusCounts["demand_forecast"] || 0),
-      },
-    ];
+    const workCenters: any[] = [];
 
     // 5. Dynamic BOM Material Variance from Live BillOfMaterial & Product Models
-    const liveBoms = await BillOfMaterial.find({ tenantId })
-      .populate("header.productId", "header.name header.sku")
-      .populate("components_tab.productId", "header.name header.sku")
-      .limit(6)
-      .lean();
-
-    let bomMaterialVariance: any[] = [];
-    if (liveBoms.length > 0) {
-      bomMaterialVariance = liveBoms.map((bom: any, idx: number) => {
-        const prodName = bom.header?.productId?.header?.name || bom.header?.reference || `Assembly BOM ${idx + 1}`;
-        const plannedQty = (bom.header?.quantity || 1) * 100;
-        const actualQty = plannedQty + ((idx % 2 === 0 ? 1 : -1) * (idx + 1) * 3);
-        const varianceVal = Number((((actualQty - plannedQty) / plannedQty) * 100).toFixed(1));
-        const varianceStr = varianceVal >= 0 ? `+${varianceVal}%` : `${varianceVal}%`;
-        const statusStr = Math.abs(varianceVal) < 2 ? "Optimal" : (varianceVal > 0 ? "Acceptable" : "Efficient");
-
-        return {
-          item: prodName,
-          planned: plannedQty,
-          actual: actualQty,
-          unit: "pcs",
-          variance: varianceStr,
-          status: statusStr,
-        };
-      });
-    }
-
-    if (bomMaterialVariance.length === 0) {
-      // Query top active products from database if BOM collection is nascent
-      const topProducts = await Product.find({ tenantId })
-        .select("header.name header.sku")
-        .limit(5)
-        .lean();
-
-      bomMaterialVariance = topProducts.map((p: any, idx: number) => ({
-        item: p.header?.name || `Product Component ${idx + 1}`,
-        planned: 1000 + (idx * 500),
-        actual: 1000 + (idx * 500) + ((idx % 2 === 0 ? 1 : -1) * 20),
-        unit: "units",
-        variance: idx % 2 === 0 ? "+1.6%" : "-0.8%",
-        status: "Optimal",
-      }));
-    }
+    // BOM definitions contain planned quantities, but there is no material
+    // issue ledger here to calculate actual consumption variance.
+    const bomMaterialVariance: any[] = [];
 
     // 6. Dynamic Freight Logistics Breakdown
-    const freightLogistics = shipmentModesRaw.length > 0
-      ? shipmentModesRaw.map((s: any) => {
+    const freightLogistics = shipmentModesRaw.map((s: any) => {
           const modeLabels: Record<string, { name: string; color: string }> = {
             air: { name: "Air Freight", color: "#8b5cf6" },
             sea: { name: "Ocean Container", color: "#06b6d4" },
@@ -258,14 +180,21 @@ export async function GET(req: NextRequest) {
             rail: { name: "Express Rail", color: "#f59e0b" },
           };
           const info = modeLabels[s._id] || { name: String(s._id).toUpperCase(), color: "#3b82f6" };
-          const pct = Math.round((s.count / Math.max(totalShipmentsCount, 1)) * 100);
+          const pct = shipmentsList.length > 0 ? Math.round((s.count / shipmentsList.length) * 100) : 0;
           return { mode: info.name, shipments: s.count, percentage: pct, color: info.color };
-        })
-      : [
-          { mode: "Road Freight", shipments: Math.max(totalOrdersCount, 12), percentage: 65, color: "#3b82f6" },
-          { mode: "Express Air Courier", shipments: Math.max(Math.round(totalOrdersCount * 0.4), 4), percentage: 25, color: "#8b5cf6" },
-          { mode: "Multi-Modal Intermodal", shipments: 2, percentage: 10, color: "#06b6d4" },
-        ];
+      });
+
+    const comparableShipments = shipmentsList.filter((shipment: any) => shipment.actualDelivery && shipment.estimatedDelivery);
+    const onTimeDispatchRate = comparableShipments.length > 0
+      ? Number((comparableShipments.filter((shipment: any) => new Date(shipment.actualDelivery).getTime() <= new Date(shipment.estimatedDelivery).getTime()).length / comparableShipments.length * 100).toFixed(1))
+      : null;
+
+    const shipmentsByMonth = new Map<string, number>();
+    for (const shipment of shipmentsList as any[]) {
+      const date = new Date(shipment.createdAt);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      shipmentsByMonth.set(key, (shipmentsByMonth.get(key) || 0) + 1);
+    }
 
     const responsePayload = {
       kpis: {
@@ -275,12 +204,16 @@ export async function GET(req: NextRequest) {
         qualityRate,
         totalProductionOutput: finalTotalOutput,
         inProductionUnits: finalInProduction,
-        onTimeDispatchRate: 98.2,
+        onTimeDispatchRate,
         qcFirstPassYield: firstPassYield,
-        totalBoms: Math.max(totalBomsCount, liveBoms.length),
-        totalShipments: Math.max(totalShipmentsCount, ordersList.length),
+        totalBoms: totalBomsCount,
+        totalShipments: shipmentsList.length,
       },
       dailyOutput,
+      shipmentsData: Array.from(shipmentsByMonth, ([key, count]) => {
+        const [year, month] = key.split("-").map(Number);
+        return { _id: { year, month }, count };
+      }),
       qcYieldDistribution,
       workCenters,
       bomMaterialVariance,

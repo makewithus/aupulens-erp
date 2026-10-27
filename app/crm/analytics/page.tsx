@@ -27,7 +27,6 @@ import {
   Calendar,
   Layers,
   Filter,
-  CheckCircle2,
   Clock,
   Briefcase,
   ShieldCheck,
@@ -81,21 +80,25 @@ export default function CrmAnalyticsPage() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const loadData = useCallback(async (fresh: boolean = false) => {
     try {
+      setLoadError(false);
+      setIsLoading(true);
       if (fresh) setIsRefreshing(true);
       const url = `/api/crm/analytics?range=${timeRange}${fresh ? "&fresh=true" : ""}`;
       const res = await cachedFetch(url, {
         cache: fresh ? "no-store" : "default",
       });
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-        if (fresh) toast.success("Live CRM database synchronized");
-      }
+      if (!res.ok) throw new Error("CRM analytics request failed");
+      const json = await res.json();
+      setData(json);
+      setLoadError(false);
+      if (fresh) toast.success("Live CRM database synchronized");
     } catch (e) {
       console.error("Failed to fetch fresh CRM analytics:", e);
+      setLoadError(true);
       if (fresh) toast.error("Failed to sync live CRM data");
     } finally {
       setIsLoading(false);
@@ -125,7 +128,7 @@ export default function CrmAnalyticsPage() {
     wonDeals: 0,
     lostDeals: 0,
     winRate: 0,
-    avgSalesCycleDays: 0,
+    avgSalesCycleDays: null,
     avgDealSize: 0,
     projectedArr: 0,
     totalAccounts: 0,
@@ -137,8 +140,8 @@ export default function CrmAnalyticsPage() {
   const stageAgingDays = data?.stageAgingDays || [];
   const repLeaderboard = data?.repLeaderboard || [];
   const churnRetention = data?.churnRetention || {
-    netRevenueRetention: 0,
-    grossRenewalRate: 0,
+    netRevenueRetention: null,
+    grossRenewalRate: null,
     atRiskRevenue: 0,
     healthyAccounts: 0,
     warningAccounts: 0,
@@ -152,7 +155,6 @@ export default function CrmAnalyticsPage() {
       name: v.month,
       "New Pipeline": Math.round(v.newPipeline / 100000), // in Lakhs
       "Closed Won": Math.round(v.closedWon / 100000),
-      Target: Math.round(v.target / 100000),
     }));
   }, [monthlyVelocity]);
 
@@ -161,7 +163,6 @@ export default function CrmAnalyticsPage() {
     return stageAgingDays.map((s: any) => ({
       name: s.stage,
       "Actual Days": s.days,
-      "Benchmark Days": s.target,
     }));
   }, [stageAgingDays]);
 
@@ -170,8 +171,7 @@ export default function CrmAnalyticsPage() {
     const diffs = stageAgingDays.map((s: any) => ({
       stage: s.stage,
       days: s.days || 0,
-      target: s.target || 0,
-      delta: (s.days || 0) - (s.target || 0),
+      delta: s.days || 0,
     }));
     diffs.sort((a: any, b: any) => b.delta - a.delta);
     return diffs[0];
@@ -186,7 +186,7 @@ export default function CrmAnalyticsPage() {
       ["Win Rate (%)", `${summary.winRate}%`],
       ["Avg Sales Cycle (Days)", summary.avgSalesCycleDays],
       ["Projected ARR", formatCurrency(summary.projectedArr)],
-      ["Net Revenue Retention (%)", `${churnRetention.netRevenueRetention}%`],
+      ["Net Revenue Retention (%)", churnRetention.netRevenueRetention == null ? "Unavailable" : `${churnRetention.netRevenueRetention}%`],
       ["At-Risk Value", formatCurrency(churnRetention.atRiskRevenue)],
     ];
     const csvContent = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
@@ -205,6 +205,15 @@ export default function CrmAnalyticsPage() {
     return <AnalyticsPageSkeleton />;
   }
 
+  if (loadError && !data) {
+    return (
+      <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center">
+        <p className="text-sm text-muted-foreground">CRM analytics could not be loaded. No figures are available until the data request succeeds.</p>
+        <Button variant="outline" onClick={() => void loadData(true)}>Retry</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-6 min-w-0 max-w-full pb-10 font-sans">
       {/* Page Header */}
@@ -215,14 +224,14 @@ export default function CrmAnalyticsPage() {
               <Sparkles className="w-3 h-3" /> CRM Visual Telemetry
             </span>
             <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-md">
-              NRR {churnRetention.netRevenueRetention}%
+              NRR {churnRetention.netRevenueRetention == null ? "N/A" : `${churnRetention.netRevenueRetention}%`}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-foreground break-words leading-tight">
             CRM Analytics & Pipeline Visualizations
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground max-w-3xl leading-relaxed">
-            Multi-dimensional deal conversion funnels, velocity telemetry, lead attribution, and revenue predictability.
+            Current pipeline KPIs with lead, funnel, and velocity charts for the selected period.
           </p>
         </div>
 
@@ -294,9 +303,9 @@ export default function CrmAnalyticsPage() {
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all min-w-0">
           <StatCard
             title="Sales Cycle Speed"
-            value={`${summary.avgSalesCycleDays} Days`}
+            value={summary.avgSalesCycleDays == null ? "—" : `${summary.avgSalesCycleDays} Days`}
             visual={<InactiveOrbit className="opacity-15" />}
-            subtitle={`${Math.abs(30 - (summary.avgSalesCycleDays || 0))} days ${(summary.avgSalesCycleDays || 0) <= 30 ? "faster" : "slower"} than 30d SLA`}
+            subtitle={summary.avgSalesCycleDays == null ? "Closed stage history not recorded" : "Based on closed opportunity history"}
           />
         </div>
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all min-w-0">
@@ -310,9 +319,9 @@ export default function CrmAnalyticsPage() {
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all min-w-0">
           <StatCard
             title="Net Retention (NRR)"
-            value={`${churnRetention.netRevenueRetention}%`}
+            value={churnRetention.netRevenueRetention == null ? "N/A" : `${churnRetention.netRevenueRetention}%`}
             visual={<ActivePulse className="opacity-15" />}
-            subtitle="Expansion outpacing churn"
+            subtitle="Requires historical recurring revenue records"
           />
         </div>
       </div>
@@ -372,11 +381,6 @@ export default function CrmAnalyticsPage() {
                         <span className="font-bold text-foreground text-xs sm:text-sm tabular-nums">
                           {item.count.toLocaleString("en-IN")}
                         </span>
-                        {idx > 0 && (
-                          <span className="text-[10px] text-red-400 bg-red-500/10 px-1 py-0.5 rounded">
-                            -{item.dropRate}
-                          </span>
-                        )}
                       </div>
                     </div>
                     <div className="w-full h-2.5 bg-muted/30 rounded-full overflow-hidden p-0.5">
@@ -402,7 +406,7 @@ export default function CrmAnalyticsPage() {
                   Monthly Pipeline Velocity & Closed Won (in ₹ Lakhs)
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Comparison of new pipeline added vs booked revenue against target.
+                  New pipeline and closed won values by opportunity creation month.
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-[10px] text-blue-400 bg-blue-500/10 border-blue-500/20 shrink-0 self-start sm:self-auto">
@@ -463,7 +467,7 @@ export default function CrmAnalyticsPage() {
                   <CanvasPieChart
                     data={leadSources.map((s: any) => ({
                       name: s.name,
-                      value: s.value,
+                      value: s.count,
                       color: s.color,
                     }))}
                     showLegend={false}
@@ -508,9 +512,6 @@ export default function CrmAnalyticsPage() {
                 <span className="flex items-center gap-1.5 text-purple-400">
                   <span className="w-2.5 h-2.5 rounded-xs bg-[#8b5cf6]" /> Actual
                 </span>
-                <span className="flex items-center gap-1.5 text-slate-400">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-[#64748b]" /> Target
-                </span>
               </div>
             </div>
           </CardHeader>
@@ -526,23 +527,20 @@ export default function CrmAnalyticsPage() {
                   <CanvasBarChart
                     data={stageAgingChartData}
                     xAxisKey="name"
-                    series={[
-                      { key: "Actual Days", color: "#8b5cf6", name: "Actual Days" },
-                      { key: "Benchmark Days", color: "#64748b", name: "Benchmark Days" },
-                    ]}
+                    series={[{ key: "Actual Days", color: "#8b5cf6", name: "Average Stage Age" }]}
                   />
                 </div>
                 <div className="mt-3 p-3 rounded-lg border border-border/40 bg-muted/10 font-mono text-xs space-y-1.5">
                   <div className="text-foreground font-semibold flex items-center justify-between">
                     <span>Cycle Bottleneck Notice</span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${worstBottleneck && worstBottleneck.delta > 0 ? "text-amber-400 bg-amber-500/10" : "text-emerald-400 bg-emerald-500/10"}`}>
-                      {worstBottleneck ? `${worstBottleneck.stage}` : "No Bottlenecks"}
+                      {worstBottleneck ? `${worstBottleneck.stage}` : "No stage data"}
                     </span>
                   </div>
                   <p className="text-muted-foreground text-[11px] leading-relaxed">
-                    {worstBottleneck && worstBottleneck.delta > 0
-                      ? `${worstBottleneck.stage} stage currently averages ${worstBottleneck.days} days vs target of ${worstBottleneck.target} days (+${worstBottleneck.delta}d latency).`
-                      : "All pipeline stages are operating within target cycle time SLAs."}
+                    {worstBottleneck
+                      ? `${worstBottleneck.stage} has the longest current average stage age at ${worstBottleneck.days} days.`
+                      : "No opportunity stage aging data is available."}
                   </p>
                 </div>
               </>
@@ -560,7 +558,7 @@ export default function CrmAnalyticsPage() {
                   Account Executive Leaderboard
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Quota pacing and closed bookings for current quarter.
+                  Closed bookings and active opportunities by owner.
                 </p>
               </div>
               <Badge variant="outline" className="text-xs font-mono bg-primary/10 text-primary border-primary/20">
@@ -573,11 +571,10 @@ export default function CrmAnalyticsPage() {
               {repLeaderboard.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground text-xs font-mono">
                   <Users className="w-8 h-8 opacity-30 mb-2" />
-                  <span>No active sales rep quota tracking found</span>
+                  <span>No opportunity owner data found</span>
                 </div>
               ) : (
                 repLeaderboard.map((rep: any) => {
-                  const isOverQuota = rep.attainment >= 100;
                   return (
                     <div
                       key={rep.name}
@@ -587,21 +584,14 @@ export default function CrmAnalyticsPage() {
                         <div className="min-w-0">
                           <div className="font-bold text-foreground text-sm flex items-center gap-1.5 truncate">
                             <span className="truncate">{rep.name}</span>
-                            {isOverQuota && (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            )}
                           </div>
                           <div className="text-[11px] text-muted-foreground">{rep.role}</div>
                         </div>
                         <div className="text-right shrink-0">
                           <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded ${
-                              isOverQuota
-                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25"
-                                : "bg-blue-500/10 text-blue-400 border border-blue-500/25"
-                            }`}
+                              className="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/25"
                           >
-                            {rep.attainment}% Quota
+                            {rep.activeDeals} Active
                           </span>
                           <div className="text-[11px] text-muted-foreground mt-0.5">
                             {rep.activeDeals} deals in pipe
@@ -611,16 +601,14 @@ export default function CrmAnalyticsPage() {
 
                       <div className="w-full h-1.5 bg-muted/40 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${
-                            isOverQuota ? "bg-emerald-500" : "bg-blue-500"
-                          }`}
-                          style={{ width: `${Math.min(100, rep.attainment)}%` }}
+                          className="h-full rounded-full bg-emerald-500"
+                          style={{ width: `${Math.min(100, rep.closedShare || 0)}%` }}
                         />
                       </div>
 
                       <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5 font-mono">
-                        <span>Booked: {formatCurrency(rep.closed)}</span>
-                        <span>Target: {formatCurrency(rep.quota)}</span>
+                        <span>Closed Won: {formatCurrency(rep.closed)}</span>
+                        <span>{rep.activeDeals} active opportunities</span>
                       </div>
                     </div>
                   );
@@ -646,7 +634,7 @@ export default function CrmAnalyticsPage() {
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
               <span className="text-emerald-400 font-semibold px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
-                Gross Renewal Rate: {churnRetention.grossRenewalRate}%
+                Gross Renewal Rate: {churnRetention.grossRenewalRate == null ? "N/A" : `${churnRetention.grossRenewalRate}%`}
               </span>
               <span className="text-red-400 font-semibold px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded">
                 At-Risk: {formatCurrency(churnRetention.atRiskRevenue)}

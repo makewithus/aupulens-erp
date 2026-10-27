@@ -34,6 +34,18 @@ export async function generateBillingInvoice(params: {
 }): Promise<IBillingInvoice> {
   const { payment, subscription } = params;
 
+  // A verified payment gets at most one invoice even if a retry resumes after
+  // payment persistence or a previous invoice-generation failure.
+  const existingInvoice = await BillingInvoice.findOne({ paymentId: String(payment._id) });
+  if (existingInvoice) {
+    if (payment.invoiceId !== existingInvoice.invoiceNumber || payment.receiptNumber !== existingInvoice.receiptNumber) {
+      payment.invoiceId = existingInvoice.invoiceNumber;
+      payment.receiptNumber = existingInvoice.receiptNumber;
+      await payment.save();
+    }
+    return existingInvoice;
+  }
+
   // Retrieve customer organization details
   const org = await Organization.findOne({ subdomain: payment.tenantId });
   const customerState = org?.settings?.state || DEFAULT_SELLER_STATE;
@@ -57,7 +69,9 @@ export async function generateBillingInvoice(params: {
       ? `Subscription Renewal for ${subscription.planKey.toUpperCase()} Plan (${subscription.billingCycle})`
       : `Subscription for ${subscription.planKey.toUpperCase()} Plan (${subscription.billingCycle})`);
 
-  const invoice = await BillingInvoice.create({
+  let invoice: IBillingInvoice;
+  try {
+    invoice = await BillingInvoice.create({
     invoiceNumber,
     tenantId: payment.tenantId,
     organizationId: org?._id,
@@ -99,7 +113,13 @@ export async function generateBillingInvoice(params: {
     paymentReference: payment.razorpayPaymentId || payment.razorpayOrderId,
     receiptNumber,
     notes: "Payment received in full. Thank you for choosing Aupulens ERP.",
-  });
+    });
+  } catch (error: any) {
+    if (error?.code !== 11000) throw error;
+    const racedInvoice = await BillingInvoice.findOne({ paymentId: String(payment._id) });
+    if (!racedInvoice) throw error;
+    invoice = racedInvoice;
+  }
 
   // Link invoice back to payment
   payment.invoiceId = invoice.invoiceNumber;

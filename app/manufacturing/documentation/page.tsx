@@ -99,14 +99,14 @@ export default function DocumentationPage() {
   };
 
   const handleDownload = async (doc: DocumentRow) => {
-    // Route through the API first so the download counter is accurate, then
-    // open the real file — same UX as "Download" elsewhere in the app.
-    try {
-      await fetch(`/api/manufacturing/documents/${doc._id}`);
-    } catch {
-      /* counting is best-effort; still let the user download */
-    }
-    window.open(doc.file_url, '_blank', 'noopener,noreferrer');
+    // The API serves the file with Content-Disposition: attachment and records
+    // the download. Opening file_url directly would make this identical to View.
+    const link = document.createElement('a');
+    link.href = `/api/manufacturing/documents/${doc._id}?download=1`;
+    link.download = doc.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
     toast({ title: 'Download started', description: doc.name });
   };
 

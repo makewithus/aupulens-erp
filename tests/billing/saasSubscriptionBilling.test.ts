@@ -1,5 +1,6 @@
 process.env.MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/aupulens_test_saas_subscription";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import crypto from "node:crypto";
 import { calculateProration, DEFAULT_SELLER_STATE } from "@/lib/billing/proration";
 import {
   isValidSubscriptionTransition,
@@ -7,11 +8,21 @@ import {
   SubscriptionStateTransitionError,
 } from "@/lib/billing/stateMachine";
 import { SAAS_SUBSCRIPTION_STATUS } from "@/models/billing/SaaSSubscription";
-import { razorpayService } from "@/lib/billing/razorpayClient";
+import { razorpayService, RazorpayService } from "@/lib/billing/razorpayClient";
 import { PLAN_KEY } from "@/lib/constants/statuses";
+import { calculateRenewalTax } from "@/lib/billing/renewalPricing";
 
 describe("Aupulens SaaS Subscription & Billing System — Comprehensive Test Suite", () => {
   describe("1. Proration and Indian GST Calculations", () => {
+    it("calculates renewal totals using the same intra/inter-state GST split", () => {
+      expect(calculateRenewalTax(999, "Karnataka")).toMatchObject({
+        taxableAmount: 999, cgst: 89.91, sgst: 89.91, igst: 0, totalTax: 179.82, totalAmount: 1178.82, isInterState: false,
+      });
+      expect(calculateRenewalTax(999, "Maharashtra")).toMatchObject({
+        cgst: 0, sgst: 0, igst: 179.82, totalTax: 179.82, totalAmount: 1178.82, isInterState: true,
+      });
+      expect(() => calculateRenewalTax(0)).toThrow(/positive/);
+    });
     it("calculates exact proration fraction and rounding for remaining period", () => {
       const periodStart = new Date("2026-10-01T00:00:00Z");
       const periodEnd = new Date("2026-10-31T00:00:00Z");
@@ -109,6 +120,85 @@ describe("Aupulens SaaS Subscription & Billing System — Comprehensive Test Sui
   });
 
   describe("3. Razorpay Client and Cryptographic Verification", () => {
+    it("creates a future-start Razorpay subscription using documented fields", async () => {
+      const service = new RazorpayService({ keyId: "rzp_test_key", keySecret: "test_secret", webhookSecret: "hook" });
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({
+          id: "plan_12345678901234", period: "monthly", interval: 1,
+          item: { amount: 117882, currency: "INR" },
+        }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({
+          id: "sub_12345678901234", plan_id: "plan_12345678901234", status: "created",
+          total_count: 120, paid_count: 0, short_url: "https://rzp.io/rzp/test",
+        }), { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      try {
+        const plan = await service.fetchPlan("plan_12345678901234");
+        expect(plan.item.amount).toBe(117882);
+        const subscription = await service.createSubscription({
+          planId: plan.id,
+          totalCount: 120,
+          startAt: 1_800_000_000,
+          expireBy: 1_799_996_400,
+          notes: { tenantId: "tenant-a" },
+        });
+        expect(subscription.short_url).toBe("https://rzp.io/rzp/test");
+        const requestBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+        expect(fetchMock.mock.calls[1][0]).toBe("https://api.razorpay.com/v1/subscriptions");
+        expect(requestBody).toMatchObject({
+          plan_id: "plan_12345678901234", total_count: 120, start_at: 1_800_000_000,
+          expire_by: 1_799_996_400, customer_notify: false,
+        });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("fails closed instead of synthesizing a refund without configured Razorpay credentials", async () => {
+      const serviceWithoutCredentials = new RazorpayService({ keyId: "", keySecret: "", webhookSecret: "" });
+      expect(serviceWithoutCredentials.isConfigured()).toBe(false);
+      await expect(serviceWithoutCredentials.createRefund({
+        paymentId: "pay_refund_guard_test",
+        amount: 100,
+        currency: "INR",
+        reason: "test",
+      })).rejects.toThrow(/credentials are required/i);
+    });
+
+    it("does not accept the API key secret as a webhook secret outside tests", () => {
+      const serviceWithOnlyApiSecret = new RazorpayService({ keyId: "key", keySecret: "api_secret", webhookSecret: "" });
+      const rawBody = "{\"event\":\"payment.captured\"}";
+      const apiSecretSignature = crypto.createHmac("sha256", "api_secret").update(rawBody).digest("hex");
+      vi.stubEnv("NODE_ENV", "production");
+      try {
+        expect(serviceWithOnlyApiSecret.verifyWebhookSignature(rawBody, apiSecretSignature)).toBe(false);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it("rejects missing-credential order and signature fallbacks outside the test runtime", async () => {
+      const serviceWithoutCredentials = new RazorpayService({ keyId: "", keySecret: "", webhookSecret: "" });
+      const fallbackSignature = serviceWithoutCredentials.generateTestSignature("order_forged", "pay_forged");
+      vi.stubEnv("NODE_ENV", "production");
+      try {
+        await expect(serviceWithoutCredentials.createOrder({
+          amount: 100,
+          currency: "INR",
+          receipt: "production-fail-closed-test",
+        })).rejects.toThrow(/credentials are required/i);
+        expect(serviceWithoutCredentials.verifyPaymentSignature({
+          razorpayOrderId: "order_forged",
+          razorpayPaymentId: "pay_forged",
+          razorpaySignature: fallbackSignature,
+        })).toBe(false);
+        expect(serviceWithoutCredentials.verifyWebhookSignature("{}", "not-a-signature")).toBe(false);
+        expect(() => serviceWithoutCredentials.generateTestWebhookSignature("{}")).toThrow(/test runtime/i);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
     it("generates deterministic test order in test mode", async () => {
       const order = await razorpayService.createOrder({
         amount: 1180,

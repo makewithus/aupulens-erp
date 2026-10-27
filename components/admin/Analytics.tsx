@@ -107,7 +107,7 @@ export default function AdminAnalytics() {
 
   const getMockSalesData = useCallback(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    // 365-day granular daily order tracking matching the segmented brick styling
+    // 365-day granular daily order tracking using solid bars
     const dailyPoints = generate365DailyData(2026, { base: 28, variance: 16, seed: 101 });
     return {
       orders: dailyPoints.map((d) => ({

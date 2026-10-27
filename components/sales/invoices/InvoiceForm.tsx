@@ -29,6 +29,7 @@ import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { computeInvoiceTotals, numberToWords, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { INDIAN_STATES } from "@/lib/constants/indianStates";
+import { getTodayLocalDateString, toLocalDateString } from "@/lib/utils";
 
 import { CustomerPicker, type PickerCustomer } from "./CustomerPicker";
 import { ProductPicker, type PickerProduct } from "./ProductPicker";
@@ -91,8 +92,8 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   // Top section
   const [customers, setCustomers] = useState<PickerCustomer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
-  const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
+  const [invoiceDate, setInvoiceDate] = useState(() => getTodayLocalDateString());
+  const [dueDate, setDueDate] = useState(() => getTodayLocalDateString());
   const [reference, setReference] = useState("");
   const [placeOfSupply, setPlaceOfSupply] = useState("");
   const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
@@ -249,8 +250,8 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     setNumberSuffix(match ? match[2] : "");
     setInvoiceType(inv.type || "Regular");
     setSelectedCustomerId(typeof inv.customerId === "object" ? inv.customerId?._id : inv.customerId || "");
-    setInvoiceDate(inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().slice(0, 10) : invoiceDate);
-    setDueDate(inv.dueDate ? new Date(inv.dueDate).toISOString().slice(0, 10) : dueDate);
+    setInvoiceDate(inv.invoiceDate ? toLocalDateString(inv.invoiceDate) : invoiceDate);
+    setDueDate(inv.dueDate ? toLocalDateString(inv.dueDate) : dueDate);
     setReference(inv.reference || "");
     setPlaceOfSupply(inv.placeOfSupply || "");
     setLineItems(
@@ -275,7 +276,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     setExtraDiscountMode(inv.extraDiscountMode || "amount");
     setRoundOff(!!inv.roundOff);
     setBankAccountId(inv.bankAccountId?._id || inv.bankAccountId || "");
-    setPayments((inv.payments || []).map((p: any) => ({ id: crypto.randomUUID(), notes: p.notes || "", amount: p.amount, date: new Date(p.date).toISOString().slice(0, 10), mode: p.mode })));
+    setPayments((inv.payments || []).map((p: any) => ({ id: crypto.randomUUID(), notes: p.notes || "", amount: p.amount, date: toLocalDateString(p.date), mode: p.mode })));
     setMarkedFullyPaid(!!inv.markedFullyPaid);
     setSignatureId(inv.signatureId || "");
     setTdsEnabled(!!inv.taxes?.tds);
@@ -345,7 +346,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   const totalQty = lineItems.reduce((acc, l) => acc + (Number(l.qty) || 0), 0);
 
   // ── Payments ─────────────────────────────────────────────────────
-  const addPayment = () => setPayments((p) => [...p, { id: crypto.randomUUID(), notes: "", amount: 0, date: new Date().toISOString().slice(0, 10), mode: "Cash" }]);
+  const addPayment = () => setPayments((p) => [...p, { id: crypto.randomUUID(), notes: "", amount: 0, date: getTodayLocalDateString(), mode: "Cash" }]);
   const updatePayment = (id: string, patch: Partial<PaymentState>) => setPayments((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const removePayment = (id: string) => setPayments((p) => p.filter((x) => x.id !== id));
 

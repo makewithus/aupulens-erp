@@ -1,8 +1,15 @@
-process.env.MONGODB_URI = "mongodb://127.0.0.1:27017/aupulens_test_billing_audit";
+const BILLING_TEST_DB = process.env.BILLING_TEST_DB_NAME || `aupulens_test_billing_audit_${process.pid}_${Date.now()}`;
+process.env.MONGODB_URI =
+  process.env.BILLING_TEST_MONGO_URI || `mongodb://127.0.0.1:27017/${BILLING_TEST_DB}`;
 process.env.RATE_LIMIT_STORE = "memory";
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import mongoose from "mongoose";
+import { MongoClient } from "mongodb";
+import { NextRequest } from "next/server";
+import { verifyGlobalAdmin } from "@/lib/billing/adminAuth";
+import { POST as refundPost } from "@/app/api/platform/billing/refund/route";
+import { POST as razorpayWebhookPost } from "@/app/api/billing/webhooks/razorpay/route";
 import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
 import Plan from "@/models/platform/Plan";
@@ -15,6 +22,8 @@ import BillingPayment, {
   BILLING_PAYMENT_TYPE,
 } from "@/models/billing/BillingPayment";
 import BillingInvoice from "@/models/billing/BillingInvoice";
+import BillingRefund from "@/models/billing/BillingRefund";
+import BillingCreditNote from "@/models/billing/BillingCreditNote";
 import BillingWebhookEvent from "@/models/billing/BillingWebhookEvent";
 import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import Counter from "@/models/shared/Counter";
@@ -27,19 +36,53 @@ import {
   runExpiredCancellationsSweep,
   runAutoRenewalSweep,
 } from "@/lib/billing/scheduler";
-import { generateInvoicePdf } from "@/lib/billing/billingPdfGenerator";
+import { generateInvoicePdf, generateCreditNotePdf } from "@/lib/billing/billingPdfGenerator";
+import { reserveRefund } from "@/lib/billing/refundManager";
 import { getNextSaaSInvoiceNumber } from "@/lib/billing/invoiceGenerator";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
 import { PLAN_KEY, SUBSCRIPTION_EVENT_TYPE } from "@/lib/constants/statuses";
 
+vi.mock("@/lib/billing/adminAuth", () => ({ verifyGlobalAdmin: vi.fn() }));
+
 describe("Aupulens SaaS Subscription & Billing System — Master End-to-End Audit Suite", () => {
   const TENANT_A = "audit-tenant-alpha";
   const TENANT_B = "audit-tenant-beta";
+  let billingDbConnected = false;
 
   beforeAll(async () => {
+    const configuredUri = process.env.MONGODB_URI;
+    if (!configuredUri) throw new Error("Billing test database URI is missing.");
+    const parsedUri = new URL(configuredUri);
+    const targetDb = parsedUri.pathname.slice(1);
+    if (
+      !["127.0.0.1", "localhost", "::1"].includes(parsedUri.hostname) ||
+      targetDb !== BILLING_TEST_DB ||
+      !targetDb.startsWith("aupulens_test_billing_audit_")
+    ) {
+      throw new Error("Billing lifecycle tests require this run's unique loopback database; no writes were performed.");
+    }
+
+    // Verify replica-set support with a read-only hello command before Mongoose
+    // connects or any fixture writes are issued.
+    const guardedTarget = new URL(configuredUri);
+    if (process.env.QA_DISPOSABLE_MONGO_PORT) {
+      guardedTarget.port = process.env.QA_DISPOSABLE_MONGO_PORT;
+    }
+    const guardClient = new MongoClient(guardedTarget.toString(), { serverSelectionTimeoutMS: 2000 });
+    try {
+      await guardClient.connect();
+      const hello = await guardClient.db("admin").command({ hello: 1 });
+      if (!hello.setName) {
+        throw new Error("Billing lifecycle tests require a local MongoDB replica set; no fixture writes were performed.");
+      }
+    } finally {
+      await guardClient.close();
+    }
+
     await connectDB();
-    // Clean disposable test database
+    billingDbConnected = true;
+    // Clean only this run's synthetic fixtures in its unique database.
     await Promise.all([
       SaaSSubscription.deleteMany({ tenantId: { $in: [TENANT_A, TENANT_B, "audit-analytics-tenant"] } }),
       BillingPayment.deleteMany({ tenantId: { $in: [TENANT_A, TENANT_B, "audit-analytics-tenant"] } }),
@@ -99,6 +142,7 @@ describe("Aupulens SaaS Subscription & Billing System — Master End-to-End Audi
   });
 
   afterAll(async () => {
+    if (!billingDbConnected) return;
     await Promise.all([
       SaaSSubscription.deleteMany({ tenantId: { $in: [TENANT_A, TENANT_B, "audit-analytics-tenant"] } }),
       BillingPayment.deleteMany({ tenantId: { $in: [TENANT_A, TENANT_B, "audit-analytics-tenant"] } }),
@@ -424,6 +468,7 @@ describe("Aupulens SaaS Subscription & Billing System — Master End-to-End Audi
       // Restore to active first
       const sub = await SaaSSubscription.findOne({ tenantId: TENANT_A });
       sub!.status = SAAS_SUBSCRIPTION_STATUS.ACTIVE;
+      sub!.set("cancellation", undefined);
       await sub!.save();
 
       const failedSub = await subscriptionManager.handlePaymentFailure({
@@ -522,64 +567,136 @@ describe("Aupulens SaaS Subscription & Billing System — Master End-to-End Audi
   });
 
   describe("9. DOC-04 & E2E-06: Verified Refunds & Traceable Invoice Adjustments", () => {
-    it("processes verified refund, preserves issued invoice, and marks status as refunded", async () => {
+    it("supports cumulative partial refunds, issues immutable credit notes, and preserves the original invoice", async () => {
       // Find a successful payment from earlier tests
       const payment = await BillingPayment.findOne({
         tenantId: TENANT_A,
         status: BILLING_PAYMENT_STATUS.SUCCESSFUL,
+        razorpayPaymentId: { $exists: true, $ne: null },
       });
       expect(payment).toBeDefined();
 
-      const refundAmount = payment!.amount;
-      const refundId = `ref_audit_${Date.now()}`;
-
-      // Simulate the exact Global Admin refund route execution
-      payment!.status = BILLING_PAYMENT_STATUS.REFUNDED;
-      payment!.refund = {
-        refundId,
-        amount: refundAmount,
-        reason: "Customer requested upgrade rollback",
-        refundedAt: new Date(),
-        status: "processed",
-      };
-      await payment!.save();
-
-      // Traceable adjustment on associated invoice
-      if (payment!.invoiceId) {
-        await BillingInvoice.findOneAndUpdate(
-          { invoiceNumber: payment!.invoiceId },
-          {
-            $set: {
-              status: "refunded",
-              notes: `Refund of ${payment!.currency} ${refundAmount} issued.`,
-            },
-          }
-        );
-      }
-
-      await SubscriptionEvent.create({
-        tenantId: payment!.tenantId,
-        type: SUBSCRIPTION_EVENT_TYPE.PAYMENT_FAILED,
-        tier: "starter",
-        amount: refundAmount,
+      expect(payment!.razorpayPaymentId).toBeTruthy();
+      const invoiceBefore = await BillingInvoice.findOne({ invoiceNumber: payment!.invoiceId });
+      const originalInvoiceStatus = invoiceBefore?.status;
+      const originalInvoiceNotes = invoiceBefore?.notes;
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const firstRefundAmount = Math.floor(payment!.amount * 50) / 100;
+      const secondRefundAmount = Math.round((payment!.amount - firstRefundAmount) * 100) / 100;
+      const firstProviderRefundId = `rfnd_audit_a_${Date.now()}`;
+      const secondProviderRefundId = `rfnd_audit_b_${Date.now()}`;
+      const configuredSpy = vi.spyOn(razorpayService, "isConfigured").mockReturnValue(true);
+      const createRefundSpy = vi.spyOn(razorpayService, "createRefund").mockResolvedValueOnce({
+        id: firstProviderRefundId,
+        entity: "refund",
+        amount: Math.round(firstRefundAmount * 100),
         currency: payment!.currency,
-        meta: {
-          action: "refund_processed",
-          paymentId: payment!._id,
-          refundId,
-        },
+        payment_id: payment!.razorpayPaymentId!,
+        status: "processed",
+        created_at: nowSeconds,
+      }).mockResolvedValueOnce({
+        id: secondProviderRefundId,
+        entity: "refund",
+        amount: Math.round(secondRefundAmount * 100),
+        currency: payment!.currency,
+        payment_id: payment!.razorpayPaymentId!,
+        status: "processed",
+        created_at: nowSeconds + 1,
+      });
+      vi.mocked(verifyGlobalAdmin).mockResolvedValue({
+        isAuthorized: true,
+        actor: { email: "billing-admin@test.invalid" },
       });
 
-      // Verify refund persisted
+      try {
+        const submit = (amount: number, idempotencyKey: string) => refundPost(new NextRequest("http://localhost/api/platform/billing/refund", {
+          method: "POST",
+          headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+          body: JSON.stringify({
+            paymentId: String(payment!._id),
+            amount,
+            reason: "Synthetic billing regression fixture",
+          }),
+        }));
+
+        const firstRequestId = `refund-audit-first-${Date.now()}`;
+        const firstResponse = await submit(firstRefundAmount, firstRequestId);
+        expect(firstResponse.status, JSON.stringify(await firstResponse.clone().json())).toBe(200);
+        expect((await BillingPayment.findById(payment!._id))?.status).toBe(BILLING_PAYMENT_STATUS.SUCCESSFUL);
+        expect(await BillingCreditNote.countDocuments({ paymentId: String(payment!._id) })).toBe(1);
+
+        const replayResponse = await submit(firstRefundAmount, firstRequestId);
+        expect(replayResponse.status).toBe(200);
+        expect(createRefundSpy).toHaveBeenCalledTimes(1);
+
+        const excessiveResponse = await submit(secondRefundAmount + 0.01, `refund-audit-over-${Date.now()}`);
+        expect(excessiveResponse.status).toBe(409);
+        expect(createRefundSpy).toHaveBeenCalledTimes(1);
+
+        const secondResponse = await submit(secondRefundAmount, `refund-audit-second-${Date.now()}`);
+        expect(secondResponse.status, JSON.stringify(await secondResponse.clone().json())).toBe(200);
+        expect(createRefundSpy).toHaveBeenCalledTimes(2);
+        expect(createRefundSpy).toHaveBeenNthCalledWith(1, expect.objectContaining({
+          paymentId: payment!.razorpayPaymentId,
+          amount: firstRefundAmount,
+          currency: payment!.currency,
+          reason: "Synthetic billing regression fixture",
+        }));
+        expect(createRefundSpy).toHaveBeenNthCalledWith(2, expect.objectContaining({
+          paymentId: payment!.razorpayPaymentId,
+          amount: secondRefundAmount,
+          currency: payment!.currency,
+          reason: "Synthetic billing regression fixture",
+        }));
+      } finally {
+        createRefundSpy.mockRestore();
+        configuredSpy.mockRestore();
+        vi.mocked(verifyGlobalAdmin).mockReset();
+      }
+
       const refundedPayment = await BillingPayment.findById(payment!._id);
       expect(refundedPayment?.status).toBe(BILLING_PAYMENT_STATUS.REFUNDED);
-      expect(refundedPayment?.refund?.amount).toBe(refundAmount);
+      expect(refundedPayment?.refund?.razorpayRefundId).toBe(secondProviderRefundId);
+      expect(refundedPayment?.refundedAmountPaise).toBe(Math.round(payment!.amount * 100));
+      const creditNotes = await BillingCreditNote.find({ paymentId: String(payment!._id) }).sort({ issuedAt: 1 });
+      expect(creditNotes).toHaveLength(2);
+      expect(creditNotes[0].creditNoteNumber).not.toBe(creditNotes[1].creditNoteNumber);
+      const creditNotePdf = await generateCreditNotePdf(creditNotes[0]);
+      expect(new TextDecoder().decode(creditNotePdf.slice(0, 5))).toBe("%PDF-");
+      expect(await BillingRefund.countDocuments({ paymentRecordId: payment!._id, status: "processed" })).toBe(2);
+      const invoiceAfter = await BillingInvoice.findOne({ invoiceNumber: payment!.invoiceId });
+      expect(invoiceAfter?.status).toBe(originalInvoiceStatus);
+      expect(invoiceAfter?.notes).toBe(originalInvoiceNotes);
+    });
 
-      // Verify invoice preserved (NOT deleted)
-      const invoice = await BillingInvoice.findOne({ invoiceNumber: payment!.invoiceId });
-      expect(invoice).toBeDefined();
-      expect(invoice?.status).toBe("refunded");
-      expect(invoice?.notes).toContain("Refund of INR");
+    it("atomically prevents concurrent reservations from exceeding a payment balance", async () => {
+      const payment = await BillingPayment.create({
+        tenantId: TENANT_B,
+        type: BILLING_PAYMENT_TYPE.NEW,
+        amount: 1000,
+        currency: "INR",
+        status: BILLING_PAYMENT_STATUS.SUCCESSFUL,
+        billingCycle: "monthly",
+        razorpayPaymentId: `pay_refund_race_${Date.now()}`,
+        taxBreakup: { taxableAmount: 847.46, cgst: 76.27, sgst: 76.27, igst: 0, totalTax: 152.54, isInterState: false },
+        idempotencyKey: `payment_refund_race_${Date.now()}`,
+      });
+      const requests = ["race-refund-a", "race-refund-b"].map((key) => reserveRefund({
+        payment,
+        amountPaise: 70000,
+        reason: "Concurrent reservation fixture",
+        idempotencyKey: `${key}-${Date.now()}`,
+      }));
+      try {
+        const results = await Promise.allSettled(requests);
+        expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+        expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+        const stored = await BillingPayment.findById(payment._id);
+        expect(stored?.refundReservedAmountPaise).toBe(70000);
+      } finally {
+        await BillingRefund.deleteMany({ paymentRecordId: payment._id });
+        await BillingPayment.deleteOne({ _id: payment._id });
+      }
     });
   });
 
@@ -722,6 +839,91 @@ describe("Aupulens SaaS Subscription & Billing System — Master End-to-End Audi
   });
 
   describe("11. PAY-01 & PAY-04: Webhook Idempotency & Replay Protection", () => {
+    it("reconciles a captured recurring payment into one persisted payment and invoice", async () => {
+      const tenantId = "audit-autopay-renewal-tenant";
+      const providerSubscriptionId = `sub_audit_${Date.now()}`;
+      const providerPaymentId = `pay_audit_renewal_${Date.now()}`;
+      const eventId = `evt_autopay_renewal_${Date.now()}`;
+      const start = new Date(Date.now() - 1000);
+      const end = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const planId = "plan_audit_recurring";
+      const planMap = JSON.stringify({ "starter:monthly": planId });
+      vi.stubEnv("RAZORPAY_SUBSCRIPTION_PLAN_IDS_JSON", planMap);
+      vi.stubEnv("RAZORPAY_SUBSCRIPTION_TOTAL_COUNT", "120");
+      await Organization.create({
+        subdomain: tenantId,
+        name: "AutoPay Renewal Fixture",
+        ownerUserId: new mongoose.Types.ObjectId(),
+        tier: "starter",
+        settings: { state: "Karnataka" },
+      });
+      const subscription = await SaaSSubscription.create({
+        tenantId,
+        planKey: PLAN_KEY.STARTER,
+        status: SAAS_SUBSCRIPTION_STATUS.ACTIVE,
+        billingCycle: "monthly",
+        currentPrice: 999,
+        currency: "INR",
+        startDate: start,
+        currentPeriodStart: start,
+        currentPeriodEnd: new Date(Date.now() - 60_000),
+        paidThroughDate: new Date(Date.now() - 60_000),
+        nextRenewalDate: new Date(Date.now() - 60_000),
+        razorpaySubscriptionId: providerSubscriptionId,
+        autoPay: { enabled: true, status: "active", mandateId: providerSubscriptionId },
+      });
+      const fetchSubscriptionSpy = vi.spyOn(razorpayService, "fetchSubscription").mockResolvedValue({
+        id: providerSubscriptionId, plan_id: planId, status: "active", total_count: 120,
+        paid_count: 2, current_start: Math.floor(start.getTime() / 1000),
+        current_end: Math.floor(end.getTime() / 1000),
+        notes: { tenantId, billingSubscriptionId: String(subscription._id) },
+      });
+      const fetchPaymentSpy = vi.spyOn(razorpayService, "fetchPayment").mockResolvedValue({
+        id: providerPaymentId, entity: "payment", amount: 117882, currency: "INR", status: "captured",
+      });
+      const payload = {
+        id: eventId,
+        event: "subscription.charged",
+        payload: {
+          subscription: { entity: { id: providerSubscriptionId } },
+          payment: { entity: { id: providerPaymentId, amount: 117882, currency: "INR", method: "card" } },
+        },
+      };
+      const raw = JSON.stringify(payload);
+      const signature = razorpayService.generateTestWebhookSignature(raw);
+      const deliver = () => razorpayWebhookPost(new NextRequest("http://localhost/api/billing/webhooks/razorpay", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-razorpay-signature": signature, "x-razorpay-event-id": eventId },
+        body: raw,
+      }));
+      try {
+        const first = await deliver();
+        expect(first.status, JSON.stringify(await first.clone().json())).toBe(200);
+        const renewal = await BillingPayment.findOne({ razorpayPaymentId: providerPaymentId });
+        expect(renewal?.status).toBe(BILLING_PAYMENT_STATUS.SUCCESSFUL);
+        expect(renewal?.amount).toBe(1178.82);
+        expect(await BillingInvoice.countDocuments({ paymentId: String(renewal?._id) })).toBe(1);
+        const persistedSubscription = await SaaSSubscription.findById(subscription._id);
+        expect(persistedSubscription?.paidThroughDate.getTime()).toBe(Math.floor(end.getTime() / 1000) * 1000);
+        const duplicate = await deliver();
+        expect(duplicate.status).toBe(200);
+        expect(await BillingPayment.countDocuments({ razorpayPaymentId: providerPaymentId })).toBe(1);
+        expect(await BillingInvoice.countDocuments({ paymentId: String(renewal?._id) })).toBe(1);
+      } finally {
+        fetchSubscriptionSpy.mockRestore();
+        fetchPaymentSpy.mockRestore();
+        vi.unstubAllEnvs();
+        await Promise.all([
+          BillingWebhookEvent.deleteMany({ eventId }),
+          BillingPayment.deleteMany({ tenantId }),
+          BillingInvoice.deleteMany({ tenantId }),
+          SaaSSubscription.deleteOne({ tenantId }),
+          Organization.deleteOne({ subdomain: tenantId }),
+          SubscriptionEvent.deleteMany({ tenantId }),
+        ]);
+      }
+    });
+
     it("safely ignores duplicate webhook redelivery and returns 200 without duplicate execution", async () => {
       const eventId = `evt_dedup_${Date.now()}`;
       const payload = {

@@ -7,6 +7,7 @@ import Opportunity from "@/models/crm/Opportunity";
 import Lead from "@/models/crm/Lead";
 import Account from "@/models/crm/Account";
 import Campaign from "@/models/crm/Campaign";
+import Contract from "@/models/crm/Contract";
 import User from "@/models/auth/User";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
@@ -22,7 +23,11 @@ export async function GET(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
 
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
-    const cacheKey = `crm-analytics-live:${tenantId}`;
+    const rangeKey = req.nextUrl.searchParams.get("range") || "30d";
+    const rangeDays = rangeKey === "1y" ? 365 : rangeKey === "90d" ? 90 : 30;
+    const rangeStart = new Date();
+    rangeStart.setDate(rangeStart.getDate() - rangeDays);
+    const cacheKey = `crm-analytics-live:${tenantId}:${rangeKey}`;
 
     if (!isFresh) {
       const cached = getCachedData<any>(cacheKey);
@@ -37,19 +42,25 @@ export async function GET(req: NextRequest) {
     const [
       oppCount,
       leadCount,
+      leadCountRange,
       accountCount,
       campaignCount,
       oppsByStage,
+      oppsByStageRange,
       leadSourcesRaw,
       leadStatusRaw,
       monthlyOppsRaw,
       repsAggRaw,
       accountHealthRaw,
+      closedOpportunities,
+      renewalStats,
+      activeContracts,
     ] = await Promise.all([
-      Opportunity.countDocuments({ tenantId }).catch(() => 0),
-      Lead.countDocuments({ tenantId }).catch(() => 0),
-      Account.countDocuments({ tenantId }).catch(() => 0),
-      Campaign.countDocuments({ tenantId }).catch(() => 0),
+      Opportunity.countDocuments({ tenantId }),
+      Lead.countDocuments({ tenantId }),
+      Lead.countDocuments({ tenantId, createdAt: { $gte: rangeStart } }),
+      Account.countDocuments({ tenantId }),
+      Campaign.countDocuments({ tenantId }),
 
       // Group opportunities by stage
       Opportunity.aggregate([
@@ -69,25 +80,29 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-      ]).catch(() => []),
+      ]),
+
+      Opportunity.aggregate([
+        { $match: { tenantId, createdAt: { $gte: rangeStart }, lead_id: { $ne: null } } },
+        { $group: { _id: "$stage", count: { $sum: 1 } } },
+      ]),
 
       // Group leads by source
       Lead.aggregate([
-        { $match: { tenantId } },
+        { $match: { tenantId, createdAt: { $gte: rangeStart } } },
         { $group: { _id: "$source", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
-        { $limit: 8 },
-      ]).catch(() => []),
+      ]),
 
       // Group leads by status
       Lead.aggregate([
-        { $match: { tenantId } },
+        { $match: { tenantId, createdAt: { $gte: rangeStart } } },
         { $group: { _id: "$status", count: { $sum: 1 } } },
-      ]).catch(() => []),
+      ]),
 
       // Group opportunities by month of creation (real timeline velocity)
       Opportunity.aggregate([
-        { $match: { tenantId } },
+        { $match: { tenantId, createdAt: { $gte: rangeStart } } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
@@ -105,7 +120,7 @@ export async function GET(req: NextRequest) {
           },
         },
         { $sort: { _id: 1 } },
-      ]).catch(() => []),
+      ]),
 
       // Group opportunities by owner to compute real sales rep attainment
       Opportunity.aggregate([
@@ -119,13 +134,12 @@ export async function GET(req: NextRequest) {
             activeDealsCount: {
               $sum: { $cond: [{ $in: ["$stage", ["Closed Won", "Closed Lost"]] }, 0, 1] },
             },
-            totalAmount: { $sum: { $ifNull: ["$amount", 0] } },
             wonCount: { $sum: { $cond: [{ $eq: ["$stage", "Closed Won"] }, 1, 0] } },
           },
         },
         { $sort: { closedWonAmount: -1 } },
         { $limit: 5 },
-      ]).catch(() => []),
+      ]),
 
       // Group accounts by health score
       Account.aggregate([
@@ -141,7 +155,19 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-      ]).catch(() => []),
+      ]),
+      Opportunity.aggregate([
+        { $match: { tenantId, stage: { $in: ["Closed Won", "Closed Lost"] } } },
+        { $project: { createdAt: 1, stage_history: 1 } },
+      ]),
+      Contract.aggregate([
+        { $match: { tenantId, renewal_status: { $in: ["Renewed", "Lost"] } } },
+        { $group: { _id: "$renewal_status", count: { $sum: 1 } } },
+      ]),
+      Contract.aggregate([
+        { $match: { tenantId, status: "Active" } },
+        { $group: { _id: "$billing_frequency", contractValue: { $sum: "$contract_value" } } },
+      ]),
     ]);
 
     // 2. Compute Real Dynamic Totals
@@ -172,48 +198,43 @@ export async function GET(req: NextRequest) {
       .filter((s: any) => ["Qualified", "Connected", "Nurture"].includes(s._id))
       .reduce((acc: number, s: any) => acc + s.count, 0);
 
-    const sqlCount = oppsByStage
+    const sqlCount = oppsByStageRange
       .filter((s: any) => ["Discovery", "Requirement Gathering", "Solution Fit"].includes(s._id))
       .reduce((acc: number, s: any) => acc + s.count, 0);
 
-    const impressionsEstimate = Math.max(leadCount * 3, 1000);
+    const rangeActiveDeals = oppsByStageRange
+      .filter((s: any) => !["Closed Won", "Closed Lost"].includes(s._id))
+      .reduce((acc: number, s: any) => acc + s.count, 0);
+    const rangeWonDeals = oppsByStageRange
+      .filter((s: any) => s._id === "Closed Won")
+      .reduce((acc: number, s: any) => acc + s.count, 0);
 
     const funnel = [
       {
-        stage: "Impressions & Traffic",
-        count: impressionsEstimate,
-        dropRate: impressionsEstimate > 0 ? `${Math.round((1 - (leadCount / impressionsEstimate)) * 100)}%` : "0%",
-      },
-      {
         stage: "Inbound Leads",
-        count: leadCount,
-        dropRate: leadCount > 0 ? `${Math.round((1 - (mqlCount / Math.max(leadCount, 1))) * 100)}%` : "0%",
+        count: leadCountRange,
       },
       {
         stage: "Marketing Qualified (MQL)",
         count: mqlCount,
-        dropRate: mqlCount > 0 ? `${Math.round((1 - (sqlCount / Math.max(mqlCount, 1))) * 100)}%` : "0%",
       },
       {
         stage: "Sales Qualified (SQL)",
         count: sqlCount,
-        dropRate: sqlCount > 0 ? `${Math.round((1 - (activeDeals / Math.max(sqlCount, 1))) * 100)}%` : "0%",
       },
       {
         stage: "Active Opportunities",
-        count: activeDeals,
-        dropRate: activeDeals > 0 ? `${Math.round((1 - (wonDeals / Math.max(activeDeals, 1))) * 100)}%` : "0%",
+        count: rangeActiveDeals,
       },
       {
-        stage: "Closed Won Customers",
-        count: wonDeals,
-        dropRate: "0%",
+        stage: "Closed Won Opportunities",
+        count: rangeWonDeals,
       },
     ];
 
     // 4. Dynamic Monthly Velocity from Database
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const monthlyVelocity = (monthlyOppsRaw.length > 0 ? monthlyOppsRaw.slice(-6) : []).map((m: any) => {
+    const monthlyVelocity = monthlyOppsRaw.map((m: any) => {
       const parts = String(m._id || "").split("-");
       const monthIdx = parts[1] ? parseInt(parts[1], 10) - 1 : 0;
       const monthLabel = monthNames[monthIdx] || parts[1] || m._id;
@@ -221,48 +242,75 @@ export async function GET(req: NextRequest) {
         month: monthLabel,
         newPipeline: m.newPipeline || 0,
         closedWon: m.closedWon || 0,
-        target: Math.round((m.newPipeline || 50000000) * 0.75),
       };
     });
 
     // 5. Dynamic Lead Source Attribution
-    const leadSourcesTotal = leadSourcesRaw.reduce((acc: number, s: any) => acc + s.count, 0) || 1;
+    const leadSourcesTotal = leadSourcesRaw.reduce((acc: number, s: any) => acc + s.count, 0);
     const colors = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", "#06b6d4", "#64748b", "#6366f1"];
     const leadSources = leadSourcesRaw.map((s: any, idx: number) => ({
-      name: s._id || "Direct Channel",
+      name: s._id || "Unspecified",
       count: s.count,
-      value: Math.round((s.count / leadSourcesTotal) * 100),
+      value: leadSourcesTotal > 0 ? Math.round((s.count / leadSourcesTotal) * 100) : 0,
       color: colors[idx % colors.length],
     }));
 
     // 6. Stage Aging & Bottleneck Durations
-    const stageAgingDays = oppsByStage.slice(0, 5).map((s: any) => {
-      const actualDays = Math.max(1, Math.round(s.avgDays || 8));
+    const stageAgingDays = oppsByStage
+      .filter((s: any) => !["Closed Won", "Closed Lost"].includes(s._id))
+      .slice(0, 5)
+      .map((s: any) => {
+      const actualDays = Math.max(0, Math.round(s.avgDays || 0));
       return {
         stage: s._id || "Stage",
         days: actualDays,
-        target: Math.max(3, Math.round(actualDays * 0.85)),
       };
-    });
+      });
 
     // 7. Dynamic Sales Rep Quota Leaderboard with Real User Records
     const repIds = repsAggRaw.map((r: any) => r._id);
     const users = await User.find({ _id: { $in: repIds } }).select("name email role").lean();
     const userMap = new Map(users.map((u: any) => [String(u._id), u.name || u.email]));
 
+    const highestClosedBookings = Math.max(0, ...repsAggRaw.map((r: any) => Number(r.closedWonAmount) || 0));
     const repLeaderboard = repsAggRaw.map((r: any) => {
       const repName = userMap.get(String(r._id)) || `Account Executive (${String(r._id).slice(-4)})`;
-      const targetQuota = Math.max(r.totalAmount, 10000000);
-      const attainment = targetQuota > 0 ? Math.round((r.closedWonAmount / targetQuota) * 100) : 0;
       return {
         name: repName,
         role: "Commercial AE",
-        quota: targetQuota,
         closed: r.closedWonAmount,
-        attainment,
         activeDeals: r.activeDealsCount,
+        closedShare: highestClosedBookings > 0 ? Math.round((r.closedWonAmount / highestClosedBookings) * 100) : 0,
       };
     });
+
+    const cycleDurations = closedOpportunities.flatMap((opportunity: any) => {
+      const matchingStage = [...(opportunity.stage_history || [])].reverse().find((item: any) =>
+        ["Closed Won", "Closed Lost"].includes(item.stage),
+      );
+      const closedAt = matchingStage?.entered_at;
+      if (!opportunity.createdAt || !closedAt) return [];
+      const days = (new Date(closedAt).getTime() - new Date(opportunity.createdAt).getTime()) / 86_400_000;
+      return Number.isFinite(days) && days >= 0 ? [days] : [];
+    });
+    const avgSalesCycleDays = cycleDurations.length
+      ? Math.round(cycleDurations.reduce((sum: number, days: number) => sum + days, 0) / cycleDurations.length)
+      : null;
+
+    const renewalCounts = Object.fromEntries(renewalStats.map((row: any) => [row._id, row.count]));
+    const resolvedRenewals = (renewalCounts.Renewed || 0) + (renewalCounts.Lost || 0);
+    const grossRenewalRate = resolvedRenewals > 0
+      ? Math.round(((renewalCounts.Renewed || 0) / resolvedRenewals) * 100)
+      : null;
+    const projectedArr = activeContracts.reduce((sum: number, contract: any) => {
+      const multiplier: Record<string, number> = {
+        Monthly: 12,
+        Quarterly: 4,
+        "Semi-Annual": 2,
+        Annual: 1,
+      };
+      return sum + (Number(contract.contractValue) || 0) * (multiplier[contract._id] || 0);
+    }, 0);
 
     // 8. Churn & Account Resilience
     let criticalCount = 0;
@@ -292,11 +340,12 @@ export async function GET(req: NextRequest) {
         wonDeals,
         lostDeals,
         winRate,
-        avgSalesCycleDays: Math.round(stageAgingDays.reduce((acc: number, s: any) => acc + s.days, 0) / Math.max(stageAgingDays.length, 1)) || 24,
+        avgSalesCycleDays,
         avgDealSize: Math.round(totalPipelineValue / Math.max(activeDeals, 1)),
-        projectedArr: Math.round(wonValue + (totalPipelineValue * 0.25)),
+        projectedArr: Math.round(projectedArr),
         totalAccounts: accountCount,
         totalLeads: leadCount,
+        totalOpportunities: oppCount,
       },
       funnel,
       monthlyVelocity,
@@ -304,8 +353,8 @@ export async function GET(req: NextRequest) {
       stageAgingDays,
       repLeaderboard,
       churnRetention: {
-        netRevenueRetention: 100 + (winRate > 0 ? Math.min(25, Math.round(winRate * 0.2)) : 0),
-        grossRenewalRate: accountCount > 0 ? Math.round(((healthyCount + warningCount) / accountCount) * 100) : 100,
+        netRevenueRetention: null,
+        grossRenewalRate,
         atRiskRevenue: atRiskVal,
         healthyAccounts: healthyCount,
         warningAccounts: warningCount,

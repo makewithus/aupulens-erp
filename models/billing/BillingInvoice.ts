@@ -81,7 +81,7 @@ const BillingInvoiceSchema = new Schema<IBillingInvoice>(
     invoiceNumber: { type: String, required: true, unique: true, index: true },
     tenantId: { type: String, required: true, index: true, immutable: true },
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
-    paymentId: { type: String, index: true },
+    paymentId: { type: String },
     subscriptionId: { type: String, index: true },
     invoiceDate: { type: Date, required: true, default: Date.now },
     dueDate: { type: Date, required: true },
@@ -112,6 +112,7 @@ const BillingInvoiceSchema = new Schema<IBillingInvoice>(
 );
 
 BillingInvoiceSchema.index({ tenantId: 1, invoiceDate: -1 });
+BillingInvoiceSchema.index({ paymentId: 1 }, { unique: true, sparse: true });
 
 const BillingInvoice: Model<IBillingInvoice> =
   (mongoose.models.BillingInvoice as Model<IBillingInvoice>) ||

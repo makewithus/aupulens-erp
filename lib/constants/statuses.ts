@@ -1321,6 +1321,8 @@ export const SUBSCRIPTION_EVENT_TYPE = {
   RENEWED: "renewed",
   PAYMENT_SUCCEEDED: "payment_succeeded",
   PAYMENT_FAILED: "payment_failed",
+  RENEWAL_BLOCKED: "renewal_blocked",
+  REFUNDED: "refunded",
   CANCELED: "canceled",
   // Global Admin control plane (docs/admin/BRIEF-GLOBAL-ADMIN.md Phase 2) —
   // an organisation-status transition (INVITED..ARCHIVED), distinct from a

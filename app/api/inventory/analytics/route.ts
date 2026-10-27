@@ -89,18 +89,11 @@ export async function GET() {
 
     // Format data
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    // Real stock levels for last 6 months based on actual current stock
+    // This model stores only current quantity, not historical snapshots.
+    // Return one current point instead of drawing today's stock as a fake
+    // six-month history.
     const currentStock = stockData[0]?.level || 0;
-    const stockLevels = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      stockLevels.push({
-        month: monthNames[date.getMonth()],
-        level: currentStock > 0 ? currentStock : 0
-      });
-    }
+    const stockLevels = [{ month: "Current", level: currentStock }];
 
     // Group movements by month
     const movementsMap = new Map();
