@@ -4,33 +4,45 @@ import dbConnect from "@/lib/db";
 import CrmCase from "@/models/crm/Case";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { sendCaseNotification } from "@/lib/crm/caseNotifications";
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  
-  await dbConnect();
-  const crmCase = await CrmCase.findOne({ _id: params.id, tenantId: session.user.tenantId })
-      .populate('account_id', 'company_name')
-      .populate('contact_id', 'first_name last_name')
-      .populate('owner_id', 'name').lean();
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     
-  if (!crmCase) return NextResponse.json({ success: false }, { status: 404 });
-  return NextResponse.json({ success: true, data: crmCase });
+    await dbConnect();
+    const crmCase = await CrmCase.findOne({ _id: params.id, tenantId: session.user.tenantId })
+        .populate('account_id', 'company_name')
+        .populate('contact_id', 'first_name last_name')
+        .populate('owner_id', 'name').lean();
+
+    if (!crmCase) return NextResponse.json({ success: false, message: "Case not found" }, { status: 404 });
+    return NextResponse.json({ success: true, data: crmCase });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  
-  await dbConnect();
-  const crmCase = await CrmCase.findOne({ _id: params.id, tenantId: session.user.tenantId });
-  if (!crmCase) return NextResponse.json({ success: false }, { status: 404 });
-
   try {
-    const body = await req.json();
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+
+    await dbConnect();
+    const crmCase = await CrmCase.findOne({ _id: params.id, tenantId: session.user.tenantId });
+    if (!crmCase) return NextResponse.json({ success: false, message: "Case not found" }, { status: 404 });
+
+    const body = stripProtectedFields(await req.json());
+    const safeUpdates = stripProtectedFields(body);
     const oldStatus = crmCase.status;
     
     if (body.status === 'Closed' && crmCase.status !== 'Closed') {
@@ -39,7 +51,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
       }
     }
 
-    Object.assign(crmCase, body);
+    Object.assign(crmCase, safeUpdates);
     await crmCase.save();
 
     if (oldStatus !== body.status && body.status === 'Resolved') {
@@ -62,28 +74,35 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     });
 
     return NextResponse.json({ success: true, data: crmCase });
-  } catch (error: any) {
-    console.error("Error updating case:", error);
-    return NextResponse.json({ success: false, message: error.message || "Internal server error" }, { status: 500 });
+  } catch (error) {
+    return handleRouteError(error);
   }
 }
 
 export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  
-  await dbConnect();
-  await CrmCase.findOneAndDelete({ _id: params.id, tenantId: session.user.tenantId });
-  
-  await CrmAuditLog.create({
-    tenantId: session.user.tenantId,
-    user_id: session.user.id,
-    action: 'deleted',
-    record_type: 'Case',
-    record_id: params.id,
-    timestamp: new Date()
-  });
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
 
-  return NextResponse.json({ success: true });
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+
+    await dbConnect();
+    const crmCase = await CrmCase.findOneAndDelete({ _id: params.id, tenantId: session.user.tenantId });
+    if (!crmCase) return NextResponse.json({ success: false, message: "Case not found" }, { status: 404 });
+
+    await CrmAuditLog.create({
+      tenantId: session.user.tenantId,
+      user_id: session.user.id,
+      action: 'deleted',
+      record_type: 'Case',
+      record_id: params.id,
+      timestamp: new Date()
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }

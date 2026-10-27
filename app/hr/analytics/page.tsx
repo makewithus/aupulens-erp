@@ -44,10 +44,9 @@ function formatCurrency(val: number) {
 }
 
 export default function HrAnalyticsPage() {
-  const cached = getInstantCachedData<any>(`/api/hr/analytics?range=1y`);
-  const [data, setData] = useState<any>(() => cached ?? null);
+  const [data, setData] = useState<any>(null);
   const [timeRange, setTimeRange] = useState<string>("1y");
-  const [isLoading, setIsLoading] = useState<boolean>(() => !cached);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadData = useCallback(async (fresh: boolean = false) => {
@@ -59,11 +58,11 @@ export default function HrAnalyticsPage() {
       if (res.ok) {
         const json = await res.json();
         setData(json);
-        if (fresh) toast.success("Live HR database synchronized");
+        if (fresh) toast.success("HR analytics updated");
       }
     } catch (e) {
       console.error("Failed to load HR analytics:", e);
-      if (fresh) toast.error("Failed to sync live HR data");
+      if (fresh) toast.error("Failed to sync HR analytics");
     } finally {
       if (fresh) setIsRefreshing(false);
       setIsLoading(false);
@@ -71,8 +70,13 @@ export default function HrAnalyticsPage() {
   }, [timeRange]);
 
   useEffect(() => {
+    const cached = getInstantCachedData<any>(`/api/hr/analytics?range=${timeRange}`);
+    if (cached) {
+      setData(cached);
+      setIsLoading(false);
+    }
     loadData(false);
-  }, [loadData]);
+  }, [loadData, timeRange]);
 
   useEffect(() => {
     const handleRevalidate = (e: any) => {
@@ -90,11 +94,11 @@ export default function HrAnalyticsPage() {
     totalHeadcount: 0,
     activeHeadcount: 0,
     onboardingCount: 0,
-    monthlyTurnoverRate: 0,
+    periodExitRate: 0,
     attendanceCompliance: 0,
     avgTenureYears: 0,
     monthlyGrossPayroll: 0,
-    openRequisitions: 0,
+    openRequisitions: null,
     totalDepartments: 0,
   };
   const headcountTrajectory = Array.isArray(data?.headcountTrajectory) ? data.headcountTrajectory : [];
@@ -120,7 +124,6 @@ export default function HrAnalyticsPage() {
     return attendanceTrends.map((a: any) => ({
       name: a.day,
       "Present %": a.present,
-      "Remote %": a.remote,
       "On Leave %": a.onLeave,
     }));
   }, [attendanceTrends]);
@@ -139,12 +142,6 @@ export default function HrAnalyticsPage() {
     return { day: best.day, pct: best.present || 0 };
   }, [attendanceTrends]);
 
-  const peakRemoteDay = useMemo(() => {
-    if (!attendanceTrends || attendanceTrends.length === 0) return { day: "N/A", pct: 0 };
-    const best = [...attendanceTrends].sort((a: any, b: any) => (b.remote || 0) - (a.remote || 0))[0];
-    return { day: best.day, pct: best.remote || 0 };
-  }, [attendanceTrends]);
-
   if (isLoading && !data) {
     return (
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
@@ -154,22 +151,68 @@ export default function HrAnalyticsPage() {
   }
 
   const exportCsv = () => {
-    const headers = ["Metric", "Value"];
-    const rows = [
-      ["Total Active Headcount", kpis.totalHeadcount],
-      ["Monthly Turnover Rate (%)", `${kpis.monthlyTurnoverRate}%`],
-      ["Attendance Compliance (%)", `${kpis.attendanceCompliance}%`],
-      ["Average Employee Tenure", `${kpis.avgTenureYears} Years`],
-      ["Monthly Gross Payroll", formatCurrency(kpis.monthlyGrossPayroll)],
-      ["Open Job Requisitions", kpis.openRequisitions],
-      ["Active Onboarding Employees", kpis.onboardingCount],
-    ];
-    const csvContent = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+    const escapeCsv = (val: any) => {
+      const s = String(val ?? "").trim();
+      const safe = /^[-+=@]/.test(s) ? `'${s}` : s;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+
+    const headers = ["Report Section", "Dimension / Category", "Metric", "Value", "Unit / Proportion", "Reporting Period"];
+    const rows: string[][] = [];
+    const periodLabel = timeRange === "1Y" ? "Last 1 Year" : timeRange === "90D" ? "Last 90 Days" : "Last 30 Days";
+
+    // 1. Executive Summary
+    rows.push(["Executive Summary", "Workforce", "Total Active Headcount", String(kpis.totalHeadcount), "Staff", periodLabel]);
+    rows.push(["Executive Summary", "Retention", "Exit Rate", String(kpis.periodExitRate), "%", periodLabel]);
+    rows.push(["Executive Summary", "Operations", "Attendance Compliance", String(kpis.attendanceCompliance), "%", periodLabel]);
+    rows.push(["Executive Summary", "Stability", "Average Employee Tenure", String(kpis.avgTenureYears), "Years", periodLabel]);
+    rows.push(["Executive Summary", "Payroll", "Monthly Gross Payroll", String(kpis.monthlyGrossPayroll), "INR", periodLabel]);
+    rows.push(["Executive Summary", "Recruitment", "Open Job Requisitions", kpis.openRequisitions === null ? "Not tracked" : String(kpis.openRequisitions), "Positions", periodLabel]);
+    rows.push(["Executive Summary", "Onboarding", "Active Onboarding Employees", String(kpis.onboardingCount), "Candidates", periodLabel]);
+
+    // 2. Department Distribution
+    if (departmentDistribution.length > 0) {
+      departmentDistribution.forEach((d: any) => {
+        const deptName = d.name || d.department || d._id || "Unassigned";
+        const count = d.headcount || d.count || d.value || 0;
+        const pct = d.percentage ? `${d.percentage}%` : `${Math.round((count / Math.max(kpis.totalHeadcount, 1)) * 100)}%`;
+        rows.push(["Department Distribution", deptName, "Headcount", String(count), pct, periodLabel]);
+      });
+    }
+
+    // 3. Attendance Compliance
+    if (attendanceTrends.length > 0) {
+      attendanceTrends.forEach((a: any) => {
+        const dateStr = a.date || a.day || a._id || "Day";
+        const rate = a.rate ?? a.compliance ?? 0;
+        rows.push(["Attendance Compliance", dateStr, "Attendance Rate", `${rate}%`, `${a.present || a.count || 0} Present`, periodLabel]);
+      });
+    }
+
+    // 4. Tenure Cohorts
+    if (tenureDistribution.length > 0) {
+      tenureDistribution.forEach((t: any) => {
+        const bracket = t.bracket || t.label || t.range || t._id || "Cohort";
+        const count = t.count || t.value || 0;
+        rows.push(["Tenure Cohorts", bracket, "Staff Count", String(count), `${t.percentage || 0}%`, periodLabel]);
+      });
+    }
+
+    // 5. Payroll Allocation
+    if (payrollAllocation.length > 0) {
+      payrollAllocation.forEach((p: any) => {
+        const comp = p.name || p.component || p.category || "Salary Component";
+        const amt = p.amount || p.value || 0;
+        rows.push(["Payroll Allocation", comp, "Disbursement", String(amt), "INR", periodLabel]);
+      });
+    }
+
+    const csvContent = [headers.map(escapeCsv).join(","), ...rows.map((r) => r.map(escapeCsv).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `HR_Analytics_${timeRange}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `HR_Workforce_Analytics_${timeRange}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -246,7 +289,7 @@ export default function HrAnalyticsPage() {
       </div>
 
       {/* Top 5 Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
           <StatCard
             title="Total Active Workforce"
@@ -257,10 +300,10 @@ export default function HrAnalyticsPage() {
         </div>
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
           <StatCard
-            title="Monthly Turnover"
-            value={`${kpis.monthlyTurnoverRate}%`}
+            title="Exit Rate in Range"
+            value={`${kpis.periodExitRate}%`}
             visual={<ActivePulse />}
-            subtitle={`${kpis.monthlyTurnoverRate <= 3 ? "Within" : "Exceeds"} 3% benchmark target`}
+            subtitle="Based on recorded last working dates"
           />
         </div>
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
@@ -281,10 +324,10 @@ export default function HrAnalyticsPage() {
         </div>
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
           <StatCard
-            title="Monthly Payroll Outflow"
+            title="Payroll Paid in Range"
             value={formatCurrency(kpis.monthlyGrossPayroll)}
             visual={<ActivePulse />}
-            subtitle="Gross monthly compensation"
+            subtitle="Gross pay from disbursed payroll runs"
           />
         </div>
       </div>
@@ -298,10 +341,10 @@ export default function HrAnalyticsPage() {
               <div>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-primary" />
-                  12-Month Headcount Trajectory & Hiring Velocity
+                  Headcount Trajectory & Hiring Activity
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Net headcount expansion tracking monthly onboardings vs resignations.
+                  Monthly joins and recorded exits for the selected period.
                 </p>
               </div>
               <div className="flex items-center gap-3 text-xs font-mono">
@@ -399,10 +442,10 @@ export default function HrAnalyticsPage() {
           <CardHeader className="p-6 pb-2">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <CalendarCheck className="w-4 h-4 text-emerald-400" />
-              Weekly Attendance & Presence Ratio (%)
+              Attendance by Weekday (%)
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              In-office vs remote vs approved leave breakdown.
+              Presence and leave rates calculated from recorded attendance.
             </p>
           </CardHeader>
           <CardContent className="p-6 pt-2">
@@ -414,19 +457,14 @@ export default function HrAnalyticsPage() {
                     xAxisKey="name"
                     series={[
                       { key: "Present %", color: "#10b981", name: "Present %" },
-                      { key: "Remote %", color: "#3b82f6", name: "Remote %" },
                       { key: "On Leave %", color: "#f59e0b", name: "On Leave %" },
                     ]}
                   />
                 </div>
                 <div className="mt-4 p-3 rounded-lg border border-border/40 bg-muted/10 font-mono text-xs space-y-1">
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Peak In-Office Day</span>
+                    <span>Highest Presence Day</span>
                     <span className="font-bold text-foreground">{peakOfficeDay.day} ({peakOfficeDay.pct}%)</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Peak Remote Day</span>
-                    <span className="font-bold text-foreground">{peakRemoteDay.day} ({peakRemoteDay.pct}% WFH)</span>
                   </div>
                 </div>
               </>
@@ -450,7 +488,7 @@ export default function HrAnalyticsPage() {
             </p>
           </CardHeader>
           <CardContent className="p-6 pt-2">
-            {performanceDistribution.length > 0 ? (
+            {performanceDistribution.some((p: any) => (p.count || 0) > 0) ? (
               <>
                 <div className="h-[220px] w-full">
                   <CanvasBarChart
@@ -469,8 +507,9 @@ export default function HrAnalyticsPage() {
                 </div>
               </>
             ) : (
-              <div className="h-[220px] w-full flex items-center justify-center text-xs text-muted-foreground font-mono">
-                No appraisal review records found.
+              <div className="h-[220px] w-full flex flex-col items-center justify-center text-xs text-muted-foreground font-mono">
+                <Award className="w-8 h-8 text-muted-foreground/40 mb-2" />
+                No performance reviews yet
               </div>
             )}
           </CardContent>
@@ -522,11 +561,11 @@ export default function HrAnalyticsPage() {
                 Monthly Payroll Allocation & Statutory Breakdown
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Total monthly disbursement: {formatCurrency(kpis.monthlyGrossPayroll)} across {kpis.totalHeadcount} employees.
+                Gross pay from disbursed payroll runs in the selected period: {formatCurrency(kpis.monthlyGrossPayroll)}.
               </p>
             </div>
             <Badge variant="outline" className="font-mono text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-              Disbursed on 1st of Month
+              Recorded payroll runs
             </Badge>
           </div>
         </CardHeader>

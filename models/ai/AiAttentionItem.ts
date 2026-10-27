@@ -43,7 +43,7 @@ export interface IAiAttentionItem extends Document {
 
 const AiAttentionItemSchema: Schema<IAiAttentionItem> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     workflowId: { type: String, required: true, index: true },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true },
     priority: { type: String, enum: AI_ATTENTION_PRIORITY_VALUES, required: true },

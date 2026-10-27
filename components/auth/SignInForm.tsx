@@ -37,7 +37,7 @@ function SignInFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
-  const isSessionExpired = authError === "SessionExpired";
+  const isSessionExpired = authError === "SessionExpired" || authError === "SessionRequired";
 
   const { tenantId } = useTenantStore();
 
@@ -53,26 +53,10 @@ function SignInFormContent() {
 
   const [oauthProviders, setOauthProviders] = useState<OAuthProvider[]>([]);
 
-  // callbackUrl support (Part 1.2): a user who arrives from /accept-invite (or
-  // any protected page) should land back where they came from after signing in,
-  // not on their default dashboard. Validation (same-origin only, open-redirect
-  // safe) lives in lib/auth/safeCallbackUrl so it's unit-tested. Returns null
-  // when there's no safe callback, leaving the normal role-dashboard flow.
+  // callbackUrl support: safe relative return target after signing in
   const getSafeCallbackUrl = (): string | null => safeCallbackUrl(searchParams.get("callbackUrl"));
 
-  const passwordInputName = useMemo(
-    () => isSessionExpired ? "reauth-secret" : "password",
-    [isSessionExpired],
-  );
-  const emailInputId = isSessionExpired ? "reauth-identifier" : "email";
-  const emailInputName = isSessionExpired ? "reauth-identifier" : "email";
-  const passwordInputId = isSessionExpired ? "reauth-secret" : "password";
-
   useEffect(() => {
-    // Only shows buttons for providers actually configured server-side
-    // (auth.ts only registers Google/Microsoft when their env vars are
-    // set) — asking NextAuth's own /api/auth/providers endpoint rather
-    // than guessing client-side avoids a button that fails on click.
     getProviders().then((providers) => {
       if (!providers) return;
       setOauthProviders(Object.values(providers).filter((p) => p.type === "oidc" || p.type === "oauth"));
@@ -84,7 +68,6 @@ function SignInFormContent() {
   const handleOAuthSignIn = async (providerId: string) => {
     setOauthLoading(providerId);
     try {
-      // Honour a safe callbackUrl (e.g. from /accept-invite); otherwise "/".
       await signIn(providerId, { callbackUrl: getSafeCallbackUrl() ?? "/" });
     } catch {
       toast.error("Could not start sign-in. Please try again.");
@@ -93,9 +76,6 @@ function SignInFormContent() {
   };
 
   useEffect(() => {
-    // Pre-filled by the workspace switcher (components/dashboard/WorkspaceSwitcher.tsx)
-    // when jumping to a different org's login page — saves re-typing, still
-    // requires the real password for that workspace.
     const emailParam = searchParams.get("email");
     if (emailParam) {
       setFormData((prev) => ({ ...prev, email: emailParam }));
@@ -125,9 +105,11 @@ function SignInFormContent() {
         EmailSignin:
           "The verification email could not be sent.",
         SessionRequired:
-          "Please sign in to access this page.",
+          "Please sign in to access your workspace.",
         SessionExpired:
           "Your session has expired. Please sign in again.",
+        MissingCSRF:
+          "Security check failed. Please refresh the page and try again.",
         Default:
           "Invalid email, password, or organization domain.",
       };
@@ -139,7 +121,7 @@ function SignInFormContent() {
       setError(message);
       toast.error(message);
 
-      if (typeof window !== "undefined" && errorParam === "SessionExpired") {
+      if (typeof window !== "undefined" && (errorParam === "SessionExpired" || errorParam === "SessionRequired" || errorParam === "MissingCSRF")) {
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.delete("error");
         window.history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
@@ -147,107 +129,56 @@ function SignInFormContent() {
     }
   }, [authError]);
 
-  useEffect(() => {
-    if (!isSessionExpired) return;
-
-    setFormData({ email: "", password: "" });
-    setShowPassword(false);
-
-    const clearExpiredSessionFields = () => {
-      const emailInput = document.getElementById(emailInputId) as HTMLInputElement | null;
-      const passwordInput = document.getElementById(passwordInputId) as HTMLInputElement | null;
-      if (emailInput) emailInput.value = "";
-      if (passwordInput) passwordInput.value = "";
-    };
-
-    clearExpiredSessionFields();
-    const animationFrame = window.requestAnimationFrame(clearExpiredSessionFields);
-    return () => window.cancelAnimationFrame(animationFrame);
-  }, [emailInputId, isSessionExpired, passwordInputId]);
-
-  const handleSubmit = async (
-    e: React.FormEvent
-  ) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const emailValue =
+      formData.email.trim() ||
+      (document.getElementById("email") as HTMLInputElement | null)?.value?.trim() ||
+      "";
+    const passwordValue =
+      formData.password ||
+      (document.getElementById("password") as HTMLInputElement | null)?.value ||
+      "";
+
+    if (!emailValue || !passwordValue) {
+      setError("Please enter both email and password.");
+      return;
+    }
 
     setIsLoading(true);
     setError("");
 
     try {
-      const emailValue =
-        formData.email ||
-        (document.getElementById(emailInputId) as HTMLInputElement | null)?.value ||
-        "";
-      const passwordValue =
-        formData.password ||
-        (document.getElementById(passwordInputId) as HTMLInputElement | null)?.value ||
-        "";
-
-      const result = await signIn(
-        "credentials",
-        {
-          email: emailValue.trim(),
-          password: passwordValue,
-          tenantId:
-            tenantId || "default",
-          portal:
-            window.location.pathname,
-          redirect: false,
-        }
-      );
+      const result = await signIn("credentials", {
+        email: emailValue,
+        password: passwordValue,
+        tenantId: tenantId || "default",
+        portal: "/auth",
+        redirect: false,
+      });
 
       if (result?.error) {
         const errorMessage =
-          result.error ===
-            "CredentialsSignin" ||
-          result.error ===
-            "Configuration"
-            ? "Invalid email, password, or organization domain."
+          result.error === "CredentialsSignin" || result.error === "Configuration"
+            ? "Invalid email or password."
             : result.error;
 
         setError(errorMessage);
         toast.error(errorMessage);
       } else if (result?.ok) {
-        toast.success(
-          "Login successful! Redirecting..."
-        );
+        toast.success("Login successful! Redirecting...");
 
-        if (
-          typeof window !==
-          "undefined"
-        ) {
-          sessionStorage.setItem(
-            "session_active",
-            "true"
-          );
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("session_active", "true");
         }
 
-        // Previously: awaited a second round trip (checkSession -> GET
-        // /api/auth/session) just to read the role client-side and pick a
-        // dashboard URL that duplicated middleware's own role->dashboard
-        // logic — the visible "stuck on the login screen, then redirects"
-        // pause between "Login successful" and actually leaving the page.
-        // signIn() above already set a valid session cookie by the time its
-        // promise resolves (the browser has stored the Set-Cookie from that
-        // request), so navigating straight to "/" lets middleware.ts, which
-        // runs server-side on the very next request with that cookie, send
-        // the user to their correct role dashboard in that one redirect —
-        // no extra client-side fetch, no duplicated routing table to keep in
-        // sync with middleware's.
-        //
-        // Land back where the user came from (e.g. /accept-invite) when a
-        // safe callbackUrl is present; otherwise let middleware route by role.
         const safeCallback = getSafeCallbackUrl();
         window.location.href = safeCallback ?? "/";
       }
     } catch {
-      setError(
-        "Something went wrong. Please try again."
-      );
-
-      toast.error(
-        "Something went wrong. Please try again."
-      );
+      setError("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -257,16 +188,8 @@ function SignInFormContent() {
     <form
       onSubmit={handleSubmit}
       className="space-y-6"
-      autoComplete={isSessionExpired ? "off" : "on"}
-      data-form-kind={isSessionExpired ? "expired-session-reauth" : "signin"}
+      autoComplete="on"
     >
-      {isSessionExpired && (
-        <div className="fixed -left-[10000px] top-auto h-px w-px overflow-hidden opacity-0" aria-hidden="true">
-          <input tabIndex={-1} type="text" name="email" autoComplete="username" />
-          <input tabIndex={-1} type="password" name="password" autoComplete="current-password" />
-        </div>
-      )}
-
       {error && (
         <div className="text-xs text-destructive bg-destructive/10 p-3 font-mono">
           {error}
@@ -275,29 +198,30 @@ function SignInFormContent() {
 
       <div className="space-y-1">
         <Label
-          htmlFor={emailInputId}
+          htmlFor="email"
           className="font-mono text-[11px] text-muted-foreground/60"
         >
           Email Address
         </Label>
 
         <Input
-          id={emailInputId}
-          name={emailInputName}
-          type={isSessionExpired ? "text" : "email"}
+          id="email"
+          name="email"
+          type="email"
           inputMode="email"
-          autoComplete={isSessionExpired ? "off" : "username"}
+          autoComplete="username"
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          placeholder={isSessionExpired ? "Enter your email" : "admin@aupulens.com"}
+          placeholder="admin@aupulens.com"
           value={formData.email}
-          onChange={(e) =>
-            setFormData({
-              ...formData,
+          onChange={(e) => {
+            if (error) setError("");
+            setFormData((prev) => ({
+              ...prev,
               email: e.target.value,
-            })
-          }
+            }));
+          }}
           required
           disabled={isLoading}
           className="h-10 px-0 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 shadow-none"
@@ -307,7 +231,7 @@ function SignInFormContent() {
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <Label
-            htmlFor={passwordInputId}
+            htmlFor="password"
             className="font-mono text-[11px] text-muted-foreground/60"
           >
             Password
@@ -322,23 +246,19 @@ function SignInFormContent() {
 
         <div className="relative">
           <Input
-            id={passwordInputId}
-            name={passwordInputName}
-            type={
-              showPassword
-                ? "text"
-                : "password"
-            }
-            autoComplete={isSessionExpired ? "off" : "current-password"}
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
             placeholder="••••••••"
             value={formData.password}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                password:
-                  e.target.value,
-              })
-            }
+            onChange={(e) => {
+              if (error) setError("");
+              setFormData((prev) => ({
+                ...prev,
+                password: e.target.value,
+              }));
+            }}
             required
             disabled={isLoading}
             className="h-10 pl-0 pr-10 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 w-full shadow-none"
@@ -346,11 +266,7 @@ function SignInFormContent() {
 
           <button
             type="button"
-            onClick={() =>
-              setShowPassword(
-                !showPassword
-              )
-            }
+            onClick={() => setShowPassword(!showPassword)}
             className="absolute right-0 bottom-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             {showPassword ? (

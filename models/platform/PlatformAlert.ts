@@ -34,7 +34,7 @@ export interface IPlatformAlert extends Document {
 
 const PlatformAlertSchema = new Schema<IPlatformAlert>(
   {
-    tenantId: { type: String },
+    tenantId: { type: String, immutable: true },
     alertType: { type: String, required: true, enum: PLATFORM_ALERT_TYPE_VALUES },
     severity: { type: String, required: true, enum: PLATFORM_SEVERITY_VALUES },
     message: { type: String, required: true },

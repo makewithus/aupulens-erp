@@ -662,7 +662,7 @@ function ChartOfAccountsPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchData}
       profilePath="/finance/profile"
     >

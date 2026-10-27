@@ -17,6 +17,8 @@ export interface IProduct extends Document {
   // Opt-in override: when false (default), new stock movements that would
   // take this product's on-hand quantity below zero are rejected.
   allowNegativeStock: boolean;
+  /** Incremented inside inventory transactions to serialize stock checks per product. */
+  inventoryRevision: number;
   tab_general_information: {
     type: "consu" | "service" | "combo";
     invoice_policy: "order" | "delivery";
@@ -70,8 +72,9 @@ export interface IProduct extends Document {
 
 const ProductSchema: Schema<IProduct> = new Schema(
   {
-    tenantId: { type: String, index: true },
+    tenantId: { type: String, index: true, immutable: true },
     allowNegativeStock: { type: Boolean, default: false },
+    inventoryRevision: { type: Number, default: 0, select: false },
     header: {
       name: { type: String, required: true, trim: true },
       sale_ok: { type: Boolean, default: true },

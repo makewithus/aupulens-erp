@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -112,7 +114,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: mappedOrders, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     console.error("Sales Orders GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -124,8 +126,9 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
+
+const tenantId = session.user.tenantId;
+    const body = stripProtectedFields(await request.json());
 
     if (!body.customerId) {
       return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
@@ -205,6 +208,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, data: order }, { status: 201 });
+
   } catch (error: any) {
     if (error?.code === 11000) {
       return NextResponse.json(
@@ -213,6 +217,6 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("Sales Orders POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

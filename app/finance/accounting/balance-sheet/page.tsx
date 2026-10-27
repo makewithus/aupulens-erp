@@ -60,14 +60,66 @@ export default function BalanceSheetPage() {
       return;
     }
 
-    const receivables = data.asset?.accounts?.receivable?.amount || 0;
-    const inventoryValue = data.asset?.accounts?.inventory?.amount || 0;
-    const payables = data.liability?.accounts?.payable?.amount || 0;
-    const totalCurrentAssets = data.asset?.total || 0;
-    const totalCurrentLiabilities = data.liability?.total || 0;
-    const equity = data.equity?.total || 0;
-
     const reportDate = data.asOfDate || date;
+    const timeZone = data.timeZone || "UTC";
+
+    const assetAccounts = Object.values(data.asset?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+    const hasAssetBreakdown = Boolean(data.asset?.current || data.asset?.nonCurrent);
+    const assetCurrentAccounts = Object.values(data.asset?.current?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+    const assetNonCurrentAccounts = Object.values(data.asset?.nonCurrent?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+
+    const liabilityAccounts = Object.values(data.liability?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+    const hasLiabilityBreakdown = Boolean(data.liability?.current || data.liability?.nonCurrent);
+    const liabilityCurrentAccounts = Object.values(data.liability?.current?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+    const liabilityNonCurrentAccounts = Object.values(data.liability?.nonCurrent?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+
+    const equityAccounts = Object.values(data.equity?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+
+    const totalAssets = data.asset?.total ?? 0;
+    const totalLiabilities = data.liability?.total ?? 0;
+    const totalEquity = data.equity?.total ?? 0;
+    const liabilitiesAndEquity = totalLiabilities + totalEquity;
+    const isBalanced = Math.abs(totalAssets - liabilitiesAndEquity) <= 0.01;
+
+    const renderRows = (accounts: any[], emptyLabel: string) => {
+      if (accounts.length === 0) {
+        return `
+          <tr class="border-b border-gray-200">
+            <td colspan="2" class="py-3 px-4 text-sm text-gray-500 italic text-center">${emptyLabel}</td>
+          </tr>
+        `;
+      }
+      return accounts
+        .map(
+          (acc: any) => `
+          <tr class="border-b border-gray-200">
+            <td class="py-2.5 px-4 text-sm text-gray-900">
+              <span class="font-medium">${acc.name}</span>
+              ${acc.code ? `<span class="ml-2 font-mono text-xs text-gray-500">(${acc.code})</span>` : ""}
+            </td>
+            <td class="py-2.5 px-4 text-right text-sm font-semibold tabular-nums text-gray-900">
+              ${formatInr(acc.amount)}
+            </td>
+          </tr>
+        `
+        )
+        .join("");
+    };
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -76,94 +128,181 @@ export default function BalanceSheetPage() {
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @media print {
-            body { -webkit-print-color-adjust: exact; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px 16px; }
         </style>
       </head>
-      <body class="p-8 bg-white text-black">
-        <div class="max-w-4xl mx-auto">
-          <div class="mb-8 border-b-2 border-black pb-4">
-            <h1 class="text-3xl font-bold uppercase mb-2">Balance Sheet</h1>
+      <body class="p-8 bg-white text-black font-sans">
+        <div class="max-w-4xl mx-auto space-y-8">
+          <!-- HEADER -->
+          <div class="border-b-2 border-black pb-4">
+            <h1 class="text-3xl font-black uppercase tracking-tight mb-2">Balance Sheet</h1>
             <div class="flex justify-between items-end">
               <div>
-                <p class="text-sm font-medium">Organization: Aupulens</p>
-                <p class="text-sm text-muted-foreground">Generated: ${new Date().toLocaleString()}</p>
+                <p class="text-sm font-semibold text-gray-800">Organization: Aupulens</p>
+                <p class="text-xs text-gray-500">Generated: ${new Date().toLocaleString()}</p>
+                ${data.latestIncludedPostingDate ? `<p class="text-xs text-gray-500">Latest Posted Entry: ${data.latestIncludedPostingDate}</p>` : ""}
               </div>
-              <p class="text-lg font-bold">As of: ${reportDate} (${data.timeZone || "UTC"})</p>
+              <div class="text-right">
+                <p class="text-lg font-bold">As of: ${reportDate}</p>
+                <p class="text-xs text-gray-500">Timezone: ${timeZone}</p>
+              </div>
             </div>
           </div>
 
-          <!-- ASSETS -->
-          <div class="mb-8">
-            <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Assets</h3>
-            <table class="w-full text-left mb-4">
+          <!-- SUMMARY METRICS -->
+          <div class="grid grid-cols-3 gap-4 border border-gray-300 p-4 bg-gray-50 text-center">
+            <div>
+              <p class="text-xs uppercase font-bold text-gray-500">Total Assets</p>
+              <p class="text-xl font-black text-gray-900 mt-1">${formatInr(totalAssets)}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase font-bold text-gray-500">Total Liabilities</p>
+              <p class="text-xl font-black text-gray-900 mt-1">${formatInr(totalLiabilities)}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase font-bold text-gray-500">Total Equity</p>
+              <p class="text-xl font-black text-gray-900 mt-1">${formatInr(totalEquity)}</p>
+            </div>
+          </div>
+
+          <!-- ASSETS SECTION -->
+          <div>
+            <div class="flex justify-between items-baseline border-b-2 border-black pb-2 mb-2">
+              <h3 class="text-lg font-bold uppercase tracking-wider">Assets</h3>
+              <span class="text-base font-bold tabular-nums">${formatInr(totalAssets)}</span>
+            </div>
+            ${hasAssetBreakdown ? `
+              <div class="mb-4">
+                <div class="flex justify-between items-baseline bg-gray-50 border-b border-gray-300 py-1.5 px-4 font-bold text-xs uppercase text-gray-700">
+                  <span>Current Assets (Under 12 months)</span>
+                  <span>${formatInr(data.asset?.current?.total ?? 0)}</span>
+                </div>
+                <table class="w-full text-left mb-2">
+                  <tbody>
+                    ${renderRows(assetCurrentAccounts, "No current asset accounts with balances")}
+                  </tbody>
+                </table>
+              </div>
+              <div class="mb-4">
+                <div class="flex justify-between items-baseline bg-gray-50 border-b border-gray-300 py-1.5 px-4 font-bold text-xs uppercase text-gray-700">
+                  <span>Non-Current Assets (Fixed Assets)</span>
+                  <span>${formatInr(data.asset?.nonCurrent?.total ?? 0)}</span>
+                </div>
+                <table class="w-full text-left mb-2">
+                  <tbody>
+                    ${renderRows(assetNonCurrentAccounts, "No non-current / fixed asset accounts with balances")}
+                  </tbody>
+                </table>
+              </div>
+            ` : `
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-gray-100 border-b border-black text-xs uppercase font-bold text-gray-700">
+                    <th class="py-2 px-4">Description</th>
+                    <th class="py-2 px-4 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${renderRows(assetAccounts, "No asset accounts with balances")}
+                </tbody>
+              </table>
+            `}
+            <div class="flex justify-between items-center bg-gray-100 font-bold border-t-2 border-black py-3 px-4 uppercase text-sm">
+              <span>Total Assets</span>
+              <span class="text-base tabular-nums font-black">${formatInr(totalAssets)}</span>
+            </div>
+          </div>
+
+          <!-- LIABILITIES SECTION -->
+          <div>
+            <div class="flex justify-between items-baseline border-b-2 border-black pb-2 mb-2">
+              <h3 class="text-lg font-bold uppercase tracking-wider">Liabilities</h3>
+              <span class="text-base font-bold tabular-nums">${formatInr(totalLiabilities)}</span>
+            </div>
+            ${hasLiabilityBreakdown ? `
+              <div class="mb-4">
+                <div class="flex justify-between items-baseline bg-gray-50 border-b border-gray-300 py-1.5 px-4 font-bold text-xs uppercase text-gray-700">
+                  <span>Current Liabilities (Obligations payable up to 12 months)</span>
+                  <span>${formatInr(data.liability?.current?.total ?? 0)}</span>
+                </div>
+                <table class="w-full text-left mb-2">
+                  <tbody>
+                    ${renderRows(liabilityCurrentAccounts, "No current liability accounts with balances")}
+                  </tbody>
+                </table>
+              </div>
+              <div class="mb-4">
+                <div class="flex justify-between items-baseline bg-gray-50 border-b border-gray-300 py-1.5 px-4 font-bold text-xs uppercase text-gray-700">
+                  <span>Non-Current Liabilities (Payable beyond 12 months)</span>
+                  <span>${formatInr(data.liability?.nonCurrent?.total ?? 0)}</span>
+                </div>
+                <table class="w-full text-left mb-2">
+                  <tbody>
+                    ${renderRows(liabilityNonCurrentAccounts, "No non-current liability accounts with balances")}
+                  </tbody>
+                </table>
+              </div>
+            ` : `
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-gray-100 border-b border-black text-xs uppercase font-bold text-gray-700">
+                    <th class="py-2 px-4">Description</th>
+                    <th class="py-2 px-4 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${renderRows(liabilityAccounts, "No liability accounts with balances")}
+                </tbody>
+              </table>
+            `}
+            <div class="flex justify-between items-center bg-gray-100 font-bold border-t-2 border-black py-3 px-4 uppercase text-sm">
+              <span>Total Liabilities</span>
+              <span class="text-base tabular-nums font-black">${formatInr(totalLiabilities)}</span>
+            </div>
+          </div>
+
+          <!-- EQUITY SECTION -->
+          <div>
+            <div class="flex justify-between items-baseline border-b-2 border-black pb-2 mb-2">
+              <h3 class="text-lg font-bold uppercase tracking-wider">Equity</h3>
+              <span class="text-base font-bold tabular-nums">${formatInr(totalEquity)}</span>
+            </div>
+            <table class="w-full text-left">
               <thead>
-                <tr class="bg-accent border-b border-black">
-                  <th class="py-2 px-4 font-bold">Description</th>
-                  <th class="py-2 px-4 font-bold text-right">Amount</th>
+                <tr class="bg-gray-100 border-b border-black text-xs uppercase font-bold text-gray-700">
+                  <th class="py-2 px-4">Description</th>
+                  <th class="py-2 px-4 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-border">
-                  <td class="py-2 px-4">Accounts Receivable</td>
-                  <td class="py-2 px-4 text-right">₹${receivables.toLocaleString()}</td>
-                </tr>
-                <tr class="border-b border-border">
-                  <td class="py-2 px-4">Inventory</td>
-                  <td class="py-2 px-4 text-right">₹${inventoryValue.toLocaleString()}</td>
-                </tr>
-                <tr class="bg-muted font-bold">
-                  <td class="py-2 px-4">Total Current Assets</td>
-                  <td class="py-2 px-4 text-right">₹${totalCurrentAssets.toLocaleString()}</td>
+                ${renderRows(equityAccounts, "No equity accounts with balances")}
+                <tr class="bg-gray-100 font-bold border-t-2 border-black">
+                  <td class="py-3 px-4 uppercase text-sm">Total Equity</td>
+                  <td class="py-3 px-4 text-right text-base tabular-nums font-black">${formatInr(totalEquity)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <!-- LIABILITIES -->
-          <div class="mb-8">
-            <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Liabilities</h3>
-            <table class="w-full text-left mb-4">
-              <thead>
-                <tr class="bg-accent border-b border-black">
-                  <th class="py-2 px-4 font-bold">Description</th>
-                  <th class="py-2 px-4 font-bold text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="border-b border-border">
-                  <td class="py-2 px-4">Accounts Payable</td>
-                  <td class="py-2 px-4 text-right">₹${payables.toLocaleString()}</td>
-                </tr>
-                <tr class="bg-muted font-bold">
-                  <td class="py-2 px-4">Total Current Liabilities</td>
-                  <td class="py-2 px-4 text-right">₹${totalCurrentLiabilities.toLocaleString()}</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- BALANCE CHECK -->
+          <div class="border-2 border-black p-4 bg-gray-50">
+            <div class="flex justify-between items-center py-1">
+              <span class="font-bold text-sm uppercase tracking-wider">Total Liabilities + Equity</span>
+              <span class="font-black text-lg tabular-nums">${formatInr(liabilitiesAndEquity)}</span>
+            </div>
+            <div class="border-t border-gray-300 mt-2 pt-2 flex justify-between items-center text-xs">
+              <span class="font-mono uppercase font-bold ${isBalanced ? "text-green-700" : "text-red-700"}">
+                ${isBalanced ? "✓ Balanced — Assets equal Liabilities + Equity" : `⚠ Out of Balance by ${formatInr(Math.abs(totalAssets - liabilitiesAndEquity))}`}
+              </span>
+              <span class="text-gray-500 italic">Accounting Equation: Assets = Liabilities + Equity</span>
+            </div>
           </div>
 
-          <!-- EQUITY -->
-          <div class="mb-8">
-            <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Equity</h3>
-            <table class="w-full text-left mb-4">
-              <thead>
-                <tr class="bg-accent border-b border-black">
-                  <th class="py-2 px-4 font-bold">Description</th>
-                  <th class="py-2 px-4 font-bold text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="bg-muted font-bold">
-                  <td class="py-2 px-4">Total Equity (Assets - Liabilities)</td>
-                  <td class="py-2 px-4 text-right">₹${equity.toLocaleString()}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mt-12 text-center text-sm text-muted-foreground">
-            <p>End of Report</p>
+          <div class="pt-8 text-center text-xs text-gray-400">
+            <p>End of Report — Generated by Aupulens ERP</p>
           </div>
         </div>
         <script>
@@ -196,7 +335,7 @@ export default function BalanceSheetPage() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={load}
     >
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
@@ -287,7 +426,16 @@ export default function BalanceSheetPage() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <Card className="h-fit rounded-none border-border/40 bg-background shadow-none">
                 <CardContent className="space-y-8 p-6 sm:p-8">
-                  <StatementSection title="Assets" section={data.asset} />
+                  <StatementSection
+                    title="Assets"
+                    section={data.asset}
+                    subtitles={{
+                      currentTitle: "Current Assets",
+                      currentDesc: "Cash, bank balances, receivables, inventory & assets convertible within 12 months",
+                      nonCurrentTitle: "Non-Current Assets (Fixed Assets)",
+                      nonCurrentDesc: "Property, plant, machinery, equipment & capital assets held beyond 12 months",
+                    }}
+                  />
                   <TotalBar label="Total Assets" value={data.asset?.total ?? 0} />
                 </CardContent>
               </Card>
@@ -295,7 +443,17 @@ export default function BalanceSheetPage() {
               <div className="space-y-6">
                 <Card className="rounded-none border-border/40 bg-background shadow-none">
                   <CardContent className="space-y-8 p-6 sm:p-8">
-                    <StatementSection title="Liabilities" section={data.liability} tone="negative" />
+                    <StatementSection
+                      title="Liabilities"
+                      section={data.liability}
+                      tone="negative"
+                      subtitles={{
+                        currentTitle: "Current Liabilities",
+                        currentDesc: "Obligations payable up to or under 12 months (trade payables, taxes, customer advances)",
+                        nonCurrentTitle: "Non-Current Liabilities",
+                        nonCurrentDesc: "Long-term obligations payable beyond 12 months (long-term loans, borrowings)",
+                      }}
+                    />
                     <TotalBar label="Total Liabilities" value={data.liability?.total ?? 0} />
                   </CardContent>
                 </Card>

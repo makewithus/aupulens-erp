@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -91,7 +93,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items: leaves, total, page, totalPages: Math.ceil(total / limit), stats });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -105,10 +107,11 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     await connectDB();
 
-    if (!body.employeeId || !body.leaveType || !body.startDate || !body.endDate || !body.reason) {
+
+if (!body.employeeId || !body.leaveType || !body.startDate || !body.endDate || !body.reason) {
       return NextResponse.json(
         { error: "Employee, leave type, dates, and reason are required" },
         { status: 400 },
@@ -157,7 +160,8 @@ export async function POST(req: NextRequest) {
     await leave.save();
 
     return NextResponse.json({ success: true, leave }, { status: 201 });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

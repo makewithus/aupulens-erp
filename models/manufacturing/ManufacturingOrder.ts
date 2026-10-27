@@ -70,6 +70,7 @@ export interface IManufacturingOrder extends Document {
     createdAt: Date;
   }[];
   tenantId: string;
+  isDemo?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -155,7 +156,8 @@ const ManufacturingOrderSchema: Schema<IManufacturingOrder> = new Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
+    isDemo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

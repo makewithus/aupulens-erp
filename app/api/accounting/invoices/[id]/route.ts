@@ -1,5 +1,7 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -17,6 +19,7 @@ import {
 import { validateJournalLinesForPosting } from "@/lib/accounting/journal-validation";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createJournalEntry } from "@/lib/accounting/posting";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
 
@@ -109,10 +112,10 @@ const buildLinePostingEntries = (invoice: any, invoiceName: string) => {
       index === lines.length - 1
         ? roundCurrency(total - allocated)
         : roundCurrency(
-            subtotal > 0
-              ? ((Number(line.priceSubtotal) || 0) / subtotal) * total
-              : total / lines.length,
-          );
+          subtotal > 0
+            ? ((Number(line.priceSubtotal) || 0) / subtotal) * total
+            : total / lines.length,
+        );
     allocated = roundCurrency(allocated + amount);
 
     return {
@@ -243,19 +246,25 @@ export async function GET(
     }
 
     const user = session.user as any;
-    const tenantIdGuard = requireTenantId(session);
+    if (!["finance", "admin", "master-admin"].includes(user?.role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
+    }
 
+    const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
 
     const tenantId = user.tenantId;
 
-    await connectDB();
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
 
     const invoice = await Invoice.findOne({
-          _id: id,
-          tenantId,
-        }).populate("partnerId").lean();
+      _id: id,
+      tenantId,
+    }).populate("partnerId").lean();
 
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
@@ -264,7 +273,7 @@ export async function GET(
     return NextResponse.json(invoice);
   } catch (error: any) {
     console.error("Error fetching invoice:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -279,92 +288,108 @@ export async function PATCH(
     }
 
     const user = session.user as any;
-    const tenantIdGuard = requireTenantId(session);
+    if (!["finance", "admin", "master-admin"].includes(user?.role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
+    }
 
+    const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
 
     const tenantId = user.tenantId;
 
-    await connectDB();
     const { id } = await params;
-    const body = await req.json();
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
-    // Find the invoice
-    const invoice = await Invoice.findOne({ _id: id, tenantId });
-    if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-    }
+    await connectDB();
+    const transactionRequestBody = await req.json();
+    return await withAccountingTransaction(async () => {
+      const body = stripProtectedFields(structuredClone(transactionRequestBody));
 
-    const mergedState = (body.state ?? invoice.state) as DocumentStatus;
-    const approvalRequired = body.approvalRequired !== false;
+      // AUP-003: Strip protected fields from mass assignment
+      delete body._id;
+      delete body.tenantId;
+      delete body.createdBy;
+      delete body.createdAt;
+      delete body.journalId;
 
-    if (body.state && !isValidTransition(invoice.state as DocumentStatus, mergedState)) {
-      const canBypassApproval =
-        !approvalRequired &&
-        mergedState === DOCUMENT_STATUS.POSTED &&
-        invoice.state === DOCUMENT_STATUS.DRAFT;
-
-      if (!canBypassApproval) {
-        return NextResponse.json(
-          {
-            error: `Invalid state transition from ${invoice.state} to ${mergedState}`,
-          },
-          { status: 400 },
-        );
-      }
-    }
-
-    if (
-      body.state === DOCUMENT_STATUS.PENDING_APPROVAL ||
-      body.state === DOCUMENT_STATUS.APPROVED ||
-      body.state === DOCUMENT_STATUS.POSTED
-    ) {
-      const normalizeResult = await normalizeAccountingData(
-        invoice,
-        tenantId,
-        session.user.id,
-      );
-      if (normalizeResult.ok === false) {
-        return NextResponse.json({ error: normalizeResult.error }, { status: 400 });
+      // Find the invoice
+      const invoice = await Invoice.findOne({ _id: id, tenantId });
+      if (!invoice) {
+        return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
       }
 
-      const invoiceName = await ensureInvoiceNumber(invoice, tenantId, body.name);
-      body.name = invoiceName;
+      const mergedState = (body.state ?? invoice.state) as DocumentStatus;
+      const approvalRequired = body.approvalRequired !== false;
 
-      const journalTargetStatus =
+      if (body.state && !isValidTransition(invoice.state as DocumentStatus, mergedState)) {
+        const canBypassApproval =
+          !approvalRequired &&
+          mergedState === DOCUMENT_STATUS.POSTED &&
+          invoice.state === DOCUMENT_STATUS.DRAFT;
+
+        if (!canBypassApproval) {
+          return NextResponse.json(
+            {
+              error: `Invalid state transition from ${invoice.state} to ${mergedState}`,
+            },
+            { status: 400 },
+          );
+        }
+      }
+
+      if (
+        body.state === DOCUMENT_STATUS.PENDING_APPROVAL ||
+        body.state === DOCUMENT_STATUS.APPROVED ||
         body.state === DOCUMENT_STATUS.POSTED
-          ? DOCUMENT_STATUS.POSTED
-          : body.state === DOCUMENT_STATUS.APPROVED
-            ? DOCUMENT_STATUS.APPROVED
-            : DOCUMENT_STATUS.PENDING_APPROVAL;
+      ) {
+        const normalizeResult = await normalizeAccountingData(
+          invoice,
+          tenantId,
+          session.user.id,
+        );
+        if (normalizeResult.ok === false) {
+          return NextResponse.json({ error: normalizeResult.error }, { status: 400 });
+        }
 
-      await ensureJournalForInvoice(invoice, invoiceName, journalTargetStatus);
+        const invoiceName = await ensureInvoiceNumber(invoice, tenantId, body.name);
+        body.name = invoiceName;
 
-      if (body.state === DOCUMENT_STATUS.POSTED && approvalRequired && invoice.state !== DOCUMENT_STATUS.APPROVED) {
+        const journalTargetStatus =
+          body.state === DOCUMENT_STATUS.POSTED
+            ? DOCUMENT_STATUS.POSTED
+            : body.state === DOCUMENT_STATUS.APPROVED
+              ? DOCUMENT_STATUS.APPROVED
+              : DOCUMENT_STATUS.PENDING_APPROVAL;
+
+        await ensureJournalForInvoice(invoice, invoiceName, journalTargetStatus);
+
+        if (body.state === DOCUMENT_STATUS.POSTED && approvalRequired && invoice.state !== DOCUMENT_STATUS.APPROVED) {
+          return NextResponse.json(
+            {
+              error:
+                "Invoice must be approved before posting to General Ledger. Use pending_approval → approved → posted flow.",
+            },
+            { status: 400 },
+          );
+        }
+      }
+
+      // Update invoice
+      if (body.partnerId === "") {
         return NextResponse.json(
-          {
-            error:
-              "Invoice must be approved before posting to General Ledger. Use pending_approval → approved → posted flow.",
-          },
+          { error: "Customer (partnerId) cannot be empty" },
           { status: 400 },
         );
       }
-    }
+      Object.assign(invoice, body);
+      await invoice.save();
 
-    // Update invoice
-    if (body.partnerId === "") {
-      return NextResponse.json(
-        { error: "Customer (partnerId) cannot be empty" },
-        { status: 400 },
-      );
-    }
-    Object.assign(invoice, body);
-    await invoice.save();
-
-    return NextResponse.json(invoice);
+      return NextResponse.json(invoice);
+    });
   } catch (error: any) {
     console.error("Error updating invoice:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -379,32 +404,40 @@ export async function DELETE(
     }
 
     const user = session.user as any;
-    const tenantIdGuard = requireTenantId(session);
+    if (!["finance", "admin", "master-admin"].includes(user?.role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
+    }
 
+    const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
 
     const tenantId = user.tenantId;
 
-    await connectDB();
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
-    const invoice = await Invoice.findOne({ _id: id, tenantId });
-    if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-    }
+    await connectDB();
 
-    if (invoice.state !== DOCUMENT_STATUS.DRAFT) {
-      return NextResponse.json(
-        { error: "Only draft invoices can be deleted." },
-        { status: 400 },
-      );
-    }
+    return await withAccountingTransaction(async () => {
+      const invoice = await Invoice.findOne({ _id: id, tenantId });
+      if (!invoice) {
+        return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      }
 
-    await Invoice.deleteOne({ _id: id, tenantId });
+      if (invoice.state !== DOCUMENT_STATUS.DRAFT) {
+        return NextResponse.json(
+          { error: "Only draft invoices can be deleted." },
+          { status: 400 },
+        );
+      }
 
-    return NextResponse.json({ message: "Invoice deleted successfully" });
+      await Invoice.deleteOne({ _id: id, tenantId });
+
+      return NextResponse.json({ message: "Invoice deleted successfully" });
+    });
   } catch (error: any) {
     console.error("Error deleting invoice:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

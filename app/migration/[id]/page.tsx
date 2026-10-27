@@ -411,7 +411,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={(session?.user as any)?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={loadData}
     >
       <div className="max-w-7xl mx-auto space-y-6">

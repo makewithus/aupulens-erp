@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -15,10 +17,11 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     await connectDB();
 
-    const { startDate, endDate } = body;
+
+const { startDate, endDate } = body;
     if (!startDate || !endDate) {
       return NextResponse.json(
         { error: "Start date and end date are required" },
@@ -45,7 +48,8 @@ export async function POST(req: NextRequest) {
       success: true,
       lockedCount: result.modifiedCount,
     });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

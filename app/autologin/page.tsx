@@ -1,5 +1,6 @@
 "use client";
 
+import { readOnboardingFragment } from "@/lib/auth/onboardingHandoff";
 import { useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -14,31 +15,47 @@ function AutoLoginContent() {
   const { tenantId } = useTenantStore();
   const { checkSession } = useAuthStore();
   const autologinAttempted = useRef(false);
+  const credential = useRef<{ token: string; email: string } | null>(null);
 
   useEffect(() => {
-    const autologin = searchParams.get("autologin");
-    const email = searchParams.get("email");
+    if (autologinAttempted.current) return;
+    if (!credential.current && !autologinAttempted.current) {
+      credential.current = readOnboardingFragment(window.location.hash);
+      if (!credential.current) {
+        const queryToken = searchParams.get("autologin");
+        const queryEmail = searchParams.get("email");
+        if (queryToken && queryEmail && /^autologin_[a-zA-Z0-9]{20,64}$/.test(queryToken)) {
+          credential.current = { token: queryToken, email: queryEmail };
+        }
+      }
+    }
+    const autologin = credential.current?.token;
+    const email = credential.current?.email;
 
     if (!autologin || !email) {
       router.push("/auth");
       return;
     }
 
-    if (!tenantId) {
-      return; // Wait for TenantInitializer to populate tenantId
+    // AUP-010: Scrub sensitive autologin token from URL query string and browser history immediately
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     if (autologinAttempted.current) {
       return;
     }
     autologinAttempted.current = true;
+    credential.current = null;
 
     const performAutoLogin = async () => {
       try {
+        const targetTenant = searchParams.get("tenant") || searchParams.get("tenantId") || tenantId || "default";
         const result = await signIn("credentials", {
             email: email,
-            password: autologin,
-            tenantId: tenantId || "default",
+            password: "",
+            autologinToken: autologin,
+            tenantId: targetTenant,
             portal: "/auth/admin", // Portal check needs this to succeed
             redirect: false,
           });

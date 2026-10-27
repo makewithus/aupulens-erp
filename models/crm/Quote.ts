@@ -35,7 +35,7 @@ export interface IQuote extends Document {
 }
 
 const QuoteSchema = new Schema<IQuote>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   quote_number: { type: String, required: true },
   opportunity_id: { type: Schema.Types.ObjectId, ref: 'CrmOpportunity', required: true },
   account_id: { type: Schema.Types.ObjectId, ref: 'CrmAccount', required: true },

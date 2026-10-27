@@ -492,7 +492,7 @@ export default function SalesAIAssistant() {
         dashboardTitle="Sales"
         userName="Sales User"
         userRole="sales"
-        onSignOut={() => signOut({ callbackUrl: '/auth/sales' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profileHref="/sales/profile"
       >
         <div className="flex h-[calc(100vh-8rem)] gap-4 bg-background p-4">
@@ -524,7 +524,7 @@ export default function SalesAIAssistant() {
       dashboardTitle="Sales"
       userName={session?.user?.name || 'User'}
       userRole={session?.user?.role || 'sales'}
-      onSignOut={() => signOut({ callbackUrl: '/auth/sales' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profileHref="/sales/profile"
     >
       <div className="flex h-[calc(100vh-8rem)] ">

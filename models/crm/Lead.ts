@@ -28,11 +28,12 @@ export interface ILead extends Document {
   converted_account_id?: mongoose.Types.ObjectId;
   converted_contact_id?: mongoose.Types.ObjectId;
   converted_opportunity_id?: mongoose.Types.ObjectId;
+  isDemo?: boolean;
   createdBy: mongoose.Types.ObjectId;
 }
 
 const LeadSchema = new Schema<ILead>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true , immutable: true },
   lead_name: { type: String, required: true },
   company_name: { type: String },
   phone: { type: String },
@@ -71,6 +72,7 @@ const LeadSchema = new Schema<ILead>({
   converted_account_id: { type: Schema.Types.ObjectId, ref: 'CrmAccount' },
   converted_contact_id: { type: Schema.Types.ObjectId, ref: 'CrmContact' },
   converted_opportunity_id: { type: Schema.Types.ObjectId, ref: 'CrmOpportunity' },
+  isDemo: { type: Boolean, default: false, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 

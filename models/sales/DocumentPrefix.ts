@@ -23,7 +23,7 @@ export interface IDocumentPrefix extends Document {
 
 const DocumentPrefixSchema = new Schema<IDocumentPrefix>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     documentType: { type: String, enum: SALES_DOCUMENT_TYPE_VALUES, required: true },
     kind: { type: String, enum: DOCUMENT_PREFIX_KIND_VALUES, default: DOCUMENT_PREFIX_KIND.PREFIX },
     value: { type: String, required: true, trim: true },

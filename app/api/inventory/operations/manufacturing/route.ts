@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import "@/models/inventory/Product";
 import "@/models/auth/User";
 import { NextRequest, NextResponse } from "next/server";
@@ -82,7 +84,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ orders, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -95,12 +97,13 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await connectDB();
 
     // Generate Name
-    if (!body.header.name) {
+
+if (!body.header.name) {
       const count = await ManufacturingOrder.countDocuments({ tenantId });
       body.header.name = `WH/MO/${String(count + 1).padStart(5, "0")}`;
     }
@@ -122,7 +125,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ order }, { status: 201 });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

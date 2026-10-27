@@ -183,7 +183,7 @@ export default function ProfilePage() {
       userName={session?.user?.name || ''}
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: '/auth/admin' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchProfile}
     >
       <div className="space-y-6 max-w-4xl">
@@ -343,7 +343,7 @@ export default function ProfilePage() {
                     value={editForm.department}
                     onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
                     placeholder="e.g., Engineering"
-                    disabled={isSaving}
+                    disabled
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
@@ -353,7 +353,7 @@ export default function ProfilePage() {
                     value={editForm.designation}
                     onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
                     placeholder="e.g., Senior Manager"
-                    disabled={isSaving}
+                    disabled
                   />
                 </div>
               </div>

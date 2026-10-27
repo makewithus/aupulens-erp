@@ -21,6 +21,7 @@ export interface IWarehouse extends Document {
   bondedLicense?: string;
   bondedExpiryDate?: Date;
   notes?: string;
+  isDemo?: boolean;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -28,7 +29,7 @@ export interface IWarehouse extends Document {
 
 const WarehouseSchema: Schema<IWarehouse> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     warehouseCode: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
     location: { type: String, trim: true },
@@ -51,6 +52,7 @@ const WarehouseSchema: Schema<IWarehouse> = new Schema(
     bondedLicense: { type: String, trim: true },
     bondedExpiryDate: { type: Date },
     notes: { type: String, trim: true },
+    isDemo: { type: Boolean, default: false, index: true },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }

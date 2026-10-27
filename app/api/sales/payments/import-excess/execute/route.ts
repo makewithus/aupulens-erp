@@ -9,6 +9,7 @@ import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 // Applies previously-recorded excess/unused payment amounts to invoices.
 // Core rule (spec §7.7): the target invoice must not be in Draft or Paid
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
     await connectDB();
+
     const tenantId = session.user.tenantId;
 
     const formData = await request.formData();
@@ -129,39 +131,43 @@ export async function POST(request: Request) {
       }
 
       try {
-        sourcePayment.allocations.push({ invoiceId: invoice._id, amount });
-        sourcePayment.unusedAmount = Math.max(0, sourcePayment.unusedAmount - amount);
+        await withAccountingTransaction(async () => {
 
-        // The reclass entry: applying previously-unused/excess amount to a
-        // newly-allocated invoice nets to a clean Dr Customer Advances / Cr
-        // AR posting (no new cash line) — the diff against sourcePayment's
-        // last-posted snapshot handles this automatically.
-        const newAllocatedTotal = sourcePayment.allocations.reduce(
-          (acc: number, a: any) => acc + (Number(a.amount) || 0),
-          0,
-        );
-        await postCustomerPaymentJournal({
-          payment: sourcePayment,
-          tenantId,
-          createdBy: session.user.id,
-          current: {
-            allocatedTotal: newAllocatedTotal,
-            unusedAmount: sourcePayment.unusedAmount,
-            bankCharges: sourcePayment.bankCharges,
-            tdsAmount: sourcePayment.tdsAmount,
-          },
-          invoiceNumbers: [invoice.number],
-        });
+          sourcePayment.allocations.push({ invoiceId: invoice._id, amount });
+          sourcePayment.unusedAmount = Math.max(0, sourcePayment.unusedAmount - amount);
 
-        await sourcePayment.save();
+          // The reclass entry: applying previously-unused/excess amount to a
+          // newly-allocated invoice nets to a clean Dr Customer Advances / Cr
+          // AR posting (no new cash line) — the diff against sourcePayment's
+          // last-posted snapshot handles this automatically.
+          const newAllocatedTotal = sourcePayment.allocations.reduce(
+            (acc: number, a: any) => acc + (Number(a.amount) || 0),
+            0,
+          );
+          await postCustomerPaymentJournal({
+            payment: sourcePayment,
+            tenantId,
+            createdBy: session.user.id,
+            current: {
+              allocatedTotal: newAllocatedTotal,
+              unusedAmount: sourcePayment.unusedAmount,
+              bankCharges: sourcePayment.bankCharges,
+              tdsAmount: sourcePayment.tdsAmount,
+            },
+            invoiceNumbers: [invoice.number],
+          });
 
-        await applyAllocationsToInvoices({
-          tenantId,
-          paymentId: String(sourcePayment._id),
-          paymentNumber: sourcePayment.paymentNumber,
-          paymentDate: sourcePayment.paymentDate,
-          mode: sourcePayment.mode,
-          allocations: [{ invoiceId: String(invoice._id), amount }],
+          await sourcePayment.save();
+
+          await applyAllocationsToInvoices({
+            tenantId,
+            paymentId: String(sourcePayment._id),
+            paymentNumber: sourcePayment.paymentNumber,
+            paymentDate: sourcePayment.paymentDate,
+            mode: sourcePayment.mode,
+            allocations: [{ invoiceId: String(invoice._id), amount }],
+          });
+
         });
         imported++;
       } catch (e: any) {
@@ -171,6 +177,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, imported, skipped, errors });
+
   } catch (error: any) {
     console.error("Applied Excess Payments Import Execution Error:", error);
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });

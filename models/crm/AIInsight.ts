@@ -18,7 +18,7 @@ export interface IAIInsight extends Document {
 
 const AIInsightSchema = new Schema<IAIInsight>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     entityType: { type: String, required: true },
     entityId: { type: Schema.Types.ObjectId, required: true },
     insightType: { type: String, required: true },

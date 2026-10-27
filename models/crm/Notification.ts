@@ -17,7 +17,7 @@ export interface INotification extends Document {
 
 const NotificationSchema = new Schema<INotification>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     type: { type: String, required: true },
     title: { type: String, required: true },

@@ -30,6 +30,8 @@ export type ErpStructuredResponse =
       status?: string;
       count: number;
       label?: string;
+      scope?: string;
+      department?: string;
     }
   | {
       type: "record_list";
@@ -132,6 +134,15 @@ export type ErpStructuredResponse =
           sourcesChecked: string[];
           notes: string[];
         };
+        supportingJournalEntries?: Array<{
+          id: string;
+          name: string;
+          ref: string;
+          date: string;
+          voucherType: string;
+          amountTotal: number;
+          formattedAmount: string;
+        }>;
       };
       generatedAt?: string;
     }
@@ -182,4 +193,75 @@ export type ErpStructuredResponse =
       question: string;
       contextEntity?: string;
       options?: string[];
+    }
+  | {
+      type: "ar_reconciliation";
+      title: string;
+      reconciliationDate: string;
+      glControlAccount: {
+        id: string;
+        code: string;
+        name: string;
+        balance: number;
+        formattedBalance: string;
+      };
+      subledger: {
+        openRecordCount?: number;
+        openInvoicesCount?: number;
+        balance?: number;
+        subledgerBalance?: number;
+        formattedBalance?: string;
+        formattedSubledgerBalance?: string;
+      };
+      difference?: number;
+      formattedDifference?: string;
+      isReconciled?: boolean;
+      status?: string;
+      reconciliationOutcome?: {
+        difference: number;
+        formattedDifference: string;
+        isReconciled: boolean;
+        status: string;
+      };
+    }
+  | {
+      type: "missing_accounting_records";
+      title: string;
+      draftVendorBillsCount: number;
+      unpostedPayrollsCount: number;
+      unpostedJournalEntriesCount: number;
+      accountsMissingCodeCount: number;
+      isComplete: boolean;
+      recommendation: string;
+    }
+  | {
+      type: "unposted_journal_entries";
+      title: string;
+      totalCount: number;
+      items: Array<{
+        id: string;
+        name: string;
+        ref: string;
+        date: string;
+        status: string;
+        voucherStatus: string;
+        amountTotal: number;
+        formattedAmount: string;
+      }>;
+      closeImpact: string;
+    }
+  | {
+      type: "period_comparison";
+      title: string;
+      currentPeriod: { label: string; revenue: number; expenses: number; netIncome: number };
+      priorPeriod: { label: string; revenue: number; expenses: number; netIncome: number };
+      variances: { revenueDiff: number; expensesDiff: number; netIncomeDiff: number };
+    }
+  | {
+      type: "close_readiness_blockers";
+      title: string;
+      isReady: boolean;
+      blockersCount: number;
+      blockers: Array<{ severity: string; title: string; description: string }>;
+      trialBalanceBalanced: boolean;
     };

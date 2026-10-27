@@ -11,6 +11,7 @@ import SalesQuotation from "@/models/sales/SalesQuotation";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import Customer from "@/models/sales/Customer";
 import Counter from "@/models/shared/Counter";
+import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { QUOTE_STATUS } from "@/lib/constants/statuses";
 import { makeRequest, mockSession } from "../accounting/_helpers/routeTestUtils";
 
@@ -123,6 +124,7 @@ describe("quotes routes", () => {
       totalAmount: 1000,
       createdBy: new mongoose.Types.ObjectId(),
     });
+    await ensureChartOfAccounts("route-t1", String(new mongoose.Types.ObjectId()));
 
     const res = await convertPOST(makeRequest("http://localhost/x", { method: "POST" }), {
       params: Promise.resolve({ id: quote._id.toString() }),

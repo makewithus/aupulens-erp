@@ -29,7 +29,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ success: false, message: "Invalid id" }, { status: 400 });
 
   await connectDB();
-  const doc = await CurrencyAdjustment.findOneAndDelete({ _id: id, tenantId: session.user.tenantId });
+
+const doc = await CurrencyAdjustment.findOneAndDelete({ _id: id, tenantId: session.user.tenantId });
   if (!doc) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
   return NextResponse.json({ success: true, data: { _id: id } });
+
 }

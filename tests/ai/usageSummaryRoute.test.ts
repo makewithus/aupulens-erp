@@ -24,7 +24,16 @@ describe("authenticated toolbar usage", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toMatchObject({ scope: "workspace", monthly: { used: 20, limit: 1000, percentage: 2, windowStartedAt: "2026-10-01T00:00:00.000Z", resetsAt: "2026-11-01T00:00:00.000Z" }, serverTime: "2026-10-15T12:00:00.000Z" });
-    expect(m.find).toHaveBeenCalledWith({ subdomain: "org-a" }, expect.anything());
+    expect(m.find).toHaveBeenCalledWith(
+      { $or: [{ subdomain: "org-a" }, { slug: "org-a" }] },
+      {
+        tier: 1,
+        isActive: 1,
+        subscriptionStatus: 1,
+        trialEndDate: 1,
+        "settings.ai.usagePolicy": 1,
+      },
+    );
     expect(m.count).toHaveBeenCalledWith("org-a", "202610");
     expect(Object.keys(body.data).sort()).toEqual(["credits", "monthly", "scope", "serverTime", "session", "weekly"]);
     expect(body.data.credits).toMatchObject({ planKey: "pro", limit: 100, used: 2, reserved: 0, remaining: 98, resetsAt: "2026-11-01T00:00:00.000Z" });

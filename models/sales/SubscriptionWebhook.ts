@@ -16,7 +16,7 @@ export interface ISubscriptionWebhook extends Document {
 
 const SubscriptionWebhookSchema = new Schema<ISubscriptionWebhook>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
     url: { type: String, required: true, trim: true },
     secret: { type: String, required: true },

@@ -13,7 +13,7 @@ export interface IInvoiceTemplate extends Document {
 
 const InvoiceTemplateSchema = new Schema<IInvoiceTemplate>(
   {
-    tenantId: { type: String, required: false },
+    tenantId: { type: String, required: false, immutable: true },
     key: { type: String, required: true },
     name: { type: String, required: true },
     category: { type: String, enum: ["invoice", "purchase", "quotation"], required: true },

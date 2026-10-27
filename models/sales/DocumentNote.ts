@@ -20,7 +20,7 @@ export interface IDocumentNote extends Document {
 
 const DocumentNoteSchema = new Schema<IDocumentNote>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     kind: { type: String, enum: ["notes", "terms"], required: true },
     documentType: { type: String, enum: SALES_DOCUMENT_TYPE_VALUES, required: true },
     title: { type: String, required: true, trim: true },

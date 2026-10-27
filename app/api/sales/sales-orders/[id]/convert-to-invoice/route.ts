@@ -17,7 +17,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { id } = await params;
 
     const order: any = await SaleOrder.findOne({ _id: id, tenantId });
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await order.save();
 
     return NextResponse.json({ success: true, data: { order, invoice } }, { status: 201 });
+
   } catch (error: any) {
     if (error instanceof DealError) {
       return NextResponse.json({ success: false, message: error.message }, { status: error.status });

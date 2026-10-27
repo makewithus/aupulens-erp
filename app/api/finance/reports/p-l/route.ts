@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -35,11 +36,27 @@ export async function GET(req: NextRequest) {
 
     const totalIncome = report.income.total;
     const totalExpenses = report.expense.total;
+    const summary = report.statementSummary;
 
+    const isProfitAvailable = summary?.profitAvailable ?? (totalIncome === 0 || totalExpenses > 0);
     const payload = {
       income: report.income,
       expense: report.expense,
       netProfit: totalIncome - totalExpenses,
+      revenue: summary?.revenue ?? totalIncome,
+      cogs: summary?.cogs ?? 0,
+      grossProfit: summary?.grossProfit ?? (totalIncome - (summary?.cogs ?? 0)),
+      grossMarginPercent: summary?.grossMarginPercent ?? null,
+      operatingExpenses: summary?.operatingExpenses ?? totalExpenses,
+      operatingIncome: summary?.operatingIncome ?? (totalIncome - totalExpenses),
+      otherIncome: summary?.otherIncome ?? 0,
+      otherExpenses: summary?.otherExpenses ?? 0,
+      profitBeforeTax: summary?.profitBeforeTax ?? (totalIncome - totalExpenses),
+      taxExpense: summary?.taxExpense ?? 0,
+      profitAvailable: isProfitAvailable,
+      profitStatus: isProfitAvailable ? "complete" : "incomplete",
+      profitUnavailableReason: summary?.profitUnavailableReason,
+      statementSummary: summary,
       accountingBasis: "posted_journal_entries",
       validation: {
         totalDebits: report.totals.debit,
@@ -52,6 +69,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(payload);
   } catch (error: any) {
     console.error("P&L Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

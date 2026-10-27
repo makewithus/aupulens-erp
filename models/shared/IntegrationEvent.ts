@@ -32,7 +32,7 @@ export interface IIntegrationEvent extends mongoose.Document {
 
 const IntegrationEventSchema = new Schema<IIntegrationEvent>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     integrationId: { type: Schema.Types.ObjectId, ref: "Integration", required: true, index: true },
     connectorId: { type: String, required: true },
     direction: { type: String, enum: Object.values(INTEGRATION_EVENT_DIRECTION), required: true },

@@ -54,7 +54,7 @@ const AI_MODULES: AiModule[] = [
 
 const ChatHistorySchema: Schema<IChatHistory> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     conversationId: { type: String, required: true },
     module: { type: String, enum: AI_MODULES, required: true },

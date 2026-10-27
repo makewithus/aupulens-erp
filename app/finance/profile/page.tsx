@@ -194,7 +194,7 @@ export default function FinanceProfilePage() {
       userName={session?.user?.name || ''}
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchProfile}
       profilePath="/finance/profile"
     >
@@ -355,7 +355,7 @@ export default function FinanceProfilePage() {
                     value={editForm.department}
                     onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
                     placeholder="e.g., Finance"
-                    disabled={isSaving}
+                    disabled
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
@@ -365,7 +365,7 @@ export default function FinanceProfilePage() {
                     value={editForm.designation}
                     onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
                     placeholder="e.g., Financial Analyst"
-                    disabled={isSaving}
+                    disabled
                   />
                 </div>
               </div>

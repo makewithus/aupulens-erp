@@ -6,16 +6,21 @@ import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import CrmApprovalRequest from "@/models/crm/ApprovalRequest";
 import { processQuoteApproval } from "@/lib/crm/approvalEngine";
 import { requireRole } from "@/lib/crm/rbac";
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 type RouteProps = { params: Promise<{ id: string }> };
 
 // ─── GET /api/crm/quotes/[id] ────────────────────────────────────────────────
 export async function GET(req: NextRequest, props: RouteProps) {
-  const { id } = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId)
-    return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['quote.view', 'quote.read']);
+  try {
+    const { id } = await props.params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId)
+      return NextResponse.json({ success: false }, { status: 401 });
+    requireRole(session, ['quote.view', 'quote.read']);
 
   await dbConnect();
 
@@ -51,16 +56,23 @@ export async function GET(req: NextRequest, props: RouteProps) {
   // `quote` is a plain object (fetched with .lean()), so spread it directly —
   // calling .toObject() here would throw (it only exists on Mongoose documents).
   return NextResponse.json({ success: true, data: { ...quote, approvalHistory } });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 // ─── PUT /api/crm/quotes/[id] ────────────────────────────────────────────────
 export async function PUT(req: NextRequest, props: RouteProps) {
-  const { id } = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId)
-    return NextResponse.json({ success: false }, { status: 401 });
-  const roleCheck = requireRole(session, ['quote.edit', 'quote.write']);
-  if (roleCheck) return roleCheck;
+  try {
+    const { id } = await props.params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId)
+      return NextResponse.json({ success: false }, { status: 401 });
+    const roleCheck = requireRole(session, ['quote.edit', 'quote.write']);
+    if (roleCheck) return roleCheck;
 
   await dbConnect();
 
@@ -68,7 +80,7 @@ export async function PUT(req: NextRequest, props: RouteProps) {
   if (!quote)
     return NextResponse.json({ success: false, message: "Quote not found" }, { status: 404 });
 
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   // Locked quote → create a new version instead of editing
   const LOCKED_STATUSES = ["Approved", "Sent", "Accepted"];
@@ -138,17 +150,24 @@ export async function PUT(req: NextRequest, props: RouteProps) {
     approvalResult = await processQuoteApproval(quote, session.user.id);
   }
 
-  return NextResponse.json({ success: true, data: quote, approvalResult });
+    return NextResponse.json({ success: true, data: quote, approvalResult });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 // ─── DELETE /api/crm/quotes/[id] ─────────────────────────────────────────────
 export async function DELETE(req: NextRequest, props: RouteProps) {
-  const { id } = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId)
-    return NextResponse.json({ success: false }, { status: 401 });
-  const roleCheck = requireRole(session, ['quote.delete']);
-  if (roleCheck) return roleCheck;
+  try {
+    const { id } = await props.params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId)
+      return NextResponse.json({ success: false }, { status: 401 });
+    const roleCheck = requireRole(session, ['quote.delete']);
+    if (roleCheck) return roleCheck;
 
   await dbConnect();
 
@@ -174,5 +193,8 @@ export async function DELETE(req: NextRequest, props: RouteProps) {
     timestamp: new Date(),
   });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }

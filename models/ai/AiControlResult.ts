@@ -35,7 +35,7 @@ export interface IAiControlResult extends Document {
 
 const AiControlResultSchema: Schema<IAiControlResult> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     controlId: { type: String, required: true },
     period: { type: String, required: true },
     status: { type: String, enum: ["implemented", "not_implemented", "partial"], required: true },

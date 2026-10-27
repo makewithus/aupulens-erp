@@ -46,7 +46,7 @@ export interface IOrgUnit extends Document {
 
 const OrgUnitSchema = new Schema<IOrgUnit>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     code: { type: String, trim: true },
     level: { type: String, enum: ORG_LEVELS, required: true },

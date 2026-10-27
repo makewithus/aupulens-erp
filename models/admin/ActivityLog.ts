@@ -15,7 +15,7 @@ export interface IActivityLog extends Document {
 
 const ActivityLogSchema: Schema<IActivityLog> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     userName: { type: String, required: true },
     userEmail: { type: String, required: true },

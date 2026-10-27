@@ -17,7 +17,7 @@ export interface IAiUsageMonthly extends Document {
 
 const AiUsageMonthlySchema = new Schema<IAiUsageMonthly>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     period: { type: String, required: true },
     feature: { type: String, required: true, enum: AI_USAGE_FEATURE_BUCKET_VALUES },
     requestCount: { type: Number, required: true, default: 0 },

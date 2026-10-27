@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -5,6 +6,7 @@ import dbConnect from "@/lib/db";
 import BankStatement from "@/models/finance/BankStatement";
 import JournalEntry from "@/models/finance/JournalEntry";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -21,42 +23,44 @@ export async function PATCH(req: NextRequest) {
     await dbConnect();
 
     // 1. Mark bank statement line as reconciled
-    const statement = await BankStatement.findOne({
-      _id: statementId,
-      tenantId,
-    });
-    if (statement) {
-      const line = statement.lineIds.find(
-        (l: any) => l._id.toString() === lineId,
-      );
-      if (line) {
-        line.isReconciled = true;
-        await statement.save();
-      }
-    }
-
-    // 2. Mark journal entry line as reconciled
-    const entry = await JournalEntry.findOne({ _id: journalEntryId, tenantId });
-    if (entry) {
-      try {
-        await assertTransactionNotLocked(tenantId, "banking", entry.header?.date);
-      } catch (lockError) {
-        if (lockError instanceof TransactionLockError) {
-          return NextResponse.json({ error: lockError.message }, { status: 403 });
+    return await withAccountingTransaction(async () => {
+      const statement = await BankStatement.findOne({
+        _id: statementId,
+        tenantId,
+      });
+      if (statement) {
+        const line = statement.lineIds.find(
+          (l: any) => l._id.toString() === lineId,
+        );
+        if (line) {
+          line.isReconciled = true;
+          await statement.save();
         }
-        throw lockError;
       }
-      const line = entry.lineIds.find(
-        (l: any) => l._id.toString() === journalLineId,
-      );
-      if (line) {
-        line.reconciled = true;
-        await entry.save();
-      }
-    }
 
-    return NextResponse.json({ success: true });
+      // 2. Mark journal entry line as reconciled
+      const entry = await JournalEntry.findOne({ _id: journalEntryId, tenantId });
+      if (entry) {
+        try {
+          await assertTransactionNotLocked(tenantId, "banking", entry.header?.date);
+        } catch (lockError) {
+          if (lockError instanceof TransactionLockError) {
+            return NextResponse.json({ error: lockError.message }, { status: 403 });
+          }
+          throw lockError;
+        }
+        const line = entry.lineIds.find(
+          (l: any) => l._id.toString() === journalLineId,
+        );
+        if (line) {
+          line.reconciled = true;
+          await entry.save();
+        }
+      }
+
+      return NextResponse.json({ success: true });
+    });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

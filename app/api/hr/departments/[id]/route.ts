@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -5,6 +6,7 @@ import connectDB from "@/lib/db";
 import Department from "@/models/hr/Department";
 import Employee from "@/models/hr/Employee";
 import User from "@/models/auth/User";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(
   req: NextRequest,
@@ -17,6 +19,9 @@ export async function GET(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -36,7 +41,7 @@ export async function GET(
 
     return NextResponse.json({ department });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -51,11 +56,20 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     await connectDB();
+
+    // Strip protected fields from mass assignment
+
+delete body._id;
+    delete body.tenantId;
+    delete body.createdAt;
 
     const department = await Department.findOneAndUpdate(
       { _id: id, tenantId },
@@ -87,8 +101,9 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true, department });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -103,12 +118,16 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
 
-    const department = await Department.findOneAndDelete({
+
+const department = await Department.findOneAndDelete({
       _id: id,
       tenantId,
     });
@@ -132,7 +151,8 @@ export async function DELETE(
     // The updateMany above already unset departmentId, so we handle User sync
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

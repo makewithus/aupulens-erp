@@ -17,7 +17,7 @@ export const projectsSidebarConfig: SidebarSection[] = [
     items: [
       {
         title: "All Projects",
-        href: "/projects",
+        href: "/projects/list",
         icon: FolderKanban,
       },
     ],

@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error("Self-service org creation error:", error);
     return NextResponse.json(
-      { error: (error as Error).message || "Something went wrong" },
+      { error: safeInternalErrorMessage() },
       { status: 500 }
     );
   }

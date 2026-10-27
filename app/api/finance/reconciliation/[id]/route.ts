@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
@@ -17,7 +18,8 @@ export async function PATCH(
 
     await connectDB();
 
-    const body = await req.json();
+
+const body = stripProtectedFields(await req.json());
     const { id } = await params;
     const tenantIdCheck = requireTenantId(session);
     if (tenantIdCheck) return tenantIdCheck;
@@ -49,6 +51,7 @@ export async function PATCH(
     });
 
     return NextResponse.json({ reconciliation });
+
   } catch (error) {
     console.error('Error updating reconciliation:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

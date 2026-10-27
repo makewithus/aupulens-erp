@@ -1,9 +1,13 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import Asset from "@/models/finance/Asset";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { syncAssetCapitalizationEntry } from "@/lib/accounting/assetPosting";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,12 +36,12 @@ export async function GET(req: NextRequest) {
     }
 
     const items = await Asset.find(query)
-          .populate("accounts.assetAccountId")
-          .populate("accounts.depreciationAccountId").lean();
+      .populate("accounts.assetAccountId")
+      .populate("accounts.depreciationAccountId").lean();
 
     return NextResponse.json({ items });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -50,19 +54,26 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await dbConnect();
 
-    const asset = new Asset({
-      ...body,
-      tenantId,
-    });
+    return await withAccountingTransaction(async () => {
+      const asset = new Asset({
+        ...body,
+        tenantId,
+      });
 
-    await asset.save();
-    await safeEmitEvent(tenantId, "asset.created", { assetId: String(asset._id), actingUserId: (session.user as any).id });
-    return NextResponse.json(asset);
+      await asset.save();
+      await syncAssetCapitalizationEntry({
+        tenantId,
+        asset,
+        userId: (session.user as any).id,
+      });
+      await safeEmitEvent(tenantId, "asset.created", { assetId: String(asset._id), actingUserId: (session.user as any).id });
+      return NextResponse.json(asset);
+    });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

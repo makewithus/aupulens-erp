@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -84,7 +86,7 @@ export async function GET(request: Request) {
   } catch (error: any) {
     console.error("Error fetching purchase orders:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }
@@ -101,7 +103,8 @@ export async function POST(request: Request) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
-    const body = await request.json();
+
+const body = stripProtectedFields(await request.json());
 
     if (!body.partnerId) {
       return NextResponse.json(
@@ -152,6 +155,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ order }, { status: 201 });
+
   } catch (error: any) {
     console.error("Error creating purchase order:", error);
     if (error.code === 11000) {
@@ -161,7 +165,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }

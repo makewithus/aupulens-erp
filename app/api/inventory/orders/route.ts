@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    const limit = Math.min(1000, Math.max(1, parseInt(searchParams.get("limit") || "25")));
     const skip = (page - 1) * limit;
 
     const query: any = { tenantId };
@@ -86,7 +87,8 @@ export async function POST(req: NextRequest) {
     if (entitlementBlock) return entitlementBlock;
 
     await connectDB();
-    const body = await req.json();
+
+const body = stripProtectedFields(await req.json());
 
     // Always atomically consume the next number here — never trust a
     // client-supplied orderNumber. The "New Order" form only ever shows a
@@ -102,6 +104,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ order }, { status: 201 });
+
   } catch (error: any) {
     console.error('Error creating order:', error);
     if (error?.name === 'ValidationError') {

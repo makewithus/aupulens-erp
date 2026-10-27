@@ -99,6 +99,8 @@ export interface ICustomer extends Document {
   reportingTags?: string[];
   remarks?: string;
   isActive?: boolean; // Additive — drives the "Active/Inactive Customers" system views
+  isCustomer?: boolean;
+  isSupplier?: boolean;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -106,7 +108,9 @@ export interface ICustomer extends Document {
 
 const CustomerSchema: Schema<ICustomer> = new Schema(
   {
-    tenantId: { type: String, index: true },
+    tenantId: { type: String, index: true , immutable: true },
+    isCustomer: { type: Boolean, default: true, index: true },
+    isSupplier: { type: Boolean, default: false, index: true },
     header: {
       name: { type: String, required: true, trim: true },
       is_company: { type: Boolean, default: false },

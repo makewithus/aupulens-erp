@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: reminders });
   } catch (error: any) {
     console.error("Reminders GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -113,8 +115,9 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
+
+const tenantId = session.user.tenantId;
+    const body = stripProtectedFields(await request.json());
 
     if (!body.name?.trim()) {
       return NextResponse.json({ success: false, message: "Reminder name is required" }, { status: 400 });
@@ -136,8 +139,9 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, data: reminder }, { status: 201 });
+
   } catch (error: any) {
     console.error("Reminders POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

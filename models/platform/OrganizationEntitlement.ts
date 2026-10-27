@@ -22,7 +22,7 @@ export interface IOrganizationEntitlement extends Document {
 
 const OrganizationEntitlementSchema = new Schema<IOrganizationEntitlement>(
   {
-    tenantId: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, unique: true, immutable: true },
     planKey: { type: String, required: true, enum: PLAN_KEY_VALUES },
     overrides: { type: Schema.Types.Mixed },
     assignedAt: { type: Date, required: true, default: Date.now },

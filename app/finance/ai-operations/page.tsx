@@ -401,7 +401,7 @@ export default function AiOperationsPage() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={() => {
         loadAttention();
         loadAnomalies();

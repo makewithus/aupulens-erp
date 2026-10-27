@@ -519,7 +519,7 @@ export default function VouchersPage() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={() => load(page)}
     >
       <div className="space-y-6">

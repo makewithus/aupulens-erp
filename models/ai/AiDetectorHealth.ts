@@ -26,7 +26,7 @@ export interface IAiDetectorHealth extends Document {
 
 const AiDetectorHealthSchema: Schema<IAiDetectorHealth> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     detectorId: { type: String, required: true },
     raised: { type: Number, default: 0 },
     confirmed: { type: Number, default: 0 },

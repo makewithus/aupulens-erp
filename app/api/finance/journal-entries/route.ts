@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -8,9 +10,10 @@ import {
   VOUCHER_STATUS,
   VOUCHER_TYPE,
 } from "@/lib/constants/statuses";
-import { createJournalEntry } from "@/lib/accounting/posting";
+import { createJournalEntry, type JournalPostingInput } from "@/lib/accounting/posting";
 import { applySemanticRulesAndClassify } from "@/lib/accounting/smart-rules";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,7 +75,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -82,10 +85,33 @@ export async function POST(req: NextRequest) {
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    if (!["finance", "admin", "master-admin"].includes((session.user as any)?.role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
+    }
+
     const tenantIdCheck = requireTenantId(session);
     if (tenantIdCheck) return tenantIdCheck;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
+
+    // Public journal creation starts a draft; posting services used by other
+    // business workflows enforce their own authoritative posting rules.
+    if ((body.voucherStatus && body.voucherStatus !== VOUCHER_STATUS.DRAFT) ||
+      (body.status && body.status !== DOCUMENT_STATUS.DRAFT)) {
+      return NextResponse.json({ error: "New entries must start as drafts" }, { status: 400 });
+    }
+
+    if (
+      !body.header ||
+      typeof body.header !== "object" ||
+      typeof body.header.journalType !== "string" ||
+      !Array.isArray(body.lineIds)
+    ) {
+      return NextResponse.json(
+        { error: "Journal header and line items are required" },
+        { status: 400 },
+      );
+    }
 
     if (body.lineIds && Array.isArray(body.lineIds)) {
       let totalDebit = 0;
@@ -101,7 +127,7 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
-        
+
         totalDebit += debit;
         totalCredit += credit;
       }
@@ -117,35 +143,40 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
 
-    try {
-      await assertTransactionNotLocked(tenantId, "accountant", body.header?.date);
-    } catch (lockError) {
-      if (lockError instanceof TransactionLockError) {
-        return NextResponse.json({ error: lockError.message }, { status: 403 });
+    return await withAccountingTransaction(async () => {
+      try {
+        await assertTransactionNotLocked(tenantId, "accountant", body.header?.date);
+      } catch (lockError) {
+        if (lockError instanceof TransactionLockError) {
+          return NextResponse.json({ error: lockError.message }, { status: 403 });
+        }
+        throw lockError;
       }
-      throw lockError;
-    }
 
-    // Apply Smart Rules
-    const classification = await applySemanticRulesAndClassify(body, tenantId);
-    if (!classification.ok) {
-      return NextResponse.json({ error: classification.error }, { status: 400 });
-    }
+      // Apply Smart Rules
+      const classification = await applySemanticRulesAndClassify(body, tenantId);
+      if (!classification.ok) {
+        return NextResponse.json({ error: classification.error }, { status: 400 });
+      }
 
-    const entry = await createJournalEntry({
-      ...body,
-      voucherType: body.voucherType || VOUCHER_TYPE.JOURNAL,
-      voucherStatus:
-        body.voucherStatus ||
-        (body.status === DOCUMENT_STATUS.POSTED
-          ? VOUCHER_STATUS.POSTED
-          : VOUCHER_STATUS.DRAFT),
-      tenantId,
-      createdBy: session.user.id,
+      const postingInput: JournalPostingInput = {
+        ...body,
+        header: body.header as JournalPostingInput["header"],
+        lineIds: body.lineIds as JournalPostingInput["lineIds"],
+        voucherType: body.voucherType || VOUCHER_TYPE.JOURNAL,
+        voucherStatus:
+          body.voucherStatus ||
+          (body.status === DOCUMENT_STATUS.POSTED
+            ? VOUCHER_STATUS.POSTED
+            : VOUCHER_STATUS.DRAFT),
+        tenantId,
+        createdBy: session.user.id,
+      };
+      const entry = await createJournalEntry(postingInput);
+
+      return NextResponse.json(entry);
     });
-
-    return NextResponse.json(entry);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

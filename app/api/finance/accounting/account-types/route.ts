@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -32,11 +33,12 @@ export async function POST(request: Request) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     if (!body.name || !body.segment) {
       return NextResponse.json({ error: "Name and Segment are required" }, { status: 400 });
     }
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ accountType }, { status: 201 });
+
   } catch (error: any) {
     if (error.code === 11000) {
       return NextResponse.json({ error: "Account type with this name already exists" }, { status: 400 });

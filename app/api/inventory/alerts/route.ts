@@ -3,24 +3,9 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import InventoryItem from '@/models/inventory/InventoryItem';
+import Product from '@/models/inventory/Product';
+import Stock from '@/models/inventory/Stock';
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
-
-function buildExprConditions(statusFilter: string | null) {
-  // Base: every item at or below its reorder level — matches the original
-  // unfiltered query exactly.
-  const conditions: any[] = [{ $lte: ['$quantity', '$reorderLevel'] }];
-
-  if (statusFilter === 'out_of_stock') {
-    conditions.push({ $eq: ['$quantity', 0] });
-  } else if (statusFilter === 'critical') {
-    conditions.push({ $gt: ['$quantity', 0] });
-    conditions.push({ $lte: ['$quantity', { $multiply: ['$reorderLevel', 0.5] }] });
-  } else if (statusFilter === 'low_stock') {
-    conditions.push({ $gt: ['$quantity', { $multiply: ['$reorderLevel', 0.5] }] });
-  }
-
-  return conditions.length > 1 ? { $and: conditions } : conditions[0];
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -48,66 +33,128 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    const query: any = { tenantId, $expr: buildExprConditions(statusFilter || null) };
-    if (warehouse && warehouse !== 'all') query.warehouse = warehouse;
-    if (search) {
-      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      const re = { $regex: words.join(".*"), $options: "i" };
-      query.$or = [{ name: re }, { itemCode: re }, { category: re }];
-    }
-
-    const baseQuery = InventoryItem.find(query).sort({ quantity: 1 });
-
-    // Stats (KPI cards) and the warehouse filter's option list always reflect
-    // every low-stock item tenant-wide — unaffected by the current
-    // search/warehouse/status filters, matching the original page's
-    // behavior of computing KPIs from the full unfiltered alert set.
-    const statsMatch = { tenantId, $expr: buildExprConditions(null) };
-    const [statsAgg, warehouses] = await Promise.all([
-      InventoryItem.aggregate([
-        { $match: statsMatch },
+    // 1. Fetch tracked products, stock ledger balances, and any existing InventoryItems concurrently
+    const [trackedProducts, stockAgg, existingInvItems] = await Promise.all([
+      Product.find({
+        tenantId,
+        "tab_general_information.type": { $ne: "service" },
+        status: { $ne: "archived" },
+      }).lean(),
+      Stock.aggregate([
+        { $match: { tenantId } },
         {
-          $facet: {
-            total: [{ $count: 'count' }],
-            outOfStock: [{ $match: { quantity: 0 } }, { $count: 'count' }],
-            critical: [
-              { $match: { $expr: { $and: [{ $gt: ['$quantity', 0] }, { $lte: ['$quantity', { $multiply: ['$reorderLevel', 0.5] }] }] } } },
-              { $count: 'count' },
-            ],
-            valuation: [{ $group: { _id: null, total: { $sum: { $multiply: ['$reorderQuantity', '$unitCost'] } } } }],
+          $group: {
+            _id: "$product",
+            quantity: { $sum: "$quantity" },
           },
         },
       ]),
-      InventoryItem.distinct('warehouse', statsMatch),
+      InventoryItem.find({ tenantId }).lean(),
     ]);
-    const stats = statsAgg[0] || {};
+
+    const stockMap = new Map<string, number>();
+    for (const item of stockAgg) {
+      stockMap.set(String(item._id), item.quantity);
+    }
+
+    const invItemByCode = new Map<string, any>();
+    const invItemById = new Map<string, any>();
+    for (const it of existingInvItems) {
+      if (it.itemCode) invItemByCode.set(it.itemCode, it);
+      invItemById.set(String(it._id), it);
+    }
+
+    const allAlertItems: any[] = [];
+    const seenCodes = new Set<string>();
+
+    for (const prod of trackedProducts) {
+      const code = prod.tab_general_information?.default_code || String(prod._id);
+      seenCodes.add(code);
+      seenCodes.add(String(prod._id));
+
+      const matchingInv = invItemByCode.get(code) || invItemById.get(String(prod._id));
+      const onHand = stockMap.get(String(prod._id)) ?? (matchingInv ? matchingInv.quantity : 0);
+      const reorderLevel = matchingInv?.reorderLevel ?? 10;
+      const reorderQuantity = matchingInv?.reorderQuantity ?? 20;
+      const unitCost = prod.tab_general_information?.standard_price ?? (matchingInv?.unitCost ?? 0);
+      const unit = prod.tab_general_information?.unit || matchingInv?.unit || "Units";
+      const wh = matchingInv?.warehouse || "Main Warehouse";
+      const category = matchingInv?.category || "General";
+
+      if (onHand <= reorderLevel) {
+        allAlertItems.push({
+          _id: matchingInv?._id || prod._id,
+          itemCode: code,
+          name: prod.header?.name || matchingInv?.name || "Stock Item",
+          category,
+          quantity: onHand,
+          reorderLevel,
+          reorderQuantity,
+          unitCost,
+          totalValue: onHand * unitCost,
+          warehouse: wh,
+          unit,
+          status: onHand <= 0 ? "out_of_stock" : (onHand <= reorderLevel * 0.5 ? "critical" : "low_stock"),
+          createdAt: matchingInv?.createdAt || prod.createdAt || new Date(),
+          updatedAt: matchingInv?.updatedAt || prod.updatedAt || new Date(),
+        });
+      }
+    }
+
+    // Include any standalone InventoryItem not mapped to a Product
+    for (const it of existingInvItems) {
+      if (!seenCodes.has(it.itemCode) && !seenCodes.has(String(it._id))) {
+        if (it.quantity <= it.reorderLevel) {
+          allAlertItems.push({
+            ...it,
+            status: it.quantity <= 0 ? "out_of_stock" : (it.quantity <= it.reorderLevel * 0.5 ? "critical" : "low_stock"),
+          });
+        }
+      }
+    }
+
+    const warehouses = Array.from(new Set(allAlertItems.map((a) => a.warehouse).filter(Boolean)));
+
+    // KPIs computed from tenant-wide unfiltered alerts
     const kpis = {
-      total: stats.total?.[0]?.count || 0,
-      outOfStock: stats.outOfStock?.[0]?.count || 0,
-      critical: stats.critical?.[0]?.count || 0,
-      totalValuation: stats.valuation?.[0]?.total || 0,
+      total: allAlertItems.length,
+      outOfStock: allAlertItems.filter((a) => a.quantity <= 0).length,
+      critical: allAlertItems.filter((a) => a.quantity > 0 && a.quantity <= (a.reorderLevel ?? 10) * 0.5).length,
+      totalValuation: allAlertItems.reduce((acc, a) => acc + (a.reorderQuantity || 0) * (a.unitCost || 0), 0),
     };
+
+    let filtered = allAlertItems;
+    if (warehouse && warehouse !== "all") {
+      filtered = filtered.filter((a) => a.warehouse === warehouse);
+    }
+    if (statusFilter && statusFilter !== "all") {
+      filtered = filtered.filter((a) => a.status === statusFilter);
+    }
+    if (search) {
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filtered = filtered.filter((a) => re.test(a.name) || re.test(a.itemCode) || re.test(a.category));
+    }
+
+    // Sort by quantity ascending (lowest stock first)
+    filtered.sort((a, b) => a.quantity - b.quantity);
 
     const pageParam = searchParams.get('page');
     if (!pageParam) {
-      const alerts = await baseQuery.lean();
-      return NextResponse.json({ alerts, total: alerts.length, page: 1, totalPages: 1, kpis, warehouses });
+      const payload = { alerts: filtered, total: filtered.length, page: 1, totalPages: 1, kpis, warehouses };
+      setCachedData(cacheKey, payload, 20_000);
+      return NextResponse.json(payload);
     }
 
     const page = Math.max(1, parseInt(pageParam));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')));
     const skip = (page - 1) * limit;
-
-    const [total, alerts] = await Promise.all([
-      InventoryItem.countDocuments(query),
-      baseQuery.skip(skip).limit(limit).lean(),
-    ]);
+    const pagedAlerts = filtered.slice(skip, skip + limit);
 
     const payload = {
-      alerts,
-      total,
+      alerts: pagedAlerts,
+      total: filtered.length,
       page,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
+      totalPages: Math.max(1, Math.ceil(filtered.length / limit)),
       kpis,
       warehouses,
     };

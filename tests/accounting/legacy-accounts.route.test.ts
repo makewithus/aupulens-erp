@@ -40,10 +40,19 @@ describe("legacy accounts route - ?type=bank filter (Issue #8)", () => {
     vi.mocked(auth).mockReset();
   });
 
-  it("excludes the isSystemSeeded placeholder bank/cash account", async () => {
+  it("returns active seeded bank/cash accounts (SYS-01)", async () => {
     vi.mocked(auth).mockResolvedValue(mockSession("route-t1"));
     const userId = new mongoose.Types.ObjectId();
 
+    await Account.create({
+      tenantId: "route-t1",
+      code: "1110",
+      name: "Main Cash",
+      account_type: "asset_cash",
+      internal_group: "asset",
+      isSystemSeeded: true,
+      createdBy: userId,
+    });
     await Account.create({
       tenantId: "route-t1",
       code: "1120",
@@ -56,19 +65,21 @@ describe("legacy accounts route - ?type=bank filter (Issue #8)", () => {
 
     const res = await GET(new NextRequest(`${URL}?type=bank`));
     const body = await res.json();
-    expect(body.items).toHaveLength(0);
+    expect(body.items).toHaveLength(2);
+    expect(body.items.map((a: any) => a.code)).toEqual(["1110", "1120"]);
   });
 
-  it("excludes the isLocked default 'Undeposited Funds' / 'Petty Cash' catalog rows", async () => {
+  it("excludes inactive bank/cash accounts", async () => {
     vi.mocked(auth).mockResolvedValue(mockSession("route-t2"));
     const userId = new mongoose.Types.ObjectId();
-    const bankType = await AccountType.create({ tenantId: "route-t2", name: "Cash", segment: "Cash and cash equivalents", createdBy: userId });
 
     await Account.create({
       tenantId: "route-t2",
-      accountName: "Undeposited Funds",
-      accountType: bankType._id,
-      isLocked: true,
+      code: "1120",
+      name: "Inactive Bank Account",
+      account_type: "asset_cash",
+      internal_group: "asset",
+      isActive: false,
       createdBy: userId,
     });
 
@@ -77,7 +88,7 @@ describe("legacy accounts route - ?type=bank filter (Issue #8)", () => {
     expect(body.items).toHaveLength(0);
   });
 
-  it("still returns a real, user-created bank account", async () => {
+  it("returns real user-created bank accounts and seeded accounts", async () => {
     vi.mocked(auth).mockResolvedValue(mockSession("route-t3"));
     const userId = new mongoose.Types.ObjectId();
     const bankType = await AccountType.create({ tenantId: "route-t3", name: "Bank", segment: "Cash and cash equivalents", createdBy: userId });
@@ -88,7 +99,6 @@ describe("legacy accounts route - ?type=bank filter (Issue #8)", () => {
       accountType: bankType._id,
       createdBy: userId,
     });
-    // The seeded placeholder should still not leak in alongside the real one.
     await Account.create({
       tenantId: "route-t3",
       code: "1120",
@@ -101,8 +111,7 @@ describe("legacy accounts route - ?type=bank filter (Issue #8)", () => {
 
     const res = await GET(new NextRequest(`${URL}?type=bank`));
     const body = await res.json();
-    expect(body.items).toHaveLength(1);
-    expect(body.items[0].accountName).toBe("HDFC Bank - Current Account");
+    expect(body.items).toHaveLength(2);
   });
 
   it("does not filter by bank/cash type when ?type is omitted", async () => {

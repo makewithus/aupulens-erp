@@ -36,6 +36,7 @@ export interface DailyBrickBarChartProps {
   year?: number;
   initialDays?: number;
   colorTheme?: "purple" | "brand-purple" | "white" | "silver-mono" | "emerald" | "violet" | "blue" | "amber";
+  unit?: "currency" | "number" | "percentage";
 }
 
 // ── Seeded PRNG for authentic deterministic generation ──
@@ -146,6 +147,17 @@ export function generateZeroDailyData(totalDays = 90): DailyDataPoint[] {
   return result;
 }
 
+export function plainNumberFmtY(v: number): string {
+  if (v >= 10000000) return (v / 10000000).toFixed(1) + "Cr";
+  if (v >= 100000) return (v / 100000).toFixed(0) + "L";
+  if (v >= 1000) return (v / 1000).toFixed(0) + "K";
+  return v.toString();
+}
+
+export function plainNumberFmtTooltip(v: number): string {
+  return v.toLocaleString("en-IN");
+}
+
 function defaultFmtY(v: number): string {
   if (v >= 10000000) return "₹" + (v / 10000000).toFixed(1) + "Cr";
   if (v >= 100000) return "₹" + (v / 100000).toFixed(0) + "L";
@@ -175,8 +187,9 @@ export function DailyBrickBarChart({
   title,
   subtitle,
   metricLabel = "Volume",
-  yAxisFormatter = defaultFmtY,
-  tooltipValueFormatter = defaultFmtTooltip,
+  unit = "currency",
+  yAxisFormatter,
+  tooltipValueFormatter,
   showYAxis = true,
   showXAxis = true,
   showToolbar = true,
@@ -194,6 +207,10 @@ export function DailyBrickBarChart({
   const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const isCountMetric = unit === "number" || ["orders", "count", "quantity", "units", "items", "number"].includes(metricLabel.toLowerCase());
+  const effectiveYAxisFormatter = yAxisFormatter || (isCountMetric ? plainNumberFmtY : defaultFmtY);
+  const effectiveTooltipFormatter = tooltipValueFormatter || (isCountMetric ? plainNumberFmtTooltip : defaultFmtTooltip);
 
   // Normalize incoming chart data
   const chartData = useMemo<DailyDataPoint[]>(() => {
@@ -490,7 +507,7 @@ export function DailyBrickBarChart({
           ctx.stroke();
 
           ctx.fillStyle = isDark ? "#94a3b8" : "#334155";
-          ctx.fillText(yAxisFormatter(tickVal), cR + 8, y);
+          ctx.fillText(effectiveYAxisFormatter(tickVal), cR + 8, y);
         });
       }
 
@@ -641,7 +658,7 @@ export function DailyBrickBarChart({
         }
       }
     },
-    [visibleData, showYAxis, showXAxis, isDark, yMax, yTicks, themeColors, yAxisFormatter]
+    [visibleData, showYAxis, showXAxis, isDark, yMax, yTicks, themeColors, effectiveYAxisFormatter]
   );
 
   // Keep a stable ref to renderChart to prevent ResizeObserver thrashing
@@ -1127,7 +1144,7 @@ export function DailyBrickBarChart({
             <div className="flex items-center justify-between gap-6">
               <span className={isDark ? "text-[#757575]" : "text-slate-500"}>{metricLabel}:</span>
               <span className="font-bold tabular-nums text-sm" style={{ color: themeColors.primaryBrick }}>
-                {tooltipValueFormatter(tooltipState.point.value ?? 0)}
+                {effectiveTooltipFormatter(tooltipState.point.value ?? 0)}
               </span>
             </div>
           </div>

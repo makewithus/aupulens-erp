@@ -22,7 +22,7 @@ export interface IApprovalRequest extends Document {
 }
 
 const ApprovalRequestSchema = new Schema<IApprovalRequest>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   type: { type: String, enum: ['Discount','Quote','Contract','Deal Exception','Refund','Reassignment','Special Pricing'] },
   requested_by_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   approver_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },

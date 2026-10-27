@@ -391,7 +391,7 @@ function ManufacturingPageInner() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "inventory"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={() => { fetchOrders(); fetchAllOrdersForStats(); }}
       profilePath="/inventory/profile"
     >

@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { randomUUID } from "crypto";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { isMongoStorageLimitError, MONGO_STORAGE_LIMIT_MESSAGE } from "@/lib/db/mongoStorageError";
@@ -964,9 +965,9 @@ async function executeAction(actionData: any, tenantId: string): Promise<NextRes
   } catch (error: any) {
     console.error('Error executing action:', error);
     return NextResponse.json({ 
-      response: `❌ Error: ${error.message || 'Failed to execute action'}`,
+      response: safeInternalErrorMessage(),
       success: false,
-      error: error.message 
+      error: safeInternalErrorMessage() 
     }, { status: 500 });
   }
 }

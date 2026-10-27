@@ -21,7 +21,7 @@ export interface IAiUsageDaily extends Document {
 
 const AiUsageDailySchema = new Schema<IAiUsageDaily>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     period: { type: String, required: true },
     feature: { type: String, required: true, enum: AI_USAGE_FEATURE_BUCKET_VALUES },
     requestCount: { type: Number, required: true, default: 0 },

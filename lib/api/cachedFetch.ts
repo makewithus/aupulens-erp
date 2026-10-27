@@ -17,7 +17,34 @@ const inflight = new Map<string, Promise<Response>>();
 const DEFAULT_TTL = 30_000; // 30s fresh window before background revalidate
 const SESSION_CACHE_PREFIX = "aup_cache:";
 
-export function getInstantCachedData<T = any>(url: string): T | null {
+let hasHydrated = false;
+
+// hasHydrated is marked true explicitly in client effects (e.g. TenantInitializer)
+// to guarantee SSR and initial client hydration trees match 100%.
+
+export function markHydrated() {
+  hasHydrated = true;
+}
+
+export function isAppHydrated() {
+  return hasHydrated;
+}
+
+export function getInstantCachedData<T = any>(
+  url: string,
+  _options?: { allowPreHydration?: boolean }
+): T | null {
+  if (typeof window === "undefined") return null;
+  // During SSR or initial client hydration, never return client-only storage data
+  // to prevent hydration mismatch between server-rendered HTML and client VDOM.
+  if (!hasHydrated) {
+    if (document.readyState === "complete") {
+      hasHydrated = true;
+    } else {
+      return null;
+    }
+  }
+
   const mem = cache.get(url);
   if (mem?.json) return mem.json as T;
   const sess = getSessionCached(url);

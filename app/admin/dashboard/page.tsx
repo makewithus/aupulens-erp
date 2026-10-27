@@ -18,7 +18,7 @@ import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
 import { NetProfitCard } from "@/components/admin/NetProfitCard";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
 import { BusinessHealthCard, BusinessHealthCardSkeleton } from "@/components/dashboard/BusinessHealthCard";
-import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData, markHydrated } from "@/lib/api/cachedFetch";
 import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
 
 interface DashboardSummary {
@@ -31,6 +31,7 @@ interface DashboardSummary {
     netIncome: number | null;
     profitAvailable: boolean;
     profitUnavailableReason: string | null;
+    profitNote: string | null;
     totalPayments: number;
     totalTransactions: number;
     draftInvoices: number;
@@ -66,10 +67,9 @@ interface DashboardSummary {
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const cachedData = getInstantCachedData<{ summary: DashboardSummary }>("/api/admin/dashboard");
-  const [summary, setSummary] = useState<DashboardSummary | null>(() => cachedData?.summary ?? null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [healthRefreshKey, setHealthRefreshKey] = useState(0);
-  const [isLoading, setIsLoading] = useState(() => !cachedData?.summary);
+  const [isLoading, setIsLoading] = useState(true);
   const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(session?.user?.role === "admin");
   const visibleModules = enabledModulesLoaded
     ? Array.from(new Set([...(enabledModules ?? []), "admin", "manufacturing", "crm", "sales", "inventory", "finance", "hr"]))
@@ -110,6 +110,17 @@ export default function AdminDashboard() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    markHydrated();
+    if (!summary) {
+      const cached = getInstantCachedData<{ summary: DashboardSummary }>("/api/admin/dashboard", { allowPreHydration: true });
+      if (cached?.summary) {
+        setSummary(cached.summary);
+        setIsLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handleRevalidate = (e: any) => {
@@ -174,7 +185,7 @@ export default function AdminDashboard() {
         userName={session?.user?.name || "Admin"}
         userEmail={session?.user?.email}
         userRole={session?.user?.role}
-        onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         onRefresh={fetchDashboardData}
         profilePath="/admin/profile"
       >
@@ -252,7 +263,7 @@ export default function AdminDashboard() {
         userName={session?.user?.name || ""}
         userEmail={session?.user?.email || ""}
         userRole={session?.user?.role}
-        onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         onRefresh={fetchDashboardData}
         profilePath="/admin/profile"
       >
@@ -279,10 +290,10 @@ export default function AdminDashboard() {
         { label: "Dashboard", href: "/admin/dashboard" },
         { label: "Overview" },
       ]}
-      userName={session?.user?.name || ""}
+      userName={session?.user?.name || "Admin"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchDashboardData}
       profilePath="/admin/profile"
     >

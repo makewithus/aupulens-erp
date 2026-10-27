@@ -71,7 +71,7 @@ function VendorBillsPageInner() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [isSubmittingInvoice, setIsSubmittingInvoice] = useState(false);
 
-  const load = async (currentPage = 1) => {
+  const load = async (currentPage = 1, force = false) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
@@ -81,7 +81,7 @@ function VendorBillsPageInner() {
       if (statusFilter) params.set("status", statusFilter);
       if (partnerId) params.set("partnerId", partnerId);
       const [res, cRes] = await Promise.all([
-        cachedFetch(`/api/finance/bills?${params.toString()}`),
+        cachedFetch(`/api/finance/bills?${params.toString()}`, undefined, { force }),
         cachedFetch("/api/sales/customers"),
       ]);
       const data = await res.json();
@@ -215,7 +215,7 @@ function VendorBillsPageInner() {
               : "Bill created",
         );
         setIsModalOpen(false);
-        load();
+        load(page, true);
       } else {
         const err = await res.json();
         toast.error(err.error || "Operation failed");
@@ -233,7 +233,7 @@ function VendorBillsPageInner() {
       const res = await cachedFetch(`/api/finance/bills/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Bill deleted");
-        load();
+        load(page, true);
       }
     } catch (error) {
       toast.error("Delete failed");

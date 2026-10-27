@@ -31,7 +31,7 @@ const AI_MEMORY_SCOPES: AiMemoryScope[] = [
 
 const AiMemorySchema: Schema<IAiMemory> = new Schema(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     scope: { type: String, enum: AI_MEMORY_SCOPES, required: true },
     key: { type: String, required: true },
     value: { type: String, required: true },

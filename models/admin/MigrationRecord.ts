@@ -21,7 +21,7 @@ export interface IMigrationRecord extends Document {
 
 const MigrationRecordSchema = new Schema<IMigrationRecord>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     batchId: { type: Schema.Types.ObjectId, ref: "MigrationBatch", required: true, index: true },
     jobId: { type: Schema.Types.ObjectId, ref: "MigrationJob", required: true, index: true },
     entityType: { type: String, required: true },
@@ -33,7 +33,7 @@ const MigrationRecordSchema = new Schema<IMigrationRecord>(
       default: "pending",
       index: true
     },
-    // @ts-ignore
+    // @ts-expect-error Mongoose schema definition with reserved key
     errors: { type: Schema.Types.Mixed, default: [] },
     warnings: { type: Schema.Types.Mixed, default: [] },
     targetRecordId: { type: Schema.Types.ObjectId },

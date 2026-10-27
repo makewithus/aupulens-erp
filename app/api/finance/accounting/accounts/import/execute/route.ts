@@ -12,7 +12,8 @@ export async function POST(request: Request) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
       overwritten,
       errors
     });
+
   } catch (error) {
     console.error("Account Import Execution Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

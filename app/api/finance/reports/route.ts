@@ -29,12 +29,21 @@ export async function GET(req: Request) {
       );
     }
 
+    const parsedStart = new Date(startDate);
+    const parsedEnd = new Date(endDate);
+    if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
+      return NextResponse.json(
+        { error: "startDate and endDate must be valid dates" },
+        { status: 400 },
+      );
+    }
+
     await connectDB();
 
     const report = await buildPostedJournalReport({
       tenantId,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: parsedStart,
+      endDate: parsedEnd,
     });
 
     const validation = {

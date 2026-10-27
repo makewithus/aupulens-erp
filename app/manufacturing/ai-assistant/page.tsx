@@ -531,7 +531,7 @@ export default function ManufacturingAIAssistant() {
         dashboardTitle="manufacturing Dashboard"
         userName="Manufacturing User"
         userRole="manufacturing"
-        onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profileHref="/manufacturing/profile"
       >
         <div className="flex h-[calc(100vh-8rem)] gap-4 bg-gradient-to-br from-gray-950 via-black to-gray-900 p-4">
@@ -563,7 +563,7 @@ export default function ManufacturingAIAssistant() {
       dashboardTitle="manufacturing Dashboard"
       userName={session?.user?.name || 'User'}
       userRole={session?.user?.role || 'manufacturing'}
-      onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profileHref="/manufacturing/profile"
     >
       <Toaster />

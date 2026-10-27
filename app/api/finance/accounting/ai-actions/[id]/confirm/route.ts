@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
@@ -20,7 +21,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ success: false, message: "Invalid id" }, { status: 400 });
 
   await connectDB();
-  try {
+
+try {
     const proposal = await AiActionProposal.findOne({ _id: id, tenantId: session.user.tenantId });
     if (!proposal) return NextResponse.json({ success: false, message: "Proposal not found" }, { status: 404 });
 
@@ -45,6 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error instanceof AiActionError) {
       return NextResponse.json({ success: false, message: error.message }, { status: 400 });
     }
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
+
 }

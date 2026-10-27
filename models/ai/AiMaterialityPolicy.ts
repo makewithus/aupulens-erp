@@ -26,7 +26,7 @@ export interface IAiMaterialityPolicy extends Document {
 
 const AiMaterialityPolicySchema: Schema<IAiMaterialityPolicy> = new Schema(
   {
-    tenantId: { type: String, required: true, unique: true, index: true },
+    tenantId: { type: String, required: true, unique: true, index: true, immutable: true },
     thresholds: {
       type: [{ appliesTo: String, absoluteAmount: Number, percentOfBalance: Number }],
       default: [],

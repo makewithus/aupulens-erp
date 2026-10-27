@@ -32,7 +32,7 @@ export interface IAiAccountMapping extends Document {
 
 const AiAccountMappingSchema: Schema<IAiAccountMapping> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     role: { type: String, required: true },
     accountIds: { type: [Schema.Types.ObjectId], ref: "Account", default: [] },
     source: { type: String, enum: ["configured", "heuristic_fallback"], required: true },

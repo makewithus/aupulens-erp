@@ -63,7 +63,7 @@ const ChannelConfigSchema = new Schema<IDunningChannelConfig>(
 
 const DunningRuleSchema = new Schema<IDunningRule>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
     isDefault: { type: Boolean, default: false },
     status: { type: String, enum: ["active", "inactive"], default: "active" },

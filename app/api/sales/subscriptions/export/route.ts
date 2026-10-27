@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -22,9 +23,10 @@ export async function POST(request: Request) {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
-    const tenantId = session.user.tenantId;
 
-    const body = await request.json();
+const tenantId = session.user.tenantId;
+
+    const body = stripProtectedFields(await request.json());
     const {
       mode = "subscriptions", // "subscriptions" | "current_view"
       format = "csv",
@@ -104,6 +106,7 @@ export async function POST(request: Request) {
         "Content-Disposition": `attachment; filename="${filename}.xlsx"`,
       },
     });
+
   } catch (error: any) {
     console.error("Subscription Export Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

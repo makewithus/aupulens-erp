@@ -22,7 +22,7 @@ export interface IAiLimit extends Document {
 
 const AiLimitSchema = new Schema<IAiLimit>(
   {
-    tenantId: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, unique: true, immutable: true },
     monthlyCreditsUsd: { type: Number },
     dailyCreditsUsd: { type: Number },
     maxRequestsPerMonth: { type: Number },

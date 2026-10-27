@@ -123,7 +123,7 @@ export default function PrintFormatBuilder() {
     userName: session?.user?.name || "",
     userEmail: session?.user?.email || "",
     userRole: (session?.user as any)?.role,
-    onSignOut: () => signOut({ callbackUrl: "/auth/sales" }),
+    onSignOut: () => signOut({ callbackUrl: "/auth" }),
   };
 
   if (loading) return (

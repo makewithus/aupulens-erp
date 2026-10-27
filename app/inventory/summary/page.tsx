@@ -52,16 +52,6 @@ export default function InventorySummaryPage() {
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<InventorySummary | null>(null);
 
-  useEffect(() => {
-    if (status === "authenticated") {
-      if (
-        session?.user?.role !== "inventory" &&
-        session?.user?.role !== "admin"
-      ) {
-        router.push("/auth/inventory");
-      }
-    }
-  }, [status, router, session]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -113,7 +103,7 @@ export default function InventorySummaryPage() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchSummary}
       profilePath="/inventory/profile"
     >

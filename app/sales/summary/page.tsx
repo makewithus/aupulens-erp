@@ -40,9 +40,8 @@ export default function SalesSummaryPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { toast } = useToast();
-  const cachedData = getInstantCachedData<SalesSummary>("/api/sales/summary");
-  const [summary, setSummary] = useState<SalesSummary | null>(() => cachedData ?? null);
-  const [isLoading, setIsLoading] = useState(() => !cachedData);
+  const [summary, setSummary] = useState<SalesSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchSummary = useCallback(async (force = false) => {
@@ -55,6 +54,14 @@ export default function SalesSummaryPage() {
       console.error(err);
       setError("Failed to load sales summary");
     } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const cachedData = getInstantCachedData<SalesSummary>("/api/sales/summary", { allowPreHydration: true });
+    if (cachedData) {
+      setSummary(cachedData);
       setIsLoading(false);
     }
   }, []);
@@ -107,7 +114,7 @@ export default function SalesSummaryPage() {
         userName={session?.user?.name || "User"}
         userEmail={session?.user?.email || ""}
         userRole={session?.user?.role || "sales"}
-        onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
       >
         <div className="space-y-6">
           <div className="space-y-2">
@@ -135,7 +142,7 @@ export default function SalesSummaryPage() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchSummary}
     >
       <div className="space-y-6">
@@ -180,25 +187,29 @@ export default function SalesSummaryPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
           <StatCard
             title="Total Revenue (30d)"
-            value={`₹${summary?.totalRevenue?.toLocaleString("en-IN") ?? 0}`}
+            isLoading={isLoading || !summary}
+            value={summary ? `₹${summary.totalRevenue?.toLocaleString("en-IN")}` : null}
             visual={<UsersGraph />}
-            subtitle={formatTrend(summary?.trends?.revenue)}
+            subtitle={summary ? formatTrend(summary?.trends?.revenue) : undefined}
           />
           <StatCard
             title="Orders (30d)"
-            value={summary?.totalOrders ?? 0}
+            isLoading={isLoading || !summary}
+            value={summary ? summary.totalOrders : null}
             visual={<ActivePulse />}
-            subtitle={formatTrend(summary?.trends?.orders)}
+            subtitle={summary ? formatTrend(summary?.trends?.orders) : undefined}
           />
           <StatCard
             title="Quotations (30d)"
-            value={summary?.totalQuotations ?? 0}
+            isLoading={isLoading || !summary}
+            value={summary ? summary.totalQuotations : null}
             visual={<UsersGraph />}
-            subtitle={formatTrend(summary?.trends?.quotations)}
+            subtitle={summary ? formatTrend(summary?.trends?.quotations) : undefined}
           />
           <StatCard
             title="Deliveries Pending"
-            value={summary?.deliveriesPending ?? 0}
+            isLoading={isLoading || !summary}
+            value={summary ? summary.deliveriesPending : null}
             visual={<InactiveOrbit />}
           />
         </div>

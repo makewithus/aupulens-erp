@@ -146,5 +146,9 @@
   "overrides": {
     "brace-expansion": "1.1.13",
     "postcss": "8.5.15"
+  },
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11 <12"
   }
 }

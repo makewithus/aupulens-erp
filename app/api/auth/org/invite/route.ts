@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { auth } from "@/auth";
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error("Org invite error:", error);
     return NextResponse.json(
-      { success: false, message: (error as Error).message || "Something went wrong" },
+      { success: false, message: safeInternalErrorMessage() },
       { status: 500 }
     );
   }

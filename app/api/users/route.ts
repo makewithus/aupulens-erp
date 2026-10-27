@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -101,7 +102,7 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     console.error("Get users error:", error);
     return NextResponse.json(
-      { error: (error as Error).message || "Something went wrong" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }
@@ -257,7 +258,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error("Create user error:", error);
     return NextResponse.json(
-      { error: (error as Error).message || "Something went wrong" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }

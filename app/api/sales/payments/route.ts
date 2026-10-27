@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -12,7 +14,8 @@ import { PAYMENT_STATUS, PAYMENT_TYPE, SALES_INVOICE_STATUS } from "@/lib/consta
 import "@/models/sales/Customer";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import JournalEntry from "@/models/finance/JournalEntry";
-import "@/models/finance/Account";
+import Account from "@/models/finance/Account";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 export async function GET(request: NextRequest) {
   try {
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: payments, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     console.error("Payments GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -110,138 +113,153 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
+    const transactionRequestBody = await request.json();
+    return await withAccountingTransaction(async () => {
+      const tenantId = session.user.tenantId;
+      const body = stripProtectedFields(structuredClone(transactionRequestBody));
 
-    if (!body.customerId) {
-      return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
-    }
-    const amountReceived = Number(body.amountReceived);
-    if (!amountReceived || amountReceived <= 0) {
-      return NextResponse.json({ success: false, message: "Amount received must be greater than 0" }, { status: 400 });
-    }
-    if (!body.depositToAccountId) {
-      return NextResponse.json({ success: false, message: "Deposit To account is required" }, { status: 400 });
-    }
-
-    const bankCharges = Number(body.bankCharges) || 0;
-    const tdsAmount = body.taxDeducted ? Number(body.tdsAmount) || 0 : 0;
-    const allocations: { invoiceId: string; amount: number }[] = (body.allocations || []).filter(
-      (a: any) => a.invoiceId && Number(a.amount) > 0,
-    );
-
-    let unusedAmount: number;
-    try {
-      unusedAmount = validateAllocations(allocations, amountReceived, bankCharges, tdsAmount);
-    } catch (e: any) {
-      return NextResponse.json({ success: false, message: e.message }, { status: 400 });
-    }
-
-    let targetInvoices: { _id: any; number: string; status: string }[] = [];
-    if (allocations.length) {
-      // Draft/cancelled invoices are excluded from the real Record Payment
-      // form's invoice picker (it queries status=unpaid, i.e. saved/overdue/
-      // partially_paid) — reject them here too so a direct API call can't
-      // silently create a "paid" payment that has no visible effect, since
-      // resolveInvoiceStatus deliberately never auto-transitions a
-      // draft/cancelled invoice off that status.
-      const invoiceIds = allocations.map((a) => a.invoiceId);
-      targetInvoices = await (SalesInvoice as any)
-        .find({ _id: { $in: invoiceIds }, tenantId, customerId: body.customerId })
-        .select("_id number status totalAmount payments taxes")
-        .lean();
-      if (new Set(invoiceIds).size !== invoiceIds.length || targetInvoices.length !== invoiceIds.length) {
-        return NextResponse.json({ success: false, message: "Select each invoice once and only for this customer." }, { status: 400 });
+      if (!body.customerId) {
+        return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
       }
-      if (tdsAmount > 0 && targetInvoices.some((inv: any) => Number(inv.taxes?.tds) > 0)) {
-        return NextResponse.json({ success: false, message: "TDS is already recorded on an allocated invoice. Record its net balance without additional TDS." }, { status: 400 });
+      const amountReceived = Number(body.amountReceived);
+      if (!amountReceived || amountReceived <= 0) {
+        return NextResponse.json({ success: false, message: "Amount received must be greater than 0" }, { status: 400 });
       }
-      const blocked = targetInvoices.find(
-        (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
-      );
-      if (blocked) {
+      if (!body.depositToAccountId) {
+        return NextResponse.json({ success: false, message: "Deposit To account is required" }, { status: 400 });
+      }
+      const depositAccount = await Account.findOne({
+        _id: body.depositToAccountId,
+        tenantId,
+        isActive: { $ne: false },
+        status: { $ne: "inactive" },
+      }).lean();
+      if (!depositAccount) {
         return NextResponse.json(
-          { success: false, message: `Invoice ${blocked.number} is ${blocked.status} and cannot receive a payment.` },
-          { status: 400 },
+          { success: false, message: "Selected Deposit To account is invalid, inactive, or not found for this organization." },
+          { status: 400 }
         );
       }
+
+      const bankCharges = Number(body.bankCharges) || 0;
+      const tdsAmount = body.taxDeducted ? Number(body.tdsAmount) || 0 : 0;
+      const allocations: { invoiceId: string; amount: number }[] = (body.allocations || []).filter(
+        (a: any) => a.invoiceId && Number(a.amount) > 0,
+      );
+
+      let unusedAmount: number;
       try {
-        validateAllocationAmounts(allocations, targetInvoices as any);
+        unusedAmount = validateAllocations(allocations, amountReceived, bankCharges, tdsAmount);
       } catch (e: any) {
         return NextResponse.json({ success: false, message: e.message }, { status: 400 });
       }
-    }
 
-    let paymentNumber = body.paymentNumber;
-    if (!paymentNumber) {
-      const generated = await generatePaymentNumber(tenantId, body.prefix);
-      paymentNumber = generated.number;
-    }
-
-    const status = body.status === PAYMENT_STATUS.PAID ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DRAFT;
-
-    const payment = await Payment.create({
-      tenantId,
-      customerId: body.customerId,
-      paymentNumber,
-      paymentDate: body.paymentDate ? new Date(body.paymentDate) : new Date(),
-      amountReceived,
-      bankCharges,
-      mode: body.mode || "Cash",
-      depositToAccountId: body.depositToAccountId,
-      reference: body.reference,
-      taxDeducted: !!body.taxDeducted,
-      tdsAccountId: body.taxDeducted ? body.tdsAccountId : undefined,
-      tdsAmount,
-      allocations,
-      unusedAmount,
-      status,
-      paymentType: PAYMENT_TYPE.INVOICE_PAYMENT,
-      notes: body.notes,
-      customFieldValues: body.customFieldValues || {},
-      createdBy: session.user.id,
-    });
-
-    if (status === PAYMENT_STATUS.PAID) {
-      // The whole sequence — GL posting, then applying allocations to each
-      // invoice — must be all-or-nothing. It previously wasn't: only the GL
-      // posting step was guarded, so a failure while saving an invoice (e.g.
-      // a Mongoose validation error on a stale/legacy document) left an
-      // already-committed "paid" Payment with a posted journal entry, but no
-      // invoice ever actually marked paid — the exact "payment posts but
-      // invoice still shows overdue" bug. On any failure here, roll back
-      // both the Payment doc and any journal entries it posted.
-      const allocatedTotal = allocations.reduce((acc: number, a) => acc + (Number(a.amount) || 0), 0);
-      try {
-        await postCustomerPaymentJournal({
-          payment,
-          tenantId,
-          createdBy: session.user.id,
-          current: { allocatedTotal, unusedAmount, bankCharges, tdsAmount },
-          invoiceNumbers: targetInvoices.map((inv) => inv.number),
-        });
-        await payment.save();
-
-        if (allocations.length) {
-          await applyAllocationsToInvoices({
-            tenantId,
-            paymentId: String(payment._id),
-            paymentNumber,
-            paymentDate: payment.paymentDate,
-            mode: payment.mode,
-            allocations,
-          });
+      let targetInvoices: { _id: any; number: string; status: string }[] = [];
+      if (allocations.length) {
+        // Draft/cancelled invoices are excluded from the real Record Payment
+        // form's invoice picker (it queries status=unpaid, i.e. saved/overdue/
+        // partially_paid) — reject them here too so a direct API call can't
+        // silently create a "paid" payment that has no visible effect, since
+        // resolveInvoiceStatus deliberately never auto-transitions a
+        // draft/cancelled invoice off that status.
+        const invoiceIds = allocations.map((a) => a.invoiceId);
+        targetInvoices = await (SalesInvoice as any)
+          .find({ _id: { $in: invoiceIds }, tenantId, customerId: body.customerId })
+          .select("_id number status totalAmount payments taxes")
+          .lean();
+        if (new Set(invoiceIds).size !== invoiceIds.length || targetInvoices.length !== invoiceIds.length) {
+          return NextResponse.json({ success: false, message: "Select each invoice once and only for this customer." }, { status: 400 });
         }
-      } catch (postingError: any) {
-        if (payment.journalEntryIds?.length) {
-          await JournalEntry.deleteMany({ _id: { $in: payment.journalEntryIds }, tenantId });
+        if (tdsAmount > 0 && targetInvoices.some((inv: any) => Number(inv.taxes?.tds) > 0)) {
+          return NextResponse.json({ success: false, message: "TDS is already recorded on an allocated invoice. Record its net balance without additional TDS." }, { status: 400 });
         }
-        await Payment.deleteOne({ _id: payment._id });
-        return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+        const blocked = targetInvoices.find(
+          (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
+        );
+        if (blocked) {
+          return NextResponse.json(
+            { success: false, message: `Invoice ${blocked.number} is ${blocked.status} and cannot receive a payment.` },
+            { status: 400 },
+          );
+        }
+        try {
+          validateAllocationAmounts(allocations, targetInvoices as any);
+        } catch (e: any) {
+          return NextResponse.json({ success: false, message: e.message }, { status: 400 });
+        }
       }
-    }
 
-    return NextResponse.json({ success: true, data: payment }, { status: 201 });
+      let paymentNumber = body.paymentNumber;
+      if (!paymentNumber) {
+        const generated = await generatePaymentNumber(tenantId, body.prefix);
+        paymentNumber = generated.number;
+      }
+
+      const status = body.status === PAYMENT_STATUS.PAID ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DRAFT;
+
+      const payment = await Payment.create({
+        tenantId,
+        customerId: body.customerId,
+        paymentNumber,
+        paymentDate: body.paymentDate ? new Date(body.paymentDate) : new Date(),
+        amountReceived,
+        bankCharges,
+        mode: body.mode || "Cash",
+        depositToAccountId: body.depositToAccountId,
+        reference: body.reference,
+        taxDeducted: !!body.taxDeducted,
+        tdsAccountId: body.taxDeducted ? body.tdsAccountId : undefined,
+        tdsAmount,
+        allocations,
+        unusedAmount,
+        status,
+        paymentType: PAYMENT_TYPE.INVOICE_PAYMENT,
+        notes: body.notes,
+        customFieldValues: body.customFieldValues || {},
+        createdBy: session.user.id,
+      });
+
+      if (status === PAYMENT_STATUS.PAID) {
+        // The whole sequence — GL posting, then applying allocations to each
+        // invoice — must be all-or-nothing. It previously wasn't: only the GL
+        // posting step was guarded, so a failure while saving an invoice (e.g.
+        // a Mongoose validation error on a stale/legacy document) left an
+        // already-committed "paid" Payment with a posted journal entry, but no
+        // invoice ever actually marked paid — the exact "payment posts but
+        // invoice still shows overdue" bug. On any failure here, roll back
+        // both the Payment doc and any journal entries it posted.
+        const allocatedTotal = allocations.reduce((acc: number, a) => acc + (Number(a.amount) || 0), 0);
+        try {
+          await postCustomerPaymentJournal({
+            payment,
+            tenantId,
+            createdBy: session.user.id,
+            current: { allocatedTotal, unusedAmount, bankCharges, tdsAmount },
+            invoiceNumbers: targetInvoices.map((inv) => inv.number),
+          });
+          await payment.save();
+
+          if (allocations.length) {
+            await applyAllocationsToInvoices({
+              tenantId,
+              paymentId: String(payment._id),
+              paymentNumber,
+              paymentDate: payment.paymentDate,
+              mode: payment.mode,
+              allocations,
+            });
+          }
+        } catch (postingError: any) {
+          if (payment.journalEntryIds?.length) {
+            await JournalEntry.deleteMany({ _id: { $in: payment.journalEntryIds }, tenantId });
+          }
+          await Payment.deleteOne({ _id: payment._id });
+          return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+        }
+      }
+
+      return NextResponse.json({ success: true, data: payment }, { status: 201 });
+    });
   } catch (error: any) {
     if (error?.code === 11000) {
       return NextResponse.json(
@@ -250,6 +268,6 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("Payments POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

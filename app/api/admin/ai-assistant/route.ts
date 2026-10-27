@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { tryErpAssistant, safeErpError, providerFailure } from "@/lib/ai/erpAssistant";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from "next/server";
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     const { message, conversationId: incomingConversationId } = body;
     const requestId = typeof body.requestId === "string" && body.requestId.length <= 100 ? body.requestId : randomUUID();
 

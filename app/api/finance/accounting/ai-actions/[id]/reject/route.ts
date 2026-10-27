@@ -15,7 +15,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ success: false, message: "Invalid id" }, { status: 400 });
 
   await connectDB();
-  const proposal = await AiActionProposal.findOneAndUpdate(
+
+const proposal = await AiActionProposal.findOneAndUpdate(
     { _id: id, tenantId: session.user.tenantId, status: AI_ACTION_STATUS.PROPOSED },
     { $set: { status: AI_ACTION_STATUS.REJECTED } },
     { new: true },
@@ -23,4 +24,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!proposal) return NextResponse.json({ success: false, message: "Proposal not found or already actioned" }, { status: 404 });
 
   return NextResponse.json({ success: true, data: proposal });
+
 }

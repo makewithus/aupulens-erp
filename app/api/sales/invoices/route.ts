@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
@@ -15,6 +17,7 @@ import Payment from "@/models/sales/Payment";
 import JournalEntry from "@/models/finance/JournalEntry";
 import "@/models/sales/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below (a bound `import X from` here gets tree-shaken by Next's bundler since X is otherwise unused)
 import { validateInvoiceTaxRequirements } from "@/lib/tax/invoiceValidation";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 const REVENUE_RECOGNIZED_STATUSES = new Set([
   SALES_INVOICE_STATUS.SAVED,
@@ -135,7 +138,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Sales Invoices GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -147,144 +150,147 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
-    for (const key of ["tenantId", "createdBy", "postedSnapshot", "journalEntryIds", "sourceQuoteId", "_id"]) delete body[key];
-    const isDraft = body.status === SALES_INVOICE_STATUS.DRAFT;
+    const transactionRequestBody = await request.json();
+    return await withAccountingTransaction(async () => {
+      const tenantId = session.user.tenantId;
+      const body = stripProtectedFields(structuredClone(transactionRequestBody));
+      for (const key of ["tenantId", "createdBy", "postedSnapshot", "journalEntryIds", "sourceQuoteId", "_id"]) delete body[key];
+      const isDraft = body.status === SALES_INVOICE_STATUS.DRAFT;
 
-    if (!isDraft) {
-      if (!body.customerId) {
-        return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
+      if (!isDraft) {
+        if (!body.customerId) {
+          return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
+        }
+        if (!Array.isArray(body.lineItems) || body.lineItems.length === 0) {
+          return NextResponse.json({ success: false, message: "At least one line item is required" }, { status: 400 });
+        }
+        const taxRequirementError = await validateInvoiceTaxRequirements(tenantId, body.lineItems);
+        if (taxRequirementError) {
+          return NextResponse.json({ success: false, message: taxRequirementError }, { status: 400 });
+        }
       }
-      if (!Array.isArray(body.lineItems) || body.lineItems.length === 0) {
-        return NextResponse.json({ success: false, message: "At least one line item is required" }, { status: 400 });
+
+      const org = await Organization.findOne({ subdomain: tenantId }).lean();
+      const sellerState = (org as any)?.settings?.state;
+
+      const financialIssues = body.lineItems?.length ? validateQuoteInput({ ...body, lineItems: body.lineItems }) : [];
+      if (financialIssues.length) return NextResponse.json({ success: false, message: financialIssues.join(" "), code: "BUSINESS_RULE" }, { status: 400 });
+      const totals = computeInvoiceTotals({
+        lineItems: body.lineItems || [],
+        itemLevelDiscountPercent: body.itemLevelDiscountPercent || 0,
+        additionalCharges: body.additionalCharges || [],
+        extraDiscount: body.extraDiscount || 0,
+        extraDiscountMode: body.extraDiscountMode || "amount",
+        roundOff: !!body.roundOff,
+        sellerState,
+        placeOfSupply: body.placeOfSupply,
+        tdsRate: body.taxes?.tds || 0,
+        tcsRate: body.taxes?.tcs || 0,
+      });
+
+      let number = body.number;
+      if (!number) {
+        const generated = await generateInvoiceNumber(tenantId, body.prefix);
+        number = generated.number;
       }
-      const taxRequirementError = await validateInvoiceTaxRequirements(tenantId, body.lineItems);
-      if (taxRequirementError) {
-        return NextResponse.json({ success: false, message: taxRequirementError }, { status: 400 });
-      }
-    }
 
-    const org = await Organization.findOne({ subdomain: tenantId }).lean();
-    const sellerState = (org as any)?.settings?.state;
+      const status = resolveInvoiceStatus({
+        requestedStatus: body.status || SALES_INVOICE_STATUS.SAVED,
+        totalAmount: totals.totalAmount,
+        payments: body.payments || [],
+        markedFullyPaid: body.markedFullyPaid,
+        dueDate: body.dueDate,
+      });
 
-    const financialIssues = body.lineItems?.length ? validateQuoteInput({ ...body, lineItems: body.lineItems }) : [];
-    if (financialIssues.length) return NextResponse.json({ success: false, message: financialIssues.join(" "), code: "BUSINESS_RULE" }, { status: 400 });
-    const totals = computeInvoiceTotals({
-      lineItems: body.lineItems || [],
-      itemLevelDiscountPercent: body.itemLevelDiscountPercent || 0,
-      additionalCharges: body.additionalCharges || [],
-      extraDiscount: body.extraDiscount || 0,
-      extraDiscountMode: body.extraDiscountMode || "amount",
-      roundOff: !!body.roundOff,
-      sellerState,
-      placeOfSupply: body.placeOfSupply,
-      tdsRate: body.taxes?.tds || 0,
-      tcsRate: body.taxes?.tcs || 0,
-    });
+      // lineItems[].lineTotal is required by the schema but the InvoiceForm UI
+      // only ever computes it client-side for display (never includes it in
+      // the saved payload) — every real invoice created through the actual
+      // form was failing this validation. computeInvoiceTotals already
+      // computes the correct lineTotal per line as part of totals.computedLines,
+      // so merge it back in here as the single, robust point of truth (not
+      // relying on any caller to supply it).
+      const lineItemsWithTotals = (body.lineItems || []).map((li: any, i: number) => {
+        const computed = totals.computedLines[i];
+        return {
+          ...li,
+          gross: computed?.gross ?? li.gross,
+          lineDiscountAmount: computed?.lineDiscountAmount ?? li.lineDiscountAmount,
+          taxableValue: computed?.taxableValue ?? li.taxableValue,
+          taxAmount: computed?.taxAmount ?? li.taxAmount,
+          lineTotal: computed?.lineTotal ?? 0,
+        };
+      });
 
-    let number = body.number;
-    if (!number) {
-      const generated = await generateInvoiceNumber(tenantId, body.prefix);
-      number = generated.number;
-    }
+      const newInvoice = new SalesInvoice({
+        ...body,
+        tenantId,
+        number,
+        lineItems: lineItemsWithTotals,
+        taxableAmount: totals.taxableAmount,
+        totalDiscount: totals.totalDiscount,
+        totalAmount: totals.totalAmount,
+        taxes: {
+          tds: body.taxes?.tds || 0,
+          tcs: body.taxes?.tcs || 0,
+          gstBreakup: totals.gstBreakup,
+        },
+        status,
+        createdBy: session.user.id,
+      });
 
-    const status = resolveInvoiceStatus({
-      requestedStatus: body.status || SALES_INVOICE_STATUS.SAVED,
-      totalAmount: totals.totalAmount,
-      payments: body.payments || [],
-      markedFullyPaid: body.markedFullyPaid,
-      dueDate: body.dueDate,
-    });
+      await newInvoice.save();
 
-    // lineItems[].lineTotal is required by the schema but the InvoiceForm UI
-    // only ever computes it client-side for display (never includes it in
-    // the saved payload) — every real invoice created through the actual
-    // form was failing this validation. computeInvoiceTotals already
-    // computes the correct lineTotal per line as part of totals.computedLines,
-    // so merge it back in here as the single, robust point of truth (not
-    // relying on any caller to supply it).
-    const lineItemsWithTotals = (body.lineItems || []).map((li: any, i: number) => {
-      const computed = totals.computedLines[i];
-      return {
-        ...li,
-        gross: computed?.gross ?? li.gross,
-        lineDiscountAmount: computed?.lineDiscountAmount ?? li.lineDiscountAmount,
-        taxableValue: computed?.taxableValue ?? li.taxableValue,
-        taxAmount: computed?.taxAmount ?? li.taxAmount,
-        lineTotal: computed?.lineTotal ?? 0,
-      };
-    });
+      // Post revenue/receivable/tax to the General Ledger as soon as the
+      // invoice is a real, issued document (not draft) — previously nothing
+      // in the Sales module ever posted a journal entry for a sale at all, so
+      // Profit & Loss and the Balance Sheet never reflected sales revenue
+      // regardless of payment status. Roll back the invoice itself if posting
+      // fails (missing Chart of Accounts entry etc.) rather than leaving a
+      // "real" invoice with no GL impact.
+      if (REVENUE_RECOGNIZED_STATUSES.has(newInvoice.status as any)) {
+        // If "Mark as fully paid" is what pushed this invoice to PAID without
+        // enough real payments to cover it, auto-record a real payment for the
+        // shortfall so Accounts Receivable actually gets relieved — this used
+        // to just flip invoice.status with zero GL impact, permanently
+        // overstating AR (and stranding any of the customer's separate
+        // Customer Advances balance the user may have meant to apply here).
+        let systemPayment: { paymentId: any; journalEntryIds: any[] } | null = null;
+        try {
+          const paidSum = (newInvoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+          const shortfall = Math.round((totals.totalAmount - paidSum) * 100) / 100;
+          if (newInvoice.markedFullyPaid && shortfall > 0.005) {
+            systemPayment = await settleInvoiceShortfallWithSystemPayment({
+              tenantId,
+              customerId: String(newInvoice.customerId),
+              invoice: newInvoice,
+              amount: shortfall,
+              createdBy: session.user.id,
+              paymentDate: newInvoice.invoiceDate,
+            });
+          }
 
-    const newInvoice = new SalesInvoice({
-      ...body,
-      tenantId,
-      number,
-      lineItems: lineItemsWithTotals,
-      taxableAmount: totals.taxableAmount,
-      totalDiscount: totals.totalDiscount,
-      totalAmount: totals.totalAmount,
-      taxes: {
-        tds: body.taxes?.tds || 0,
-        tcs: body.taxes?.tcs || 0,
-        gstBreakup: totals.gstBreakup,
-      },
-      status,
-      createdBy: session.user.id,
-    });
-
-    await newInvoice.save();
-
-    // Post revenue/receivable/tax to the General Ledger as soon as the
-    // invoice is a real, issued document (not draft) — previously nothing
-    // in the Sales module ever posted a journal entry for a sale at all, so
-    // Profit & Loss and the Balance Sheet never reflected sales revenue
-    // regardless of payment status. Roll back the invoice itself if posting
-    // fails (missing Chart of Accounts entry etc.) rather than leaving a
-    // "real" invoice with no GL impact.
-    if (REVENUE_RECOGNIZED_STATUSES.has(newInvoice.status as any)) {
-      // If "Mark as fully paid" is what pushed this invoice to PAID without
-      // enough real payments to cover it, auto-record a real payment for the
-      // shortfall so Accounts Receivable actually gets relieved — this used
-      // to just flip invoice.status with zero GL impact, permanently
-      // overstating AR (and stranding any of the customer's separate
-      // Customer Advances balance the user may have meant to apply here).
-      let systemPayment: { paymentId: any; journalEntryIds: any[] } | null = null;
-      try {
-        const paidSum = (newInvoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
-        const shortfall = Math.round((totals.totalAmount - paidSum) * 100) / 100;
-        if (newInvoice.markedFullyPaid && shortfall > 0.005) {
-          systemPayment = await settleInvoiceShortfallWithSystemPayment({
-            tenantId,
-            customerId: String(newInvoice.customerId),
+          await postSalesInvoiceJournal({
             invoice: newInvoice,
-            amount: shortfall,
+            tenantId,
             createdBy: session.user.id,
-            paymentDate: newInvoice.invoiceDate,
+            current: { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount, cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, roundOffAmount: totals.roundOffAmount },
           });
+          await newInvoice.save();
+          if (newInvoice.status === SALES_INVOICE_STATUS.PAID) {
+            await advanceSaleOrderOnInvoicePaid(tenantId, newInvoice._id);
+          }
+        } catch (postingError: any) {
+          if (systemPayment) {
+            await JournalEntry.deleteMany({ _id: { $in: systemPayment.journalEntryIds }, tenantId });
+            await Payment.deleteOne({ _id: systemPayment.paymentId });
+          }
+          await (SalesInvoice as any).deleteOne({ _id: newInvoice._id });
+          return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
         }
-
-        await postSalesInvoiceJournal({
-          invoice: newInvoice,
-          tenantId,
-          createdBy: session.user.id,
-          current: { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount, cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, roundOffAmount: totals.roundOffAmount },
-        });
-        await newInvoice.save();
-        if (newInvoice.status === SALES_INVOICE_STATUS.PAID) {
-          await advanceSaleOrderOnInvoicePaid(tenantId, newInvoice._id);
-        }
-      } catch (postingError: any) {
-        if (systemPayment) {
-          await JournalEntry.deleteMany({ _id: { $in: systemPayment.journalEntryIds }, tenantId });
-          await Payment.deleteOne({ _id: systemPayment.paymentId });
-        }
-        await (SalesInvoice as any).deleteOne({ _id: newInvoice._id });
-        return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
       }
-    }
 
-    return NextResponse.json({ success: true, data: newInvoice }, { status: 201 });
+      return NextResponse.json({ success: true, data: newInvoice }, { status: 201 });
+    });
   } catch (error: any) {
     if (error?.code === 11000) {
       return NextResponse.json(
@@ -293,6 +299,6 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("Sales Invoices POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

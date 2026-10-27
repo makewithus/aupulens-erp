@@ -8,6 +8,7 @@ import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 export async function POST(request: Request) {
   try {
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
     await connectDB();
+
     const tenantId = session.user.tenantId;
 
     const formData = await request.formData();
@@ -81,40 +83,38 @@ export async function POST(request: Request) {
       }
 
       try {
-        const payment = await Payment.create({
-          tenantId,
-          customerId: customer._id,
-          paymentNumber,
-          paymentDate,
-          amountReceived: amount,
-          bankCharges: 0,
-          mode,
-          reference,
-          taxDeducted: false,
-          tdsAmount: 0,
-          allocations: [],
-          unusedAmount: amount, // the whole amount becomes customer credit for a retainer/advance
-          status: PAYMENT_STATUS.PAID,
-          paymentType: PAYMENT_TYPE.RETAINER,
-        });
+        await withAccountingTransaction(async () => {
 
-        try {
-          // No "Deposit To" column in this import — postCustomerPaymentJournal
-          // falls back to the tenant's default cash account when absent.
-          await postCustomerPaymentJournal({
-            payment,
+          const payment = await Payment.create({
             tenantId,
-            createdBy: session.user.id,
-            current: { allocatedTotal: 0, unusedAmount: amount, bankCharges: 0, tdsAmount: 0 },
+            customerId: customer._id,
+            paymentNumber,
+            paymentDate,
+            amountReceived: amount,
+            bankCharges: 0,
+            mode,
+            reference,
+            taxDeducted: false,
+            tdsAmount: 0,
+            allocations: [],
+            unusedAmount: amount, // the whole amount becomes customer credit for a retainer/advance
+            status: PAYMENT_STATUS.PAID,
+            paymentType: PAYMENT_TYPE.RETAINER,
           });
-          await payment.save();
-        } catch (postingError: any) {
-          await Payment.deleteOne({ _id: payment._id });
-          errors.push({ row: rowNumber, message: postingError.message });
-          skipped++;
-          continue;
-        }
 
+          try {
+            // No "Deposit To" column in this import — postCustomerPaymentJournal
+            // falls back to the tenant's default cash account when absent.
+            await postCustomerPaymentJournal({
+              payment,
+              tenantId,
+              createdBy: session.user.id,
+              current: { allocatedTotal: 0, unusedAmount: amount, bankCharges: 0, tdsAmount: 0 },
+            });
+            await payment.save();
+          } catch (postingError: any) { throw postingError; }
+
+        });
         imported++;
       } catch (e: any) {
         errors.push({ row: rowNumber, message: e.message || "Failed to import row" });
@@ -123,6 +123,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, imported, skipped, errors });
+
   } catch (error: any) {
     console.error("Retainer Payments Import Execution Error:", error);
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });

@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -90,26 +91,34 @@ export async function GET(req: NextRequest) {
         totalDefects += qty;
       }
 
-      // Group into dynamic daily execution buckets
+      // Group into dynamic daily execution buckets from actual units
       const orderDate = new Date(order.header?.scheduledDate || order.updatedAt || order.createdAt || Date.now());
       const dayKey = orderDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       const currentDay = dailyOutputMap.get(dayKey) || { actual: 0, target: 0, scrap: 0 };
-      currentDay.actual += (status === "finished" || status === "qc_passed") ? qty * 50 : qty * 10;
-      currentDay.target += qty * 45;
+      currentDay.actual += (status === "finished" || status === "qc_passed") ? qty : 0;
+      currentDay.target += qty;
       if (status === "rework" || status === "qc_failed") currentDay.scrap += qty;
       dailyOutputMap.set(dayKey, currentDay);
     }
 
-    // Baseline totals from database
-    const finalTotalOutput = finishedQty > 0 ? finishedQty * 100 : Math.max(ordersList.length * 50, 250);
-    const finalInProduction = inProductionQty > 0 ? inProductionQty * 100 : Math.max(ordersList.length * 20, 100);
-    const totalInspectionUnits = finishedQty + qcPendingQty + reworkQty || 1;
-    const firstPassYield = Number(((Math.max(finishedQty, 1) / totalInspectionUnits) * 100).toFixed(1));
+    // Authoritative totals from database
+    const finalTotalOutput = finishedQty;
+    const finalInProduction = inProductionQty;
+    const totalInspectionUnits = finishedQty + qcPendingQty + reworkQty;
+    const firstPassYield = totalInspectionUnits > 0
+      ? Number(((finishedQty / totalInspectionUnits) * 100).toFixed(1))
+      : (ordersList.length === 0 ? 0 : 100);
 
     // Dynamic OEE Calculation based on real order throughput and QC yield
-    const availabilityRate = Number(Math.min(99.0, Math.max(75, 88.0 + (ordersList.length * 1.5))).toFixed(1));
-    const performanceRate = Number(Math.min(98.0, Math.max(70, 85.0 + (finishedQty * 1.8))).toFixed(1));
-    const qualityRate = Number(Math.min(100.0, Math.max(80, 98.5 - (reworkQty * 2.0))).toFixed(1));
+    const availabilityRate = totalScheduledQty > 0
+      ? Number(Math.min(100, Math.max(0, ((inProductionQty + finishedQty) / totalScheduledQty) * 100)).toFixed(1))
+      : (ordersList.length === 0 ? 0 : 100);
+    const performanceRate = (finishedQty + inProductionQty) > 0
+      ? Number(Math.min(100, Math.max(0, (finishedQty / (finishedQty + inProductionQty)) * 100)).toFixed(1))
+      : (ordersList.length === 0 ? 0 : 100);
+    const qualityRate = totalInspectionUnits > 0
+      ? Number(Math.min(100, Math.max(0, (finishedQty / totalInspectionUnits) * 100)).toFixed(1))
+      : (ordersList.length === 0 ? 0 : 100);
     const overallOee = Number(((availabilityRate * performanceRate * qualityRate) / 10000).toFixed(1));
 
     // Format Daily Output Array directly from live orders
@@ -120,66 +129,42 @@ export async function GET(req: NextRequest) {
       scrap: val.scrap,
     }));
 
-    if (dailyOutput.length === 0) {
-      // If no orders have dates yet, show current week dates with real live baseline
-      const now = new Date();
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const dayLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-        dailyOutput.push({
-          day: dayLabel,
-          actual: i === 0 ? finishedQty * 10 : 0,
-          target: Math.max(50, totalScheduledQty * 10),
-          scrap: 0,
+    // 3. Dynamic QC Yield Breakdown from Real Order Statuses
+    const passedOrders = (statusCounts["finished"] || 0) + (statusCounts["qc_passed"] || 0);
+    const pendingOrders = statusCounts["qc_pending"] || 0;
+    const reworkOrders = (statusCounts["rework"] || 0) + (statusCounts["qc_failed"] || 0);
+    const totalQcOrders = passedOrders + pendingOrders + reworkOrders;
+
+    const qcYieldDistribution: Array<{ name: string; value: number; count: number; color: string }> = [];
+    if (totalQcOrders > 0) {
+      if (passedOrders > 0) {
+        qcYieldDistribution.push({
+          name: "QC Passed / Accepted",
+          value: Math.round((passedOrders / totalQcOrders) * 100),
+          count: passedOrders,
+          color: "#10b981",
+        });
+      }
+      if (pendingOrders > 0) {
+        qcYieldDistribution.push({
+          name: "QC Inspection Pending",
+          value: Math.round((pendingOrders / totalQcOrders) * 100),
+          count: pendingOrders,
+          color: "#3b82f6",
+        });
+      }
+      if (reworkOrders > 0) {
+        qcYieldDistribution.push({
+          name: "QC Rejected / Rework",
+          value: Math.round((reworkOrders / totalQcOrders) * 100),
+          count: reworkOrders,
+          color: "#ef4444",
         });
       }
     }
 
-    // 3. Dynamic QC Yield Breakdown from Real Order Statuses
-    const totalOrdersCount = ordersList.length || 1;
-    const passedOrders = (statusCounts["finished"] || 0) + (statusCounts["qc_passed"] || 0);
-    const pendingOrders = statusCounts["qc_pending"] || 0;
-    const activeOrders = (statusCounts["in_production"] || 0) + (statusCounts["production_order"] || 0);
-    const reworkOrders = (statusCounts["rework"] || 0) + (statusCounts["qc_failed"] || 0);
-    const forecastOrders = statusCounts["demand_forecast"] || 0;
-
-    const qcYieldDistribution = [
-      {
-        name: "QC Passed / Finished",
-        value: Math.max(5, Math.round((passedOrders / totalOrdersCount) * 100)),
-        count: Math.max(passedOrders, 1),
-        color: "#10b981",
-      },
-      {
-        name: "QC Inspection Pending",
-        value: Math.max(5, Math.round((pendingOrders / totalOrdersCount) * 100)),
-        count: Math.max(pendingOrders, 1),
-        color: "#3b82f6",
-      },
-      {
-        name: "In Assembly Production",
-        value: Math.max(5, Math.round((activeOrders / totalOrdersCount) * 100)),
-        count: Math.max(activeOrders, 1),
-        color: "#06b6d4",
-      },
-      {
-        name: "Forecast & Staging",
-        value: Math.max(5, Math.round((forecastOrders / totalOrdersCount) * 100)),
-        count: Math.max(forecastOrders, 1),
-        color: "#8b5cf6",
-      },
-    ];
-
-    if (reworkOrders > 0) {
-      qcYieldDistribution.push({
-        name: "Rework / Scrapped",
-        value: Math.max(1, Math.round((reworkOrders / totalOrdersCount) * 100)),
-        count: reworkOrders,
-        color: "#ef4444",
-      });
-    }
-
     // 4. Dynamic Work Center Utilization Mapped to Active Orders
+    const totalOrdersCount = Math.max(ordersList.length, 1);
     const workCenters = [
       {
         name: "Line 1: SMT Electronics Assembly",
@@ -308,7 +293,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("Error in manufacturing analytics API:", error);
     return NextResponse.json(
-      { error: "Failed to generate dynamic manufacturing analytics", details: error.message },
+      { error: "Failed to generate dynamic manufacturing analytics", details: safeInternalErrorMessage() },
       { status: 500 }
     );
   }

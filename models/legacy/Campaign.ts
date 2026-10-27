@@ -18,7 +18,7 @@ export interface ICampaign extends Document {
 }
 
 const CampaignSchema = new Schema<ICampaign>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   name: { type: String, required: true },
   channel: { type: String },
   start_date: { type: Date },

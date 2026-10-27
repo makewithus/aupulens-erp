@@ -10,6 +10,11 @@ export async function GET(req: NextRequest) {
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const ALLOWED_ROLES = ["finance", "admin", "master-admin"];
+    if (!ALLOWED_ROLES.includes(session.user?.role)) {
+      return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
+    }
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -27,6 +32,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Fetch bank statements error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

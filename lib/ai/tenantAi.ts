@@ -178,6 +178,7 @@ export async function callClaudeForTenant(
     subscriptionBlocked?: boolean;
     estimatedToolCalls?: number;
     toolCalls?: number;
+    isRefusal?: boolean;
   } = {}
 ): Promise<TenantAiResult> {
   // (a0) Subscription status gating
@@ -361,9 +362,11 @@ export async function callClaudeForTenant(
     throw err;
   }
 
+  const isSafetyRefusal = Boolean(opts?.isRefusal) || /Bulk record deletion|destructive deletion|refused to execute|not supported for safety/i.test(text);
+
   // (e) Increment ONLY after a successful response — both the per-tenant
   // counter and the platform-wide counter that backs the global ceiling.
-  if (countUsage) {
+  if (countUsage && !isSafetyRefusal) {
     await incrementAiUsage(tenantId, period);
     await incrementGlobalAiUsage(period);
     await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);
@@ -376,12 +379,22 @@ export async function callClaudeForTenant(
     inputTokens: usage.promptTokens,
     outputTokens: usage.completionTokens,
     latencyMs: Date.now() - startedAt,
-    status: "success",
+    status: isSafetyRefusal ? "error" : "success",
   });
   if (shouldBill) {
-    await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: usage.promptTokens, outputTokens: usage.completionTokens, success: true, toolCalls });
+    await settleAiCredits({
+      tenantId,
+      period,
+      requestId,
+      modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL,
+      feature: feature ?? "chat",
+      inputTokens: isSafetyRefusal ? 0 : usage.promptTokens,
+      outputTokens: isSafetyRefusal ? 0 : usage.completionTokens,
+      success: !isSafetyRefusal,
+      toolCalls: isSafetyRefusal ? 0 : toolCalls,
+    });
   }
-  if (countUsage) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
+  if (countUsage && !isSafetyRefusal) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
 
   if (language && langTrace) {
     let extra: ProviderCall[] = [];
@@ -423,6 +436,7 @@ export async function callClaudeForTenantStream(
     subscriptionBlocked?: boolean;
     estimatedToolCalls?: number;
     toolCalls?: number;
+    isRefusal?: boolean;
   } = {}
 ): Promise<TenantAiStreamResult> {
   // (a0) Subscription status gating
@@ -548,13 +562,13 @@ export async function callClaudeForTenantStream(
 
   const startedAt = Date.now();
   async function* gatedStream(): AsyncGenerator<string, void, unknown> {
-    let usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+    let usage: { promptTokens: number; completionTokens: number; totalTokens: number } = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
     let providerCompleted = false;
     let extraLanguageCalls: ProviderCall[] = [];
+    let translatedAnswer = "";
     try {
       const regionalTranslation = Boolean(language && langTrace && !langTrace.degraded && langTrace.kind !== "english" && langTrace.kind !== "none" && language.replyInUserLanguage !== false);
       const modelStream = callClaudeStreamWithUsage(history ?? [], effectiveMessage, resolvedOpts);
-      let translatedAnswer = "";
       while (true) {
         const part = await modelStream.next();
         if (part.done) {
@@ -580,7 +594,8 @@ export async function callClaudeForTenantStream(
       }
       if (language && langTrace) await (await loadLanguageBridge()).finaliseLanguage(tenantId, feature ?? "chat", langTrace, extraLanguageCalls, language.userId);
     }
-    if (countUsage) {
+    const isSafetyRefusal = Boolean(opts?.isRefusal) || /Bulk record deletion|destructive deletion|refused to execute|not supported for safety/i.test(translatedAnswer);
+    if (countUsage && !isSafetyRefusal) {
       await incrementAiUsage(tenantId, period);
       await incrementGlobalAiUsage(period);
       await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);
@@ -593,12 +608,22 @@ export async function callClaudeForTenantStream(
       inputTokens: usage.promptTokens,
       outputTokens: usage.completionTokens,
       latencyMs: Date.now() - startedAt,
-      status: "success",
+      status: isSafetyRefusal ? "error" : "success",
     });
     if (shouldBill) {
-      await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: usage.promptTokens, outputTokens: usage.completionTokens, success: true, toolCalls });
+      await settleAiCredits({
+        tenantId,
+        period,
+        requestId,
+        modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL,
+        feature: feature ?? "chat",
+        inputTokens: isSafetyRefusal ? 0 : usage.promptTokens,
+        outputTokens: isSafetyRefusal ? 0 : usage.completionTokens,
+        success: !isSafetyRefusal,
+        toolCalls: isSafetyRefusal ? 0 : toolCalls,
+      });
     }
-    if (countUsage) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
+    if (countUsage && !isSafetyRefusal) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
   }
 
   return { gated: false, stream: gatedStream() };

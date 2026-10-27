@@ -326,7 +326,7 @@ function StockTrackingPageInner() {
       userName={session?.user?.name || "User"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "inventory"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={async () => {
         await Promise.all([fetchProducts(), fetchStockLevels()]);
       }}

@@ -1,3 +1,4 @@
+import { deferUntilAccountingCommit } from "@/lib/accounting/transaction";
 /**
  * A dependency-light wrapper for emitting AI runtime events from real business logic
  * (docs/ai/BRIEF-02-BATCH-A.md B.2). This file has NO top-level imports of anything that
@@ -17,6 +18,7 @@ export async function safeEmitEvent(
   eventKey: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
+  if (deferUntilAccountingCommit(() => safeEmitEvent(tenantId, eventKey, payload))) return;
   try {
     const { bootstrapAiRuntime } = await import("@/lib/aiRuntime/bootstrap");
     const { emitEvent } = await import("@/lib/aiRuntime/runtime/eventBus");

@@ -19,7 +19,7 @@ export interface IFieldVisit extends Document {
 
 const FieldVisitSchema = new Schema<IFieldVisit>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     recordType: { type: String, required: true, enum: ["Account", "Contact", "Opportunity", "Lead"] },
     recordId: { type: Schema.Types.ObjectId, required: true },
     latitude: { type: Number, required: true },

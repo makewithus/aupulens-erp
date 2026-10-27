@@ -32,7 +32,7 @@ export interface IAdminAccessRequest extends Document {
 const AdminAccessRequestSchema = new Schema<IAdminAccessRequest>(
   {
     adminUserId: { type: Schema.Types.ObjectId, ref: "AdminUser", required: true },
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     reason: { type: String, required: true },
     requestedScope: { type: String, required: true, enum: ADMIN_ACCESS_SCOPE_VALUES },
     status: {

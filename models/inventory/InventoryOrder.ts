@@ -35,7 +35,7 @@ export interface IInventoryOrder extends Document {
 
 const InventoryOrderSchema: Schema<IInventoryOrder> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     orderNumber: { type: String, required: true, trim: true },
     customerName: { type: String, required: true, trim: true },
     customerEmail: { type: String, trim: true },

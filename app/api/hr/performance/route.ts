@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -32,13 +34,14 @@ export async function POST(req: NextRequest) {
     const tenantId = session.user.tenantId;
     const userId = (session.user as any).id;
 
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     if (!body.employeeId || !body.reviewPeriod) {
       return NextResponse.json({ error: "employeeId and reviewPeriod are required" }, { status: 400 });
     }
 
     await connectDB();
-    const review = await PerformanceReview.findOneAndUpdate(
+
+const review = await PerformanceReview.findOneAndUpdate(
       { tenantId, employeeId: body.employeeId, reviewPeriod: body.reviewPeriod },
       {
         $set: {
@@ -54,8 +57,9 @@ export async function POST(req: NextRequest) {
       { new: true, upsert: true, setDefaultsOnInsert: true },
     );
     return NextResponse.json({ review }, { status: 201 });
+
   } catch (error: any) {
     console.error("Error saving performance review:", error);
-    return NextResponse.json({ error: error.message || "Failed to save performance review" }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

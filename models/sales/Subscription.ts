@@ -72,7 +72,7 @@ export interface ISubscription extends Document {
 
 const SubscriptionSchema = new Schema<ISubscription>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
     quoteId: { type: Schema.Types.ObjectId, ref: "SalesQuotation" },
     number: { type: String },

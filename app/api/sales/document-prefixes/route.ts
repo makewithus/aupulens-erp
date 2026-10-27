@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
     const rows = await DocumentPrefix.find(query).sort({ documentType: 1, kind: 1, value: 1 }).lean();
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -36,8 +38,9 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
+
+const tenantId = session.user.tenantId;
+    const body = stripProtectedFields(await request.json());
 
     if (!body.documentType || !body.value) {
       return NextResponse.json({ success: false, message: "documentType and value are required" }, { status: 400 });
@@ -53,10 +56,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, data: doc }, { status: 201 });
+
   } catch (error: any) {
     if (error?.code === 11000) {
       return NextResponse.json({ success: false, message: "That prefix/suffix value already exists for this document type" }, { status: 409 });
     }
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

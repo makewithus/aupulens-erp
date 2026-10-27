@@ -42,7 +42,7 @@ const ALLOWED_ACTIONS = [
 ] as const;
 
 const CrmAuditLogSchema = new Schema<ICrmAuditLog>({
-  tenantId: { type: String, required: true, index: true },
+  tenantId: { type: String, required: true, index: true, immutable: true },
   user_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
   action: {
     type: String,

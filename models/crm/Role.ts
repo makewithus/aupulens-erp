@@ -12,7 +12,7 @@ export interface IRole extends Document {
 
 const RoleSchema = new Schema<IRole>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true },
     description: { type: String },
     permissions: [{ type: Schema.Types.ObjectId, ref: "CrmPermission" }],

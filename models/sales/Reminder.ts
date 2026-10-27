@@ -37,7 +37,7 @@ export interface IReminder extends Document {
 
 const ReminderSchema = new Schema<IReminder>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     scope: { type: String, enum: REMINDER_SCOPE_VALUES, required: true },
     type: { type: String, enum: REMINDER_TYPE_VALUES, default: REMINDER_TYPE.AUTOMATED },
     name: { type: String, required: true, trim: true },

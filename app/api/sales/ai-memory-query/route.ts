@@ -163,7 +163,8 @@ export async function POST(request: NextRequest) {
     if (body.authoritativeOnly) return NextResponse.json({ success: true, handled: false });
     await connectDB();
 
-    const today = new Date();
+
+const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
 
     // Recent conversation, if the client sent any — lets a bare follow-up
@@ -1565,6 +1566,7 @@ Rules:
     }
 
     return NextResponse.json({ success: true, handled: false });
+
   } catch (error) {
     const failure = safeErpError(error, requestId);
     return NextResponse.json(failure.body, { status: failure.status });

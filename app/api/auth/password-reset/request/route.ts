@@ -1,12 +1,27 @@
+import { checkAuthRateLimit } from "@/lib/auth/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import connectDB from "@/lib/db";
 import User from "@/models/auth/User";
 import { getEmailService } from "@/lib/email/sendEmail";
-import { buildTenantUrl } from "@/lib/config";
 
 const DEFAULT_TENANT_ID = "default-tenant";
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function resetOrigin(tenantId: string): string {
+  const configured = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_BASE_URL;
+  if (!configured) throw new Error("Canonical public URL is required");
+  const url = new URL(configured);
+  if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+    throw new Error("Invalid canonical public URL");
+  }
+  if (url.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(url.hostname)) throw new Error("HTTPS public URL is required");
+  if (tenantId !== DEFAULT_TENANT_ID) {
+    if (!/^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/.test(tenantId)) throw new Error("Invalid tenant slug");
+    url.hostname = `${tenantId}.${url.hostname}`;
+  }
+  return url.origin;
+}
 
 function normalizeTenantId(value?: string | null): string {
   const normalized = (value || DEFAULT_TENANT_ID).trim().toLowerCase();
@@ -26,6 +41,8 @@ const GENERIC_RESPONSE = {
 };
 
 export async function POST(req: NextRequest) {
+  const limited = await checkAuthRateLimit(req, "/api/auth/password-reset/request");
+  if (limited) return limited;
   try {
     const body = await req.json();
     const email = (body.email || "").trim().toLowerCase();
@@ -35,6 +52,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Email is required" }, { status: 400 });
     }
 
+    // Validate before issuing a token or modifying any account.
+    const canonicalOrigin = resetOrigin(tenantId);
     await connectDB();
 
     const user = await User.findOne({ tenantId, email });
@@ -44,18 +63,9 @@ export async function POST(req: NextRequest) {
       user.passwordResetTokenExpiry = new Date(Date.now() + RESET_TOKEN_TTL_MS);
       await user.save();
 
-      // Dynamically generate the base URL based on the request host.
-      // This ensures that Vercel preview URLs (aupulens-erp.vercel.app) work seamlessly,
-      // while falling back to the configured NEXT_PUBLIC_APP_BASE_URL if needed.
-      const host = req.headers.get("host");
-      const protocol = host?.includes("localhost") ? "http" : "https";
-      const baseUrl = host 
-        ? `${protocol}://${host}` 
-        : (process.env.NEXT_PUBLIC_APP_BASE_URL || "http://localhost:3000");
-      const resetLink =
-        tenantId === DEFAULT_TENANT_ID
-          ? `${baseUrl}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`
-          : `${buildTenantUrl(tenantId)}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+      // AUP-015: Build reset URLs strictly from canonical application configuration.
+      // Do NOT trust raw client request Host / Forwarded-Host headers.
+      const resetLink = `${canonicalOrigin}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
       const htmlBody = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0a0a0a; color: #f2f2f2; padding: 40px 20px; border-radius: 8px;">

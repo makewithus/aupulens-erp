@@ -12,7 +12,7 @@ export interface IMigrationIdentityMap extends Document {
 
 const MigrationIdentityMapSchema = new Schema<IMigrationIdentityMap>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     batchId: { type: Schema.Types.ObjectId, ref: "MigrationBatch", required: true, index: true },
     entityType: { type: String, required: true },
     sourceId: { type: String, required: true, index: true },

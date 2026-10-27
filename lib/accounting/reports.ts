@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import JournalEntry from "@/models/finance/JournalEntry";
+import AccountType from "@/models/finance/AccountType";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { toDateEndInTimeZone, toDateStartInTimeZone } from "@/lib/accounting/reportDate";
 
@@ -29,9 +31,34 @@ export type ReportAccount = {
 export type AccountGroupReport = {
   total: number;
   accounts: Record<string, ReportAccount>;
+  current?: {
+    total: number;
+    accounts: Record<string, ReportAccount>;
+  };
+  nonCurrent?: {
+    total: number;
+    accounts: Record<string, ReportAccount>;
+  };
+};
+
+export type StatementSummary = {
+  revenue: number;
+  cogs: number;
+  grossProfit: number;
+  grossMarginPercent: number;
+  operatingExpenses: number;
+  operatingIncome: number;
+  otherIncome: number;
+  otherExpenses: number;
+  profitBeforeTax: number;
+  taxExpense: number;
+  netIncome: number;
+  profitAvailable?: boolean;
+  profitUnavailableReason?: string;
 };
 
 export type PostedJournalReport = Record<ReportGroup, AccountGroupReport> & {
+  statementSummary?: StatementSummary;
   activity: {
     latestPostedDate: Date | null;
     postedEntryCount: number;
@@ -42,6 +69,225 @@ export type PostedJournalReport = Record<ReportGroup, AccountGroupReport> & {
     balanced: boolean;
   };
 };
+
+const GROUP_TYPE_MAPPING: Record<string, ReportGroup> = {
+  asset_receivable: "asset",
+  asset_cash: "asset",
+  asset_current: "asset",
+  asset_non_current: "asset",
+  asset_prepayments: "asset",
+  asset_fixed: "asset",
+  liability_payable: "liability",
+  liability_credit_card: "liability",
+  liability_current: "liability",
+  liability_non_current: "liability",
+  equity: "equity",
+  equity_unaffected: "equity",
+  income: "income",
+  income_other: "income",
+  expense: "expense",
+  expense_depreciation: "expense",
+  expense_direct_cost: "expense",
+  off_balance: "off_balance",
+};
+
+export function resolveAccountGroupAndType(
+  account: any,
+  accountTypeMap?: Map<string, any>,
+): {
+  internalGroup: ReportGroup;
+  accountType: string;
+} {
+  if (account.internal_group && account.account_type) {
+    return {
+      internalGroup: account.internal_group as ReportGroup,
+      accountType: account.account_type,
+    };
+  }
+
+  const at = account.accountType
+    ? accountTypeMap?.get(String(account.accountType))
+    : null;
+  const segment = at?.segment || "";
+  const atName = at?.name || "";
+  const name = (account.name || account.accountName || "").toLowerCase();
+  const code = String(account.code || account.accountCode || "");
+
+  if (
+    segment === "Cash and cash equivalents" ||
+    atName === "Bank" ||
+    atName === "Cash"
+  ) {
+    return { internalGroup: "asset", accountType: "asset_cash" };
+  }
+  if (
+    segment === "Other Current Asset" ||
+    atName === "Accounts Receivable" ||
+    atName === "Stock"
+  ) {
+    const isAr =
+      atName === "Accounts Receivable" || name.includes("receivable");
+    return {
+      internalGroup: "asset",
+      accountType: isAr ? "asset_receivable" : "asset_current",
+    };
+  }
+  if (
+    segment === "Fixed Asset" ||
+    atName === "Fixed Asset" ||
+    atName === "Intangible Asset"
+  ) {
+    return { internalGroup: "asset", accountType: "asset_fixed" };
+  }
+  if (segment === "Non Current Asset") {
+    return { internalGroup: "asset", accountType: "asset_non_current" };
+  }
+  if (segment === "Other Asset") {
+    return { internalGroup: "asset", accountType: "asset_current" };
+  }
+
+  if (
+    segment === "Other Current Liability" ||
+    atName === "Accounts Payable" ||
+    atName === "Credit Card"
+  ) {
+    const isAp = atName === "Accounts Payable" || name.includes("payable");
+    const isCc = atName === "Credit Card" || name.includes("credit card");
+    return {
+      internalGroup: "liability",
+      accountType: isAp
+        ? "liability_payable"
+        : isCc
+        ? "liability_credit_card"
+        : "liability_current",
+    };
+  }
+  if (segment === "Non Current Liability" || segment === "Other Liability") {
+    return { internalGroup: "liability", accountType: "liability_non_current" };
+  }
+
+  if (segment === "Equity" || atName === "Equity") {
+    return { internalGroup: "equity", accountType: "equity" };
+  }
+  if (
+    segment === "Income" ||
+    segment === "Other Income" ||
+    atName === "Income"
+  ) {
+    return { internalGroup: "income", accountType: "income" };
+  }
+  if (
+    segment === "Expense" ||
+    segment === "Cost Of Goods Sold" ||
+    segment === "Other Expense" ||
+    atName === "Expense"
+  ) {
+    const isCogs =
+      segment === "Cost Of Goods Sold" ||
+      name.includes("cogs") ||
+      name.includes("cost of goods");
+    const isDep = name.includes("depreciation");
+    return {
+      internalGroup: "expense",
+      accountType: isCogs
+        ? "expense_direct_cost"
+        : isDep
+        ? "expense_depreciation"
+        : "expense",
+    };
+  }
+
+  if (account.account_type && GROUP_TYPE_MAPPING[account.account_type]) {
+    return {
+      internalGroup: GROUP_TYPE_MAPPING[account.account_type],
+      accountType: account.account_type,
+    };
+  }
+
+  if (code.startsWith("1")) {
+    const isCash = code.startsWith("11");
+    const isAr = code === "1200";
+    const isFixed = code.startsWith("14") || code.startsWith("15");
+    return {
+      internalGroup: "asset",
+      accountType: isCash
+        ? "asset_cash"
+        : isAr
+        ? "asset_receivable"
+        : isFixed
+        ? "asset_fixed"
+        : "asset_current",
+    };
+  }
+  if (code.startsWith("2")) {
+    const isAp = code === "2100";
+    const isNonCurrent =
+      code.startsWith("25") ||
+      code.startsWith("26") ||
+      code.startsWith("27") ||
+      code.startsWith("28");
+    return {
+      internalGroup: "liability",
+      accountType: isAp
+        ? "liability_payable"
+        : isNonCurrent
+        ? "liability_non_current"
+        : "liability_current",
+    };
+  }
+  if (code.startsWith("3")) {
+    return { internalGroup: "equity", accountType: "equity" };
+  }
+  if (code.startsWith("4")) {
+    return { internalGroup: "income", accountType: "income" };
+  }
+  if (code.startsWith("5") || code.startsWith("6")) {
+    return { internalGroup: "expense", accountType: "expense" };
+  }
+
+  if (name.includes("bank") || name.includes("cash")) {
+    return { internalGroup: "asset", accountType: "asset_cash" };
+  }
+  if (name.includes("receivable")) {
+    return { internalGroup: "asset", accountType: "asset_receivable" };
+  }
+  if (
+    name.includes("fixed asset") ||
+    name.includes("machinery") ||
+    name.includes("equipment") ||
+    name.includes("vehicle") ||
+    name.includes("truck")
+  ) {
+    return { internalGroup: "asset", accountType: "asset_fixed" };
+  }
+  if (name.includes("payable") || name.includes("tax")) {
+    return { internalGroup: "liability", accountType: "liability_current" };
+  }
+  if (
+    name.includes("loan") ||
+    name.includes("mortgage") ||
+    name.includes("borrowing") ||
+    name.includes("debenture") ||
+    name.includes("long term")
+  ) {
+    return { internalGroup: "liability", accountType: "liability_non_current" };
+  }
+  if (name.includes("capital") || name.includes("equity")) {
+    return { internalGroup: "equity", accountType: "equity" };
+  }
+  if (
+    name.includes("revenue") ||
+    name.includes("sales") ||
+    name.includes("income")
+  ) {
+    return { internalGroup: "income", accountType: "income" };
+  }
+
+  return {
+    internalGroup: (account.internal_group || "off_balance") as ReportGroup,
+    accountType: account.account_type || "unknown",
+  };
+}
 
 function getSignedAmount(group: ReportGroup, debit: number, credit: number) {
   if (group === "asset" || group === "expense") {
@@ -87,9 +333,22 @@ export async function buildPostedJournalReport({
     activity: { latestPostedDate: null, postedEntryCount: 0 },
   };
 
+  let accountTypeMap = new Map<string, any>();
+  try {
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      const accountTypes = await AccountType.find({ tenantId }).lean();
+      accountTypeMap = new Map(
+        accountTypes.map((t: any) => [String(t._id), t]),
+      );
+    }
+  } catch {
+    // Ignore when running in isolated test environments
+  }
+
   const entries = await JournalEntry.find(query)
     .populate("lineIds.accountId")
     .lean();
+
   report.activity.postedEntryCount = entries.length;
   for (const entry of entries) {
     const entryDate = entry.header?.date ? new Date(entry.header.date) : null;
@@ -106,12 +365,16 @@ export async function buildPostedJournalReport({
       const account = line.accountId as any;
       if (!account) continue;
 
-      const internalGroup = (account.internal_group || "off_balance") as ReportGroup;
+      const { internalGroup, accountType } = resolveAccountGroupAndType(
+        account,
+        accountTypeMap,
+      );
       const group = report[internalGroup] || report.off_balance;
       const debit = Number(line.debit) || 0;
       const credit = Number(line.credit) || 0;
       const id = account._id?.toString() || String(line.accountId);
-      const key = account.code || id;
+      const key = account.code || account.accountCode || id;
+      const name = account.name || account.accountName || "Unknown Account";
 
       report.totals.debit += debit;
       report.totals.credit += credit;
@@ -119,9 +382,9 @@ export async function buildPostedJournalReport({
       if (!group.accounts[key]) {
         group.accounts[key] = {
           id,
-          code: account.code || "N/A",
-          name: account.name || "Unknown Account",
-          accountType: account.account_type || "unknown",
+          code: account.code || account.accountCode || "N/A",
+          name,
+          accountType,
           internalGroup,
           normalBalance: account.normal_balance === "debit" || account.normal_balance === "credit"
             ? account.normal_balance
@@ -160,7 +423,165 @@ export async function buildPostedJournalReport({
       (sum, account) => sum + account.amount,
       0,
     );
+
+    if (groupName === "asset") {
+      const currentAccounts: Record<string, ReportAccount> = {};
+      const nonCurrentAccounts: Record<string, ReportAccount> = {};
+      for (const [k, acc] of Object.entries(group.accounts)) {
+        const nameLower = acc.name.toLowerCase();
+        const isNonCurrent =
+          acc.accountType === "asset_fixed" ||
+          acc.accountType === "asset_non_current" ||
+          String(acc.code).startsWith("14") ||
+          String(acc.code).startsWith("15") ||
+          nameLower.includes("fixed asset") ||
+          nameLower.includes("machinery") ||
+          nameLower.includes("equipment") ||
+          nameLower.includes("vehicle") ||
+          nameLower.includes("truck");
+        if (isNonCurrent) {
+          nonCurrentAccounts[k] = acc;
+        } else {
+          currentAccounts[k] = acc;
+        }
+      }
+      group.current = {
+        accounts: currentAccounts,
+        total: Object.values(currentAccounts).reduce((s, a) => s + a.amount, 0),
+      };
+      group.nonCurrent = {
+        accounts: nonCurrentAccounts,
+        total: Object.values(nonCurrentAccounts).reduce((s, a) => s + a.amount, 0),
+      };
+    }
+
+    if (groupName === "liability") {
+      const currentAccounts: Record<string, ReportAccount> = {};
+      const nonCurrentAccounts: Record<string, ReportAccount> = {};
+      for (const [k, acc] of Object.entries(group.accounts)) {
+        const nameLower = acc.name.toLowerCase();
+        const isNonCurrent =
+          acc.accountType === "liability_non_current" ||
+          nameLower.includes("loan") ||
+          nameLower.includes("mortgage") ||
+          nameLower.includes("long term") ||
+          nameLower.includes("borrowing") ||
+          nameLower.includes("debenture");
+        if (isNonCurrent) {
+          nonCurrentAccounts[k] = acc;
+        } else {
+          currentAccounts[k] = acc;
+        }
+      }
+      group.current = {
+        accounts: currentAccounts,
+        total: Object.values(currentAccounts).reduce((s, a) => s + a.amount, 0),
+      };
+      group.nonCurrent = {
+        accounts: nonCurrentAccounts,
+        total: Object.values(nonCurrentAccounts).reduce((s, a) => s + a.amount, 0),
+      };
+    }
   }
+
+  // ── Multi-Step Statement Breakdown (GAAP / Ind AS) ──
+  const incomeAccountsList = Object.values(report.income.accounts);
+  const expenseAccountsList = Object.values(report.expense.accounts);
+
+  const isOtherIncome = (acc: ReportAccount) => {
+    const name = acc.name.toLowerCase();
+    return acc.accountType === "income_other" ||
+      acc.code.startsWith("49") ||
+      name.includes("other income") ||
+      name.includes("interest income") ||
+      name.includes("dividend");
+  };
+
+  const isCogs = (acc: ReportAccount) => {
+    const name = acc.name.toLowerCase();
+    return acc.accountType === "expense_direct_cost" ||
+      acc.code.startsWith("51") ||
+      name.includes("cogs") ||
+      name.includes("cost of goods") ||
+      name.includes("direct cost") ||
+      name.includes("cost of sales");
+  };
+
+  const isTaxExpense = (acc: ReportAccount) => {
+    const name = acc.name.toLowerCase();
+    return name.includes("income tax") ||
+      name.includes("tax expense") ||
+      name.includes("provision for tax") ||
+      name.includes("corporate tax");
+  };
+
+  const isOtherExpense = (acc: ReportAccount) => {
+    const name = acc.name.toLowerCase();
+    return name.includes("interest expense") ||
+      name.includes("finance cost") ||
+      name.includes("bank charge") ||
+      name.includes("other expense");
+  };
+
+  let revenue = 0;
+  let otherIncome = 0;
+  for (const acc of incomeAccountsList) {
+    if (isOtherIncome(acc)) {
+      otherIncome += acc.amount;
+    } else {
+      revenue += acc.amount;
+    }
+  }
+
+  let cogs = 0;
+  let operatingExpenses = 0;
+  let otherExpenses = 0;
+  let taxExpense = 0;
+
+  for (const acc of expenseAccountsList) {
+    if (isCogs(acc)) {
+      cogs += acc.amount;
+    } else if (isTaxExpense(acc)) {
+      taxExpense += acc.amount;
+    } else if (isOtherExpense(acc)) {
+      otherExpenses += acc.amount;
+    } else {
+      operatingExpenses += acc.amount;
+    }
+  }
+
+  revenue = Number(revenue.toFixed(2));
+  cogs = Number(cogs.toFixed(2));
+  otherIncome = Number(otherIncome.toFixed(2));
+  operatingExpenses = Number(operatingExpenses.toFixed(2));
+  otherExpenses = Number(otherExpenses.toFixed(2));
+  taxExpense = Number(taxExpense.toFixed(2));
+
+  const hasRecordedCosts = cogs > 0 || operatingExpenses > 0;
+  const grossProfit = Number((revenue - cogs).toFixed(2));
+  const isProfitComplete = revenue === 0 || hasRecordedCosts;
+  const grossMarginPercent = (revenue !== 0 && isProfitComplete) ? Number(((grossProfit / revenue) * 100).toFixed(2)) : null;
+  const operatingIncome = Number((grossProfit - operatingExpenses).toFixed(2));
+  const profitBeforeTax = Number((operatingIncome + otherIncome - otherExpenses).toFixed(2));
+  const netIncome = Number((profitBeforeTax - taxExpense).toFixed(2));
+
+  report.statementSummary = {
+    revenue,
+    cogs,
+    grossProfit,
+    grossMarginPercent,
+    operatingExpenses,
+    operatingIncome,
+    otherIncome,
+    otherExpenses,
+    profitBeforeTax,
+    taxExpense,
+    netIncome,
+    profitAvailable: isProfitComplete,
+    profitUnavailableReason: !isProfitComplete
+      ? "Cost of goods sold and operating expenses have not been posted to the general ledger"
+      : undefined,
+  };
 
   report.totals.debit = Number(report.totals.debit.toFixed(2));
   report.totals.credit = Number(report.totals.credit.toFixed(2));
@@ -697,7 +1118,7 @@ export async function buildAgedPartnerReport({
       const unpaidBills = await Invoice.find({
         tenantId,
         moveType: "in_invoice",
-        state: { $nin: ["paid", "cancel"] },
+        state: DOCUMENT_STATUS.POSTED,
       }).populate("partnerId").lean();
 
       for (const bill of unpaidBills as any[]) {

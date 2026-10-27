@@ -119,7 +119,8 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    const today = new Date();
+
+const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
 
     // Recent conversation, if the client sent any — lets a bare follow-up
@@ -690,6 +691,7 @@ Rules:
     }
 
     return NextResponse.json({ success: true, handled: false });
+
   } catch (error) {
     console.error("Inventory AI memory-query error:", error);
     return NextResponse.json({ success: true, handled: false });

@@ -1,9 +1,12 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Stock from "@/models/inventory/Stock";
 import Product from "@/models/inventory/Product"; // Ensure Product model is registered
+import InventoryItem from "@/models/inventory/InventoryItem";
 import { checkNegativeStockGuard } from "@/lib/inventory/stockGuard";
 
 export async function GET(req: Request) {
@@ -36,7 +39,9 @@ export async function GET(req: Request) {
       stockMap[item._id.toString()] = item.totalQuantity;
     });
 
-    return NextResponse.json({ stock: stockMap });
+    const items = await InventoryItem.find({ tenantId }).sort({ createdAt: -1 }).lean();
+
+    return NextResponse.json({ stock: stockMap, items });
   } catch (error) {
     console.error("Error fetching stock levels:", error);
     return NextResponse.json(
@@ -53,7 +58,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     const { productId, quantity, reference, notes, type } = body;
 
     if (!productId || quantity === undefined) {
@@ -64,7 +69,8 @@ export async function POST(req: Request) {
     }
 
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
@@ -84,10 +90,11 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(stockEntry, { status: 201 });
+
   } catch (error: any) {
     console.error("Error creating stock entry:", error);
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }

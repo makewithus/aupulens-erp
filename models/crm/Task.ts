@@ -18,11 +18,12 @@ export interface ITask extends Document {
   linked_account_id?: mongoose.Types.ObjectId;
   linked_opportunity_id?: mongoose.Types.ObjectId;
   linked_case_id?: mongoose.Types.ObjectId;
+  isDemo?: boolean;
   createdBy: mongoose.Types.ObjectId;
 }
 
 const TaskSchema = new Schema<ITask>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true , immutable: true },
   title: { type: String, required: true },
   category: { type: String, enum: ['Call Back','Send Proposal','Schedule Demo','Follow Up on Quote','Collect Documents','Renew Contract','Resolve Issue','Prepare Meeting','Follow Up','Prepare Quote','Onboarding','Other'] },
   description: { type: String },
@@ -39,6 +40,7 @@ const TaskSchema = new Schema<ITask>({
   linked_account_id: { type: Schema.Types.ObjectId, ref: 'CrmAccount' },
   linked_opportunity_id: { type: Schema.Types.ObjectId, ref: 'CrmOpportunity' },
   linked_case_id: { type: Schema.Types.ObjectId, ref: 'CrmCase' },
+  isDemo: { type: Boolean, default: false, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 

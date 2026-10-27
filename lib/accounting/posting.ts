@@ -1,3 +1,4 @@
+import { journalPolicy } from "@/lib/accounting/journalPolicy";
 import type mongoose from "mongoose";
 import JournalEntry from "@/models/finance/JournalEntry";
 import {
@@ -176,6 +177,10 @@ export async function createJournalEntry(
   input: JournalPostingInput,
 ) {
   const payload = await buildJournalEntryPayload(input);
+  if (payload.voucherStatus === VOUCHER_STATUS.POSTED) {
+    const policyError = await journalPolicy(input.tenantId, payload, "system", "posted");
+    if (policyError) throw new Error(policyError);
+  }
   const entry = await JournalEntry.create(payload);
 
   if (payload.voucherStatus === VOUCHER_STATUS.POSTED) {
@@ -196,6 +201,6 @@ export async function createPostedJournalEntry(
     ...input,
     status: DOCUMENT_STATUS.POSTED,
     voucherStatus: VOUCHER_STATUS.POSTED,
-    approvalRequired: false,
+    approvalRequired: input.approvalRequired ?? false,
   });
 }

@@ -14,7 +14,7 @@ export interface IAiOverageConfig extends Document {
 
 const AiOverageConfigSchema = new Schema<IAiOverageConfig>(
   {
-    tenantId: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, unique: true, immutable: true },
     enabled: { type: Boolean, required: true, default: false },
     ratePerCreditUsd: { type: Number, required: true, default: 0 },
     softLimitUsd: { type: Number, required: true, default: 0 },

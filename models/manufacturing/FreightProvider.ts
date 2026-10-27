@@ -30,7 +30,7 @@ export interface IFreightProvider extends mongoose.Document {
 }
 
 const FreightProviderSchema = new Schema<IFreightProvider>({
-  tenantId: { type: String, required: true, index: true },
+  tenantId: { type: String, required: true, index: true, immutable: true },
   providerName: { type: String, required: true },
   providerCode: { type: String, required: true },
   providerType: { type: String, enum: ['air', 'sea', 'road', 'rail', 'multimodal'], required: true },

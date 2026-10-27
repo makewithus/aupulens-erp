@@ -146,7 +146,7 @@ describe("registry ↔ REAL ROUTE (behavioural)", () => {
 
   it("the payload the registry builds is ACCEPTED by the real route, as a DRAFT (no GL posting)", async () => {
     const res = await post(await payload());
-    expect(res.status, MSG("the real route rejected the registry's own payload")).toBe(201);
+    expect(res.status, MSG("the real route rejected the registry's own payload") + await res.clone().text()).toBe(201);
     const json = await res.json();
     expect(json.data.status).toBe("draft");
     expect(json.data.totalAmount).toBe(200);

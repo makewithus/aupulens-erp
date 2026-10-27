@@ -24,7 +24,7 @@ export interface IAiExpensePolicy extends Document {
 
 const AiExpensePolicySchema: Schema<IAiExpensePolicy> = new Schema(
   {
-    tenantId: { type: String, required: true, unique: true, index: true },
+    tenantId: { type: String, required: true, unique: true, index: true, immutable: true },
     categoryLimits: {
       type: [{ category: String, maxAmount: Number }],
       default: [],

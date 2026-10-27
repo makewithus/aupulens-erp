@@ -33,6 +33,7 @@ const VendorSchema = new mongoose.Schema({
     type: String,
     required: true,
     index: true,
+    immutable: true,
   },
   category: {
     type: String,

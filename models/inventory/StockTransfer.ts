@@ -128,7 +128,7 @@ const StockTransferSchema: Schema<IStockTransfer> = new Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
   },
   { timestamps: true },
 );

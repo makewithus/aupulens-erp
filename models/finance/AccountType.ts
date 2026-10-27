@@ -14,7 +14,7 @@ export interface IAccountType extends Document {
 
 const AccountTypeSchema: Schema<IAccountType> = new Schema(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
     segment: { type: String, required: true, trim: true },
     description: { type: String },

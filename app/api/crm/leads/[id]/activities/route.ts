@@ -1,29 +1,52 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmActivity from "@/models/crm/Activity";
 import CrmTask from "@/models/crm/Task";
+import CrmLead from "@/models/crm/Lead";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  
-  await dbConnect();
-  const activities = await CrmActivity.find({ linked_lead_id: params.id, tenantId: session.user.tenantId })
-      .sort({ activity_date: -1 })
-      .populate('performed_by_id', 'name').lean();
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
     
-  return NextResponse.json({ success: true, data: activities });
+    await dbConnect();
+    const parentLead = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId }).select("_id").lean();
+    if (!parentLead) {
+      return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
+    }
+
+    const activities = await CrmActivity.find({ linked_lead_id: params.id, tenantId: session.user.tenantId })
+        .sort({ activity_date: -1 })
+        .populate('performed_by_id', 'name').lean();
+
+    return NextResponse.json({ success: true, data: activities });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  
-  await dbConnect();
-  const body = await req.json();
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
+
+    await dbConnect();
+    const parentLead = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId }).select("_id").lean();
+    if (!parentLead) {
+      return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
+    }
+  const body = stripProtectedFields(await req.json());
   body.tenantId = session.user.tenantId;
   body.linked_lead_id = params.id;
   body.createdBy = session.user.id;
@@ -42,6 +65,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       createdBy: session.user.id
     });
   }
-  
+
   return NextResponse.json({ success: true, data: activity });
+} catch (error) {
+  return handleRouteError(error);
+}
 }

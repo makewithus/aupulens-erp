@@ -31,7 +31,7 @@ export interface IFxRate extends Document {
 
 const FxRateSchema: Schema<IFxRate> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     fromCurrency: { type: String, required: true, uppercase: true },
     toCurrency: { type: String, required: true, uppercase: true },
     rateDate: { type: Date, required: true },

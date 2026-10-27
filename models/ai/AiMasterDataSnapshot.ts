@@ -24,7 +24,7 @@ export interface IAiMasterDataSnapshot extends Document {
 
 const AiMasterDataSnapshotSchema: Schema<IAiMasterDataSnapshot> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     entityModel: { type: String, required: true },
     recordId: { type: String, required: true },
     fields: { type: Schema.Types.Mixed, default: {} },

@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -82,7 +83,8 @@ export async function POST(req: Request) {
     const tenantId = (session.user as any).tenantId;
     await connectDB();
 
-    const body = await req.json();
+
+const body = stripProtectedFields(await req.json());
     const {
       date,
       account,
@@ -126,6 +128,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ transaction }, { status: 201 });
+
   } catch (error) {
     console.error("Error creating transaction:", error);
     return NextResponse.json(

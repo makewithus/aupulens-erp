@@ -1,7 +1,7 @@
 import Customer from "@/models/sales/Customer";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
-import { ErpToolError, escapeRegex, requireSalesAccess } from "./erpQuery";
+import { ErpToolError, escapeRegex, requireSalesAccess, resolveCustomer, customerName } from "./erpQuery";
 import { normalizeErpText } from "./erpIntent";
 import { AI_ACTION_STATUS as A } from "@/lib/constants/statuses";
 
@@ -15,6 +15,7 @@ export interface CustomerDraftParams {
   email?: string;
   phone?: string;
   mobile?: string;
+  city?: string;
   gstin?: string;
   pan?: string;
   currency?: string;
@@ -118,6 +119,17 @@ export function extractCustomerFieldsWithErrors(text: string): {
     else errors.push(`PAN "${raw}" is invalid. PAN must be a valid 10-character Indian PAN identifier.`);
   }
 
+  // 5b. City extraction & normalization (SYS-34)
+  const cityExplicit = q.match(/\b(?:city|location|in|from|at)\s*(?:is|to|:|=)?\s*([A-Za-z]+)\b/i);
+  const knownCities = q.match(/\b(?:chenai|chennai|mumbai|delhi|bangalore|bengaluru|hyderabad|kolkata|pune|ahmedabad|jaipur|surat|lucknow|kanpur|nagpur|indore|bhopal|patna|vadodara)\b/i);
+  const cityMatch = cityExplicit || knownCities;
+  if (cityMatch) {
+    let rawCity = (cityExplicit ? cityMatch[1] : cityMatch[0]).trim();
+    if (/^chenai$/i.test(rawCity)) rawCity = "Chennai";
+    else if (/^bengaluru$/i.test(rawCity)) rawCity = "Bangalore";
+    fields.city = rawCity.charAt(0).toUpperCase() + rawCity.slice(1).toLowerCase();
+  }
+
   // 6. Name
   // A. 'change/update the name from X to Y'
   const changeFromTo = q.match(/\b(?:change|update)\s+(?:the\s+)?(?:customer\s+)?names?\s+from\s+[^,.\n]+?\s+to\s+([^,.\n]+?)(?=[.,;!]|\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
@@ -130,7 +142,7 @@ export function extractCustomerFieldsWithErrors(text: string): {
       fields.name = nameToOrIs[1].trim().replace(/^['"]|['"]$/g, "");
     } else {
       // C. 'customer named/names/called X' or 'create customer [named] X'
-      const custNamed = q.match(/\b(?:create|make|add|new|draft|prepare|register)\s+(?:an?\s+)?customer\s+(?:(?:named|names|name|called|for)\s+)?([^,.\n]+?)(?=[.,;!]|\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
+      const custNamed = q.match(/\b(?:create|make|add|new|draft|prepare|register)\s+(?:an?\s+)?(?:company\s+|individual\s+)?customer\s+(?:(?:named|names|name|called|for)\s+)?([^,.\n]+?)(?=[.,;!]|\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
       if (custNamed) {
         const candidate = custNamed[1].trim().replace(/^['"]|['"]$/g, "");
         if (!/^(?:draft|record|profile|account)$/i.test(candidate)) {
@@ -162,19 +174,23 @@ export function extractCustomerFields(text: string): Partial<CustomerDraftParams
   return extractCustomerFieldsWithErrors(text).fields;
 }
 
-export function customerDraftSummary(params: CustomerDraftParams): string {
-  const typeStr = params.is_company === true ? "Company" : params.is_company === false ? "Individual" : "Not specified";
+export function customerDraftSummary(params: Partial<CustomerDraftParams>): string {
+  const typeStr = params.is_company === true ? "Business" : params.is_company === false ? "Individual" : "Not specified";
   const missing: string[] = [];
   if (!params.name) missing.push("customer name");
-  if (params.is_company === undefined) missing.push("customer type (Individual or Company)");
+  if (params.is_company === undefined) missing.push("customer type (Individual or Business)");
 
-  let msg = `Customer draft — not saved:\n\nName: ${params.name || "Missing"}\nType: ${typeStr}`;
+  let msg = `Customer draft — not saved:\n\nName: ${params.name || "Not specified"}\nType: ${typeStr}`;
   if (params.phone) msg += `\nPhone: ${params.phone}`;
+  else msg += `\nPhone: Not specified`;
   if (params.email) msg += `\nEmail: ${params.email}`;
+  if (params.city) msg += `\nCity: ${params.city}`;
   if (params.gstin) msg += `\nGSTIN: ${params.gstin}`;
   if (params.pan) msg += `\nPAN: ${params.pan}`;
 
-  if (missing.length > 0) {
+  if (params.name && params.is_company === undefined) {
+    msg += `\n\nWhat type of customer is ${params.name}: Individual or Business?`;
+  } else if (missing.length > 0) {
     msg += `\n\nMissing details: please provide ${missing.join(" and ")}.`;
   } else {
     msg += `\n\nConfirm customer to save, or cancel customer.`;
@@ -194,6 +210,7 @@ export async function prepareCustomerDraft(scope: Scope, text: string, requestId
     email: extracted.email,
     phone: extracted.clearPhone ? undefined : extracted.phone,
     mobile: extracted.clearPhone ? undefined : (extracted.mobile || extracted.phone),
+    city: extracted.city,
     gstin: extracted.gstin,
     pan: extracted.pan,
     currency: "INR",
@@ -256,6 +273,7 @@ export async function updateCustomerDraft(scope: Scope, proposalId: string, text
     ...(extracted.is_company !== undefined ? { is_company: extracted.is_company } : {}),
     ...(extracted.email ? { email: extracted.email } : {}),
     ...(extracted.phone ? { phone: extracted.phone, mobile: extracted.mobile || extracted.phone } : {}),
+    ...(extracted.city ? { city: extracted.city } : {}),
     ...(extracted.gstin ? { gstin: extracted.gstin } : {}),
     ...(extracted.pan ? { pan: extracted.pan } : {}),
   };
@@ -291,7 +309,7 @@ export async function updateCustomerDraft(scope: Scope, proposalId: string, text
   };
 }
 
-export async function confirmCustomerDraft(scope: Scope, proposalId: string) {
+export async function confirmCustomerDraft(scope: Scope, proposalId: string, _requestId?: string) {
   requireSalesAccess(scope.role);
   const proposal = await AiCommandProposal.findOne({
     _id: proposalId,
@@ -372,6 +390,13 @@ export async function confirmCustomerDraft(scope: Scope, proposalId: string) {
       phone: params.phone || undefined,
       mobile: params.mobile || params.phone || undefined,
     },
+    address_tab: {
+      type: "contact",
+      city: params.city || undefined,
+    },
+    shipping_address: params.city ? {
+      city: params.city,
+    } : undefined,
     gstin: params.gstin || undefined,
     pan: params.pan || undefined,
     currency: params.currency || "INR",
@@ -406,4 +431,136 @@ export async function cancelCustomerDraft(scope: Scope, proposalId: string) {
     { $set: { status: A.REJECTED } }
   );
   return "Customer draft cancelled. No customer record was created.";
+}
+
+export async function prepareUpdateCustomerMobile(scope: Scope, customerQuery: string, newMobile: string, requestId: string = "req-update-mobile") {
+  requireSalesAccess(scope.role);
+  if (!customerQuery || !customerQuery.trim()) {
+    throw new ErpToolError("MISSING_FIELD", "Which customer's mobile number would you like to update?");
+  }
+  const cleanQ = customerQuery.trim();
+  const customer = await resolveCustomer(scope.tenantId, cleanQ);
+  const cleanPhone = newMobile.replace(/[^0-9+]/g, "").trim();
+  if (!isValidPhone(cleanPhone)) {
+    throw new ErpToolError("BUSINESS_RULE", `Mobile number "${newMobile}" is invalid. Please supply a valid 7–15 digit mobile number.`);
+  }
+
+  const oldMobile = customer.contact_details?.mobile || customer.contact_details?.phone || "Not set";
+  const customerNameStr = customerName(customer);
+
+  const summary = `Update Customer Mobile — not saved:\n\nCustomer: ${customerNameStr}\nCurrent Mobile: ${oldMobile}\nNew Mobile: ${cleanPhone}\n\nConfirm to apply this update, or cancel to discard.`;
+
+  const proposal = await AiCommandProposal.create({
+    tenantId: scope.tenantId,
+    userId: scope.userId,
+    module: "sales",
+    actionType: "update_customer_mobile",
+    destructive: false,
+    params: {
+      customerId: String(customer._id),
+      customerName: customerNameStr,
+      oldMobile,
+      newMobile: cleanPhone,
+      conversationId: scope.conversationId,
+    },
+    preview: { customerId: String(customer._id), customerName: customerNameStr, oldMobile, newMobile: cleanPhone },
+    summary,
+    status: A.PROPOSED,
+    expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+  });
+
+  return {
+    proposalId: String(proposal._id),
+    customerId: String(customer._id),
+    customerName: customerNameStr,
+    oldMobile,
+    newMobile: cleanPhone,
+    message: summary,
+  };
+}
+
+export async function confirmUpdateCustomerMobile(scope: Scope, proposalId: string) {
+  requireSalesAccess(scope.role);
+  const proposal = await AiCommandProposal.findOne({
+    _id: proposalId,
+    tenantId: scope.tenantId,
+    userId: scope.userId,
+    actionType: "update_customer_mobile",
+  });
+
+  if (!proposal) throw new ErpToolError("NOT_FOUND", "Customer update proposal not found.");
+
+  if (proposal.status === A.EXECUTED && proposal.resultRef) {
+    const existing = await Customer.findOne({ _id: proposal.resultRef, tenantId: scope.tenantId }).lean();
+    if (existing) {
+      return {
+        customerId: String(existing._id),
+        customerName: customerName(existing),
+        mobile: (existing as any).contact_details?.mobile || (existing as any).contact_details?.phone,
+        message: `Customer "${customerName(existing)}" mobile number has been updated to ${(existing as any).contact_details?.mobile}.`,
+      };
+    }
+  }
+
+  if (proposal.status !== A.PROPOSED) {
+    throw new ErpToolError("BUSINESS_RULE", `This update proposal is ${proposal.status} and cannot be executed.`);
+  }
+
+  const locked = await AiCommandProposal.findOneAndUpdate(
+    { _id: proposalId, status: A.PROPOSED, "params.executing": { $ne: true } },
+    { $set: { "params.executing": true } },
+    { new: true }
+  );
+
+  if (!locked) {
+    throw new ErpToolError("BUSINESS_RULE", "This update is already being processed.");
+  }
+
+  const params = (locked.params || {}) as any;
+  const customerId = params.customerId;
+  const newMobile = params.newMobile;
+
+  await Customer.updateOne(
+    { _id: customerId, tenantId: scope.tenantId },
+    {
+      $set: {
+        "contact_details.mobile": newMobile,
+        "contact_details.phone": newMobile,
+      },
+    }
+  );
+
+  await CrmAuditLog.create({
+    tenantId: scope.tenantId,
+    user_id: scope.userId,
+    action: "updated",
+    record_type: "Customer",
+    record_id: customerId,
+    old_value: params.oldMobile,
+    new_value: newMobile,
+  });
+
+  locked.status = A.EXECUTED;
+  locked.resultRef = customerId;
+  locked.executedAt = new Date();
+  await locked.save();
+
+  const updatedDoc = await Customer.findOne({ _id: customerId, tenantId: scope.tenantId }).lean();
+
+  return {
+    customerId,
+    customerName: params.customerName,
+    mobile: newMobile,
+    customer: updatedDoc,
+    message: `Customer "${params.customerName}" mobile number successfully updated to ${newMobile}.`,
+  };
+}
+
+export async function cancelUpdateCustomerMobile(scope: Scope, proposalId: string) {
+  requireSalesAccess(scope.role);
+  await AiCommandProposal.updateOne(
+    { _id: proposalId, tenantId: scope.tenantId, userId: scope.userId, status: A.PROPOSED },
+    { $set: { status: A.REJECTED } }
+  );
+  return "Customer update cancelled. The customer record remains unchanged.";
 }

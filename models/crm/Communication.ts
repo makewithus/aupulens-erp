@@ -21,7 +21,7 @@ export interface ICommunication extends Document {
 
 const CommunicationSchema = new Schema<ICommunication>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     recordType: { type: String, required: true },
     recordId: { type: Schema.Types.ObjectId, required: true },
     channel: {

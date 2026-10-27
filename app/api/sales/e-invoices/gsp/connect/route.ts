@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -14,8 +16,9 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
+
+const tenantId = session.user.tenantId;
+    const body = stripProtectedFields(await request.json());
     const provider = body.provider || DEFAULT_GSP_PROVIDER;
     const username = (body.username || "").trim();
     const password = body.password || "";
@@ -64,8 +67,9 @@ export async function POST(request: NextRequest) {
     ).select("provider username status connectedAt");
 
     return NextResponse.json({ success: true, data: credential });
+
   } catch (error: any) {
     console.error("GSP connect POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

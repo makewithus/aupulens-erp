@@ -1,3 +1,4 @@
+import { handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -19,10 +20,11 @@ export async function PATCH(
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     await connectDB();
 
-    const leave = await LeaveRequest.findOne({ _id: id, tenantId });
+
+const leave = await LeaveRequest.findOne({ _id: id, tenantId });
     if (!leave) {
       return NextResponse.json(
         { error: "Leave request not found" },
@@ -75,8 +77,9 @@ export async function PATCH(
     await leave.save();
 
     return NextResponse.json({ success: true, leave });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -96,7 +99,8 @@ export async function DELETE(
     const tenantId = (session.user as any).tenantId;
     await connectDB();
 
-    const leave = await LeaveRequest.findOneAndDelete({ _id: id, tenantId });
+
+const leave = await LeaveRequest.findOneAndDelete({ _id: id, tenantId });
     if (!leave) {
       return NextResponse.json(
         { error: "Leave request not found" },
@@ -105,7 +109,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

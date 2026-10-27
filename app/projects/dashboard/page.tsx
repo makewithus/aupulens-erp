@@ -29,6 +29,7 @@ import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 
 function computeProjectDashboardData(projects: any[]) {
@@ -100,15 +101,13 @@ export default function ProjectsDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const cachedProjects = getInstantCachedData<{ success: boolean; data: any[] }>("/api/projects");
-  const initialData = computeProjectDashboardData(cachedProjects?.data ?? []);
-
-  const [isLoading, setIsLoading] = useState(() => !cachedProjects);
-  const [stats, setStats] = useState(initialData.stats);
-  const [projectPhaseDistribution, setProjectPhaseDistribution] = useState<any[]>(initialData.projectPhaseDistribution);
-  const [criticalProjectsList, setCriticalProjectsList] = useState<any[]>(initialData.criticalProjectsList);
-  const [criticalSprintTasks, setCriticalSprintTasks] = useState<any[]>(initialData.criticalSprintTasks);
-  const [dailyDeliverables, setDailyDeliverables] = useState<any[]>(initialData.dailyDeliverables);
+  const emptyData = computeProjectDashboardData([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState(emptyData.stats);
+  const [projectPhaseDistribution, setProjectPhaseDistribution] = useState<any[]>(emptyData.projectPhaseDistribution);
+  const [criticalProjectsList, setCriticalProjectsList] = useState<any[]>(emptyData.criticalProjectsList);
+  const [criticalSprintTasks, setCriticalSprintTasks] = useState<any[]>(emptyData.criticalSprintTasks);
+  const [dailyDeliverables, setDailyDeliverables] = useState<any[]>(emptyData.dailyDeliverables);
 
   const loadProjects = async (force = false) => {
     try {
@@ -130,6 +129,18 @@ export default function ProjectsDashboardPage() {
   };
 
   useEffect(() => {
+    // 1. Safe post-hydration cache read for instant 0ms load
+    const cachedProjects = getInstantCachedData<{ success: boolean; data: any[] }>("/api/projects", { allowPreHydration: true });
+    if (cachedProjects?.data && Array.isArray(cachedProjects.data)) {
+      const computed = computeProjectDashboardData(cachedProjects.data);
+      setStats(computed.stats);
+      setProjectPhaseDistribution(computed.projectPhaseDistribution);
+      setCriticalProjectsList(computed.criticalProjectsList);
+      setCriticalSprintTasks(computed.criticalSprintTasks);
+      setDailyDeliverables(computed.dailyDeliverables);
+      setIsLoading(false);
+    }
+
     loadProjects();
   }, []);
 
@@ -163,7 +174,7 @@ export default function ProjectsDashboardPage() {
       userName={session?.user?.name || "Program Manager"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 min-w-0 max-w-full font-mono">
         {/* Header Bar */}
@@ -191,7 +202,7 @@ export default function ProjectsDashboardPage() {
               size="sm"
               className="text-xs font-mono h-9 gap-1.5 bg-[#A77DFF] hover:bg-[#966be8] text-[#0A0A0A] font-bold shadow-sm"
             >
-              <Link href="/projects">
+              <Link href="/projects/list">
                 <Plus className="w-3.5 h-3.5" />
                 New Project
               </Link>
@@ -205,7 +216,7 @@ export default function ProjectsDashboardPage() {
                 isDark ? "bg-[#161616] text-[#F2F2F2] hover:bg-[#272727]" : "bg-white text-zinc-800 hover:bg-zinc-100"
               )}
             >
-              <Link href="/projects">
+              <Link href="/projects/list">
                 <FolderKanban className="w-3.5 h-3.5" />
                 All Projects
               </Link>
@@ -230,11 +241,21 @@ export default function ProjectsDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {stats.activeProjects} in execution
+                {isLoading ? (
+                  <Skeleton className="h-8 w-32 rounded-none bg-muted-foreground/15 my-1" />
+                ) : (
+                  `${stats.activeProjects} in execution`
+                )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-purple-400 font-semibold">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>{stats.totalProjects} total across enterprise</span>
+                {isLoading ? (
+                  <Skeleton className="h-3.5 w-40 rounded-none bg-muted-foreground/10" />
+                ) : (
+                  <>
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>{stats.totalProjects} total across enterprise</span>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -254,10 +275,18 @@ export default function ProjectsDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-emerald-400">
-                {stats.milestoneOnTimeRate}%
+                {isLoading ? (
+                  <Skeleton className="h-8 w-20 rounded-none bg-muted-foreground/15 my-1" />
+                ) : (
+                  `${stats.milestoneOnTimeRate}%`
+                )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-400 font-semibold">
-                <span>Avg progress across portfolio: {stats.avgProgress}%</span>
+                {isLoading ? (
+                  <Skeleton className="h-3.5 w-44 rounded-none bg-muted-foreground/10" />
+                ) : (
+                  <span>Avg progress across portfolio: {stats.avgProgress}%</span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -277,10 +306,18 @@ export default function ProjectsDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {stats.sprintVelocityPoints} pts
+                {isLoading ? (
+                  <Skeleton className="h-8 w-24 rounded-none bg-muted-foreground/15 my-1" />
+                ) : (
+                  `${stats.sprintVelocityPoints} pts`
+                )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
-                <span>Sprint completion telemetry</span>
+                {isLoading ? (
+                  <Skeleton className="h-3.5 w-36 rounded-none bg-muted-foreground/10" />
+                ) : (
+                  <span>Sprint completion telemetry</span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -300,10 +337,18 @@ export default function ProjectsDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-red-500">
-                {stats.criticalPathBlockers} Blockers
+                {isLoading ? (
+                  <Skeleton className="h-8 w-28 rounded-none bg-muted-foreground/15 my-1" />
+                ) : (
+                  `${stats.criticalPathBlockers} Blockers`
+                )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-red-400 font-semibold">
-                <span>{stats.overdueTasksCount} overdue sprint deliverables</span>
+                {isLoading ? (
+                  <Skeleton className="h-3.5 w-44 rounded-none bg-muted-foreground/10" />
+                ) : (
+                  <span>{stats.overdueTasksCount} overdue sprint deliverables</span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -413,7 +458,7 @@ export default function ProjectsDashboardPage() {
                   size="sm"
                   className="text-xs font-mono h-8 border-border/60 self-start sm:self-auto"
                 >
-                  <Link href="/projects">All Projects</Link>
+                  <Link href="/projects/list">All Projects</Link>
                 </Button>
               </CardHeader>
               <CardContent className="p-0">

@@ -33,7 +33,7 @@ export interface ILeaveRequest extends Document {
 
 const LeaveRequestSchema = new Schema<ILeaveRequest>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     employeeId: {
       type: Schema.Types.ObjectId,
       ref: "Employee",
@@ -79,6 +79,7 @@ LeaveRequestSchema.index({ tenantId: 1, employeeId: 1 });
 LeaveRequestSchema.index({ tenantId: 1, status: 1 });
 LeaveRequestSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
 LeaveRequestSchema.index({ tenantId: 1, startDate: 1, endDate: 1 });
+LeaveRequestSchema.index({ tenantId: 1, leaveType: 1 });
 
 const LeaveRequest: Model<ILeaveRequest> =
   (mongoose.models.LeaveRequest as Model<ILeaveRequest>) ||

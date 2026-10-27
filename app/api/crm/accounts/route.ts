@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   await dbConnect();
   try {
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     if (!body.company_name) {
       return NextResponse.json({ success: false, message: "Company name is required" }, { status: 400 });
     }
@@ -72,6 +74,6 @@ export async function POST(req: NextRequest) {
     const account = await CrmAccount.create(body);
     return NextResponse.json({ success: true, data: account });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

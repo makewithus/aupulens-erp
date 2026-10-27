@@ -101,7 +101,7 @@ export interface ISalesInvoice extends Document {
 
 const SalesInvoiceSchema = new Schema<ISalesInvoice>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     number: { type: String, required: true },
     type: { type: String, default: "Regular" },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
@@ -228,3 +228,5 @@ SalesInvoiceSchema.index({ tenantId: 1, status: 1, dueDate: 1 });
 
 export const SalesInvoice =
   (mongoose.models.SalesInvoice as Model<ISalesInvoice>) || mongoose.model<ISalesInvoice>("SalesInvoice", SalesInvoiceSchema);
+
+export default SalesInvoice;

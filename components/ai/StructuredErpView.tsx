@@ -297,7 +297,7 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
               <span>· Period: {formatPeriodDate(data.period.from)} to {formatPeriodDate(data.period.to)}</span>
             )}
             {isRevenue && (
-              <span className="text-emerald-400/90 font-medium">· Drafts excluded (not ₹99 lakh)</span>
+              <span className="text-emerald-400/90 font-medium">· Drafts excluded</span>
             )}
           </div>
           {data.notes && (

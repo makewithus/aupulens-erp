@@ -1,4 +1,4 @@
-import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
+import { issuedInvoiceFilter, invoiceRevenueExpression, invoiceGrossValueExpression } from "@/lib/sales/invoiceEligibility";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -68,7 +68,7 @@ export async function GET() {
       prevQuotes,
       currentInvoiceAgg,
       prevInvoiceAgg,
-      pendingDC,
+      pendingOrders,
     ] = await Promise.all([
       SaleOrder.countDocuments({ tenantId, createdAt: { $gte: last30Days }, ...REAL_ORDER_MATCH }),
       SaleOrder.countDocuments({ tenantId, createdAt: { $gte: prev30Days, $lt: last30Days }, ...REAL_ORDER_MATCH }),
@@ -76,25 +76,50 @@ export async function GET() {
       SalesQuotation.countDocuments({ tenantId, createdAt: { $gte: prev30Days, $lt: last30Days } }),
       (SalesInvoice as any).aggregate([
         { $match: { tenantId, invoiceDate: { $gte: last30Days, $lte: now }, ...issuedInvoiceFilter() } },
-        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+        { $group: { _id: null, total: { $sum: invoiceRevenueExpression }, grossTotal: { $sum: invoiceGrossValueExpression } } },
       ]),
       (SalesInvoice as any).aggregate([
         { $match: { tenantId, invoiceDate: { $gte: prev30Days, $lt: last30Days }, ...issuedInvoiceFilter() } },
-        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+        { $group: { _id: null, total: { $sum: invoiceRevenueExpression }, grossTotal: { $sum: invoiceGrossValueExpression } } },
       ]),
-      DeliveryChallan.countDocuments({ status: DOCUMENT_STATUS.DRAFT, tenantId }),
+      SaleOrder.find({
+        tenantId,
+        ...REAL_ORDER_MATCH,
+        status: { $nin: [DOCUMENT_STATUS.CANCELLED, "draft"] },
+        salesOrderStatus: { $nin: ["cancelled", "closed"] },
+        shipmentStatus: { $nin: ["shipped", "fulfilled"] },
+      }).select("_id deliveryChallanId fulfillment.deliveryChallanId").lean(),
     ]);
 
+    const linkedDcIds = new Set(
+      pendingOrders
+        .map((o: any) => o.deliveryChallanId || o.fulfillment?.deliveryChallanId)
+        .filter(Boolean)
+        .map(String)
+    );
+
+    const unlinkedPendingDcs = await DeliveryChallan.countDocuments({
+      tenantId,
+      status: "pending",
+      ...(linkedDcIds.size > 0 ? { _id: { $nin: Array.from(linkedDcIds) } } : {}),
+    });
+
+    const pendingDC = pendingOrders.length + unlinkedPendingDcs;
+
     const currentRevenue = currentInvoiceAgg[0]?.total || 0;
+    const currentGrossInvoiced = currentInvoiceAgg[0]?.grossTotal || 0;
     const prevRevenue = prevInvoiceAgg[0]?.total || 0;
+    const prevGrossInvoiced = prevInvoiceAgg[0]?.grossTotal || 0;
 
     const payload = {
       totalOrders: currentOrders,
       totalQuotations: currentQuotes,
       totalRevenue: currentRevenue,
+      totalGrossInvoiced: currentGrossInvoiced,
       deliveriesPending: pendingDC,
       trends: {
         revenue: calculateTrend(currentRevenue, prevRevenue),
+        grossInvoiced: calculateTrend(currentGrossInvoiced, prevGrossInvoiced),
         orders: calculateTrend(currentOrders, prevOrders),
         quotations: calculateTrend(currentQuotes, prevQuotes),
       },

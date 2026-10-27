@@ -136,7 +136,7 @@ describe("Sales Invoices routes — lineTotal is always computed server-side (li
       }),
       { params: Promise.resolve({ id: String(invoice._id) }) },
     );
-    expect(patchRes.status).toBe(200);
+    expect(patchRes.status, await patchRes.clone().text()).toBe(200);
     const body = await patchRes.json();
     expect(body.data.lineItems[0].lineTotal).toBe(3000);
   });
@@ -180,6 +180,10 @@ describe("Sales Invoices routes — lineTotal is always computed server-side (li
 describe("Sales Invoices routes — 'Mark as fully paid' now posts a real, GL-correct payment", () => {
   beforeAll(async () => {
     await mongoose.connect(process.env.MONGODB_URI!);
+    // The first describe intentionally drops the database on teardown. Rebuild
+    // indexes before this block starts writing inside transactions, otherwise
+    // MongoDB can reject a payment journal write during automatic index build.
+    await Promise.all([Customer, SalesInvoice, JournalEntry, Payment].map((model: any) => model.init()));
     ({ POST } = await import("@/app/api/sales/invoices/route"));
     ({ PATCH } = await import("@/app/api/sales/invoices/[id]/route"));
   });
@@ -247,7 +251,7 @@ describe("Sales Invoices routes — 'Mark as fully paid' now posts a real, GL-co
       makeRequest(`${URL}/${invoice._id}`, { method: "PATCH", body: JSON.stringify({ markedFullyPaid: true }) }),
       { params: Promise.resolve({ id: String(invoice._id) }) },
     );
-    expect(patchRes.status).toBe(200);
+    expect(patchRes.status, await patchRes.clone().text()).toBe(200);
     const patched = (await patchRes.json()).data;
     expect(patched.status).toBe("paid");
 
@@ -281,7 +285,7 @@ describe("Sales Invoices routes — 'Mark as fully paid' now posts a real, GL-co
       makeRequest(`${URL}/${invoice._id}`, { method: "PATCH", body: JSON.stringify({ markedFullyPaid: true, notes: "unchanged" }) }),
       { params: Promise.resolve({ id: String(invoice._id) }) },
     );
-    expect(patchRes.status).toBe(200);
+    expect(patchRes.status, await patchRes.clone().text()).toBe(200);
     expect(await Payment.countDocuments({ tenantId: TENANT })).toBe(1);
   });
 });

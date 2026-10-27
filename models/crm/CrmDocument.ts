@@ -15,7 +15,7 @@ export interface ICrmDocument extends Document {
 }
 
 const CrmDocumentSchema = new Schema<ICrmDocument>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   name: { type: String, required: true },
   file_url: { type: String, required: true },
   file_type: { type: String },

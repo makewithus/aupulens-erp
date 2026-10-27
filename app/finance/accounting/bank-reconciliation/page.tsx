@@ -190,7 +190,7 @@ export default function BankReconciliationPage() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={load}
     >
       <div className="space-y-6 max-h-[calc(100vh-120px)] flex flex-col">

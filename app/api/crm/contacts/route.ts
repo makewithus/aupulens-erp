@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -64,7 +66,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: { contacts, total, page, totalPages: Math.max(1, Math.ceil(total / limit)), stats } });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
 
   await dbConnect();
   try {
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     // Drop empty/invalid enum values (e.g. an unselected preferred_communication
     // "") so optional enum fields are omitted rather than 500ing.
     sanitizeEnumFields(CrmContact, body);
@@ -101,6 +103,6 @@ export async function POST(req: NextRequest) {
     const contact = await CrmContact.create(body);
     return NextResponse.json({ success: true, data: contact });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -32,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   await connectDB();
   try {
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     const updated = await Coupon.findOneAndUpdate(
       { _id: id, tenantId: session.user.tenantId },
       { $set: body },
@@ -47,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (error.code === 11000) {
       return NextResponse.json({ success: false, message: "A coupon with this code already exists" }, { status: 409 });
     }
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 

@@ -21,7 +21,7 @@ export interface IAiAnomalySuppression extends Document {
 
 const AiAnomalySuppressionSchema: Schema<IAiAnomalySuppression> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     detectorId: { type: String, required: true },
     suppressionKey: { type: String, required: true },
     suppressedUntil: { type: Date, required: true },

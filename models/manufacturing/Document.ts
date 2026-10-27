@@ -16,7 +16,7 @@ export interface IDocumentModel extends Document {
 }
 
 const DocumentSchema = new Schema<IDocumentModel>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   name: { type: String },
   file_url: { type: String },
   file_type: { type: String },

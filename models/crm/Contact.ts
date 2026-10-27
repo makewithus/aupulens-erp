@@ -19,7 +19,7 @@ export interface IContact extends Document {
 }
 
 const ContactSchema = new Schema<IContact>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   first_name: { type: String, required: true },
   last_name: { type: String, required: true },
   designation: { type: String },

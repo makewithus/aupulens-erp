@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
@@ -8,11 +9,13 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
 
-    if (!session || !session.user || !['admin', 'master-admin'].includes(session.user.role)) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    
+    if (!['admin', 'master-admin'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Forbidden: admin access required' }, { status: 403 });
+    }
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -20,14 +23,21 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') || '100');
-    const skip = parseInt(searchParams.get('skip') || '0');
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+    const limit = isNaN(rawLimit) || rawLimit <= 0 ? 100 : Math.min(rawLimit, 500);
+    const rawSkip = parseInt(searchParams.get('skip') || '0', 10);
+    const skip = isNaN(rawSkip) || rawSkip < 0 ? 0 : rawSkip;
     const userRole = searchParams.get('role');
     const userId = searchParams.get('userId');
 
     const query: Record<string, unknown> = { tenantId };
     if (userRole) query.userRole = userRole;
-    if (userId) query.userId = userId;
+    if (userId) {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return NextResponse.json({ error: 'Invalid userId parameter' }, { status: 400 });
+      }
+      query.userId = userId;
+    }
 
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
@@ -54,7 +64,7 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     console.error('Get activity logs error:', error);
     return NextResponse.json(
-      { error: (error as Error).message || 'Something went wrong' },
+      { error: 'Failed to fetch activity logs' },
       { status: 500 }
     );
   }

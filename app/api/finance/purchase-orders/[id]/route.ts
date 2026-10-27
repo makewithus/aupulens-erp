@@ -1,9 +1,11 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import PurchaseOrder from "@/models/finance/PurchaseOrder";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(
   req: NextRequest,
@@ -16,6 +18,9 @@ export async function GET(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -33,10 +38,7 @@ export async function GET(
     return NextResponse.json({ item: order });
   } catch (error: any) {
     console.error("Error fetching purchase order detail:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -51,13 +53,17 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     await connectDB();
 
-    const existing = await PurchaseOrder.findOne({ _id: id, tenantId });
+
+const existing = await PurchaseOrder.findOne({ _id: id, tenantId });
     if (!existing) {
       return NextResponse.json({ error: "Purchase Order not found" }, { status: 404 });
     }
@@ -96,12 +102,10 @@ export async function PATCH(
       .populate("orderLines.productId", "header.name");
 
     return NextResponse.json({ item: order });
+
   } catch (error: any) {
     console.error("Error updating purchase order:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -116,12 +120,16 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
 
-    const existing = await PurchaseOrder.findOne({ _id: id, tenantId });
+
+const existing = await PurchaseOrder.findOne({ _id: id, tenantId });
     if (!existing) {
       return NextResponse.json({ error: "Purchase Order not found" }, { status: 404 });
     }
@@ -136,11 +144,9 @@ export async function DELETE(
     await PurchaseOrder.findOneAndDelete({ _id: id, tenantId });
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
     console.error("Error deleting purchase order:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }

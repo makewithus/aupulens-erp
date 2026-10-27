@@ -16,7 +16,7 @@ export interface IIntegrationLink extends Document {
 
 const IntegrationLinkSchema = new Schema<IIntegrationLink>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     crmRecordType: { type: String, required: true },
     crmRecordId: { type: Schema.Types.ObjectId, required: true },
     erpSystem: { type: String, required: true }, // e.g., "SAP", "NetSuite", "QuickBooks", "AupulensCore"

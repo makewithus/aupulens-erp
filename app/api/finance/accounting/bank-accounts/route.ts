@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -34,8 +36,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
   await connectDB();
-  try {
-    const body = await req.json();
+
+try {
+    const body = stripProtectedFields(await req.json());
     const tenantId = session.user.tenantId;
 
     if (!body.accountName || !body.currency) {
@@ -94,6 +97,7 @@ export async function POST(req: NextRequest) {
     if (error.code === 11000) {
       return NextResponse.json({ success: false, message: "An account with this name already exists" }, { status: 409 });
     }
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
+
 }

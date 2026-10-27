@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -70,6 +71,6 @@ export async function GET() {
 
     return NextResponse.json({ rows, evidenceBar: { overrideRate: DEFAULT_OVERRIDE_RATE_BAR, minSample: DEFAULT_MIN_SAMPLE } });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

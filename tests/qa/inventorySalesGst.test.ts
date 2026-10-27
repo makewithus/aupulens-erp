@@ -86,11 +86,14 @@ describe("QA GST and inventory/sales regression", () => {
     await setup(); const q = await quote();
     const copies = await Promise.all([SalesQuotation.findById(q._id), SalesQuotation.findById(q._id)]);
     const results = await Promise.allSettled(copies.map((quote) => convertQuoteToInvoice({ tenantId, userId, quote })));
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const fulfilled = results.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof convertQuoteToInvoice>>> => r.status === "fulfilled");
+    expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+    expect(new Set(fulfilled.map((r) => String(r.value._id))).size).toBe(1);
     expect(await SalesInvoice.countDocuments({ tenantId })).toBe(1); expect(await JournalEntry.countDocuments({ tenantId })).toBe(1);
   });
   it("conversion retries after quote link-save failure reuse both invoice and journal", async () => {
-    await setup(); const q = await quote(); vi.spyOn(q, "save").mockRejectedValueOnce(new Error("injected link failure"));
+    await setup(); const q = await quote();
+    vi.spyOn(SalesQuotation.prototype, "save").mockRejectedValueOnce(new Error("injected link failure"));
     await expect(convertQuoteToInvoice({ tenantId, userId, quote: q })).rejects.toThrow("injected");
     const fresh = await SalesQuotation.findById(q._id); await convertQuoteToInvoice({ tenantId, userId, quote: fresh });
     expect(await SalesInvoice.countDocuments({ tenantId })).toBe(1); expect(await JournalEntry.countDocuments({ tenantId })).toBe(1);

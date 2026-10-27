@@ -20,7 +20,7 @@ export interface IAiDuplicateFinding extends Document {
 
 const AiDuplicateFindingSchema: Schema<IAiDuplicateFinding> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true },
     candidates: { type: [Schema.Types.Mixed], default: [] },
     duplicatePayments: { type: [Schema.Types.Mixed], default: [] },

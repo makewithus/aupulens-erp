@@ -429,7 +429,7 @@ export default function ManufacturingPage() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "manufacturing"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/manufacturing" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={() => {
         fetchOrders();
         fetchAllOrdersForCounts();

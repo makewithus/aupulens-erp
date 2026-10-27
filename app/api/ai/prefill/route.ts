@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
@@ -876,6 +877,6 @@ User instruction: "${message}"${docsBlock}${historyBlock}`;
 
     return NextResponse.json({ success: true, target, route: def.route, data, suggestions, missingDependency });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

@@ -92,7 +92,9 @@ describe("Dynamic Workspace Isolation and Live Multi-Tenant Behavior", () => {
       const plRes = await tryErpAssistant({
         ...ctoScope,
         module: "finance",
-        conversationId: convId,
+        // A conversation belongs to one module. This checks the same workspace
+        // through a new finance thread, rather than reusing its sales thread ID.
+        conversationId: randomUUID(),
         text: "Analyse company profit or loss",
       });
       expect(plRes?.structured?.type).toBe("profit_loss");

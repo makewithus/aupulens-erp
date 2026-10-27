@@ -107,6 +107,11 @@ export default function EmployeesPage() {
       if (search) empParams.set("search", search);
       if (lifecycle !== "all") empParams.set("lifecycle", lifecycle);
       if (account !== "all") empParams.set("account", account);
+      if (dateFrom && dateTo && new Date(dateFrom).getTime() > new Date(dateTo).getTime()) {
+        toast.error("Start date cannot be after end date.");
+        setIsLoading(false);
+        return;
+      }
       if (dateFrom) empParams.set("dateFrom", dateFrom);
       if (dateTo) empParams.set("dateTo", dateTo);
       const [empRes, deptRes] = await Promise.all([

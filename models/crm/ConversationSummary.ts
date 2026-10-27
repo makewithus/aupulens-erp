@@ -16,7 +16,7 @@ export interface IConversationSummary extends Document {
 
 const ConversationSummarySchema = new Schema<IConversationSummary>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     recordType: { type: String, required: true },
     recordId: { type: Schema.Types.ObjectId, required: true },
     sourceCommunicationIds: [{ type: Schema.Types.ObjectId, ref: "CrmCommunication" }],

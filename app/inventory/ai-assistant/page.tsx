@@ -472,7 +472,7 @@ export default function InventoryAIAssistant() {
         dashboardTitle="inventory Dashboard"
         userName="Inventory User"
         userRole="inventory"
-        onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profileHref="/inventory/profile"
       >
         <div className="flex h-[calc(100vh-8rem)] gap-4 bg-gradient-to-br from-gray-950 via-black to-gray-900 p-4">
@@ -504,7 +504,7 @@ export default function InventoryAIAssistant() {
       dashboardTitle="inventory Dashboard"
       userName={session?.user?.name || 'User'}
       userRole={session?.user?.role || 'inventory'}
-      onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profileHref="/inventory/profile"
     >
       <Toaster />

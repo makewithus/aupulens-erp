@@ -15,7 +15,7 @@ export interface IPerformanceReview extends Document {
 
 const PerformanceReviewSchema = new Schema<IPerformanceReview>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     employeeId: { type: Schema.Types.ObjectId, ref: "Employee", required: true },
     employeeName: { type: String, required: true },
     reviewPeriod: { type: String, required: true },
@@ -32,6 +32,7 @@ const PerformanceReviewSchema = new Schema<IPerformanceReview>(
 // One review per employee per period — re-saving the same period updates it
 // (matches the page's "Add Review" / "Update Review" toggle behaviour).
 PerformanceReviewSchema.index({ tenantId: 1, employeeId: 1, reviewPeriod: 1 }, { unique: true });
+PerformanceReviewSchema.index({ tenantId: 1, rating: 1 });
 
 export default (mongoose.models.PerformanceReview as Model<IPerformanceReview>) ||
   mongoose.model<IPerformanceReview>("PerformanceReview", PerformanceReviewSchema);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { renderInvoiceHtmlById } from "@/lib/invoiceTemplates/renderInvoiceHtml";
+import { validateObjectId } from "@/lib/api/validateId";
 
 // Server-side, tenant-scoped, print-quality A4 HTML rendered for the browser's
 // native print pipeline (vector text, correct margins, crisp fonts). We chose
@@ -19,6 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
     const { searchParams } = new URL(request.url);
     const embed = searchParams.get("embed") === "1";
 

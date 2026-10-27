@@ -12,7 +12,7 @@ export interface IPaymentMode extends Document {
 
 const PaymentModeSchema = new Schema<IPaymentMode>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
   },
   { timestamps: true },

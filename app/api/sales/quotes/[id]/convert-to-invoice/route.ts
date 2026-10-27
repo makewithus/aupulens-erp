@@ -4,6 +4,7 @@ import connectDB from "@/lib/db";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import { convertQuoteToInvoice, QuoteInvoiceError } from "@/lib/sales/quoteInvoice";
 import { syncSaleOrderOnQuoteConverted } from "@/lib/sales/q2cSync";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -13,34 +14,36 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const { id } = await params;
+    return await withAccountingTransaction(async () => {
+      const tenantId = session.user.tenantId;
+      const { id } = await params;
 
-    const quote = await SalesQuotation.findOne({ _id: id, tenantId });
-    if (!quote) return NextResponse.json({ success: false, message: "Quote not found" }, { status: 404 });
+      const quote = await SalesQuotation.findOne({ _id: id, tenantId });
+      if (!quote) return NextResponse.json({ success: false, message: "Quote not found" }, { status: 404 });
 
-    // The quote page treats a second conversion as a conflict. The lower-level
-    // conversion service remains idempotent for internal retry callers, but an
-    // explicit second POST must not look like a newly-created invoice (201).
-    if (quote.convertedInvoiceId || quote.status === "invoiced") {
-      return NextResponse.json(
-        { success: false, message: "This quote has already been invoiced." },
-        { status: 409 },
-      );
-    }
+      // The quote page treats a second conversion as a conflict. The lower-level
+      // conversion service remains idempotent for internal retry callers, but an
+      // explicit second POST must not look like a newly-created invoice (201).
+      if (quote.convertedInvoiceId || quote.status === "invoiced") {
+        return NextResponse.json(
+          { success: false, message: "This quote has already been invoiced." },
+          { status: 409 },
+        );
+      }
 
-    const invoice = await convertQuoteToInvoice({ tenantId, userId: session.user.id, quote });
+      const invoice = await convertQuoteToInvoice({ tenantId, userId: session.user.id, quote });
 
-    // Advances the Q2C Pipeline board — best-effort: a failure here is a
-    // cosmetic pipeline-visibility issue, not a reason to fail (or roll
-    // back) a real quote-to-invoice conversion that already succeeded.
-    try {
-      await syncSaleOrderOnQuoteConverted({ tenantId, quote, invoice });
-    } catch (syncError) {
-      console.error("Q2C pipeline sync error (non-fatal):", syncError);
-    }
+      // Advances the Q2C Pipeline board — best-effort: a failure here is a
+      // cosmetic pipeline-visibility issue, not a reason to fail (or roll
+      // back) a real quote-to-invoice conversion that already succeeded.
+      try {
+        await syncSaleOrderOnQuoteConverted({ tenantId, quote, invoice });
+      } catch (syncError) {
+        console.error("Q2C pipeline sync error (non-fatal):", syncError);
+      }
 
-    return NextResponse.json({ success: true, data: { quote, invoice } }, { status: 201 });
+      return NextResponse.json({ success: true, data: { quote, invoice } }, { status: 201 });
+    });
   } catch (error: any) {
     if (error instanceof QuoteInvoiceError) {
       return NextResponse.json({ success: false, message: error.message }, { status: error.status });

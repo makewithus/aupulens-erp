@@ -1,3 +1,4 @@
+import { handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -23,8 +24,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
-    const { id } = await params;
-    const body = await req.json();
+
+const { id } = await params;
+    const body = stripProtectedFields(await req.json());
     const action = body.action as "resolve" | "snooze" | "dismiss";
 
     const item = await AiAttentionItem.findOne({ _id: id, tenantId });
@@ -45,7 +47,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     await item.save();
     return NextResponse.json({ item });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

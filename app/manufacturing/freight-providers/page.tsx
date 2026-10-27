@@ -183,7 +183,7 @@ export default function FreightProvidersPage() {
       userName={session?.user?.name || ''}
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchProviders}
     >
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">

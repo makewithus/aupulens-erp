@@ -54,12 +54,15 @@ export default function ManufacturingDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [summary, setSummary] = useState<ManufacturingSummary | null>(() => {
-    const cached = getInstantCachedData<any>("/api/manufacturing/summary");
-    if (!cached) return null;
+  const [summary, setSummary] = useState<ManufacturingSummary | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const applySummaryData = useCallback((cached: any) => {
+    if (!cached) return;
     const stats = cached.stats || {};
     const sum = cached.summary || {};
-    return {
+    setSummary({
       demandForecast: sum.demandForecast ?? stats.demandForecast ?? 0,
       inProduction: sum.inProduction ?? stats.inProduction ?? 0,
       qcPending: sum.qcPending ?? stats.qcPending ?? 0,
@@ -71,10 +74,8 @@ export default function ManufacturingDashboard() {
       totalShipments: stats.totalShipments ?? 0,
       oee: stats.oee ?? 0,
       recentOrders: cached.recentOrders ?? [],
-    };
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(() => !getInstantCachedData<any>("/api/manufacturing/summary"));
-  const [isRefreshing, setIsRefreshing] = useState(false);
+    });
+  }, []);
 
   const fetchSummary = useCallback(async (fresh: boolean = false) => {
     try {
@@ -84,24 +85,7 @@ export default function ManufacturingDashboard() {
       });
       if (!res.ok) throw new Error("Failed to load manufacturing summary");
       const data = await res.json();
-
-      const stats = data.stats || {};
-      const sum = data.summary || {};
-      const recent = data.recentOrders || [];
-
-      setSummary({
-        demandForecast: sum.demandForecast ?? stats.demandForecast ?? 0,
-        inProduction: sum.inProduction ?? stats.inProduction ?? 0,
-        qcPending: sum.qcPending ?? stats.qcPending ?? 0,
-        rework: sum.rework ?? stats.rework ?? 0,
-        finished: sum.finished ?? stats.finished ?? 0,
-        totalBoms: sum.totalBoms ?? stats.totalBoms ?? 0,
-        totalProducts: sum.totalProducts ?? stats.totalProducts ?? 0,
-        totalOrders: stats.totalOrders ?? 0,
-        totalShipments: stats.totalShipments ?? 0,
-        oee: stats.oee ?? 0,
-        recentOrders: recent ?? [],
-      });
+      applySummaryData(data);
       if (fresh) toast.success("Live manufacturing data synchronized");
     } catch (err) {
       console.error("Error fetching manufacturing summary:", err);
@@ -110,9 +94,14 @@ export default function ManufacturingDashboard() {
       if (fresh) setIsRefreshing(false);
       setIsLoading(false);
     }
-  }, []);
+  }, [applySummaryData]);
 
   useEffect(() => {
+    const cached = getInstantCachedData<any>("/api/manufacturing/summary", { allowPreHydration: true });
+    if (cached) {
+      applySummaryData(cached);
+      setIsLoading(false);
+    }
     fetchSummary(false);
     const handleRevalidated = (e: any) => {
       if (e?.detail?.url?.includes("/api/manufacturing")) {
@@ -121,7 +110,7 @@ export default function ManufacturingDashboard() {
     };
     window.addEventListener("aup:revalidated", handleRevalidated);
     return () => window.removeEventListener("aup:revalidated", handleRevalidated);
-  }, [fetchSummary]);
+  }, [fetchSummary, applySummaryData]);
 
   return (
     <DashboardLayout
@@ -136,7 +125,7 @@ export default function ManufacturingDashboard() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/manufacturing" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchSummary}
       profilePath="/manufacturing/profile"
     >

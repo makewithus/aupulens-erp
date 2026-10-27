@@ -338,7 +338,7 @@ export default function AirFreightPage() {
       userName={session?.user?.name || ''}
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

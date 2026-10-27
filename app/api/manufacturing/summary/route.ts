@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -209,6 +210,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(responsePayload);
   } catch (error: any) {
     console.error("Manufacturing summary error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

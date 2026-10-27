@@ -20,6 +20,7 @@ vi.mock("@/models/manufacturing/ManufacturingOrder", () => ({ default: { countDo
 vi.mock("@/models/auth/User", () => ({ default: { countDocuments: countMock } }));
 
 import { GET } from "@/app/api/admin/dashboard/route";
+import { invalidateServerCache } from "@/lib/api/serverCache";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
 import { NetProfitCard } from "@/components/admin/NetProfitCard";
 import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
@@ -34,6 +35,7 @@ let entries: any[];
 const formatCurrency = (value: number) => `INR ${value}`;
 
 beforeEach(() => {
+  invalidateServerCache();
   vi.clearAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-21T12:00:00Z"));
@@ -57,6 +59,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 async function summary() {
+  invalidateServerCache();
   const response = await GET();
   expect(response.status).toBe(200);
   return (await response.json()).summary;
@@ -88,20 +91,22 @@ describe("System Overview accounting", () => {
     expect(data.inventory.totalStockTransfers).toBe(3);
   });
 
-  it("does not claim 100% profit when revenue has no posted costs", async () => {
+  it("shows posted net income with zero expenses without claiming a final 100% margin", async () => {
     entries = [journal([line("bank", "asset", 9319640), line("sales", "income", 0, 9319640)])];
     const data = await summary();
-    expect(data.finance).toMatchObject({ totalRevenue: 9319640, totalExpenses: 0, netIncome: null, profitAvailable: false });
+    expect(data.finance).toMatchObject({ totalRevenue: 9319640, totalExpenses: 0, netIncome: 9319640, profitAvailable: true });
     const html = profitMarkup(data);
-    expect(html).toContain("Unavailable");
+    expect(html).not.toContain("Unavailable");
     expect(html).not.toContain("profit margin");
-    expect(html).not.toContain("INR 9319640</p>");
-    expect(html).toContain("until costs are posted");
+    expect(html).toContain("INR 9319640</p>");
+    expect(html).toContain("No expense entries have been posted yet.");
     const metrics = renderToStaticMarkup(createElement(DashboardMetrics, { summary: data, formatCurrency, enabledModules: ["finance"] }));
-    expect(metrics).toContain("Unavailable");
+    expect(metrics).not.toContain("Unavailable");
+    expect(metrics).toContain("INR 9319640");
     const charts = renderToStaticMarkup(createElement(DashboardCharts, { summary: data, formatCurrency, enabledModules: ["finance"] }));
     expect(charts).not.toContain("100.0%");
-    expect(charts).toContain("Unavailable");
+    expect(charts).not.toContain("Unavailable");
+    expect(charts).toContain("No posted costs");
   });
 
   it("uses accounting dates for monthly totals and excludes other months", async () => {
@@ -116,7 +121,7 @@ describe("System Overview accounting", () => {
     expect(data.chartData.slice(-2).map((row: any) => row.revenue)).toEqual([100, 150]);
   });
 
-  it("shows a loss and suppresses profit for empty or unbalanced ledgers", async () => {
+  it("shows a loss, reports empty ledgers as zero, and flags unbalanced ledgers", async () => {
     entries = [journal([line("rent", "expense", 250), line("bank", "asset", 0, 250)])];
     let data = await summary();
     expect(data.finance.netIncome).toBe(-250);
@@ -127,7 +132,10 @@ describe("System Overview accounting", () => {
     expect(data.finance.profitUnavailableReason).toContain("out of balance");
     entries = [];
     data = await summary();
-    expect(data.finance.netIncome).toBeNull();
+    expect(data.finance.netIncome).toBe(0);
+    expect(data.finance.profitAvailable).toBe(true);
+    expect(profitMarkup(data)).toContain("No accounting entries have been posted yet.");
+    expect(profitMarkup(data)).not.toContain("Unavailable");
     expect(profitMarkup(data)).not.toContain("profit margin");
   });
 

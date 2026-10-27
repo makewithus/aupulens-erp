@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
 import dbConnect from "@/lib/db";
 import CrmCase from "@/models/crm/Case";
 import CrmActivity from "@/models/crm/Activity";
@@ -6,9 +7,22 @@ import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { sendCaseNotification } from "@/lib/crm/caseNotifications";
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse('Unauthorized', { status: 401 });
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || cronSecret.trim().length === 0) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+  }
+
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const token = authHeader.slice(7);
+  const tokenBuf = Buffer.from(token);
+  const secretBuf = Buffer.from(cronSecret);
+
+  if (tokenBuf.length !== secretBuf.length || !crypto.timingSafeEqual(tokenBuf, secretBuf)) {
+    return new NextResponse("Unauthorized", { status: 401 });
   }
 
   await dbConnect();

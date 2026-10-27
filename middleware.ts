@@ -186,7 +186,10 @@ export default auth(async (req) => {
   const isPublicApi =
     pathname === "/api/tenant/status" || isCronApi || isInternalApi || isPublicSignedApi || isPlatformApi;
 
-  if (isStaleTenantSession) {
+  // Recovery endpoints must remain reachable with an expired tenant cookie.
+  // Platform sessions are independent of tenant sessions.
+  const isPlatformRoute = pathname === "/platform" || pathname.startsWith("/platform/") || isPlatformApi;
+  if (isStaleTenantSession && !isAuthApi && !isPlatformRoute) {
     if (pathname.startsWith("/auth") || pathname.startsWith("/onboarding")) {
       return clearTenantAuthCookies(NextResponse.next({ request: { headers: requestHeaders } }));
     }
@@ -194,7 +197,7 @@ export default auth(async (req) => {
   }
 
   // Enforce strict tenant isolation
-  if (user && tenantId) {
+  if (user && tenantId && !isAuthApi && !isPlatformRoute) {
     const userTenant = (user as any).tenantId || "default-tenant";
     if (user.role !== "master-admin" && userTenant.toLowerCase() !== tenantId.toLowerCase()) {
       if (isApiRoute) {
@@ -261,7 +264,7 @@ export default auth(async (req) => {
   // Minimal rate limiting on login, search, and AI-assistant endpoints —
   // checked before the session gate so it also covers unauthenticated login
   // attempts.
-  const rateLimitResponse = checkRateLimit(req, pathname, (user as any)?.id);
+  const rateLimitResponse = await checkRateLimit(req, pathname, (user as any)?.id);
   if (rateLimitResponse) return rateLimitResponse;
 
   // A document navigation should open the app, while toolbar fetches and
@@ -289,14 +292,18 @@ export default auth(async (req) => {
   if (pathname === "/") {
     return NextResponse.redirect(
       new URL(
-        user ? getRoleDashboard(user.role as string) : "/auth/admin",
+        user ? getRoleDashboard(user.role as string) : "/auth",
         req.url,
       ),
     );
   }
 
-  // Redirect authenticated users away from auth and onboarding pages
-  if ((pathname.startsWith("/auth") || pathname.startsWith("/onboarding")) && user) {
+  // Redirect authenticated users away from auth and onboarding pages (except onboarding signup)
+  if (
+    (pathname.startsWith("/auth") ||
+      (pathname.startsWith("/onboarding") && !pathname.startsWith("/onboarding/signup"))) &&
+    user
+  ) {
     return NextResponse.redirect(
       new URL(getRoleDashboard(user.role as string), req.url),
     );
@@ -362,7 +369,11 @@ export default auth(async (req) => {
   }
 
   // Check if user is accessing finance routes / APIs
-  if (pathname.startsWith("/finance") || pathname.startsWith("/api/finance")) {
+  if (
+    pathname.startsWith("/finance") ||
+    pathname.startsWith("/api/finance") ||
+    pathname.startsWith("/api/accounting")
+  ) {
     if (!user) {
       return handleUnauthorized(isApiRoute, "/auth");
     }
@@ -534,6 +545,6 @@ export const config = {
     "/hr/:path*",
     "/master-admin/:path*",
     "/platform/:path*",
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico).*)",
   ],
 };

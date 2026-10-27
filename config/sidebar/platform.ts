@@ -32,7 +32,10 @@ export const platformSidebarConfig: PlatformSidebarSection[] = [
   },
   {
     title: "Billing",
-    items: [{ title: "Plans", href: "/platform/plans", icon: CreditCard }],
+    items: [
+      { title: "Subscriptions & Revenue", href: "/platform/billing", icon: CreditCard },
+      { title: "Plans", href: "/platform/plans", icon: CreditCard },
+    ],
   },
   {
     title: "Security",

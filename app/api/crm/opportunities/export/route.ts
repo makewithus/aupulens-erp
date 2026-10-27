@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { objectsToStyledXlsx } from "@/lib/export/styledWorkbook";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (roleCheck) return roleCheck;
 
     await dbConnect();
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     const { format = 'csv', scope = 'all', reportType = 'standard', selectedIds = [], filters = {}, columns = [] } = body;
     
     // Build query based on scope and filters
@@ -146,6 +147,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("Export Error:", error);
-    return new NextResponse(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new NextResponse(JSON.stringify({ success: false, message: safeInternalErrorMessage() }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";

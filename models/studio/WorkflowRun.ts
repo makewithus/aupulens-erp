@@ -37,7 +37,7 @@ export interface IWorkflowRun extends mongoose.Document {
 
 const WorkflowRunSchema = new Schema<IWorkflowRun>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     workflowId: { type: Schema.Types.ObjectId, ref: "Workflow", required: true, index: true },
     workflowVersion: { type: Number, default: 1 },
     trigger: { type: String, default: "manual" },

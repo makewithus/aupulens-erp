@@ -26,7 +26,7 @@ export default function SalesVisualizationPage() {
       userName={session?.user?.name || ''}
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: '/auth/sales' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
       <SalesVisualization
         title="Sales KPIs"

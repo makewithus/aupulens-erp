@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import connectDB from "@/lib/db";
 import AdminUser from "@/models/platform/AdminUser";
 import {
+  ADMIN_USER_STATUS,
   PLATFORM_EVENT_CATEGORY,
   PLATFORM_EVENT_TYPE,
   PLATFORM_SEVERITY,
@@ -38,12 +39,22 @@ export async function POST(request: Request) {
   const isSetupConfirmation = Boolean(setupChallenge);
 
   if (!challenge) {
-    return NextResponse.json({ success: false, message: "Invalid or expired challenge." }, { status: 401 });
+    return NextResponse.json({ success: false, message: "Your sign-in attempt expired. Please sign in again.", code: "CHALLENGE_EXPIRED" }, { status: 401 });
   }
 
   const admin = await AdminUser.findById(challenge.adminUserId);
   if (!admin) {
     return NextResponse.json({ success: false, message: "Admin account not found." }, { status: 404 });
+  }
+
+  if (admin.status !== ADMIN_USER_STATUS.ACTIVE) {
+    return NextResponse.json({ success: false, message: "This admin account is not active." }, { status: 403 });
+  }
+  if (admin.lockedUntil && admin.lockedUntil.getTime() > Date.now()) {
+    return NextResponse.json({ success: false, message: "Too many failed attempts. Try again later." }, { status: 423 });
+  }
+  if (isSetupConfirmation && admin.mfaEnabled) {
+    return NextResponse.json({ success: false, message: "MFA is already enabled. Please sign in again." }, { status: 409 });
   }
 
   if (!isSetupConfirmation && !admin.mfaEnabled) {
@@ -70,6 +81,7 @@ export async function POST(request: Request) {
 
   if (!matched) {
     admin.failedLoginCount += 1;
+    if (admin.failedLoginCount >= 5) admin.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
     await Promise.all([
       admin.save(),
       emitPlatformAuditEvent({

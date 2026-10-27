@@ -222,6 +222,7 @@ export const SUBSCRIPTION_STATUS = {
   ACTIVE: "active",
   SUSPENDED: "suspended",
   CANCELLED: "cancelled",
+  EXPIRED: "expired",
 } as const;
 export const SUBSCRIPTION_STATUS_VALUES = Object.values(SUBSCRIPTION_STATUS);
 export type SubscriptionStatus =

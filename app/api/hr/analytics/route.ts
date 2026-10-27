@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -7,6 +8,8 @@ import Department from "@/models/hr/Department";
 import Attendance from "@/models/hr/Attendance";
 import LeaveRequest from "@/models/hr/LeaveRequest";
 import PerformanceReview from "@/models/hr/PerformanceReview";
+import { PAYROLL_STATUS } from "@/lib/constants/statuses";
+import Payroll from "@/models/hr/Payroll";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest) {
@@ -21,7 +24,8 @@ export async function GET(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
 
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
-    const cacheKey = `hr-analytics-live:${tenantId}`;
+    const range = req.nextUrl.searchParams.get("range") || "30D";
+    const cacheKey = `hr-analytics-live:${tenantId}:${range}`;
 
     if (!isFresh) {
       const cached = getCachedData<any>(cacheKey);
@@ -32,68 +36,76 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
+    const rangeDays = range === "1Y" ? 365 : range === "90D" ? 90 : 30;
+    const rangeStartDate = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
     const tenantMatch = { tenantId };
 
     // 1. Live Core Aggregations from Database
     const [
-      totalEmployees,
       activeEmployees,
       onboardingEmployees,
       exitedEmployees,
       totalDepartments,
-      deptAggRaw,
+      deptsList,
+      empDeptCountsRaw,
       trajectoryRaw,
+      exitTrajectoryRaw,
       tenureRaw,
+      avgTenureRaw,
       payrollAggRaw,
       leaveTypeRaw,
       perfAggRaw,
       attendanceAggRaw,
     ] = await Promise.all([
-      // Total count
-      Employee.countDocuments(tenantMatch).catch(() => 0),
-
       // Active count
       Employee.countDocuments({
         ...tenantMatch,
-        $or: [{ lifecycleStatus: "active" }, { status: "active" }],
-      }).catch(() => 0),
+        $or: [
+          { lifecycleStatus: { $in: ["active", "on_notice"] } },
+          { lifecycleStatus: { $exists: false }, status: "active" },
+        ],
+      }),
 
       // Onboarding count
       Employee.countDocuments({
         ...tenantMatch,
         $or: [{ lifecycleStatus: "onboarding" }, { status: "onboarding" }],
-      }).catch(() => 0),
+      }),
 
       // Exited count (for turnover calculation)
       Employee.countDocuments({
         ...tenantMatch,
-        $or: [{ lifecycleStatus: "exited" }, { lifecycleStatus: "resigned" }, { lifecycleStatus: "terminated" }],
-      }).catch(() => 0),
+        lifecycleStatus: "exited",
+        $or: [
+          { "exitDetails.lastWorkingDate": { $gte: rangeStartDate } },
+          { "exitDetails.lastWorkingDate": null, "exitDetails.resignationDate": { $gte: rangeStartDate } },
+        ],
+      }),
 
       // Departments count
-      Department.countDocuments(tenantMatch).catch(() => 0),
+      Department.countDocuments({ tenantId, isActive: { $ne: false } }),
 
-      // Department Distribution (Join Employee with Department)
+      // Authoritative Department Master List (preserving zero-staff departments)
+      Department.find({ tenantId, isActive: { $ne: false } }).select("_id name code").sort({ name: 1 }).lean(),
+
+      // Employee counts grouped by departmentId
       Employee.aggregate([
-        { $match: tenantMatch },
         {
-          $lookup: {
-            from: "departments",
-            localField: "departmentId",
-            foreignField: "_id",
-            as: "dept",
+          $match: {
+            ...tenantMatch,
+            $or: [
+              { lifecycleStatus: { $in: ["active", "on_notice"] } },
+              { lifecycleStatus: { $exists: false }, status: "active" },
+            ],
           },
         },
-        { $unwind: { path: "$dept", preserveNullAndEmptyArrays: true } },
         {
           $group: {
-            _id: { $ifNull: ["$dept.name", "General Operations"] },
+            _id: "$departmentId",
             count: { $sum: 1 },
           },
         },
-        { $sort: { count: -1 } },
-        { $limit: 8 },
-      ]).catch(() => []),
+      ]),
 
       // Trajectory: Group employees by dateOfJoining month
       Employee.aggregate([
@@ -105,11 +117,39 @@ export async function GET(req: NextRequest) {
           },
         },
         { $sort: { _id: 1 } },
-      ]).catch(() => []),
+      ]),
+
+      // Actual exits by month. A resignation date is used only when no last
+      // working date has been recorded.
+      Employee.aggregate([
+        { $match: { ...tenantMatch, lifecycleStatus: "exited" } },
+        {
+          $project: {
+            exitDate: { $ifNull: ["$exitDetails.lastWorkingDate", "$exitDetails.resignationDate"] },
+          },
+        },
+        { $match: { exitDate: { $ne: null } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m", date: "$exitDate" } },
+            exits: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
 
       // Tenure Cohorts: Calculated tenure from dateOfJoining to now
       Employee.aggregate([
-        { $match: { ...tenantMatch, dateOfJoining: { $ne: null } } },
+        {
+          $match: {
+            ...tenantMatch,
+            dateOfJoining: { $ne: null },
+            $or: [
+              { lifecycleStatus: { $in: ["active", "on_notice"] } },
+              { lifecycleStatus: { $exists: false }, status: "active" },
+            ],
+          },
+        },
         {
           $project: {
             tenureYears: {
@@ -128,41 +168,79 @@ export async function GET(req: NextRequest) {
             output: { count: { $sum: 1 } },
           },
         },
-      ]).catch(() => []),
+      ]),
 
-      // Payroll aggregation from employee compensation packages
+      // Calculate average tenure directly from active employees, not from
+      // the midpoint of broad tenure buckets.
       Employee.aggregate([
-        { $match: tenantMatch },
+        {
+          $match: {
+            ...tenantMatch,
+            dateOfJoining: { $ne: null },
+            $or: [
+              { lifecycleStatus: { $in: ["active", "on_notice"] } },
+              { lifecycleStatus: { $exists: false }, status: "active" },
+            ],
+          },
+        },
+        {
+          $project: {
+            tenureYears: {
+              $divide: [{ $subtract: [new Date(), "$dateOfJoining"] }, 1000 * 60 * 60 * 24 * 365.25],
+            },
+          },
+        },
+        { $group: { _id: null, averageYears: { $avg: "$tenureYears" } } },
+      ]),
+
+      // Payroll outflow is based on actually disbursed payroll runs, not
+      // employee salary configuration or draft payroll calculations.
+      Payroll.aggregate([
+        {
+          $match: {
+            ...tenantMatch,
+            status: { $in: [PAYROLL_STATUS.DISBURSED, PAYROLL_STATUS.POSTED_TO_GL] },
+            disbursedAt: { $gte: rangeStartDate },
+          },
+        },
+        { $unwind: "$lineItems" },
         {
           $group: {
             _id: null,
-            totalBasic: { $sum: "$salary.basic" },
-            totalHra: { $sum: "$salary.hra" },
-            totalDa: { $sum: "$salary.da" },
-            totalSpecial: { $sum: "$salary.specialAllowance" },
-            totalGross: { $sum: "$salary.grossSalary" },
-            totalNet: { $sum: "$salary.netSalary" },
-            totalPf: { $sum: "$salary.deductions.pf" },
-            totalEsi: { $sum: "$salary.deductions.esi" },
-            totalTds: { $sum: "$salary.deductions.tds" },
-            avgSalary: { $avg: "$salary.grossSalary" },
+            totalBasic: { $sum: "$lineItems.basic" },
+            totalHra: { $sum: "$lineItems.hra" },
+            totalDa: { $sum: "$lineItems.da" },
+            totalSpecial: { $sum: "$lineItems.specialAllowance" },
+            totalGross: { $sum: "$lineItems.grossSalary" },
+            totalNet: { $sum: "$lineItems.netSalary" },
+            totalPf: { $sum: "$lineItems.deductions.pf" },
+            totalEsi: { $sum: "$lineItems.deductions.esi" },
+            totalTds: { $sum: "$lineItems.deductions.tds" },
           },
         },
-      ]).catch(() => []),
+      ]),
 
       // Leave Requests by type
       LeaveRequest.aggregate([
-        { $match: tenantMatch },
+        {
+          $match: {
+            ...tenantMatch,
+            status: "approved",
+            startDate: { $lte: new Date() },
+            endDate: { $gte: rangeStartDate },
+          },
+        },
         {
           $group: {
             _id: "$leaveType",
             count: { $sum: 1 },
           },
         },
-      ]).catch(() => []),
+      ]),
 
-      // Performance Reviews by rating
+      // Performance Reviews by rating (strict tenant isolation)
       PerformanceReview.aggregate([
+        { $match: tenantMatch },
         {
           $group: {
             _id: "$rating",
@@ -170,52 +248,64 @@ export async function GET(req: NextRequest) {
           },
         },
         { $sort: { _id: 1 } },
-      ]).catch(() => []),
+      ]),
 
-      // Attendance records
+      // Attendance grouped by actual weekday and status within selected period.
       Attendance.aggregate([
-        { $match: tenantMatch },
+        { $match: { ...tenantMatch, date: { $gte: rangeStartDate } } },
         {
           $group: {
-            _id: "$status",
-            count: { $sum: 1 },
+            _id: { $dayOfWeek: "$date" },
+            total: { $sum: 1 },
+            present: { $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] } },
+            onLeave: { $sum: { $cond: [{ $eq: ["$status", "on-leave"] }, 1, 0] } },
           },
         },
-      ]).catch(() => []),
+        { $sort: { _id: 1 } },
+      ]),
     ]);
 
-    const headcount = totalEmployees || activeEmployees || 1;
-    const activeHeadcount = activeEmployees || headcount;
+    const headcount = activeEmployees;
+    const activeHeadcount = activeEmployees;
 
-    // 2. Trajectory Calculation (Last 12 Months with real cumulative active staff)
-    const priorHires = trajectoryRaw.length > 12
-      ? trajectoryRaw.slice(0, -12).reduce((sum: number, t: any) => sum + (t.hires || 0), 0)
-      : 0;
-
-    let runningTotal = priorHires;
-    const headcountTrajectory = (trajectoryRaw.length > 0 ? trajectoryRaw.slice(-12) : []).map((t: any) => {
-      runningTotal += t.hires;
-      const parts = String(t._id || "").split("-");
-      const year = parseInt(parts[0], 10);
-      const monthIdx = parseInt(parts[1], 10) - 1;
-      const dateObj = new Date(year, monthIdx, 1);
-      const monthLabel = dateObj.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-
-      return {
-        month: monthLabel,
-        headcount: runningTotal,
-        hires: t.hires,
-        exits: Math.max(0, Math.round(t.hires * 0.1)),
-      };
+    // 2. Reconcile the trajectory to actual hires and recorded exits.
+    const sliceMonths = range === "1Y" ? 12 : range === "90D" ? 3 : 1;
+    const hiresByMonth = new Map<string, number>(trajectoryRaw.map((row: any) => [String(row._id), Number(row.hires) || 0]));
+    const exitsByMonth = new Map<string, number>(exitTrajectoryRaw.map((row: any) => [String(row._id), Number(row.exits) || 0]));
+    const now = new Date();
+    const monthKeys = Array.from({ length: sliceMonths }, (_, index) => {
+      const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - sliceMonths + index + 1, 1));
+      return `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, "0")}`;
     });
+    const firstVisibleMonth = monthKeys[0];
+    const priorHires = [...hiresByMonth].reduce((sum: number, [month, count]: [string, number]) => month < firstVisibleMonth ? sum + count : sum, 0);
+    const priorExits = [...exitsByMonth].reduce((sum: number, [month, count]: [string, number]) => month < firstVisibleMonth ? sum + count : sum, 0);
+    let runningTotal = Math.max(0, priorHires - priorExits);
+    const hasTrajectoryRecords = trajectoryRaw.length > 0 || exitTrajectoryRaw.length > 0;
+    const headcountTrajectory = hasTrajectoryRecords ? monthKeys.map((monthKey) => {
+      const hires = hiresByMonth.get(monthKey) || 0;
+      const exits = exitsByMonth.get(monthKey) || 0;
+      runningTotal = Math.max(0, runningTotal + hires - exits);
+      const [year, month] = monthKey.split("-").map(Number);
+      const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+      return { month: monthLabel, headcount: runningTotal, hires, exits };
+    }) : [];
 
-    // 3. Dynamic Department Staffing Density
+    // 3. Dynamic Department Staffing Density from Authoritative Department Master
+    const empCountByDeptId: Record<string, number> = {};
+    for (const ec of empDeptCountsRaw) {
+      if (ec._id) empCountByDeptId[String(ec._id)] = ec.count;
+    }
+
     const deptColors = ["#3b82f6", "#8b5cf6", "#10b981", "#06b6d4", "#f59e0b", "#ec4899", "#6366f1", "#64748b"];
-    const departmentDistribution = deptAggRaw.map((d: any, idx: number) => {
-      const pct = Math.max(1, Math.round((d.count / headcount) * 100));
+    const departmentDistribution = deptsList.map((d: any, idx: number) => {
+      const count = empCountByDeptId[String(d._id)] || 0;
+      const pct = headcount > 0 ? Math.round((count / headcount) * 100) : 0;
       return {
-        name: d._id || "General Operations",
-        count: d.count,
+        _id: String(d._id),
+        name: d.name || "General Operations",
+        code: d.code,
+        count,
         value: pct,
         color: deptColors[idx % deptColors.length],
       };
@@ -231,7 +321,7 @@ export async function GET(req: NextRequest) {
     const tenureDistribution = tenureRaw.map((t: any) => {
       const cohortKey = String(t._id);
       const cohortName = tenureLabels[cohortKey] || `${cohortKey}+ Years`;
-      const pct = Math.max(1, Math.round((t.count / headcount) * 100));
+      const pct = headcount > 0 ? Math.round((t.count / headcount) * 100) : 0;
       return {
         cohort: cohortName,
         count: t.count,
@@ -241,51 +331,41 @@ export async function GET(req: NextRequest) {
 
     // 5. Dynamic Payroll Allocation
     const payrollAgg = payrollAggRaw[0] || {};
-    const baseFixed = payrollAgg.totalBasic || Math.round(headcount * 35000);
-    const allowances = (payrollAgg.totalHra || 0) + (payrollAgg.totalDa || 0) + (payrollAgg.totalSpecial || 0) || Math.round(baseFixed * 0.4);
-    const statutory = (payrollAgg.totalPf || 0) + (payrollAgg.totalEsi || 0) + (payrollAgg.totalTds || 0) || Math.round(baseFixed * 0.15);
-    const grossPayroll = payrollAgg.totalGross || (baseFixed + allowances + statutory);
+    const baseFixed = Number(payrollAgg.totalBasic) || 0;
+    const allowances = (Number(payrollAgg.totalHra) || 0) + (Number(payrollAgg.totalDa) || 0) + (Number(payrollAgg.totalSpecial) || 0);
+    const statutory = (Number(payrollAgg.totalPf) || 0) + (Number(payrollAgg.totalEsi) || 0) + (Number(payrollAgg.totalTds) || 0);
+    const grossPayroll = Number(payrollAgg.totalGross) || 0;
 
     const payrollAllocation = [
       {
         component: "Base Fixed Salaries",
         amount: baseFixed,
-        percentage: grossPayroll > 0 ? Math.round((baseFixed / grossPayroll) * 100) : 60,
+        percentage: grossPayroll > 0 ? Math.round((baseFixed / grossPayroll) * 100) : 0,
       },
       {
         component: "Allowances & Incentives (HRA/DA)",
         amount: allowances,
-        percentage: grossPayroll > 0 ? Math.round((allowances / grossPayroll) * 100) : 25,
+        percentage: grossPayroll > 0 ? Math.round((allowances / grossPayroll) * 100) : 0,
       },
       {
         component: "Statutory Deductions (EPF/ESI/TDS)",
         amount: statutory,
-        percentage: grossPayroll > 0 ? Math.round((statutory / grossPayroll) * 100) : 15,
+        percentage: grossPayroll > 0 ? Math.round((statutory / grossPayroll) * 100) : 0,
       },
     ];
 
     // 6. Dynamic Weekly Attendance Trends
-    let totalAttLogs = 0;
-    let presentCount = 0;
-    for (const a of attendanceAggRaw) {
-      totalAttLogs += a.count;
-      if (a._id === "present") presentCount += a.count;
-    }
-    const attendanceCompliance = totalAttLogs > 0 ? Number(((presentCount / totalAttLogs) * 100).toFixed(1)) : 96.4;
-
-    const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-    const attendanceTrends = daysOfWeek.map((day, idx) => {
-      const dayOffset = (idx * 3) % 7;
-      const pres = Math.min(99, Math.max(90, Math.round(attendanceCompliance - dayOffset)));
-      const remote = Math.round((100 - pres) * 0.65);
-      const leave = Math.max(1, 100 - pres - remote);
-      return {
-        day,
-        present: pres,
-        remote,
-        onLeave: leave,
-      };
-    });
+    const totalAttLogs = attendanceAggRaw.reduce((sum: number, day: any) => sum + day.total, 0);
+    const presentCount = attendanceAggRaw.reduce((sum: number, day: any) => sum + day.present, 0);
+    const attendanceCompliance = totalAttLogs > 0 ? Number(((presentCount / totalAttLogs) * 100).toFixed(1)) : 0;
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const attendanceTrends = attendanceAggRaw.map((day: any) => ({
+      day: dayNames[day._id - 1],
+      present: day.total > 0 ? Number(((day.present / day.total) * 100).toFixed(1)) : 0,
+      onLeave: day.total > 0 ? Number(((day.onLeave / day.total) * 100).toFixed(1)) : 0,
+      rate: day.total > 0 ? Number(((day.present / day.total) * 100).toFixed(1)) : 0,
+      count: day.total,
+    }));
 
     // 7. Dynamic Leave Type Distribution
     const leaveColors: Record<string, string> = {
@@ -296,25 +376,22 @@ export async function GET(req: NextRequest) {
       maternity: "#ec4899",
       paternity: "#8b5cf6",
     };
-    const totalLeaves = leaveTypeRaw.reduce((sum: number, l: any) => sum + (l.count || 0), 0) || 1;
-    const leaveTypeDistribution = leaveTypeRaw.length > 0
+    const totalLeaves = leaveTypeRaw.reduce((sum: number, l: any) => sum + (l.count || 0), 0);
+    const leaveTypeDistribution = totalLeaves > 0
       ? leaveTypeRaw.map((l: any) => {
           const key = String(l._id || "casual").toLowerCase();
           const name = key.charAt(0).toUpperCase() + key.slice(1) + " Leave";
           return {
             name,
-            value: Math.max(5, Math.round((l.count / totalLeaves) * 100)),
+            value: Math.round((l.count / totalLeaves) * 100),
+            count: l.count,
             color: leaveColors[key] || "#3b82f6",
           };
         })
-      : [
-          { name: "Casual Leave", value: 50, color: "#10b981" },
-          { name: "Sick Leave", value: 30, color: "#f59e0b" },
-          { name: "Earned Leave", value: 20, color: "#3b82f6" },
-        ];
+      : [];
 
-    // 8. Dynamic Performance Reviews Bell Curve
-    const perfTotal = perfAggRaw.reduce((sum: number, p: any) => sum + (p.count || 0), 0) || 1;
+    // 8. Dynamic Performance Reviews Bell Curve (SYS-36)
+    const perfTotal = perfAggRaw.reduce((sum: number, p: any) => sum + (p.count || 0), 0);
     const perfDistributionMap: Record<string, { label: string; color: string; count: number }> = {
       "1": { label: "Needs Coaching", color: "#ef4444", count: 0 },
       "2": { label: "Developing", color: "#f59e0b", count: 0 },
@@ -335,31 +412,29 @@ export async function GET(req: NextRequest) {
     const performanceDistribution = Object.values(perfDistributionMap).map((item) => ({
       rating: item.label,
       count: item.count,
-      percentage: Math.max(1, Math.round((item.count / perfTotal) * 100)),
+      percentage: perfTotal > 0 ? Math.round((item.count / perfTotal) * 100) : 0,
       color: item.color,
     }));
 
     // Turnover Rate
-    const turnoverRate = Number(((exitedEmployees / Math.max(headcount, 1)) * 100).toFixed(1));
+    const turnoverDenominator = activeHeadcount + exitedEmployees;
+    const turnoverRate = turnoverDenominator > 0 ? Number(((exitedEmployees / turnoverDenominator) * 100).toFixed(1)) : 0;
 
-    // Average Tenure
-    const avgTenureYears = Number(
-      (
-        tenureDistribution.reduce((acc, t, idx) => acc + (t.percentage * (idx + 1)), 0) / 100
-      ).toFixed(1)
-    ) || 2.8;
+    const avgTenureYears = Number(Number(avgTenureRaw[0]?.averageYears || 0).toFixed(1));
+
+    const resolvedDepartmentCount = Math.max(totalDepartments, deptsList.length);
 
     const responsePayload = {
       kpis: {
         totalHeadcount: headcount,
         activeHeadcount,
         onboardingCount: onboardingEmployees,
-        monthlyTurnoverRate: Math.max(turnoverRate, 1.4),
+        periodExitRate: turnoverRate,
         attendanceCompliance,
         avgTenureYears,
         monthlyGrossPayroll: grossPayroll,
-        openRequisitions: Math.max(0, onboardingEmployees + 4),
-        totalDepartments: Math.max(totalDepartments, deptAggRaw.length),
+        openRequisitions: null,
+        totalDepartments: resolvedDepartmentCount,
       },
       headcountTrajectory,
       departmentDistribution,
@@ -377,7 +452,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("Error in live HR analytics API:", error);
     return NextResponse.json(
-      { error: "Failed to generate dynamic HR analytics", details: error.message },
+      { error: "Failed to generate dynamic HR analytics", details: safeInternalErrorMessage() },
       { status: 500 }
     );
   }

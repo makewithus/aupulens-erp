@@ -38,7 +38,7 @@ export interface IAiUsageRecord extends Document {
 
 const AiUsageRecordSchema = new Schema<IAiUsageRecord>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     feature: { type: String, required: true, enum: AI_USAGE_FEATURE_BUCKET_VALUES },
     modelName: { type: String, required: true },
     inputTokens: { type: Number, required: true, default: 0 },

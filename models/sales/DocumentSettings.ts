@@ -91,7 +91,7 @@ export interface IDocumentSettings extends Document {
 
 const DocumentSettingsSchema = new Schema<IDocumentSettings>(
   {
-    tenantId: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, unique: true, immutable: true },
     defaultPrefixes: {
       invoice: { type: String, default: "INV-" },
       purchase: { type: String, default: "PUR-" },

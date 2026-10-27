@@ -26,7 +26,7 @@ export interface IAiCloseAssertion extends Document {
 
 const AiCloseAssertionSchema: Schema<IAiCloseAssertion> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     period: { type: String, required: true },
     item: { type: String, required: true },
     assertionId: { type: String, required: true },

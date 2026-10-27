@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
     const userId = (session.user as any).id;
 
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     if (!body.name || !body.file_url) {
       return NextResponse.json({ error: "name and file_url are required" }, { status: 400 });
     }
@@ -57,6 +59,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ document: doc }, { status: 201 });
   } catch (error: any) {
     console.error("Error creating document:", error);
-    return NextResponse.json({ error: error.message || "Failed to save document" }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

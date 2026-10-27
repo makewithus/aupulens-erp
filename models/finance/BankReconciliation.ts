@@ -31,7 +31,7 @@ export interface IBankReconciliation extends Document {
 
 const BankReconciliationSchema = new Schema<IBankReconciliation>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     bankStatementDate: { type: Date, required: true },
     bankBalance: { type: Number, required: true },
     ledgerBalance: { type: Number, required: true },

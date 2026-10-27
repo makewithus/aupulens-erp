@@ -31,7 +31,7 @@ export interface IContract extends Document {
 
 const ContractSchema = new Schema<IContract>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     contract_number: { type: String, required: true },
     account_id: { type: Schema.Types.ObjectId, ref: "CrmAccount", required: true },
     opportunity_id: { type: Schema.Types.ObjectId, ref: "CrmOpportunity" },

@@ -74,7 +74,7 @@ const PeriodClosingSchema = new Schema<IPeriodClosing>(
       totalEquity: { type: Number },
     },
     notes: { type: String },
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true },

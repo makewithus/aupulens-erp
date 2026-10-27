@@ -76,10 +76,14 @@ interface FinanceSummary {
     workingCapital: number;
     currentRatio: number;
     quickRatio: number;
-    profitMargin: number;
-    operatingMargin: number;
-    cashRunway: number;
-    ebitda: number;
+    profitMargin: number | null;
+    operatingMargin: number | null;
+    profitStatus?: string;
+    profitUnavailableReason?: string;
+    cashRunway: number | null;
+    cashRunwayStatus?: string;
+    cashRunwayReason?: string;
+    ebitda: number | null;
     avgCollectionPeriod: number;
     payablesTurnover: number;
     effectiveCash: number;
@@ -140,10 +144,9 @@ export default function FinanceSummaryPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const cachedData = getInstantCachedData<{ summary: FinanceSummary }>("/api/finance/summary");
-  const [isLoading, setIsLoading] = useState(() => !cachedData?.summary);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [summary, setSummary] = useState<FinanceSummary | null>(() => cachedData?.summary ?? null);
+  const [summary, setSummary] = useState<FinanceSummary | null>(null);
 
   const fetchSummary = useCallback(async (force = false) => {
     try {
@@ -157,6 +160,14 @@ export default function FinanceSummaryPage() {
     } catch (err) {
       console.error("Error fetching summary:", err);
     } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const cachedData = getInstantCachedData<{ summary: FinanceSummary }>("/api/finance/summary", { allowPreHydration: true });
+    if (cachedData?.summary) {
+      setSummary(cachedData.summary);
       setIsLoading(false);
     }
   }, []);
@@ -240,11 +251,15 @@ export default function FinanceSummaryPage() {
         value: summary.netIncome?.current ?? 0,
         previous: summary.netIncome?.previous ?? 0,
         change: summary.netIncome?.change ?? 0,
-        subtitle: `${summary.matrices?.profitMargin || 0}% Net Margin`,
+        subtitle: summary.matrices?.profitMargin != null
+          ? `${summary.matrices.profitMargin}% Net Margin`
+          : (summary.matrices?.profitUnavailableReason ? "Costs unposted" : "0% Net Margin"),
         icon: Wallet,
         visual: <UsersGraph />,
         reverse: false,
-        badgeLabel: `${summary.matrices?.profitMargin || 0}% Margin`,
+        badgeLabel: summary.matrices?.profitMargin != null
+          ? `${summary.matrices.profitMargin}% Margin`
+          : (summary.matrices?.profitUnavailableReason ? "Incomplete" : "0% Margin"),
       },
       {
         title: "Liquid Cash & Reserves",
@@ -294,7 +309,7 @@ export default function FinanceSummaryPage() {
       userName={session?.user?.name || "Finance Admin"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchSummary}
       profilePath="/finance/profile"
     >
@@ -582,7 +597,9 @@ export default function FinanceSummaryPage() {
                 />
               </div>
               <div className="text-2xl font-extrabold tracking-tight mt-2 text-purple-400">
-                {(summary?.matrices?.cashRunway || 0).toFixed(1)} Months
+                {summary?.matrices?.cashRunway != null
+                  ? `${summary.matrices.cashRunway.toFixed(1)} Months`
+                  : (summary?.matrices?.cashRunwayReason || "Not available")}
               </div>
               <div className="flex items-center justify-between mt-2 text-xs">
                 <span className="text-[11px] text-muted-foreground">

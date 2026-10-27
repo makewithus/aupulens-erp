@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -32,7 +34,7 @@ export async function GET() {
     return NextResponse.json({ success: true, data: settings });
   } catch (error: any) {
     console.error("Subscription notifications GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -44,8 +46,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
+
+const tenantId = session.user.tenantId;
+    const body = stripProtectedFields(await request.json());
     if (!body.eventKey) {
       return NextResponse.json({ success: false, message: "eventKey is required" }, { status: 400 });
     }
@@ -57,8 +60,9 @@ export async function PATCH(request: NextRequest) {
     );
 
     return NextResponse.json({ success: true, data: setting });
+
   } catch (error: any) {
     console.error("Subscription notifications PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

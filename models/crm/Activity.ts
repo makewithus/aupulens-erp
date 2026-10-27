@@ -15,11 +15,12 @@ export interface IActivity extends Document {
   linked_contact_id?: mongoose.Types.ObjectId;
   linked_opportunity_id?: mongoose.Types.ObjectId;
   linked_case_id?: mongoose.Types.ObjectId;
+  isDemo?: boolean;
   createdBy: mongoose.Types.ObjectId;
 }
 
 const ActivitySchema = new Schema<IActivity>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   type: { 
     type: String, 
     required: true, 
@@ -40,6 +41,7 @@ const ActivitySchema = new Schema<IActivity>({
   linked_contact_id: { type: Schema.Types.ObjectId, ref: 'CrmContact' },
   linked_opportunity_id: { type: Schema.Types.ObjectId, ref: 'CrmOpportunity' },
   linked_case_id: { type: Schema.Types.ObjectId, ref: 'CrmCase' },
+  isDemo: { type: Boolean, default: false, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 

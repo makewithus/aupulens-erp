@@ -29,14 +29,18 @@ function MetricCard({ title, value, sub, icon: Icon, colorClass, loading }: any)
 }
 
 export default function CampaignDashboardPage() {
-  const cachedRoi = getInstantCachedData<any>("/api/crm/reports/roi");
-  const cachedReports = getInstantCachedData<any>("/api/crm/reports/campaigns");
-  const [globalROI, setGlobalROI] = useState<any>(() => cachedRoi?.data ?? null);
-  const [reports, setReports] = useState<any>(() => cachedReports?.data ?? null);
-  const [loading, setLoading] = useState<boolean>(() => !cachedRoi || !cachedReports);
+  const [globalROI, setGlobalROI] = useState<any>(null);
+  const [reports, setReports] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
+    const cachedRoi = getInstantCachedData<any>("/api/crm/reports/roi", { allowPreHydration: true });
+    const cachedReports = getInstantCachedData<any>("/api/crm/reports/campaigns", { allowPreHydration: true });
+    if (cachedRoi?.data) setGlobalROI(cachedRoi.data);
+    if (cachedReports?.data) setReports(cachedReports.data);
+    if (cachedRoi?.data && cachedReports?.data) setLoading(false);
+
     async function loadCampaignMetrics() {
       try {
         const [roiRes, reportsRes] = await Promise.all([

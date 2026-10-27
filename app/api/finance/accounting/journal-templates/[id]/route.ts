@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
@@ -31,8 +33,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ success: false, message: "Invalid id" }, { status: 400 });
 
   await connectDB();
-  try {
-    const body = await req.json();
+
+try {
+    const body = stripProtectedFields(await req.json());
     delete body.tenantId;
     delete body.createdBy;
     const doc = await JournalTemplate.findOneAndUpdate(
@@ -43,8 +46,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!doc) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true, data: doc });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
+
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -57,7 +61,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ success: false, message: "Invalid id" }, { status: 400 });
 
   await connectDB();
-  const doc = await JournalTemplate.findOneAndDelete({ _id: id, tenantId: session.user.tenantId });
+
+const doc = await JournalTemplate.findOneAndDelete({ _id: id, tenantId: session.user.tenantId });
   if (!doc) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
   return NextResponse.json({ success: true, data: { _id: id } });
+
 }

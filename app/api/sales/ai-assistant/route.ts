@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
 import { tryErpAssistant, safeErpError, providerFailure } from "@/lib/ai/erpAssistant";
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     const incomingConversationId: string | undefined = body.conversationId;
     const requestId = typeof body.requestId === "string" && body.requestId.length <= 100 ? body.requestId : randomUUID();
     const { imageDataUrls, docTexts } = await processChatAttachments(body);
@@ -52,7 +53,8 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    let conversationId: string = incomingConversationId || randomUUID();
+
+let conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
 
     const conversationContext = await loadConversationContext({
@@ -144,6 +146,7 @@ export async function POST(request: NextRequest) {
     await saveCompletedExchange({ tenantId, userId, conversationId, module: "sales", message, response, requestId });
 
     return NextResponse.json({ response, conversationId });
+
   } catch (error) {
     if (isMongoStorageLimitError(error)) {
       console.error('[sales-ai] MongoDB Atlas storage quota reached; request could not be completed.');

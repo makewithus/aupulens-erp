@@ -58,7 +58,7 @@ export interface IMigrationBatch extends Document {
 
 const MigrationBatchSchema = new Schema<IMigrationBatch>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     sourceSystem: { type: String, required: true },
     status: { type: String, default: "uploading" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

@@ -109,6 +109,17 @@ describe("Global Admin auth flow — login -> MFA enrollment -> session -> logou
     const secret = setupBody.data.secret;
     expect(setupBody.data.qrDataUrl).toMatch(/^data:image\/png;base64,/);
 
+    // Repeated/concurrent setup requests must not invalidate the scanned QR.
+    const retries = await Promise.all([1, 2].map(() => mfaSetupPOST(
+      makeRequest("http://localhost/api/platform/auth/mfa/setup", {
+        method: "POST", body: JSON.stringify({ challengeToken }),
+      }),
+    )));
+    for (const retry of retries) {
+      expect(retry.status).toBe(200);
+      expect((await retry.json()).data.secret).toBe(secret);
+    }
+
     // secret must be stored encrypted, not plaintext
     const stored = await AdminUser.findOne({ email: EMAIL });
     expect(stored!.mfaSecretEncrypted).not.toBe(secret);
@@ -195,6 +206,35 @@ describe("Global Admin auth flow — login -> MFA enrollment -> session -> logou
     expect(verifyRes.status).toBe(200);
     const verifyBody = await verifyRes.json();
     expect(verifyBody.data.backupCodes).toBeUndefined(); // no fresh backup codes on ordinary login
+
+    // Expiring the server session must allow a fresh password + MFA login.
+    const cookie = cookieFromResponse(verifyRes);
+    await AdminSession.updateMany({}, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+    expect((await meGET(makeRequestWithCookie("http://localhost/api/platform/me", cookie))).status).toBe(401);
+    const freshLogin = await loginPOST(makeRequestWithCookie("http://localhost/api/platform/auth/login", cookie, {
+      method: "POST", body: JSON.stringify({ email: "returning@example.com", password: PASSWORD }),
+    }));
+    expect(freshLogin.status).toBe(200);
+    const freshChallenge = (await freshLogin.json()).data.challengeToken;
+    const freshVerify = await mfaVerifyPOST(makeRequestWithCookie("http://localhost/api/platform/auth/mfa/verify", cookie, {
+      method: "POST", body: JSON.stringify({ challengeToken: freshChallenge, code: generateTotpCode(secret) }),
+    }));
+    expect(freshVerify.status).toBe(200);
+    expect((await meGET(makeRequestWithCookie("http://localhost/api/platform/me", cookieFromResponse(freshVerify)))).status).toBe(200);
+
+  });
+
+  it("distinguishes an expired MFA challenge from an incorrect code", async () => {
+    const { SignJWT } = await import("jose");
+    const expired = await new SignJWT({ sub: "507f1f77bcf86cd799439011", purpose: "mfa" })
+      .setProtectedHeader({ alg: "HS256" }).setExpirationTime(Math.floor(Date.now() / 1000) - 1)
+      .sign(new TextEncoder().encode(process.env.ADMIN_SESSION_SECRET!));
+    const res = await mfaVerifyPOST(makeRequest("http://localhost/api/platform/auth/mfa/verify", {
+      method: "POST", body: JSON.stringify({ challengeToken: expired, code: "123456" }),
+    }));
+    expect(res.status).toBe(401);
+    expect((await res.json()).code).toBe("CHALLENGE_EXPIRED");
+    expect(res.headers.get("set-cookie")).toBeNull();
   });
 
   it("locks the account after 5 failed password attempts", async () => {

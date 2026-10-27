@@ -13,7 +13,7 @@ export interface IBusinessHealthSummary extends Document {
 
 const BusinessHealthSummarySchema = new Schema<IBusinessHealthSummary>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     period: { type: String, required: true },
     summary: { type: String, required: true },
     highlights: [{ type: String }],

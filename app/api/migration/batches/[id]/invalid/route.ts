@@ -1,3 +1,4 @@
+import { validateObjectId } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -13,6 +14,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
 
+  const idGuard = validateObjectId(id);
+  if (idGuard) return idGuard;
   await dbConnect();
   await moveDuplicateWriteErrorsToReview(id, session.user.tenantId);
   

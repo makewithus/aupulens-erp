@@ -114,7 +114,7 @@ export default function TrialBalancePage() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={load}
     >
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">

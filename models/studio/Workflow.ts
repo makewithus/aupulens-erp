@@ -31,7 +31,7 @@ export interface IWorkflow extends mongoose.Document {
 
 const WorkflowSchema = new Schema<IWorkflow>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     description: { type: String },
     triggerType: { type: String, enum: Object.values(WORKFLOW_TRIGGER_TYPE), default: WORKFLOW_TRIGGER_TYPE.MANUAL },

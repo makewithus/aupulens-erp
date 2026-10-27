@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
     const rows = await DocumentNote.find(query).sort({ createdAt: -1 }).lean();
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -33,7 +35,8 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const body = await request.json();
+
+const body = stripProtectedFields(await request.json());
     if (!body.kind || !body.documentType || !body.title) {
       return NextResponse.json({ success: false, message: "kind, documentType and title are required" }, { status: 400 });
     }
@@ -49,7 +52,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, data: doc }, { status: 201 });
+
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

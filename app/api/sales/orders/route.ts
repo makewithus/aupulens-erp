@@ -1,10 +1,13 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/sales/SaleOrder";
+import "@/models/sales/Customer";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { getCachedData, setCachedData, invalidateCache } from "@/lib/api/serverCache";
+import { applyDemoScope, getDemoCacheSegment } from "@/lib/auth/scopeFilter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,7 +29,7 @@ export async function GET(req: NextRequest) {
     const dateFromKey = searchParams.get("dateFrom") || "";
     const dateToKey = searchParams.get("dateTo") || "";
 
-    const cacheKey = `sales-orders:${tenantId}:${page}:${limit}:${statusKey}:${dateFromKey}:${dateToKey}`;
+    const cacheKey = `sales-orders:${tenantId}:${page}:${limit}:${statusKey}:${dateFromKey}:${dateToKey}:${getDemoCacheSegment(session)}`;
     const cached = getCachedData<any>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
@@ -51,9 +54,15 @@ export async function GET(req: NextRequest) {
     }
 
     await connectDB();
+    const scopedQuery = applyDemoScope(session, query);
     const [total, items] = await Promise.all([
-      SaleOrder.countDocuments(query),
-      SaleOrder.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      SaleOrder.countDocuments(scopedQuery),
+      SaleOrder.find(scopedQuery)
+        .populate("header.partnerId", "header.name header.displayName header.companyName")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
     ]);
 
     const payload = { items, total, page, totalPages: Math.ceil(total / limit) };
@@ -83,7 +92,8 @@ export async function POST(request: Request) {
     const tenantId = (session.user as any).tenantId;
 
     await connectDB();
-    const body = await request.json();
+
+const body = stripProtectedFields(await request.json());
 
     // Validate required fields
     if (
@@ -108,6 +118,7 @@ export async function POST(request: Request) {
 
     invalidateCache(`sales-orders:${tenantId}`);
     return NextResponse.json({ order }, { status: 201 });
+
   } catch (error) {
     console.error("Error creating sales order:", error);
     return NextResponse.json(

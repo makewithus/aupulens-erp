@@ -11,6 +11,7 @@ import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 export async function POST(request: Request) {
   try {
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
     await connectDB();
+
     const tenantId = session.user.tenantId;
 
     const formData = await request.formData();
@@ -106,106 +108,96 @@ export async function POST(request: Request) {
       const invoiceNumber = get("invoiceNumber");
 
       try {
-        let invoice = null;
-        if (invoiceNumber) {
-          invoice = await (SalesInvoice as any).findOne({
-            tenantId,
-            number: String(invoiceNumber).trim(),
-            customerId: customer._id,
-          });
-        }
+        await withAccountingTransaction(async () => {
 
-        if (invoice) {
-          const allocations = [{ invoiceId: String(invoice._id), amount: paymentAmount }];
-          let unusedAmount: number;
-          try {
-            unusedAmount = validateAllocations(allocations, paymentAmount, bankCharges, 0);
-          } catch (e: any) {
-            errors.push({ row: rowNumber, message: e.message });
-            skipped++;
-            continue;
-          }
-
-          const payment = await Payment.create({
-            tenantId,
-            customerId: customer._id,
-            paymentNumber,
-            paymentDate,
-            amountReceived: paymentAmount,
-            bankCharges,
-            mode,
-            depositToAccountId,
-            reference,
-            taxDeducted: false,
-            tdsAmount: 0,
-            allocations,
-            unusedAmount,
-            status: PAYMENT_STATUS.PAID,
-            paymentType: PAYMENT_TYPE.INVOICE_PAYMENT,
-            notes,
-          });
-
-          try {
-            await postCustomerPaymentJournal({
-              payment,
+          let invoice = null;
+          if (invoiceNumber) {
+            invoice = await (SalesInvoice as any).findOne({
               tenantId,
-              createdBy: session.user.id,
-              current: { allocatedTotal: paymentAmount, unusedAmount, bankCharges, tdsAmount: 0 },
-              invoiceNumbers: [invoice.number],
+              number: String(invoiceNumber).trim(),
+              customerId: customer._id,
             });
-            await payment.save();
-          } catch (postingError: any) {
-            await Payment.deleteOne({ _id: payment._id });
-            errors.push({ row: rowNumber, message: postingError.message });
-            skipped++;
-            continue;
           }
 
-          await applyAllocationsToInvoices({
-            tenantId,
-            paymentId: String(payment._id),
-            paymentNumber,
-            paymentDate,
-            mode,
-            allocations,
-          });
-        } else {
-          // No invoice number given or invoice not found: still a real
-          // recorded payment — the money was received, just not yet applied.
-          const payment = await Payment.create({
-            tenantId,
-            customerId: customer._id,
-            paymentNumber,
-            paymentDate,
-            amountReceived: paymentAmount,
-            bankCharges,
-            mode,
-            depositToAccountId,
-            reference,
-            taxDeducted: false,
-            tdsAmount: 0,
-            allocations: [],
-            unusedAmount: paymentAmount,
-            status: PAYMENT_STATUS.PAID,
-            paymentType: PAYMENT_TYPE.INVOICE_PAYMENT,
-            notes,
-          });
+          if (invoice) {
+            const allocations = [{ invoiceId: String(invoice._id), amount: paymentAmount }];
+            let unusedAmount: number;
+            try {
+              unusedAmount = validateAllocations(allocations, paymentAmount, bankCharges, 0);
+            } catch (e: any) { throw e; }
 
-          try {
-            await postCustomerPaymentJournal({
-              payment,
+            const payment = await Payment.create({
               tenantId,
-              createdBy: session.user.id,
-              current: { allocatedTotal: 0, unusedAmount: paymentAmount, bankCharges, tdsAmount: 0 },
+              customerId: customer._id,
+              paymentNumber,
+              paymentDate,
+              amountReceived: paymentAmount,
+              bankCharges,
+              mode,
+              depositToAccountId,
+              reference,
+              taxDeducted: false,
+              tdsAmount: 0,
+              allocations,
+              unusedAmount,
+              status: PAYMENT_STATUS.PAID,
+              paymentType: PAYMENT_TYPE.INVOICE_PAYMENT,
+              notes,
             });
-            await payment.save();
-          } catch (postingError: any) {
-            await Payment.deleteOne({ _id: payment._id });
-            errors.push({ row: rowNumber, message: postingError.message });
-            skipped++;
-            continue;
+
+            try {
+              await postCustomerPaymentJournal({
+                payment,
+                tenantId,
+                createdBy: session.user.id,
+                current: { allocatedTotal: paymentAmount, unusedAmount, bankCharges, tdsAmount: 0 },
+                invoiceNumbers: [invoice.number],
+              });
+              await payment.save();
+            } catch (postingError: any) { throw postingError; }
+
+            await applyAllocationsToInvoices({
+              tenantId,
+              paymentId: String(payment._id),
+              paymentNumber,
+              paymentDate,
+              mode,
+              allocations,
+            });
+          } else {
+            // No invoice number given or invoice not found: still a real
+            // recorded payment — the money was received, just not yet applied.
+            const payment = await Payment.create({
+              tenantId,
+              customerId: customer._id,
+              paymentNumber,
+              paymentDate,
+              amountReceived: paymentAmount,
+              bankCharges,
+              mode,
+              depositToAccountId,
+              reference,
+              taxDeducted: false,
+              tdsAmount: 0,
+              allocations: [],
+              unusedAmount: paymentAmount,
+              status: PAYMENT_STATUS.PAID,
+              paymentType: PAYMENT_TYPE.INVOICE_PAYMENT,
+              notes,
+            });
+
+            try {
+              await postCustomerPaymentJournal({
+                payment,
+                tenantId,
+                createdBy: session.user.id,
+                current: { allocatedTotal: 0, unusedAmount: paymentAmount, bankCharges, tdsAmount: 0 },
+              });
+              await payment.save();
+            } catch (postingError: any) { throw postingError; }
           }
-        }
+
+        });
         imported++;
       } catch (e: any) {
         errors.push({ row: rowNumber, message: e.message || "Failed to import row" });
@@ -214,6 +206,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, imported, skipped, errors });
+
   } catch (error: any) {
     console.error("Payments Import Execution Error:", error);
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });

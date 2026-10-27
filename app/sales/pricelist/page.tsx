@@ -205,7 +205,7 @@ export default function PricelistPage() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "sales"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={load}
     >
       <div className="space-y-6">

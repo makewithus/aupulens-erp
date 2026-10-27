@@ -7,7 +7,16 @@ import type { IAsset } from "@/models/finance/Asset";
  * calls this function too, so both paths are guaranteed to agree — this is a pure refactor, the
  * route's own behaviour/response is unchanged (same input, same output).
  */
-export function computeMonthlyDepreciation(asset: Pick<IAsset, "originalValue" | "salvageValue" | "durationYears">): number {
-  const annualDepreciation = (asset.originalValue - asset.salvageValue) / asset.durationYears;
+export function computeMonthlyDepreciation(asset: Pick<IAsset, "originalValue" | "salvageValue" | "durationYears"> & { method?: "linear" | "degressive" }): number {
+  if (asset.method === "degressive") {
+    const n = asset.durationYears || 1;
+    const s = asset.salvageValue > 0 ? asset.salvageValue : 1;
+    const rate = asset.salvageValue > 0 && asset.salvageValue < asset.originalValue
+      ? Math.min(0.9, Math.max(0.01, 1 - Math.pow(s / asset.originalValue, 1 / n)))
+      : Math.min(0.9, 2 / n);
+    const firstYearAnnual = asset.originalValue * rate;
+    return firstYearAnnual / 12;
+  }
+  const annualDepreciation = (asset.originalValue - (asset.salvageValue || 0)) / (asset.durationYears || 1);
   return annualDepreciation / 12;
 }

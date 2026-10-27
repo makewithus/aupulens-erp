@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -10,6 +11,11 @@ export async function GET(request: NextRequest) {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const role = (session.user as any)?.role;
+    if (role !== "admin" && role !== "master-admin") {
+      return NextResponse.json({ error: "Forbidden: admin access required" }, { status: 403 });
     }
 
     const tenantIdGuard = requireTenantId(session);
@@ -52,10 +58,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const role = (session.user as any)?.role;
+    if (role !== "admin" && role !== "master-admin") {
+      return NextResponse.json({ error: "Forbidden: admin access required" }, { status: 403 });
+    }
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
 
     await connectDB();
 
@@ -80,10 +91,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const role = (session.user as any)?.role;
+    if (role !== "admin" && role !== "master-admin") {
+      return NextResponse.json({ error: "Forbidden: admin access required" }, { status: 403 });
+    }
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     const { _id, ...updateData } = body;
 
     if (!_id) {

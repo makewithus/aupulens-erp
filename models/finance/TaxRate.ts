@@ -17,7 +17,7 @@ export interface ITaxRate extends Document {
 
 const TaxRateSchema: Schema<ITaxRate> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     type: { type: String, enum: TAX_RATE_TYPE_VALUES, default: TAX_RATE_TYPE.GST },
     ratePercent: { type: Number, required: true, default: 0 },

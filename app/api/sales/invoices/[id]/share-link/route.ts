@@ -19,7 +19,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   await connectDB();
-  const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId }).select("_id").lean();
+
+const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId }).select("_id").lean();
   if (!invoice) return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
 
   const { token, exp } = signPublicToken("invoice", id);
@@ -27,4 +28,5 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const url = `${base}/api/public/invoice/${id}?token=${token}&exp=${exp}`;
 
   return NextResponse.json({ success: true, data: { url, exp } });
+
 }

@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -151,7 +152,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error("Org accept error:", error);
     return NextResponse.json(
-      { success: false, message: (error as Error).message || "Something went wrong" },
+      { success: false, message: safeInternalErrorMessage() },
       { status: 500 }
     );
   }

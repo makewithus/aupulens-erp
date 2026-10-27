@@ -24,7 +24,7 @@ export interface IEinvoiceGspCredential extends Document {
 
 const EinvoiceGspCredentialSchema: Schema<IEinvoiceGspCredential> = new Schema(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     provider: { type: String, required: true, default: DEFAULT_GSP_PROVIDER, trim: true },
     username: { type: String, required: true, trim: true },
     encryptedPassword: { type: String, required: true },

@@ -13,7 +13,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { id } = await params;
 
     const quote = await SalesQuotation.findOne({ _id: id, tenantId });
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const order = await createOrderFromQuote({ tenantId, userId: session.user.id, quote });
     return NextResponse.json({ success: true, data: { quote, order } }, { status: 201 });
+
   } catch (error: any) {
     if (error instanceof DealError) {
       return NextResponse.json({ success: false, message: error.message }, { status: error.status });

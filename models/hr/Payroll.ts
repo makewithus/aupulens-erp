@@ -111,7 +111,7 @@ const PayrollLineItemSchema = new Schema(
 
 const PayrollSchema = new Schema<IPayroll>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     payrollCode: { type: String, required: true, trim: true },
     payrollPeriod: {
       month: { type: Number, required: true, min: 1, max: 12 },

@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -11,8 +13,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await connectDB();
-    const { id } = await params;
-    const body = await request.json();
+
+const { id } = await params;
+    const body = stripProtectedFields(await request.json());
 
     const view = await SalesView.findOneAndUpdate(
       { _id: id, tenantId: session.user.tenantId },
@@ -24,9 +27,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     return NextResponse.json({ success: true, data: view });
+
   } catch (error: any) {
     console.error("Payment view PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -38,7 +42,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await connectDB();
-    const { id } = await params;
+
+const { id } = await params;
 
     const view = await SalesView.findOneAndDelete({ _id: id, tenantId: session.user.tenantId, isSystem: false });
     if (!view) {
@@ -49,8 +54,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
     console.error("Payment view DELETE error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

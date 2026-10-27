@@ -105,7 +105,7 @@ describe("Priority 4: Quote-to-Invoice Conversion Integrity & Failure Recovery",
     expect(journals.length).toBe(0);
   });
 
-  it("rejects concurrent conversion requests arriving simultaneously (409 locked)", async () => {
+  it("concurrent conversion requests resolve to one invoice and journal", async () => {
     const quote = await makeQuote();
 
     // First request initiates lock
@@ -114,12 +114,17 @@ describe("Priority 4: Quote-to-Invoice Conversion Integrity & Failure Recovery",
     const p2 = convertQuoteToInvoice({ tenantId: TENANT, userId, quote });
 
     const results = await Promise.allSettled([p1, p2]);
-    const rejected = results.filter((r) => r.status === "rejected");
-    expect(rejected.length).toBeGreaterThanOrEqual(1);
-
-    const rejReason = (rejected[0] as PromiseRejectedResult).reason;
-    expect(rejReason.status).toBe(409);
-    expect(rejReason.message).toContain("already being invoiced");
+    const successful = results.filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled");
+    expect(successful.length).toBeGreaterThanOrEqual(1);
+    expect(new Set(successful.map(r => String(r.value._id))).size).toBe(1);
+    for (const result of results) {
+      if (result.status === "rejected") {
+        expect(result.reason.status).toBe(409);
+        expect(result.reason.message).toMatch(/already (?:being )?invoiced/);
+      }
+    }
+    expect(await SalesInvoice.countDocuments({ tenantId: TENANT, sourceQuoteId: quote._id })).toBe(1);
+    expect(await JournalEntry.countDocuments({ tenantId: TENANT })).toBe(1);
   });
 
   it("handles retry idempotently when quotation was already invoiced", async () => {

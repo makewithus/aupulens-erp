@@ -558,7 +558,7 @@ export default function AIAssistant() {
         userName="Admin"
         userEmail=""
         userRole="admin"
-        onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
       >
         <div className="flex h-[calc(100vh-8rem)] gap-4">
           <div className="w-64 border-r pr-4 space-y-2 hidden md:block">
@@ -594,7 +594,7 @@ export default function AIAssistant() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profilePath="/admin/profile"
     >
       <div className="flex h-[calc(100vh-8rem)] gap-0 -mx-6 -my-4 bg-background overflow-hidden">

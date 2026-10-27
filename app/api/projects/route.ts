@@ -10,6 +10,11 @@ export async function GET(req: NextRequest) {
   const tenantId = (session?.user as any)?.tenantId as string | undefined;
   if (!tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
+  const ALLOWED_ROLES = ["project", "admin", "master-admin"];
+  if (!session?.user?.role || !ALLOWED_ROLES.includes(session.user.role)) {
+    return NextResponse.json({ success: false, message: "Forbidden: Access denied" }, { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") || "all";
 
@@ -34,6 +39,11 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   const tenantId = (session?.user as any)?.tenantId as string | undefined;
   if (!tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+
+  const ALLOWED_ROLES = ["project", "admin", "master-admin"];
+  if (!session?.user?.role || !ALLOWED_ROLES.includes(session.user.role)) {
+    return NextResponse.json({ success: false, message: "Forbidden: Access denied" }, { status: 403 });
+  }
 
   await connectDB();
   const body = await req.json();

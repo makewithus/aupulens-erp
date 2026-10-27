@@ -22,7 +22,7 @@ export interface IApiKey extends Document {
 
 const ApiKeySchema = new Schema<IApiKey>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     label: { type: String, required: true },
     keyHash: { type: String, required: true, unique: true },
     lastUsedAt: { type: Date },

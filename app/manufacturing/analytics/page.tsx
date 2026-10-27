@@ -41,8 +41,8 @@ import {
 export default function ManufacturingAnalyticsPage() {
   const { data: session } = useSession();
   const [timeRange, setTimeRange] = useState<string>("30d");
-  const [data, setData] = useState<any>(() => getInstantCachedData<any>(`/api/manufacturing/analytics?range=30d`));
-  const [isLoading, setIsLoading] = useState<boolean>(() => !getInstantCachedData<any>(`/api/manufacturing/analytics?range=30d`));
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadData = useCallback(async (fresh: boolean = false) => {
@@ -67,6 +67,11 @@ export default function ManufacturingAnalyticsPage() {
   }, [timeRange]);
 
   useEffect(() => {
+    const cached = getInstantCachedData<any>(`/api/manufacturing/analytics?range=${timeRange}`, { allowPreHydration: true });
+    if (cached) {
+      setData(cached);
+      setIsLoading(false);
+    }
     loadData(false);
     const handleRevalidated = (e: any) => {
       if (e?.detail?.url?.includes("/api/manufacturing")) {
@@ -150,7 +155,7 @@ export default function ManufacturingAnalyticsPage() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/manufacturing" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={loadData}
       profilePath="/manufacturing/profile"
     >

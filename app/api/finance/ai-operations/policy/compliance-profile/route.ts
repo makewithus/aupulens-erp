@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -26,7 +28,7 @@ export async function GET() {
     const profile = await AiComplianceProfile.findOne({ tenantId }).lean();
     return NextResponse.json({ profile: profile ?? { tenantId, registrations: [], obligations: [], thresholds: [] } });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -41,7 +43,8 @@ export async function PUT(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
-    const body = await req.json();
+
+const body = stripProtectedFields(await req.json());
     const registrations = Array.isArray(body.registrations) ? body.registrations : [];
     const obligations = Array.isArray(body.obligations) ? body.obligations : [];
     const thresholds = Array.isArray(body.thresholds) ? body.thresholds : [];
@@ -53,7 +56,8 @@ export async function PUT(req: NextRequest) {
     );
 
     return NextResponse.json({ profile });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

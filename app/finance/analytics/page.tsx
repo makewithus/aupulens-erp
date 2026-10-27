@@ -29,9 +29,8 @@ export default function FinanceAnalyticsPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const cachedSummary = getInstantCachedData<any>("/api/finance/summary");
-  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedSummary?.summary);
-  const [data, setData] = useState<any>(() => cachedSummary?.summary ?? null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [data, setData] = useState<any>(null);
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -46,6 +45,14 @@ export default function FinanceAnalyticsPage() {
     } catch (err) {
       console.error("Error fetching finance analytics:", err);
     } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const cachedSummary = getInstantCachedData<any>("/api/finance/summary", { allowPreHydration: true });
+    if (cachedSummary?.summary) {
+      setData(cachedSummary.summary);
       setIsLoading(false);
     }
   }, []);
@@ -80,7 +87,7 @@ export default function FinanceAnalyticsPage() {
       userName={session?.user?.name || "Finance Admin"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchAnalytics}
       profilePath="/finance/profile"
     >

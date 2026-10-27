@@ -1,3 +1,4 @@
+import { allocatePaise } from "@/lib/accounting/allocatePaise";
 export interface GstReportLine {
   hsn: string;
   gstRate: number;
@@ -14,13 +15,16 @@ const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 1
 export function buildGstReport(invoices: any[]): GstReportLine[] {
   const rows = new Map<string, GstReportLine>();
   for (const invoice of invoices) {
-    for (const line of invoice.lineItems || []) {
+    const lines = invoice.lineItems || [];
+    const rawTaxes = lines.map((line: any) => Number(line.taxAmount ?? ((Number(line.taxableValue ?? (Number(line.qty || 0) * Number(line.unitPrice || 0)))) * (Number(line.taxRate) || 0) / 100)) || 0);
+    const allocated = allocatePaise(Number(invoice.totalTax ?? rawTaxes.reduce((a: number,b: number)=>a+b,0)), rawTaxes.map(Math.abs));
+    for (const [index, line] of lines.entries()) {
       const hsn = String(line.hsn || "").trim() || "-";
       const gstRate = Number(line.taxRate) || 0;
       const gstTreatment = String(line.gstTreatment || "taxable");
       const taxableValue = Number(line.taxableValue ?? (Number(line.qty || 0) * Number(line.unitPrice || 0))) || 0;
-      const taxAmount = Number(line.taxAmount) || round2((taxableValue * gstRate) / 100);
-      const total = Number(line.lineTotal) || round2(taxableValue + taxAmount);
+      const taxAmount = allocated[index];
+      const total = Number(line.lineTotal ?? round2(taxableValue + taxAmount));
       const key = `${hsn}|${gstRate}|${gstTreatment}`;
       const row = rows.get(key) || {
         hsn,

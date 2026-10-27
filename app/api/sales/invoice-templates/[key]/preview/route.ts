@@ -108,7 +108,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { key } = await params;
     const body = await request.json().catch(() => ({}));
     const overrides = body?.overrides || {};
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const html = renderInvoiceTemplateFragment(def, ctx);
     return NextResponse.json({ success: true, data: { html, orientation: def.orientation } });
+
   } catch (error: any) {
     console.error("Template preview (override) error:", error);
     return NextResponse.json({ success: false, message: "Error rendering preview" }, { status: 500 });

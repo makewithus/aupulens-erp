@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { computeBillTotals } from "@/lib/accounting/billMath";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -42,12 +43,23 @@ async function ensureBillPostingJournal(
     const defaultPayable = await Account.findOne({
       tenantId,
       account_type: "liability_payable",
+      isActive: { $ne: false },
+      status: { $ne: "inactive" },
     });
     if (!defaultPayable) {
       throw new Error("Payable account is required before posting.");
     }
     payableAccountId = defaultPayable._id;
     currentBill.payableAccountId = defaultPayable._id;
+  } else {
+    const payable = await Account.findOne({
+      _id: payableAccountId,
+      tenantId,
+      account_type: "liability_payable",
+      isActive: { $ne: false },
+      status: { $ne: "inactive" },
+    });
+    if (!payable) throw new Error("The configured Accounts Payable control account is invalid or inactive.");
   }
 
   for (const line of currentBill.invoiceLines || []) {
@@ -88,10 +100,10 @@ async function ensureBillPostingJournal(
       index === currentBill.invoiceLines.length - 1
         ? roundCurrency(expenseTotal - allocated)
         : roundCurrency(
-            subtotal > 0
-              ? ((Number(line.priceSubtotal) || 0) / subtotal) * expenseTotal
-              : expenseTotal / currentBill.invoiceLines.length,
-          );
+          subtotal > 0
+            ? ((Number(line.priceSubtotal) || 0) / subtotal) * expenseTotal
+            : expenseTotal / currentBill.invoiceLines.length,
+        );
     allocated = roundCurrency(allocated + amount);
 
     return {
@@ -173,6 +185,9 @@ async function ensureBillPostingJournal(
   return journalEntry;
 }
 
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -187,12 +202,15 @@ export async function GET(
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     await dbConnect();
 
     const item = await Invoice.findOne({ _id: id, tenantId }).populate(
-          "partnerId",
-          "header.name contact_details.email",
-        ).lean();
+      "partnerId",
+      "header.name contact_details.email",
+    ).lean();
 
     if (!item) {
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });
@@ -200,7 +218,7 @@ export async function GET(
 
     return NextResponse.json(item);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -218,136 +236,137 @@ export async function PATCH(
     if (tenantIdCheck) return tenantIdCheck;
     const tenantId = (session.user as any).tenantId;
     const { id } = await params;
-    const body = await req.json();
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const body = stripProtectedFields(await req.json());
 
     await dbConnect();
 
     // Get current bill to check status change
-    const currentBill = await Invoice.findOne({ _id: id, tenantId });
-    if (!currentBill) {
-      return NextResponse.json({ error: "Bill not found" }, { status: 404 });
-    }
-
-    try {
-      await assertTransactionNotLocked(tenantId, "purchases", currentBill.invoiceDate);
-      if (body.invoiceDate) {
-        await assertTransactionNotLocked(tenantId, "purchases", body.invoiceDate);
+    return await withAccountingTransaction(async () => {
+      const currentBill = await Invoice.findOne({ _id: id, tenantId });
+      if (!currentBill) {
+        return NextResponse.json({ error: "Bill not found" }, { status: 404 });
       }
-    } catch (lockError) {
-      if (lockError instanceof TransactionLockError) {
-        return NextResponse.json({ error: lockError.message }, { status: 403 });
-      }
-      throw lockError;
-    }
 
-    for (const key of ["_id", "tenantId", "createdBy", "journalId", "createdAt"]) delete body[key];
-    const financialFields = ["invoiceLines", "amountUntaxed", "amountTax", "amountTotal", "gstInputEligible", "supplierState", "placeOfSupply", "partnerId"];
-    if (currentBill.state === DOCUMENT_STATUS.POSTED && financialFields.some((key) => key in body && JSON.stringify(body[key]) !== JSON.stringify((currentBill as any)[key]))) {
-      return NextResponse.json({ error: "Posted bill amounts and GST cannot be edited. Use a reversal or adjustment journal." }, { status: 400 });
-    }
-    if (currentBill.state !== DOCUMENT_STATUS.POSTED) {
-      for (const key of financialFields) if (key in body) (currentBill as any)[key] = body[key];
-    }
-    if (currentBill.state !== DOCUMENT_STATUS.POSTED && body.invoiceLines?.length) {
-      const productIds = body.invoiceLines.map((line: any) => line.productId).filter(Boolean);
-      const products = productIds.length ? await Product.find({ _id: { $in: productIds }, tenantId }).lean() : [];
-      const productById = new Map(products.map((product: any) => [String(product._id), product]));
-      body.invoiceLines = body.invoiceLines.map((line: any) => {
-        const comparison = line.productId
-          ? comparePurchaseLineTax(line, productById.get(String(line.productId)))
-          : { status: "not_applicable", differences: [] };
-        return { ...line, taxComparison: comparison };
-      });
-      body.taxMismatchStatus = body.invoiceLines.some((line: any) => line.taxComparison?.status === "mismatch")
-        ? "mismatch"
-        : body.invoiceLines.some((line: any) => line.taxComparison?.status === "matched")
-          ? "matched"
-          : "not_applicable";
-      if (body.taxMismatchStatus === "mismatch") {
+      try {
+        await assertTransactionNotLocked(tenantId, "purchases", currentBill.invoiceDate);
+        if (body.invoiceDate) {
+          await assertTransactionNotLocked(tenantId, "purchases", body.invoiceDate);
+        }
+      } catch (lockError) {
+        if (lockError instanceof TransactionLockError) {
+          return NextResponse.json({ error: lockError.message }, { status: 403 });
+        }
+        throw lockError;
+      }
+
+      for (const key of ["_id", "tenantId", "createdBy", "journalId", "createdAt"]) delete body[key];
+      const financialFields = ["invoiceLines", "amountUntaxed", "amountTax", "amountTotal", "gstInputEligible", "supplierState", "placeOfSupply", "partnerId"];
+      if (currentBill.state === DOCUMENT_STATUS.POSTED && financialFields.some((key) => key in body && JSON.stringify(body[key]) !== JSON.stringify((currentBill as any)[key]))) {
+        return NextResponse.json({ error: "Posted bill amounts and GST cannot be edited. Use a reversal or adjustment journal." }, { status: 400 });
+      }
+      if (currentBill.state !== DOCUMENT_STATUS.POSTED) {
+        for (const key of financialFields) if (key in body) (currentBill as any)[key] = body[key];
+      }
+      if (currentBill.state !== DOCUMENT_STATUS.POSTED && body.invoiceLines?.length) {
+        const productIds = body.invoiceLines.map((line: any) => line.productId).filter(Boolean);
+        const products = productIds.length ? await Product.find({ _id: { $in: productIds }, tenantId }).lean() : [];
+        const productById = new Map(products.map((product: any) => [String(product._id), product]));
+        body.invoiceLines = body.invoiceLines.map((line: any) => {
+          const comparison = line.productId
+            ? comparePurchaseLineTax(line, productById.get(String(line.productId)))
+            : { status: "not_applicable", differences: [] };
+          return { ...line, taxComparison: comparison };
+        });
+        body.taxMismatchStatus = body.invoiceLines.some((line: any) => line.taxComparison?.status === "mismatch")
+          ? "mismatch"
+          : body.invoiceLines.some((line: any) => line.taxComparison?.status === "matched")
+            ? "matched"
+            : "not_applicable";
+        if (body.taxMismatchStatus === "mismatch") {
+          body.manualReviewRequired = true;
+          body.discrepancyNotes = body.discrepancyNotes || "Supplier bill tax details differ from product master.";
+        }
+      }
+      if (currentBill.state !== DOCUMENT_STATUS.POSTED && body.invoiceLines?.length && body.invoiceLines.every((l: any) => l.taxRate !== undefined)) {
+        const computed = computeBillTotals(body.invoiceLines);
+        Object.assign(body, computed); Object.assign(currentBill, computed);
+      }
+      if (currentBill.state === DOCUMENT_STATUS.POSTED && body.state && body.state !== DOCUMENT_STATUS.POSTED) return NextResponse.json({ error: "Reverse the posted bill with an adjustment journal before changing its state." }, { status: 400 });
+      if (body.poMatchStatus === "mismatch") {
         body.manualReviewRequired = true;
-        body.discrepancyNotes = body.discrepancyNotes || "Supplier bill tax details differ from product master.";
+        body.state = DOCUMENT_STATUS.DRAFT;
       }
-    }
-    if (currentBill.state !== DOCUMENT_STATUS.POSTED && body.invoiceLines?.length && body.invoiceLines.every((l: any) => l.taxRate !== undefined)) {
-      const computed = computeBillTotals(body.invoiceLines);
-      Object.assign(body, computed); Object.assign(currentBill, computed);
-    }
-    if (currentBill.state === DOCUMENT_STATUS.POSTED && body.state && body.state !== DOCUMENT_STATUS.POSTED) return NextResponse.json({ error: "Reverse the posted bill with an adjustment journal before changing its state." }, { status: 400 });
-    if (body.poMatchStatus === "mismatch") {
-      body.manualReviewRequired = true;
-      body.state = DOCUMENT_STATUS.DRAFT;
-    }
 
-    if (body.poMatchStatus === "matched") {
-      body.manualReviewRequired = false;
-      if (!body.state && currentBill.state === DOCUMENT_STATUS.DRAFT) {
-        body.state = DOCUMENT_STATUS.PENDING_APPROVAL;
+      if (body.poMatchStatus === "matched") {
+        body.manualReviewRequired = false;
+        if (!body.state && currentBill.state === DOCUMENT_STATUS.DRAFT) {
+          body.state = DOCUMENT_STATUS.PENDING_APPROVAL;
+        }
       }
-    }
 
-    if (body.status === "paid" && !body.paymentState) {
-      body.paymentState = PAYMENT_STATE.PAID;
-    }
+      if (body.status === "paid" && !body.paymentState) {
+        body.paymentState = PAYMENT_STATE.PAID;
+      }
 
-    if (body.paymentState === PAYMENT_STATE.IN_PAYMENT && !body.paymentScheduledDate) {
-      body.paymentScheduledDate = new Date();
-    }
+      if (body.paymentState === PAYMENT_STATE.IN_PAYMENT && !body.paymentScheduledDate) {
+        body.paymentScheduledDate = new Date();
+      }
 
-    if (body.paymentState === PAYMENT_STATE.PAID && !body.paidDate) {
-      body.paidDate = new Date();
-    }
+      if (body.paymentState === PAYMENT_STATE.PAID && !body.paidDate) {
+        body.paidDate = new Date();
+      }
 
-    const targetState = (body.state ?? currentBill.state) as DocumentStatus;
-    if (body.state && !isValidTransition(currentBill.state as DocumentStatus, targetState)) {
-      return NextResponse.json(
-        {
-          error: `Invalid state transition from ${currentBill.state} to ${targetState}`,
-        },
-        { status: 400 },
-      );
-    }
-
-    if (
-      (body.state === DOCUMENT_STATUS.PENDING_APPROVAL ||
-        body.state === DOCUMENT_STATUS.APPROVED ||
-        body.state === DOCUMENT_STATUS.POSTED) &&
-      (body.poMatchStatus ?? currentBill.poMatchStatus) !== "matched"
-    ) {
-      return NextResponse.json(
-        {
-          error: "PO matching is required before AP invoice approval and posting.",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (body.state === DOCUMENT_STATUS.POSTED && currentBill.state !== DOCUMENT_STATUS.POSTED) {
-      if (currentBill.state !== DOCUMENT_STATUS.APPROVED) {
+      const targetState = (body.state ?? currentBill.state) as DocumentStatus;
+      if (body.state && !isValidTransition(currentBill.state as DocumentStatus, targetState)) {
         return NextResponse.json(
           {
-            error:
-              "Bill must be approved before posting to ledger.",
+            error: `Invalid state transition from ${currentBill.state} to ${targetState}`,
           },
           { status: 400 },
         );
       }
 
-      await ensureBillPostingJournal(currentBill, tenantId, session.user.id);
-      currentBill.state = DOCUMENT_STATUS.POSTED;
-      await currentBill.save();
-      body.state = DOCUMENT_STATUS.POSTED;
-    }
+      const effectivePoRef = (body.poReference !== undefined ? body.poReference : currentBill.poReference)?.trim();
+      const effectivePoMatch = body.poMatchStatus ?? currentBill.poMatchStatus;
+      const isApprovalOrPosting =
+        body.state === DOCUMENT_STATUS.PENDING_APPROVAL ||
+        body.state === DOCUMENT_STATUS.APPROVED ||
+        body.state === DOCUMENT_STATUS.POSTED;
 
-    const wantsPaymentPosting =
-      body.paymentState === PAYMENT_STATE.PAID || body.paymentAmount !== undefined;
+      if (isApprovalOrPosting) {
+        if (effectivePoRef && effectivePoMatch !== "matched") {
+          return NextResponse.json(
+            {
+              error: "PO matching is required before AP invoice approval and posting.",
+            },
+            { status: 400 },
+          );
+        }
+        if (!effectivePoRef && (!effectivePoMatch || effectivePoMatch === "pending")) {
+          body.poMatchStatus = "not_applicable";
+          currentBill.poMatchStatus = "not_applicable";
+        }
+      }
 
-    if (wantsPaymentPosting) {
-      if (currentBill.state !== DOCUMENT_STATUS.POSTED) {
+      if (body.state === DOCUMENT_STATUS.APPROVED || body.state === DOCUMENT_STATUS.POSTED) {
+        const lines = body.invoiceLines || currentBill.invoiceLines;
+        if (!lines || lines.length === 0) {
+          return NextResponse.json(
+            { error: "At least one bill line item is required before approving or posting a bill." },
+            { status: 400 },
+          );
+        }
+      }
+
+      if (body.state === DOCUMENT_STATUS.POSTED && currentBill.state !== DOCUMENT_STATUS.POSTED) {
         if (currentBill.state !== DOCUMENT_STATUS.APPROVED) {
           return NextResponse.json(
             {
               error:
-                "Bill must be approved and posted before payment execution.",
+                "Bill must be approved before posting to ledger.",
             },
             { status: 400 },
           );
@@ -355,51 +374,73 @@ export async function PATCH(
 
         await ensureBillPostingJournal(currentBill, tenantId, session.user.id);
         currentBill.state = DOCUMENT_STATUS.POSTED;
+        await currentBill.save();
+        body.state = DOCUMENT_STATUS.POSTED;
       }
 
-      await postInvoicePayment({
-        invoice: currentBill,
-        tenantId,
-        createdBy: session.user.id,
-        amount:
-          body.paymentAmount !== undefined
-            ? Number(body.paymentAmount)
-            : undefined,
-        paymentDate: body.paidDate ? new Date(body.paidDate) : new Date(),
-        paymentAccountId: body.paymentAccountId,
-        reference: body.reference,
-      });
+      const wantsPaymentPosting =
+        body.paymentState === PAYMENT_STATE.PAID || body.paymentAmount !== undefined;
 
-      body.state = currentBill.state;
-      body.amountResidual = currentBill.amountResidual;
-      body.paymentState = currentBill.paymentState;
-      if (currentBill.paidDate) body.paidDate = currentBill.paidDate;
-      await currentBill.save();
-    }
+      if (wantsPaymentPosting) {
+        if (currentBill.state !== DOCUMENT_STATUS.POSTED) {
+          if (currentBill.state !== DOCUMENT_STATUS.APPROVED) {
+            return NextResponse.json(
+              {
+                error:
+                  "Bill must be approved and posted before payment execution.",
+              },
+              { status: 400 },
+            );
+          }
 
-    const bill = await Invoice.findOneAndUpdate(
-      { _id: id, tenantId },
-      { $set: body },
-      { new: true },
-    );
+          await ensureBillPostingJournal(currentBill, tenantId, session.user.id);
+          currentBill.state = DOCUMENT_STATUS.POSTED;
+        }
 
-    if (bill) {
-      try {
-        const { runPOMatching } = await import("@/lib/accounting/matching");
-        await runPOMatching(String(bill._id), tenantId);
-      } catch (matchError) {
-        console.error("Auto-matching failed on bill update:", matchError);
+        await postInvoicePayment({
+          invoice: currentBill,
+          tenantId,
+          createdBy: session.user.id,
+          amount:
+            body.paymentAmount !== undefined
+              ? Number(body.paymentAmount)
+              : undefined,
+          paymentDate: body.paidDate ? new Date(body.paidDate) : new Date(),
+          paymentAccountId: body.paymentAccountId,
+          reference: body.reference,
+        });
+
+        body.state = currentBill.state;
+        body.amountResidual = currentBill.amountResidual;
+        body.paymentState = currentBill.paymentState;
+        if (currentBill.paidDate) body.paidDate = currentBill.paidDate;
+        await currentBill.save();
       }
-    }
 
-    const finalBill = await Invoice.findOne({ _id: id, tenantId }).populate(
-      "partnerId",
-      "header.name contact_details.email",
-    );
+      const bill = await Invoice.findOneAndUpdate(
+        { _id: id, tenantId },
+        { $set: body },
+        { new: true },
+      );
 
-    return NextResponse.json({ success: true, item: finalBill || bill });
+      if (bill) {
+        try {
+          const { runPOMatching } = await import("@/lib/accounting/matching");
+          await runPOMatching(String(bill._id), tenantId);
+        } catch (matchError) {
+          console.error("Auto-matching failed on bill update:", matchError);
+        }
+      }
+
+      const finalBill = await Invoice.findOne({ _id: id, tenantId }).populate(
+        "partnerId",
+        "header.name contact_details.email",
+      );
+
+      return NextResponse.json({ success: true, item: finalBill || bill });
+    });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -417,29 +458,34 @@ export async function DELETE(
     if (tenantIdCheck) return tenantIdCheck;
     const tenantId = (session.user as any).tenantId;
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     await dbConnect();
 
-    const existingBill = await Invoice.findOne({ _id: id, tenantId });
-    if (existingBill?.state === DOCUMENT_STATUS.POSTED) return NextResponse.json({ error: "Posted bills cannot be deleted. Reverse their accounting entries first." }, { status: 400 });
-    if (existingBill) {
-      try {
-        await assertTransactionNotLocked(tenantId, "purchases", existingBill.invoiceDate);
-      } catch (lockError) {
-        if (lockError instanceof TransactionLockError) {
-          return NextResponse.json({ error: lockError.message }, { status: 403 });
+    return await withAccountingTransaction(async () => {
+      const existingBill = await Invoice.findOne({ _id: id, tenantId });
+      if (existingBill?.state === DOCUMENT_STATUS.POSTED) return NextResponse.json({ error: "Posted bills cannot be deleted. Reverse their accounting entries first." }, { status: 400 });
+      if (existingBill) {
+        try {
+          await assertTransactionNotLocked(tenantId, "purchases", existingBill.invoiceDate);
+        } catch (lockError) {
+          if (lockError instanceof TransactionLockError) {
+            return NextResponse.json({ error: lockError.message }, { status: 403 });
+          }
+          throw lockError;
         }
-        throw lockError;
       }
-    }
 
-    const bill = await Invoice.findOneAndDelete({ _id: id, tenantId });
+      const bill = await Invoice.findOneAndDelete({ _id: id, tenantId });
 
-    if (!bill) {
-      return NextResponse.json({ error: "Bill not found" }, { status: 404 });
-    }
+      if (!bill) {
+        return NextResponse.json({ error: "Bill not found" }, { status: 404 });
+      }
 
-    return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true });
+    });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

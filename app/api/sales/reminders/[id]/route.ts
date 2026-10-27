@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -11,8 +13,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await connectDB();
-    const { id } = await params;
-    const body = await request.json();
+
+const { id } = await params;
+    const body = stripProtectedFields(await request.json());
 
     const update: Record<string, any> = {};
     if (body.enabled !== undefined) update.enabled = !!body.enabled;
@@ -31,9 +34,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     return NextResponse.json({ success: true, data: reminder });
+
   } catch (error: any) {
     console.error("Reminder PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -45,7 +49,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await connectDB();
-    const { id } = await params;
+
+const { id } = await params;
 
     const reminder = await Reminder.findOneAndDelete({
       _id: id,
@@ -60,8 +65,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
     console.error("Reminder DELETE error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

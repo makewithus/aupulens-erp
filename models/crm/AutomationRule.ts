@@ -23,7 +23,7 @@ export interface IAutomationRule extends Document {
 
 const AutomationRuleSchema = new Schema<IAutomationRule>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true },
     description: { type: String },
     trigger: { type: String, required: true },

@@ -47,6 +47,7 @@ export interface IJournalEntry extends Document {
   status: DocumentStatus;
   chatter: any[];
   tenantId: string;
+  isDemo?: boolean;
   createdBy?: mongoose.Types.ObjectId;
   isReversed?: boolean;
   reversalEntryId?: mongoose.Types.ObjectId;
@@ -112,10 +113,20 @@ const JournalEntrySchema = new Schema<IJournalEntry>(
         createdAt: { type: Date, default: Date.now },
       },
     ],
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true , immutable: true },
+    isDemo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );
+
+// Write-time enforcement: pure validate() is also used to preview migrations
+// whose referenced accounts may still be queued for import.
+JournalEntrySchema.pre("save", async function () {
+  if (this.status !== "posted" && this.voucherStatus !== "posted") return;
+  const { journalPolicy } = await import("@/lib/accounting/journalPolicy");
+  const error = await journalPolicy(String(this.tenantId), this, "system", "posted");
+  if (error) throw new Error(error);
+});
 
 // Ensure name is unique per tenant
 JournalEntrySchema.index({ "header.name": 1, tenantId: 1 }, { unique: true });

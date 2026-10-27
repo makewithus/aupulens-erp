@@ -46,7 +46,7 @@ export interface IAccountingSettings extends Document {
 
 const AccountingSettingsSchema: Schema<IAccountingSettings> = new Schema(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     chartOfAccounts: {
       autoGenerateAccountCode: { type: Boolean, default: true },
       defaultAccountCodeLength: { type: Number, default: 4 },

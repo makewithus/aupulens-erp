@@ -41,7 +41,7 @@ const ClaimSchema = new Schema<IAiClaim>({ claim_text: String, citations: [Citat
 
 const AiEvidencePackSchema: Schema<IAiEvidencePack> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     packId: { type: String, required: true },
     scope: {
       type: { type: String, enum: ["account_period", "period_sweep"], required: true },

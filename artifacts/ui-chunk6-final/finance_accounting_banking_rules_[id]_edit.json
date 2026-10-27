@@ -1,5 +1,0 @@
-{
-  "route": "/finance/accounting/banking/rules/[id]/edit",
-  "status": "skipped",
-  "reason": "dynamic route, no fixture id"
-}

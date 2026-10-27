@@ -29,5 +29,14 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
 /** Builds the public URL for a tenant's workspace, e.g. buildTenantUrl("acme") -> "https://acme.aupulens.online". */
 export function buildTenantUrl(subdomain: string): string {
+  try {
+    const base = new URL(APP_BASE_URL);
+    if (base.hostname === "localhost" || base.hostname === "127.0.0.1") {
+      const port = base.port ? `:${base.port}` : "";
+      return `${base.protocol}//${subdomain}.localhost${port}`;
+    }
+  } catch {
+    // Fall through to the configured tenant root when the base URL is invalid.
+  }
   return `https://${subdomain}.${APP_ROOT_DOMAIN}`;
 }

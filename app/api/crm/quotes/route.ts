@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
     CrmOpportunity.init();
     User.init();
 
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     // Generate unique quote number if not provided
     const quote_number =

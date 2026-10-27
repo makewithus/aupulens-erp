@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const contract = await CrmContract.findOne({ _id: params.id, tenantId: session.user.tenantId });
   if (!contract) return NextResponse.json({ success: false }, { status: 404 });
 
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   // Create renewal opportunity
   const opp = await CrmOpportunity.create({

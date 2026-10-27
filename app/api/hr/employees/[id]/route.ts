@@ -10,6 +10,9 @@ import "@/models/hr/Department";
 import bcrypt from "bcryptjs";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { canAccessDemoDoc } from "@/lib/auth/scopeFilter";
+
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 export async function GET(
   req: NextRequest,
@@ -22,6 +25,9 @@ export async function GET(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -34,7 +40,7 @@ export async function GET(
       .populate("chatter.authorId", "name")
       .lean();
 
-    if (!employee) {
+    if (!employee || !canAccessDemoDoc(session, employee)) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 404 },
@@ -43,7 +49,7 @@ export async function GET(
 
     return NextResponse.json({ employee });
   } catch (error: any) {
-    return NextResponse.json({ error: friendlyError(error, "We couldn't complete this request. Please try again.") }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -58,11 +64,20 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     const body = sanitizeEmployeePayload(await req.json());
     await connectDB();
+
+
+const existing = await Employee.findOne({ _id: id, tenantId });
+    if (!existing || !canAccessDemoDoc(session, existing)) {
+      return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+    }
 
     const fieldErrors = validateEmployee(body, { partial: true });
     if (Object.keys(fieldErrors).length > 0) {
@@ -122,9 +137,11 @@ export async function PATCH(
     delete body.userPassword;
     delete body.userRole;
 
+    const safeBody = stripProtectedFields(body);
+
     const employee = await Employee.findOneAndUpdate(
       { _id: id, tenantId },
-      { $set: body },
+      { $set: safeBody },
       { new: true },
     )
       .populate("departmentId", "name code")
@@ -163,6 +180,7 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true, employee });
+
   } catch (error: any) {
     return NextResponse.json({ error: friendlyError(error, "We couldn't complete this request. Please try again.") }, { status: 500 });
   }
@@ -179,19 +197,24 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
 
-    const employee = await Employee.findOneAndDelete({ _id: id, tenantId });
 
-    if (!employee) {
+const existing = await Employee.findOne({ _id: id, tenantId });
+    if (!existing || !canAccessDemoDoc(session, existing)) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 404 },
       );
     }
+
+    const employee = await Employee.findOneAndDelete({ _id: id, tenantId });
 
     // ── Unlink from User ──
     if (employee.userId) {
@@ -202,7 +225,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
-    return NextResponse.json({ error: friendlyError(error, "We couldn't complete this request. Please try again.") }, { status: 500 });
+    return handleRouteError(error);
   }
 }

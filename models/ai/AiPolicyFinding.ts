@@ -20,7 +20,7 @@ export interface IAiPolicyFinding extends Document {
 
 const AiPolicyFindingSchema: Schema<IAiPolicyFinding> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true },
     policies: { type: [Schema.Types.Mixed], default: [] },
     treatmentVerdicts: { type: [Schema.Types.Mixed], default: [] },

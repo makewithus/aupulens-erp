@@ -19,7 +19,7 @@ export interface IOrgInvite extends Document {
 
 const OrgInviteSchema: Schema<IOrgInvite> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     email: { type: String, required: true, lowercase: true, trim: true },
     role: { type: String, required: true },
     token: { type: String, required: true },

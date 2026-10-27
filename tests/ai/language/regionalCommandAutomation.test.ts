@@ -101,6 +101,9 @@ describe("Sarvam regional commands reach native Aupulens automation", () => {
   });
 
   beforeEach(async () => {
+    // afterEach drops this disposable database, including the plan catalog.
+    // Recreate the authorization fixture for every case, before the provider call.
+    await seedPlans();
     setSarvamEnv(true);
     clearLanguageCache();
     clearReplyCache();

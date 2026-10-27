@@ -35,7 +35,7 @@ export interface ICoupon extends Document {
 
 const CouponSchema = new Schema<ICoupon>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     couponCode: { type: String, required: true, trim: true, uppercase: true },
     description: { type: String, trim: true },

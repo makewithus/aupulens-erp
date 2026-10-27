@@ -22,6 +22,8 @@ export interface ErpIntentContext {
   lastErpQuery?: Partial<ErpQuery> | Record<string, any>;
   pendingQuoteProposalId?: string;
   pendingCustomerProposalId?: string;
+  pendingCustomerMobileProposalId?: string;
+  pendingProductProposalId?: string;
   pendingRoleProposalId?: string;
 }
 
@@ -38,9 +40,18 @@ export type ErpIntent =
   | "customer_confirm"
   | "customer_cancel"
   | "customer_update"
+  | "customer_mobile_confirm"
+  | "customer_mobile_cancel"
+  | "product_draft"
+  | "product_confirm"
+  | "product_cancel"
   | "role_confirm"
   | "role_cancel"
   | "validate_values"
+  | { type: "customer_mobile_update"; customerQuery: string; newMobile: string }
+  | { type: "product_draft" }
+  | { type: "customer_receivables"; customer?: string }
+  | { type: "vendor_bill_query"; supplier?: string; billReference?: string; status?: string }
   | { type: "plan"; feature?: string }
   | { type: "organization_info" }
   | {
@@ -60,6 +71,16 @@ export type ErpIntent =
     }
   | { type: "role_change"; userName: string; role: string; fromRole?: string }
   | { type: "employee_lookup"; name?: string; department?: string; employeeCode?: string }
+  | {
+      type: "employee_count";
+      scope: "total" | "active" | "linked" | "unlinked" | "department";
+      department?: string;
+    }
+  | { type: "reconcile_ar" }
+  | { type: "missing_accounting_records" }
+  | { type: "unposted_journal_entries" }
+  | { type: "period_comparison" }
+  | { type: "close_readiness_blockers" }
   | null;
 
 const MONTH_NAMES = [
@@ -234,6 +255,18 @@ function cleanName(raw: string): string {
   return cleaned.trim();
 }
 
+function cleanDepartment(raw: string): string {
+  let cleaned = raw.trim();
+  cleaned = cleaned.replace(/^(?:the|our|this|a|an)\s+/i, "");
+  cleaned = cleaned.replace(/\s+department$/i, "");
+  return cleaned.trim();
+}
+
+const DEPT_STOPWORDS = new Set([
+  "total", "all", "our", "my", "the", "company", "active", "ones",
+  "records", "employees", "staff", "workspace", "organization", "there", "users"
+]);
+
 function cleanRole(raw: string): string {
   let cleaned = raw.trim();
   // Strip trailing punctuation or sentences like ". Identify the exact employee...", " and check..."
@@ -303,11 +336,111 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   // Quote workflow controls
   if (/^cancel(?: the)? quote[.!]?$/i.test(q)) return "quote_cancel";
   if (/^(?:yes[, ]*)?(?:confirm|save)(?: the)? quote[.!]?$/i.test(q)) return "quote_confirm";
-  if (/\bquote\b/i.test(q) && /\b(?:create|make|draft|prepare|for)\b/i.test(q)) return "quote_draft";
+  if (
+    !/\b(?:show|list|find|search|get|view|display|fetch)\b/i.test(q) &&
+    (
+      (/\bquotes?\b/i.test(q) && /\b(?:create|make|draft|prepare|banao|banayein|karo|taiyar|banana|naye|naya|nayi)\b/i.test(q)) ||
+      (/\bquotes?\s+for\s+(?:\d+|an?|one|two|three|four|five)\b/i.test(q)) ||
+      /(?:banao|banayein|taiyar\s+karo)\s+.*quote/i.test(q) ||
+      /quote\s+.*(?:banao|banayein|karo|taiyar)/i.test(q)
+    )
+  ) {
+    return "quote_draft";
+  }
 
   // Customer workflow controls
   if (/\b(?:cancel(?: the)? customer(?: draft)?|discard(?: the)? customer)\b/i.test(q)) return "customer_cancel";
   if (/^(?:yes[, ]*)?(?:confirm|save)(?: the)? customer(?: draft)?[.!]?$/i.test(q)) return "customer_confirm";
+
+  // Customer mobile update controls (SYS-30)
+  if (
+    /^(?:yes[, ]*)?(?:confirm|save)(?: the)? (?:customer )?mobile(?: update)?[.!]?$/i.test(q) ||
+    (context?.pendingCustomerMobileProposalId && /^(?:yes[, ]*)?(?:confirm|save|proceed)[.!]?$/i.test(q))
+  ) {
+    return "customer_mobile_confirm";
+  }
+  if (
+    /^cancel(?: the)? (?:customer )?mobile(?: update)?[.!]?$/i.test(q) ||
+    (context?.pendingCustomerMobileProposalId && /^(?:cancel|no|discard)[.!]?$/i.test(q))
+  ) {
+    return "customer_mobile_cancel";
+  }
+
+  // Tamil customer mobile update
+  const isTamilCustomerMobile =
+    /(?:வாடிக்கையாளர்|வாடிக்கையாளரின்).*(?:மொபைல்|தொலைபேசி).*(?:மாற்றவும்|மாற்று|புதுப்பிக்கவும்)/i.test(q) ||
+    /(?:மொபைல்|தொலைபேசி).*(?:வாடிக்கையாளர்|வாடிக்கையாளரின்).*(?:மாற்றவும்|மாற்று|புதுப்பிக்கவும்)/i.test(q) ||
+    /(?:வாடிக்கையாளர்|வாடிக்கையாளரின்).*(?:மாற்றவும்|மாற்று|புதுப்பிக்கவும்)/i.test(q);
+  if (isTamilCustomerMobile) {
+    const custMatch = q.match(/(?:வாடிக்கையாளர்|வாடிக்கையாளரின்)\s+([A-Za-z0-9_-]+)/i) ||
+                      q.match(/\b([A-Z0-9]+-[A-Z0-9_-]+)\b/i);
+    const phoneMatch = q.match(/([0-9]{7,15})/);
+    if (custMatch && phoneMatch) {
+      return { type: "customer_mobile_update", customerQuery: custMatch[1].trim(), newMobile: phoneMatch[1].trim() };
+    }
+  }
+
+  // English customer mobile update
+  const isEnglishCustomerMobile =
+    /\b(?:update|change|modify|set)\b.*\b(?:mobile|phone|contact)\b/i.test(q) ||
+    /\b(?:mobile|phone|contact)\s+(?:number\s+)?(?:of|for)\b.*\b(?:update|change|to)\b/i.test(q);
+  if (isEnglishCustomerMobile && !context?.pendingCustomerProposalId) {
+    const custMatch = q.match(/\b(?:customer|for|of)\s+([A-Za-z0-9_-]+)(?:\s+(?:'s|mobile|phone|to|number)|\s*$)/i) ||
+                      q.match(/\b([A-Z0-9]+-[A-Z0-9_-]+)\b/i);
+    const phoneMatch = q.match(/\b(?:to|is|=|:)\s*([+]?[0-9]{7,15})\b/i) || q.match(/\b([0-9]{10})\b/);
+    if (custMatch && phoneMatch) {
+      return { type: "customer_mobile_update", customerQuery: custMatch[1].trim(), newMobile: phoneMatch[1].trim() };
+    }
+  }
+
+  // Product workflow controls (SYS-31)
+  if (
+    /^cancel(?: the)? product(?: draft)?[.!]?$/i.test(q) ||
+    (context?.pendingProductProposalId && /^(?:cancel|no|discard)[.!]?$/i.test(q))
+  ) {
+    return "product_cancel";
+  }
+  if (
+    /^(?:yes[, ]*)?(?:confirm|save)(?: the)? product(?: draft)?[.!]?$/i.test(q) ||
+    (context?.pendingProductProposalId && /^(?:yes[, ]*)?(?:confirm|save|proceed)[.!]?$/i.test(q))
+  ) {
+    return "product_confirm";
+  }
+  if (
+    (/\b(?:products?|item)\b/i.test(q) && /\b(?:create|make|add|new|draft|banao|banayein|karo|taiyar|banana|naya|nayi)\b/i.test(q) && !/\b(?:do not|don't)\s+(?:create|save)\b/i.test(q)) ||
+    /\b(?:ek\s+)?naya\s+product\b/i.test(q) ||
+    /\bproduct\s+.*(?:banao|banayein|taiyar)\b/i.test(q)
+  ) {
+    return "product_draft";
+  }
+
+  // Supplier / Vendor bill questions (SYS-19, SYS-28)
+  if (
+    /\b(?:supplier\s+bills?|vendor\s+bills?|pending\s+bills?|bills?\s+due|bills?\s+pending|what\s+do\s+we\s+owe)\b/i.test(q) ||
+    (/\bbills?\b/i.test(q) && /\b(?:supplier|vendor|owe|due|pending|payable)\b/i.test(q))
+  ) {
+    const suppMatch = q.match(/\b(?:supplier|vendor|to|for|owe)\s+([A-Za-z0-9_-]+)/i) ||
+                      q.match(/\b([A-Z0-9]+-[A-Z0-9_-]+)\b/i);
+    const billRefMatch = q.match(/\b(?:BILL-[A-Za-z0-9_-]+)\b/i);
+    return {
+      type: "vendor_bill_query",
+      supplier: suppMatch ? suppMatch[1].trim() : undefined,
+      billReference: billRefMatch ? billRefMatch[0] : undefined,
+    };
+  }
+
+  // Customer outstanding balance / Total sales & receivables (SYS-07, SYS-27)
+  if (
+    /\b(?:how\s+much\s+does|amount\s+owed|outstanding\s+balance|total\s+sales\s+and\s+(?:outstanding\s+)?receivables|receivables\s+and\s+sales)\b/i.test(q) ||
+    (/\b(?:owe|owed|outstanding|receivables?)\b/i.test(q) && /\b(?:customer|sales?|balance)\b/i.test(q))
+  ) {
+    const custMatch = q.match(/\b(?:customer|for|does)\s+([A-Za-z0-9_-]+)(?:\s+owe|\s+balance|\s*$)/i) ||
+                      q.match(/\b([A-Z0-9]+-[A-Z0-9_-]+)\b/i);
+    return {
+      type: "customer_receivables",
+      customer: custMatch ? custMatch[1].trim() : undefined,
+    };
+  }
 
   // Explicit update of customer draft
   if (
@@ -357,6 +490,71 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
     return { type: "employee_lookup", name: name ? cleanName(name) : undefined };
   }
 
+  // Employee follow-up recognition (preserves entity context from previous employee queries)
+  const isPriorEmployeeQuery =
+    context?.lastErpQuery?.entity === "employee" ||
+    (context?.lastErpQuery as any)?.type === "employee_count" ||
+    (context?.lastErpQuery as any)?.type === "employee_lookup";
+
+  if (isPriorEmployeeQuery && !/\b(?:invoices?|customers?|quotes?|sales\s+orders?|products?|items?|stock|profit|loss)\b/i.test(q)) {
+    const priorDept = (context?.lastErpQuery as any)?.department;
+    // Follow-up: "What about active ones?", "how many are active?", "what about active?"
+    if (/\b(?:what\s+about\s+)?active(?:\s+ones|\s+employees|\s+staff)?\b/i.test(q) || /\bhow\s+many\s+(?:are\s+)?active\b/i.test(q)) {
+      return { type: "employee_count", scope: "active", department: priorDept };
+    }
+    // Follow-up: "What about in Finance?", "what about Finance?", "how many in Finance?"
+    const followDeptMatch = q.match(/\b(?:what\s+about(?:\s+in)?|how\s+many\s+in|in|for)\s+(?:the\s+)?([A-Za-z0-9&/-]+?)(?:\s+department)?[?.!]?$/i);
+    if (followDeptMatch) {
+      const d = cleanDepartment(followDeptMatch[1]);
+      if (d && !DEPT_STOPWORDS.has(d.toLowerCase())) {
+        const isPriorActive = (context?.lastErpQuery as any)?.scope === "active";
+        return { type: "employee_count", scope: isPriorActive ? "active" : "department", department: d };
+      }
+    }
+    // Follow-up: "how many in total?", "total how many?"
+    if (/\b(?:total|how\s+many\s+(?:in\s+)?total|total\s+count)\b/i.test(q)) {
+      return { type: "employee_count", scope: "total" };
+    }
+    // Follow-up: "what about linked?", "how many linked to users?"
+    if (/\blinked\b/i.test(q)) {
+      return { type: "employee_count", scope: "linked" };
+    }
+    // Follow-up: "what about unlinked?", "how many have no user account?"
+    if (/\b(?:unlinked|no\s+user)\b/i.test(q)) {
+      return { type: "employee_count", scope: "unlinked" };
+    }
+  }
+
+  // Explicit employee count queries
+  const hasEmployeeCountKw = /\b(?:employees?|staff|team\s+members?|workers?|headcount)\b/i.test(q);
+  if (hasEmployeeCountKw && isNotCreation && !isLookupVerb) {
+    // 1. Linked user accounts: "how many employee accounts are linked to users?"
+    if (/\b(?:linked(?:\s+to)?(?:\s+user)?\s+accounts?|accounts?\s+(?:are\s+)?linked(?:\s+to\s+users?)?|have\s+user\s+accounts?|linked\s+to\s+users?|linked\s+users?)\b/i.test(q)) {
+      return { type: "employee_count", scope: "linked" };
+    }
+    // 2. Unlinked user accounts: "how many employees have no user account?"
+    if (/\b(?:no\s+user\s+accounts?|not\s+linked(?:\s+to\s+users?)?|without(?:\s+a)?\s+user\s+accounts?|unlinked(?:\s+user)?(?:\s+accounts?)?)\b/i.test(q)) {
+      return { type: "employee_count", scope: "unlinked" };
+    }
+    // 3. Department: "how many employees are in Finance?", "employees in Finance department"
+    const deptMatch =
+      q.match(/\b(?:in|from|belonging\s+to|under)\s+(?:the\s+)?([A-Za-z0-9&/-]+?)(?:\s+department)?[?.!]?$/i) ||
+      q.match(/\b(?:in|from|belonging\s+to|under)\s+(?:the\s+)?([A-Za-z0-9&/-]+?)\s+department\b/i);
+    if (deptMatch) {
+      const d = cleanDepartment(deptMatch[1]);
+      if (d && !DEPT_STOPWORDS.has(d.toLowerCase())) {
+        const wantsActive = /\bactive\b/i.test(q);
+        return { type: "employee_count", scope: wantsActive ? "active" : "department", department: d };
+      }
+    }
+    // 4. Active employees: "how many employees are active?"
+    if (/\bactive\b/i.test(q)) {
+      return { type: "employee_count", scope: "active" };
+    }
+    // 5. Total count: "how many employees are there in total?"
+    return { type: "employee_count", scope: "total" };
+  }
+
   // Bare confirmations/cancellations disambiguated by context
   if (/^(?:yes[, ]*)?(?:confirm|save)[.!]?$/i.test(q)) {
     if (context?.pendingCustomerProposalId) return "customer_confirm";
@@ -397,6 +595,28 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
     return { type: "organization_info" };
   }
 
+  // ── Specialized Accounting & Finance Deep Intents ──
+  if (/\b(?:reconcile\s+(?:accounts?\s+receivable|ar)|ar\s+(?:to\s+gl|reconciliation|tie[- ]out)|reconcile\s+ar\s+to\s+(?:its\s+)?(?:general\s+ledger|gl)\s+control\s+account)\b/i.test(q)) {
+    return { type: "reconcile_ar" };
+  }
+
+  if (/\b(?:missing\s+(?:accounting\s+records?|mappings?|data)|what\s+(?:is|are)\s+missing\s+for\s+(?:a\s+)?complete\s+(?:profit|p&l|financials?)|which\s+accounting\s+records?\s+or\s+mappings?\s+are\s+missing)\b/i.test(q) &&
+      !/\b(?:analyse|analyze|calculate|compute)\b.*\b(?:profit|loss|p&l|income\s+statement)\b/i.test(q)) {
+    return { type: "missing_accounting_records" };
+  }
+
+  if (/\b(?:unposted\s+journal\s+entries|draft\s+journal\s+entries|unposted\s+entries(?:\s+that\s+could\s+affect|\s+affecting)?(?:\s+the)?\s+(?:next\s+)?period\s+close)\b/i.test(q)) {
+    return { type: "unposted_journal_entries" };
+  }
+
+  if (/\b(?:compare\s+(?:the\s+)?current\s+month\s+with\s+(?:the\s+)?previous\s+month|month\s+over\s+month|mom\s+comparison|transactions?\s+driving\s+material\s+changes?|material\s+transaction\s+drivers)\b/i.test(q)) {
+    return { type: "period_comparison" };
+  }
+
+  if (/\b(?:close[- ]readiness\s+blockers?|period\s+close\s+blockers?|close\s+blockers?|readiness\s+blockers?|current\s+close[- ]readiness\s+blockers?)\b/i.test(q)) {
+    return { type: "close_readiness_blockers" };
+  }
+
   // Explicit plan switch check: user explicitly commands to see the account/subscription plan
   const isExplicitPlanSwitch =
     /\b(?:account\s+plan|workspace\s+plan|billing\s+plan|subscription\s+plan|show\s+(?:me\s+)?(?:the\s+)?(?:account\s+)?plan|what\s+is\s+(?:our|the)\s+plan)\b/i.test(q) &&
@@ -408,7 +628,7 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
 
   // Profit / Loss / P&L (BUG-002 and follow-ups)
   const isExplicitPL =
-    /\b(?:profit|loss|p&l|profit\s+(?:and|&|\/)\s*loss|income\s+statement)\b/i.test(q) ||
+    /\b(?:profit|loss|p&l|profit\s+(?:and|&|\/)\s*loss|income\s+statement|net\s+income)\b/i.test(q) ||
     /\b(?:in\s+profit\s+or\s+loss|making\s+(?:a\s+)?profit|profitable|loss\s+making)\b/i.test(q) ||
     (/\b(?:analyse|analyze)\b/i.test(q) && /\b(?:financial|financials?|financial\s+position|profit|loss|revenue|cogs)\b/i.test(q));
 
@@ -547,8 +767,12 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
     const name = q.match(/\bcustomer\s+(.+?)[?.!]?$/i)?.[1];
     if (name) query.name = name.trim();
   }
+  if (entity === "product" && query.operation === "search") {
+    const prodMatch = q.match(/\b(?:for|of|product|item)\s+([A-Za-z0-9_-]+)/i) || q.match(/\b([A-Z0-9]+-[A-Z0-9_-]+)\b/i);
+    if (prodMatch) query.name = prodMatch[1].trim();
+  }
   // A bare casual mention must not become an unrequested record dump.
-  if (!/\b(?:show|list|find|get|search|how many|count|biggest|largest|highest|smallest|lowest|status|number of|total)\b/i.test(q)) return null;
+  if (!/\b(?:show|list|find|get|search|how many|count|biggest|largest|highest|smallest|lowest|status|number of|total|what|check|stock|available|inventory)\b/i.test(q)) return null;
   return query;
 }
 

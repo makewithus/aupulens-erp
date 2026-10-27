@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     
     if (!body.shipmentNumber || !body.customerName || !body.origin || !body.destination || !body.freightProvider) {
       return NextResponse.json(
@@ -141,7 +142,7 @@ export async function PUT(request: Request) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     const { _id, ...updateData } = body;
 
     if (!_id) {

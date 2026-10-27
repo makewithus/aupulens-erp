@@ -30,7 +30,7 @@ export interface IInventoryItem extends Document {
 
 const InventoryItemSchema: Schema<IInventoryItem> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true }, // NEW
+    tenantId: { type: String, required: true, index: true, immutable: true }, // NEW
     itemCode: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },

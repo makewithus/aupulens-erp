@@ -40,7 +40,7 @@ export interface IAccount extends Document {
 
 const AccountSchema: Schema<IAccount> = new Schema(
   {
-    tenantId: { type: String, index: true },
+    tenantId: { type: String, index: true , immutable: true },
     // Old fields
     code: { type: String, trim: true },
     name: { type: String, trim: true },

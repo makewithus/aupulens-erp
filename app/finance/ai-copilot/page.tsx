@@ -59,7 +59,7 @@ export default function FinanceAiCopilotPage() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={loadScan}
     >
       <div className="mx-auto max-w-4xl space-y-6 p-1">

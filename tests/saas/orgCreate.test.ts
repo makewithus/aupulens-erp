@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { buildTenantUrl } from "@/lib/config";
 
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
 const {
@@ -181,7 +182,7 @@ describe("POST /api/auth/org/create — successful creation", () => {
     expect(body.message).toBe("Organization created successfully");
     expect(body.organization.subdomain).toBe("newcorp");
     expect(body.organization.tier).toBe("starter");
-    expect(body.organization.url).toContain("newcorp.aupulens.online");
+    expect(body.organization.url).toBe(buildTenantUrl("newcorp"));
   });
 
   it("normalizes subdomain to lowercase", async () => {

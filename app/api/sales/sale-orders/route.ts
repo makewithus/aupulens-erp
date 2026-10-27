@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -149,7 +150,8 @@ export async function POST(request: Request) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
-    const body = await request.json();
+
+const body = stripProtectedFields(await request.json());
 
     if (body.status) {
       body.status = toDbStatus(body.status);
@@ -178,6 +180,7 @@ export async function POST(request: Request) {
 
     const clientOrder = mapOrderToClient(order.toObject());
     return NextResponse.json({ order: clientOrder }, { status: 201 });
+
   } catch (error) {
     console.error("Error creating sale order:", error);
     if ((error as any).code === 11000) {

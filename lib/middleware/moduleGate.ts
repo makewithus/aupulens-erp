@@ -143,8 +143,18 @@ export function isSubscriptionBlocked(org: OrgModuleInfo): boolean {
 
 export function buildGateDeniedResponse(
   moduleName: string,
-  tier: string
+  tier: string,
+  reason: "plan_restricted" | "disabled_by_admin" = "plan_restricted"
 ): Record<string, unknown> {
+  if (reason === "disabled_by_admin") {
+    return {
+      error: `The ${moduleName} module is entitled on your ${tier} plan but currently disabled by your organization administrator`,
+      code: "MODULE_NOT_ENABLED",
+      module: moduleName,
+      currentTier: tier,
+      requiredAction: "enable_in_settings",
+    };
+  }
   return {
     error: `The ${moduleName} module is not available on your ${tier} plan`,
     code: "MODULE_NOT_AVAILABLE",
@@ -184,8 +194,34 @@ export async function applyModuleGating(
   if (!moduleName) return null; // not a module route
 
   const orgData = await getOrgData(tenantId);
-  // Org lookup failed → fail open; the route handler or DB layer will surface the error.
-  if (!orgData) return null;
+  // AUP-012: Fail closed if organization lookup fails for non-legacy tenants.
+  // Preserves backward compatibility only for "default-tenant" / "default".
+  if (!orgData) {
+    if (tenantId === "default-tenant" || tenantId === "default") {
+      return null; // legacy tenant compatibility
+    }
+    if (isApiRoute) {
+      return NextResponse.json(
+        {
+          error: "Organization context not found or invalid",
+          code: "ORGANIZATION_NOT_FOUND",
+        },
+        { status: 403 },
+      );
+    }
+    if (requestUrl) {
+      const url = new URL("/unauthorized", requestUrl);
+      url.searchParams.set("reason", "invalid_organization");
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.json(
+      {
+        error: "Organization context not found or invalid",
+        code: "ORGANIZATION_NOT_FOUND",
+      },
+      { status: 403 },
+    );
+  }
 
   if (
     !isModuleAccessible(
@@ -196,11 +232,25 @@ export async function applyModuleGating(
       orgData.resolvedModules,
     )
   ) {
-    const errorBody = buildGateDeniedResponse(moduleName, orgData.tier ?? "starter");
+    const tier = (orgData.tier as string) ?? "starter";
+    const tierModules = getTierLimits(tier).enabledModules;
+    const inTier =
+      (tierModules as readonly string[]).includes(moduleName) ||
+      ((orgData.resolvedModules as readonly string[] | undefined)?.includes(moduleName) ?? false);
+    const reason =
+      inTier && (
+        (orgData.resolvedModules !== undefined && !orgData.resolvedModules.includes(moduleName)) ||
+        (orgData.enabledModules?.length > 0 && !orgData.enabledModules.includes(moduleName))
+      )
+        ? "disabled_by_admin"
+        : "plan_restricted";
+
+    const errorBody = buildGateDeniedResponse(moduleName, tier, reason);
     if (!isApiRoute && requestUrl) {
       const url = new URL("/unauthorized", requestUrl);
       url.searchParams.set("module", errorBody.module as string);
       url.searchParams.set("tier", errorBody.currentTier as string);
+      url.searchParams.set("reason", reason);
       return NextResponse.redirect(url);
     }
     return NextResponse.json(errorBody, { status: 403 });

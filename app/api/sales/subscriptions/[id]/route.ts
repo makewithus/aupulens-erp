@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -6,6 +7,7 @@ import { SALES_SUBSCRIPTION_STATUS, SALES_SUBSCRIPTION_STATUS_VALUES } from "@/l
 import { dispatchSubscriptionEvent } from "@/lib/sales/webhookDispatch";
 import "@/models/sales/Customer";
 import "@/models/sales/SalesInvoice";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -14,8 +16,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
     const subscription = await (Subscription as any)
       .findOne({ _id: id, tenantId: session.user.tenantId })
       .populate("customerId", "header contact_details")
@@ -28,8 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ success: true, data: subscription });
   } catch (error: any) {
-    console.error("Subscription GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -43,10 +47,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
-    const tenantId = session.user.tenantId;
     const { id } = await params;
-    const body = await request.json();
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
+
+const tenantId = session.user.tenantId;
+    const body = stripProtectedFields(await request.json());
 
     const update: Record<string, any> = {};
     if (body.status !== undefined) {
@@ -73,8 +81,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     return NextResponse.json({ success: true, data: subscription });
+
   } catch (error: any) {
-    console.error("Subscription PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

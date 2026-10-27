@@ -14,7 +14,7 @@ export interface IAutomationExecution extends Document {
 
 const AutomationExecutionSchema = new Schema<IAutomationExecution>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     ruleId: { type: Schema.Types.ObjectId, ref: "CrmAutomationRule", required: true },
     trigger: { type: String, required: true },
     entity: { type: String, required: true },

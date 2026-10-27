@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -320,7 +321,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("Error in live CRM analytics API:", error);
     return NextResponse.json(
-      { error: "Failed to generate dynamic CRM analytics", details: error.message },
+      { error: "Failed to generate dynamic CRM analytics", details: safeInternalErrorMessage() },
       { status: 500 }
     );
   }

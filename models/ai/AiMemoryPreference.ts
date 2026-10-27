@@ -8,7 +8,7 @@ export interface IAiMemoryPreference extends Document {
 }
 
 const AiMemoryPreferenceSchema: Schema<IAiMemoryPreference> = new Schema({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   enabled: { type: Boolean, default: true },
 }, { timestamps: true });

@@ -13,7 +13,7 @@ export interface IDeliveryMethod extends Document {
 
 const DeliveryMethodSchema = new Schema<IDeliveryMethod>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
   },
   { timestamps: true },

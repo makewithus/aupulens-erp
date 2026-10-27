@@ -1,8 +1,11 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmTask from "@/models/crm/Task";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
+
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -23,7 +26,8 @@ export async function GET(req: NextRequest) {
     { $set: { status: 'Overdue' } }
   );
 
-  const baseQuery = CrmTask.find(query).sort({ due_date: 1 }).populate('assigned_to_id', 'name email');
+  const scopedQuery = applyDemoScope(session, query);
+  const baseQuery = CrmTask.find(scopedQuery).sort({ due_date: 1 }).populate('assigned_to_id', 'name email');
 
   // Pagination is opt-in via `page` — omitting it keeps returning everything,
   // matching the convention used across the rest of this codebase.
@@ -37,7 +41,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
 
   const [total, tasks] = await Promise.all([
-    CrmTask.countDocuments(query),
+    CrmTask.countDocuments(scopedQuery),
     baseQuery.skip((page - 1) * limit).limit(limit).lean(),
   ]);
 
@@ -49,7 +53,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   
   await dbConnect();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
   body.tenantId = session.user.tenantId;
   body.createdBy = session.user.id;
   if (!body.assigned_to_id) body.assigned_to_id = session.user.id;

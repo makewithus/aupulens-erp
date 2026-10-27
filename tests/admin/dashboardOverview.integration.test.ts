@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import mongoose from "mongoose";
 
 vi.mock("@/auth", () => ({ auth: async () => ({ user: { role: "admin", tenantId: "overview-test" } }) }));
@@ -12,14 +12,18 @@ import Expense from "@/models/finance/Expense";
 import Invoice from "@/models/finance/Invoice";
 import Payment from "@/models/sales/Payment";
 import Stock from "@/models/inventory/Stock";
+import { invalidateServerCache } from "@/lib/api/serverCache";
 
 // Explicit opt-in for the disposable local service; no Atlas/shared URI support.
 describe.runIf(process.env.AUPULENS_OVERVIEW_MONGO_TEST === "1")("overview with disposable MongoDB", () => {
-  const databaseName = `aupulens_overview_test_${process.pid}_${Date.now()}`;
+  const databaseName = `aupulens_test_overview_${process.pid}_${Date.now()}`;
   const bank = new mongoose.Types.ObjectId();
   const revenue = new mongoose.Types.ObjectId();
   const costs = new mongoose.Types.ObjectId();
   const date = new Date();
+
+  // Fixtures write collections directly instead of using cache-invalidating APIs.
+  beforeEach(() => invalidateServerCache("admin_dashboard:overview-test"));
 
   beforeAll(async () => {
     await mongoose.connect(`mongodb://127.0.0.1:27129/${databaseName}`, { serverSelectionTimeoutMS: 5000 });
@@ -53,12 +57,12 @@ describe.runIf(process.env.AUPULENS_OVERVIEW_MONGO_TEST === "1")("overview with 
     await mongoose.disconnect();
   });
 
-  it("keeps profit unavailable before costs are posted and counts real activity", async () => {
+  it("shows the posted net income before costs are posted and counts real activity", async () => {
     const response = await GET();
     expect(response.status).toBe(200);
     const { summary } = await response.json();
-    expect(summary.finance).toMatchObject({ totalRevenue: 1000, totalExpenses: 0, netIncome: null,
-      profitAvailable: false, totalTransactions: 1, totalPayments: 1 });
+    expect(summary.finance).toMatchObject({ totalRevenue: 1000, totalExpenses: 0, netIncome: 1000,
+      profitAvailable: true, totalTransactions: 1, totalPayments: 1 });
     expect(summary.inventory.totalStockTransfers).toBe(1);
   });
 

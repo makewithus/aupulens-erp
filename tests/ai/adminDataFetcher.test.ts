@@ -35,20 +35,20 @@ function buildAggregateChain(returnValue: any[] = []) {
 // ─── Mock all Mongoose models ─────────────────────────────────────────────────
 
 vi.mock("@/models/finance/Transaction", () => ({
-  default: { find: mockFind },
+  default: { find: mockFind, countDocuments: mockCountDocuments },
 }));
 
 vi.mock("@/models/finance/Invoice", () => ({
-  default: { find: mockFind },
+  default: { find: mockFind, countDocuments: mockCountDocuments },
 }));
 
 vi.mock("@/models/sales/SalesInvoice", () => ({
-  SalesInvoice: { find: mockFind, aggregate: mockAggregate },
+  SalesInvoice: { find: mockFind, aggregate: mockAggregate, countDocuments: mockCountDocuments },
 }));
 
 vi.mock("@/models/sales/Payment", () => ({
-  default: { find: mockFind },
-  Payment: { find: mockFind },
+  default: { find: mockFind, countDocuments: mockCountDocuments },
+  Payment: { find: mockFind, countDocuments: mockCountDocuments },
 }));
 
 vi.mock("@/models/sales/SaleOrder", () => ({
@@ -67,7 +67,7 @@ vi.mock("@/models/inventory/InventoryItem", () => ({
 }));
 
 vi.mock("@/models/manufacturing/Shipment", () => ({
-  default: { find: mockFind },
+  default: { find: mockFind, countDocuments: mockCountDocuments },
 }));
 
 vi.mock("@/models/auth/User", () => ({
@@ -81,6 +81,15 @@ vi.mock("@/models/admin/Organization", () => ({
   default: {
     findOne: mockFindOne,
   },
+}));
+
+vi.mock("@/lib/accounting/reports", () => ({
+  buildPostedJournalReport: vi.fn().mockResolvedValue({
+    income: { total: 0 },
+    expense: { total: 0 },
+    totals: { balanced: true },
+    activity: { postedEntryCount: 0 },
+  }),
 }));
 
 // ─── Import the module under test (after mocks are registered) ────────────────

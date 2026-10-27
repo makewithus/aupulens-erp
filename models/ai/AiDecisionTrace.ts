@@ -72,7 +72,7 @@ const AiPolicyEvaluationSchema = new Schema<IAiPolicyEvaluation>(
 
 const AiDecisionTraceSchema: Schema<IAiDecisionTrace> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true, unique: true },
     workflowId: { type: String, required: true, index: true },
     workflowVersion: { type: String, required: true },

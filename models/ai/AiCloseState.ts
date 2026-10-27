@@ -107,7 +107,7 @@ const AiCloseBlockerSchema = new Schema<IAiCloseBlocker>(
 
 const AiCloseStateSchema: Schema<IAiCloseState> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     period: { type: String, required: true },
     readiness: {
       status: { type: String, enum: Object.values(AI_CLOSE_READINESS_STATUS), required: true },

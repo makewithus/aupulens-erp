@@ -17,7 +17,7 @@ export interface IEInvoice extends Document {
 
 const EInvoiceSchema: Schema<IEInvoice> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     invoiceId: { type: Schema.Types.ObjectId, ref: "SalesInvoice", required: true },
     amount: { type: Number, required: true },
     status: { type: String, enum: EINVOICE_STATUS_VALUES, default: EINVOICE_STATUS.PENDING },

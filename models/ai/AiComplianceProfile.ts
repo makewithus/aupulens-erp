@@ -57,7 +57,7 @@ export interface IAiComplianceProfile extends Document {
 
 const AiComplianceProfileSchema: Schema<IAiComplianceProfile> = new Schema(
   {
-    tenantId: { type: String, required: true, unique: true, index: true },
+    tenantId: { type: String, required: true, unique: true, index: true, immutable: true },
     registrations: {
       type: [
         {

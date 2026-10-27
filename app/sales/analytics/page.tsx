@@ -25,7 +25,7 @@ import {
   Users,
 } from "lucide-react";
 import { TradingLineChart } from "@/components/charts/TradingLineChart";
-import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
+import { DailyBrickBarChart, plainNumberFmtY, plainNumberFmtTooltip } from "@/components/charts/DailyBrickBarChart";
 import { CanvasPieChart, CanvasBarChart } from "@/components/inventory/CanvasCharts";
 import { SalesVisualization } from "@/components/sales/SalesVisualization";
 import { StatCard } from "@/components/admin/StatCard";
@@ -62,13 +62,10 @@ export default function SalesAnalyticsPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const cachedSummary = getInstantCachedData<SalesSummary>("/api/sales/summary");
-  const cachedAnalytics = getInstantCachedData<SalesAnalyticsData>("/api/sales/analytics");
-
-  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedSummary);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [dateRange, setDateRange] = useState("90");
-  const [summary, setSummary] = useState<SalesSummary | null>(() => cachedSummary ?? null);
-  const [analytics, setAnalytics] = useState<SalesAnalyticsData | null>(() => cachedAnalytics ?? null);
+  const [summary, setSummary] = useState<SalesSummary | null>(null);
+  const [analytics, setAnalytics] = useState<SalesAnalyticsData | null>(null);
 
   const fetchSalesData = useCallback(async () => {
     try {
@@ -92,6 +89,15 @@ export default function SalesAnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    // 1. Safe post-hydration cache read for instant 0ms load
+    const cachedSummary = getInstantCachedData<SalesSummary>("/api/sales/summary", { allowPreHydration: true });
+    const cachedAnalytics = getInstantCachedData<SalesAnalyticsData>("/api/sales/analytics", { allowPreHydration: true });
+    if (cachedSummary) setSummary(cachedSummary);
+    if (cachedAnalytics) setAnalytics(cachedAnalytics);
+    if (cachedSummary && cachedAnalytics) setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -194,7 +200,7 @@ export default function SalesAnalyticsPage() {
       userName={session?.user?.name || "Sales Team"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "sales"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchSalesData}
     >
       <div className="space-y-6 font-mono min-w-0 max-w-full p-4 sm:p-6 lg:p-8">
@@ -262,27 +268,31 @@ export default function SalesAnalyticsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 chart-animate-in">
           <StatCard
             title="Total Revenue (30d)"
-            value={formatCurrency(summary?.totalRevenue || 0)}
+            isLoading={isLoading || !summary}
+            value={summary ? formatCurrency(summary.totalRevenue) : null}
             visual={<UsersGraph />}
-            subtitle={formatTrend(summary?.trends?.revenue)}
+            subtitle={summary ? formatTrend(summary?.trends?.revenue) : undefined}
           />
           <StatCard
             title="Orders Processed"
-            value={ordersCount}
+            isLoading={isLoading || !summary}
+            value={summary ? ordersCount : null}
             visual={<ActivePulse />}
-            subtitle={formatTrend(summary?.trends?.orders)}
+            subtitle={summary ? formatTrend(summary?.trends?.orders) : undefined}
           />
           <StatCard
             title="Avg Order Value (AOV)"
-            value={formatCurrency(avgOrderVal)}
+            isLoading={isLoading || !summary}
+            value={summary ? formatCurrency(avgOrderVal) : null}
             visual={<UsersGraph />}
-            subtitle="Per closed order"
+            subtitle={summary ? "Per closed order" : undefined}
           />
           <StatCard
             title="Q2C Win Rate"
-            value={`${convRate}%`}
+            isLoading={isLoading || !summary}
+            value={summary ? `${convRate}%` : null}
             visual={<InactiveOrbit />}
-            subtitle={`${quotesCount} quotes generated`}
+            subtitle={summary ? `${quotesCount} quotes generated` : undefined}
           />
         </div>
 
@@ -351,6 +361,9 @@ export default function SalesAnalyticsPage() {
                   height={320}
                   colorTheme="emerald"
                   metricLabel="Orders"
+                  unit="number"
+                  yAxisFormatter={plainNumberFmtY}
+                  tooltipValueFormatter={plainNumberFmtTooltip}
                   showToolbar={true}
                   initialDays={Number(dateRange) || 90}
                   isDark={isDark}

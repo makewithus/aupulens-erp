@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore } from "@/store/authStore";
 import { APP_BASE_URL, APP_ROOT_DOMAIN } from "@/lib/config";
+import { markHydrated } from "@/lib/api/cachedFetch";
 
 function getTenantFromHost(hostname: string): string | null {
   if (hostname.endsWith(".vercel.app")) {
@@ -61,12 +62,19 @@ export default function TenantInitializer() {
   const { data: session, status } = useSession();
 
   useEffect(() => {
+    markHydrated();
+  }, []);
+
+  useEffect(() => {
     if (status === "authenticated" && session?.user) {
       setUser(session.user as any);
+      if (session.user.tenantId) {
+        setTenantId(session.user.tenantId);
+      }
     } else if (status === "unauthenticated") {
       setUser(null);
     }
-  }, [setUser, session?.user, status]);
+  }, [setUser, session?.user, status, setTenantId]);
 
   useEffect(() => {
     const initializeTenant = async () => {

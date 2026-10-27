@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -89,7 +90,7 @@ export async function PATCH(
   } catch (error: unknown) {
     console.error("Update tenant error:", error);
     return NextResponse.json(
-      { error: (error as Error).message || "Something went wrong" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }
@@ -136,7 +137,7 @@ export async function DELETE(
   } catch (error: unknown) {
     console.error("Delete tenant error:", error);
     return NextResponse.json(
-      { error: (error as Error).message || "Something went wrong" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }

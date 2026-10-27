@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { requirePermission } from "@/lib/crm/rbac";
+import { escapeRegex } from "@/lib/utils/regex";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
   if (url.searchParams.get("action")) query.action = url.searchParams.get("action");
   if (url.searchParams.get("user_id")) query.user_id = url.searchParams.get("user_id");
   if (url.searchParams.get("search")) {
-    const s = url.searchParams.get("search");
+    const s = escapeRegex(url.searchParams.get("search") || "");
     query.$or = [
       { field_name: { $regex: s, $options: "i" } },
       { new_value: { $regex: s, $options: "i" } },

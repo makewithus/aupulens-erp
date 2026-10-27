@@ -13,6 +13,9 @@ export async function GET() {
   const session = await auth();
   const tenantId = (session?.user as any)?.tenantId as string | undefined;
   if (!tenantId) return NextResponse.json({ success: false }, { status: 401 });
+  if (!["finance", "admin", "master-admin"].includes((session?.user as any)?.role)) {
+    return NextResponse.json({ success: false, message: "Finance role required" }, { status: 403 });
+  }
 
   await dbConnect();
   const invoices = await (SalesInvoice as any)

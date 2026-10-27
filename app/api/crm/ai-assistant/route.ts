@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     const { conversationId: incomingConversationId } = body;
     const message: string = body.message ?? body.query ?? "";
     const { imageDataUrls, docTexts } = await processChatAttachments(body);

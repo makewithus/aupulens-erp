@@ -84,7 +84,7 @@ export interface IInvoice extends Document {
   poReference?: string;
   grnReference?: string;
   poMatchType?: "2_way" | "3_way";
-  poMatchStatus?: "pending" | "matched" | "mismatch";
+  poMatchStatus?: "pending" | "matched" | "mismatch" | "not_applicable";
   taxMismatchStatus?: "matched" | "mismatch" | "not_applicable";
   manualReviewRequired?: boolean;
   discrepancyNotes?: string;
@@ -98,7 +98,7 @@ export interface IInvoice extends Document {
 
 const InvoiceSchema: Schema<IInvoice> = new Schema(
   {
-    tenantId: { type: String },
+    tenantId: { type: String, immutable: true },
     name: { type: String, default: "Draft", index: true },
     partnerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
     vendorId: { type: Schema.Types.ObjectId, ref: "Vendor" },
@@ -181,7 +181,7 @@ const InvoiceSchema: Schema<IInvoice> = new Schema(
     },
     poMatchStatus: {
       type: String,
-      enum: ["pending", "matched", "mismatch"],
+      enum: ["pending", "matched", "mismatch", "not_applicable"],
       default: "pending",
     },
     taxMismatchStatus: {

@@ -47,7 +47,7 @@ export async function routePermissionCheck(
 
   await connectDB();
   const user = await User.findOne({ _id: userId, tenantId }).lean();
-  if (!user) {
+  if (!user || user.status !== "active") {
     return { allowed: false, reason: `no user ${userId} found for tenant ${tenantId}` };
   }
   const role = String((user as { role?: string }).role ?? "");

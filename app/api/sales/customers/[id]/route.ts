@@ -6,6 +6,8 @@ import Customer from "@/models/sales/Customer";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 import { validateCustomerInput } from "@/lib/sales/customerValidation";
 
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -17,6 +19,9 @@ export async function GET(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     await connectDB();
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -36,11 +41,7 @@ export async function GET(
 
     return NextResponse.json({ customer });
   } catch (error) {
-    console.error("Error fetching customer:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -55,8 +56,12 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     await connectDB();
-    const body = await request.json();
+
+const body = stripProtectedFields(await request.json());
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
@@ -91,9 +96,11 @@ export async function PATCH(
       }
     }
 
+    const safeBody = stripProtectedFields(body);
+
     const customer = await Customer.findOneAndUpdate(
       { _id: id, tenantId },
-      { $set: body },
+      { $set: safeBody },
       { new: true, runValidators: true },
     );
 
@@ -107,6 +114,7 @@ export async function PATCH(
     await safeEmitEvent(tenantId, "master_data.changed", { model: "Customer", id: String(customer._id), tenantId });
 
     return NextResponse.json({ customer });
+
   } catch (error) {
     console.error("Error updating customer:", error);
     return NextResponse.json(
@@ -128,7 +136,8 @@ export async function DELETE(
 
     const { id } = await params;
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
@@ -145,6 +154,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: "Customer deleted successfully" });
+
   } catch (error) {
     console.error("Error deleting customer:", error);
     return NextResponse.json(

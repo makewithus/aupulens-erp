@@ -21,7 +21,7 @@ export interface IAttendance extends Document {
 
 const AttendanceSchema = new Schema<IAttendance>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     employeeId: {
       type: Schema.Types.ObjectId,
       ref: "Employee",

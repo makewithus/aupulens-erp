@@ -53,7 +53,7 @@ const BudgetLineSchema = new Schema<IBudgetLine>(
 
 const BudgetSchema: Schema<IBudget> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     fiscalYear: { type: String, required: true },
     period: { type: String, enum: BUDGET_PERIOD_VALUES, default: BUDGET_PERIOD.MONTHLY },

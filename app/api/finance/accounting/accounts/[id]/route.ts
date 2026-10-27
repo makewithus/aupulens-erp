@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -9,11 +10,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
     const { id } = await params;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
 
     if (!body.accountCode) delete body.accountCode;
 
@@ -25,6 +27,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!account) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     return NextResponse.json({ account });
+
   } catch (error: any) {
     if (error.code === 11000) {
       return NextResponse.json({ error: "Account with this name or code already exists" }, { status: 400 });
@@ -38,7 +41,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
     const { id } = await params;
@@ -49,6 +53,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     await Account.deleteOne({ _id: id, tenantId });
     return NextResponse.json({ success: true });
+
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

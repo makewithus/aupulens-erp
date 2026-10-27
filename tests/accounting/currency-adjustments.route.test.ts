@@ -7,6 +7,9 @@ vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
 import CurrencyAdjustment from "@/models/finance/CurrencyAdjustment";
+import BankAccount from "@/models/finance/BankAccount";
+import JournalEntry from "@/models/finance/JournalEntry";
+import AccountingSettings from "@/models/finance/AccountingSettings";
 import { makeRequest, mockSession } from "./_helpers/routeTestUtils";
 
 const URL = "http://localhost/api/finance/accounting/currency-adjustments";
@@ -17,7 +20,7 @@ let POST: typeof import("@/app/api/finance/accounting/currency-adjustments/route
 describe("currency-adjustments CRUD route", () => {
   beforeAll(async () => {
     await mongoose.connect(process.env.MONGODB_URI!);
-    await CurrencyAdjustment.init();
+    await Promise.all([CurrencyAdjustment, BankAccount, JournalEntry, AccountingSettings].map((model: any) => model.init()));
     ({ GET, POST } = await import("@/app/api/finance/accounting/currency-adjustments/route"));
   });
 

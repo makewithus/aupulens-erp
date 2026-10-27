@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: settings });
   } catch (error: any) {
     console.error("Document Settings GET error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -36,7 +38,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     await connectDB();
-    const data = await request.json();
+
+const data = stripProtectedFields(await request.json());
     
     // Security: ensure tenantId isn't overridden
     delete data.tenantId;
@@ -48,8 +51,9 @@ export async function PATCH(request: NextRequest) {
     ).lean();
 
     return NextResponse.json({ success: true, data: settings });
+
   } catch (error: any) {
     console.error("Document Settings PATCH error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

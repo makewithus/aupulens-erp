@@ -206,14 +206,18 @@ export function AssetPopupContent({
         <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
           <Landmark className="h-4 w-4" /> Account Configuration
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase text-muted-foreground">
               Asset Account
             </Label>
             <SelectSearchAdd
               items={accounts}
-              value={formData.accounts?.assetAccountId}
+              value={
+                typeof formData.accounts?.assetAccountId === "object"
+                  ? formData.accounts?.assetAccountId?._id
+                  : formData.accounts?.assetAccountId
+              }
               onValueChange={(v) =>
                 setFormData({
                   ...formData,
@@ -227,10 +231,11 @@ export function AssetPopupContent({
               labelField="name"
               secondaryField="code"
               defaultAccountType="asset_fixed"
+              disabled={isViewOnly}
               className="rounded-none border-t-0 border-x-0 border-b-2 h-10 px-0"
             />
             <p className="text-[10px] text-muted-foreground italic">
-              Balance sheet account for the asset itself
+              Balance sheet fixed asset account (e.g. 1400)
             </p>
           </div>
           <div className="space-y-2">
@@ -239,7 +244,11 @@ export function AssetPopupContent({
             </Label>
             <SelectSearchAdd
               items={accounts}
-              value={formData.accounts?.depreciationAccountId}
+              value={
+                typeof formData.accounts?.depreciationAccountId === "object"
+                  ? formData.accounts?.depreciationAccountId?._id
+                  : formData.accounts?.depreciationAccountId
+              }
               onValueChange={(v) =>
                 setFormData({
                   ...formData,
@@ -253,10 +262,42 @@ export function AssetPopupContent({
               labelField="name"
               secondaryField="code"
               defaultAccountType="expense_depreciation"
+              disabled={isViewOnly}
               className="rounded-none border-t-0 border-x-0 border-b-2 h-10 px-0"
             />
             <p className="text-[10px] text-muted-foreground italic">
-              Expense account for annual depreciation
+              Expense account for annual depreciation (e.g. 5300)
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase text-muted-foreground">
+              Acquisition Funding / Paid Via
+            </Label>
+            <SelectSearchAdd
+              items={accounts}
+              value={
+                typeof formData.accounts?.fundingAccountId === "object"
+                  ? formData.accounts?.fundingAccountId?._id
+                  : formData.accounts?.fundingAccountId
+              }
+              onValueChange={(v) =>
+                setFormData({
+                  ...formData,
+                  accounts: { ...formData.accounts, fundingAccountId: v },
+                })
+              }
+              placeholder="Select Funding Account (Default: Capital)"
+              onAdd={onAddAccount}
+              dialogTitle="Create Funding Account"
+              keyField="_id"
+              labelField="name"
+              secondaryField="code"
+              defaultAccountType="equity"
+              disabled={isViewOnly}
+              className="rounded-none border-t-0 border-x-0 border-b-2 h-10 px-0"
+            />
+            <p className="text-[10px] text-muted-foreground italic">
+              Offset for double-entry (Owner Capital 3100 or Bank)
             </p>
           </div>
         </div>

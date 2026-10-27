@@ -17,7 +17,7 @@ export interface IMigrationUploadChunk extends Document {
 
 const MigrationUploadChunkSchema = new Schema<IMigrationUploadChunk>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     uploadId: { type: String, required: true, index: true },
     fileIndex: { type: Number, required: true },
     fileName: { type: String, required: true },

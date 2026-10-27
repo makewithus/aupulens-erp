@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -6,6 +8,7 @@ import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { requireRole } from "@/lib/crm/rbac";
 import { logSystemActivity } from "@/lib/crm/activityLogger";
 import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 import "@/models/crm/Account";
 
 export async function GET(req: NextRequest) {
@@ -55,9 +58,10 @@ export async function GET(req: NextRequest) {
       if (Object.keys(range).length > 0) query.expected_close_date = range;
     }
 
+    const scopedQuery = applyDemoScope(session, query);
     const [total, data] = await Promise.all([
-      CrmOpportunity.countDocuments(query),
-      CrmOpportunity.find(query)
+      CrmOpportunity.countDocuments(scopedQuery),
+      CrmOpportunity.find(scopedQuery)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -69,7 +73,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, data, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     console.error("GET Opportunities Error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
     if (roleCheck) return roleCheck;
 
     await dbConnect();
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     // Drop any invalid/empty enum values (e.g. an AI-invented stage like
     // "Proposal / Price Quote") so schema defaults apply instead of a 500.
     sanitizeEnumFields(CrmOpportunity, body);
@@ -117,6 +121,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: opp });
   } catch (error: any) {
     console.error("POST Opportunity Error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

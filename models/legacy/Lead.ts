@@ -39,7 +39,7 @@ export interface ILead extends Document {
 
 const LeadSchema = new Schema<ILead>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     companyName: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true },

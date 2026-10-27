@@ -65,7 +65,7 @@ export default function BillPopupContent({
       try {
         const [accRes, vendorRes, productRes, poRes] = await Promise.all([
           fetch("/api/accounting/accounts"),
-          fetch("/api/sales/customers"),
+          fetch("/api/purchasing/suppliers"),
           fetch("/api/sales/products"),
           fetch("/api/finance/purchase-orders"),
         ]);
@@ -78,10 +78,33 @@ export default function BillPopupContent({
         ]);
 
         if (!active) return;
-        setAccounts(accData.items || []);
-        setVendors(vendorData.items || []);
+        const accItems = accData.items || [];
+        setAccounts(accItems);
+
+        let vendorItems = vendorData.items || [];
+        if (vendorItems.length === 0) {
+          try {
+            const fallbackRes = await fetch("/api/sales/customers");
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData.items?.length) vendorItems = fallbackData.items;
+          } catch {}
+        }
+        setVendors(vendorItems);
         setProducts(productData.items || []);
         setPurchaseOrders(poData.items || []);
+
+        // Default payableAccountId to the tenant's active Accounts Payable control account (SYS-18)
+        if (!formData.payableAccountId) {
+          const apAccount = accItems.find(
+            (a: any) =>
+              (a.code === "2100" || a.account_type === "liability_payable") &&
+              a.isActive !== false &&
+              a.status !== "inactive"
+          ) || accItems.find((a: any) => a.internal_group === "liability");
+          if (apAccount?._id) {
+            setFormData((prev: any) => ({ ...prev, payableAccountId: apAccount._id }));
+          }
+        }
       } catch (e) {
         console.error("Fetch bill popup resources error:", e);
       }

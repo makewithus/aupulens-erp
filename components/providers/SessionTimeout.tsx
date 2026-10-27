@@ -21,6 +21,13 @@ export function SessionTimeout() {
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
+  useEffect(() => {
+    // This provider survives navigation to /auth. A new login starts a fresh timer.
+    setShowWarning(false);
+    setCountdown(COUNTDOWN_TIME);
+    setLastActivity(Date.now());
+  }, [status]);
+
   const resetTimer = useCallback(() => {
     setLastActivity(Date.now());
     if (showWarning) {
@@ -67,23 +74,23 @@ export function SessionTimeout() {
 
   useEffect(() => {
     let countdownInterval: NodeJS.Timeout;
+    if (status !== "authenticated") return;
     if (showWarning && countdown > 0) {
       countdownInterval = setInterval(() => {
         setCountdown((prev) => prev - 1);
       }, 1000);
     } else if (showWarning && countdown === 0) {
-      const callbackUrl = typeof window === "undefined"
-        ? "/auth?error=SessionExpired"
-        : `/auth?error=SessionExpired&callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-      signOut({ callbackUrl });
+      setShowWarning(false);
+      setCountdown(COUNTDOWN_TIME);
+      signOut({ callbackUrl: "/auth" });
     }
 
     return () => {
       if (countdownInterval) clearInterval(countdownInterval);
     };
-  }, [showWarning, countdown]);
+  }, [showWarning, countdown, status]);
 
-  if (!showWarning) return null;
+  if (status !== "authenticated" || !showWarning) return null;
 
   return (
     <AlertDialog open={showWarning}>

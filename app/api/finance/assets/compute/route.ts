@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -8,6 +9,7 @@ import { DOCUMENT_STATUS, VOUCHER_TYPE } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import { escapeRegex } from "@/lib/utils/regex";
 import { computeMonthlyDepreciation } from "@/lib/accounting/depreciation";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,66 +24,71 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
 
-    const asset = await Asset.findOne({ _id: assetId, tenantId });
-    if (!asset || asset.status !== DOCUMENT_STATUS.POSTED) {
-      return NextResponse.json(
-        { error: "Asset not found or not in posted/running state" },
-        { status: 404 },
-      );
-    }
+    return await withAccountingTransaction(async () => {
+      const asset = await Asset.findOne({ _id: assetId, tenantId });
+      const isEligible =
+        asset &&
+        (asset.status === "running" || asset.status === DOCUMENT_STATUS.POSTED);
+      if (!asset || !isEligible) {
+        return NextResponse.json(
+          { error: "Asset not found or not in posted/running state" },
+          { status: 404 },
+        );
+      }
 
-    // Basic Linear Depreciation Logic — extracted to lib/accounting/depreciation.ts so
-    // AI-10 (docs/ai/BRIEF-03-BATCH-B.md) can reuse the identical formula instead of
-    // reimplementing it. Behaviour here is unchanged.
-    const monthlyDepreciation = computeMonthlyDepreciation(asset);
+      // Basic Linear Depreciation Logic — extracted to lib/accounting/depreciation.ts so
+      // AI-10 (docs/ai/BRIEF-03-BATCH-B.md) can reuse the identical formula instead of
+      // reimplementing it. Behaviour here is unchanged.
+      const monthlyDepreciation = computeMonthlyDepreciation(asset);
 
-    // Create a Journal Entry for this month's depreciation
-    const baseName = `DEP/${asset.name}/${new Date().toISOString().slice(0, 7)}`;
-    let entryName = baseName;
+      // Create a Journal Entry for this month's depreciation
+      const baseName = `DEP/${asset.name}/${new Date().toISOString().slice(0, 7)}`;
+      let entryName = baseName;
 
-    // Check for existing entries and add sequence if needed to avoid duplicate key error
-    // This allows multiple test computations for the same month during demo/testing
-    const count = await JournalEntry.countDocuments({
-      tenantId,
-      "header.name": { $regex: new RegExp(`^${escapeRegex(baseName)}`) },
-    });
+      // Check for existing entries and add sequence if needed to avoid duplicate key error
+      // This allows multiple test computations for the same month during demo/testing
+      const count = await JournalEntry.countDocuments({
+        tenantId,
+        "header.name": { $regex: new RegExp(`^${escapeRegex(baseName)}`) },
+      });
 
-    if (count > 0) {
-      entryName = `${baseName}/${String(count + 1).padStart(2, "0")}`;
-    }
+      if (count > 0) {
+        entryName = `${baseName}/${String(count + 1).padStart(2, "0")}`;
+      }
 
-    const journalEntry = await createPostedJournalEntry({
-      tenantId,
-      header: {
-        name: entryName,
-        date: new Date(),
-        ref: asset.name,
-        journalType: "general",
-      },
-      voucherType: VOUCHER_TYPE.JOURNAL,
-      lineIds: [
-        {
-          accountId: asset.accounts.depreciationAccountId,
-          label: `Depreciation for ${asset.name}`,
-          debit: monthlyDepreciation,
-          credit: 0,
+      const journalEntry = await createPostedJournalEntry({
+        tenantId,
+        header: {
+          name: entryName,
+          date: new Date(),
+          ref: asset.name,
+          journalType: "general",
         },
-        {
-          accountId: asset.accounts.assetAccountId,
-          label: `Depreciation for ${asset.name}`,
-          debit: 0,
-          credit: monthlyDepreciation,
+        voucherType: VOUCHER_TYPE.JOURNAL,
+        lineIds: [
+          {
+            accountId: asset.accounts.depreciationAccountId,
+            label: `Depreciation for ${asset.name}`,
+            debit: monthlyDepreciation,
+            credit: 0,
+          },
+          {
+            accountId: asset.accounts.assetAccountId,
+            label: `Depreciation for ${asset.name}`,
+            debit: 0,
+            credit: monthlyDepreciation,
+          },
+        ],
+        totals: {
+          amountUntaxed: monthlyDepreciation,
+          amountTax: 0,
+          amountTotal: monthlyDepreciation,
         },
-      ],
-      totals: {
-        amountUntaxed: monthlyDepreciation,
-        amountTax: 0,
-        amountTotal: monthlyDepreciation,
-      },
-    });
+      });
 
-    return NextResponse.json({ success: true, journalEntry });
+      return NextResponse.json({ success: true, journalEntry });
+    });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

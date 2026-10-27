@@ -12,6 +12,7 @@ export interface IStock extends Document {
   createdBy?: mongoose.Types.ObjectId;
   migrationSourceKey?: string;
   migrationBatchId?: string;
+  isDemo?: boolean;
 }
 
 const StockSchema: Schema<IStock> = new Schema(
@@ -27,10 +28,11 @@ const StockSchema: Schema<IStock> = new Schema(
     notes: { type: String },
     warehouse: { type: String },
     isReserved: { type: Boolean, default: false }, // For virtual stock reservations
-    tenantId: { type: String, index: true },
+    tenantId: { type: String, index: true, immutable: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
     migrationSourceKey: { type: String },
     migrationBatchId: { type: String },
+    isDemo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

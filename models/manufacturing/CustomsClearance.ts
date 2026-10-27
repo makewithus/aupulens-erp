@@ -42,7 +42,7 @@ export interface ICustomsClearance extends mongoose.Document {
 }
 
 const CustomsClearanceSchema = new Schema<ICustomsClearance>({
-  tenantId: { type: String, required: true, index: true },
+  tenantId: { type: String, required: true, index: true, immutable: true },
   clearanceNumber: { type: String, required: true },
   shipmentId: { type: Schema.Types.ObjectId, ref: 'Shipment' },
   shipmentNumber: { type: String, required: true },

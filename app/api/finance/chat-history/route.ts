@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -12,6 +13,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const ALLOWED_ROLES = ["finance", "admin", "master-admin"];
+    if (!ALLOWED_ROLES.includes(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
+    }
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -23,6 +29,7 @@ export async function GET(request: NextRequest) {
     const query: any = {
       userId: session.user.id,
       tenantId,
+      module: { $in: ["finance", null, undefined] },
     };
     if (!includeArchived) {
       query.isArchived = false;
@@ -50,12 +57,13 @@ export async function POST(request: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     const { chatId, conversationId, title, messages } = body;
 
     await dbConnect();
 
-    let chat;
+
+let chat;
     if (chatId) {
       // Update existing chat
       chat = await ChatHistory.findOneAndUpdate(
@@ -86,6 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ chat });
+
   } catch (error) {
     console.error("Error saving chat:", error);
     return NextResponse.json({ error: "Failed to save chat" }, { status: 500 });
@@ -111,7 +120,8 @@ export async function DELETE(request: NextRequest) {
 
     await dbConnect();
 
-    const chat = await ChatHistory.findOneAndDelete({
+
+const chat = await ChatHistory.findOneAndDelete({
       _id: chatId,
       userId: session.user.id,
       tenantId,
@@ -122,6 +132,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
+
   } catch (error) {
     console.error("Error deleting chat:", error);
     return NextResponse.json(

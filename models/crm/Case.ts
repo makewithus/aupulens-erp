@@ -25,7 +25,7 @@ export interface ICase extends Document {
 }
 
 const CaseSchema = new Schema<ICase>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   case_number: { type: String, required: true },
   title: { type: String, required: true },
   description: { type: String },

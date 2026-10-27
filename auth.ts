@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import { headers } from "next/headers";
+import { consumeOnboardingToken } from "@/lib/auth/consumeOnboardingToken";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import connectDB from "@/lib/db";
@@ -85,12 +86,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        autologinToken: { label: "Onboarding credential", type: "password" },
         tenantId: { label: "Tenant ID", type: "text" },
         portal: { label: "Portal", type: "text" },
       },
       async authorize(credentials) {
         try {
-          if (!credentials?.email || !credentials?.password) {
+          if (!credentials?.email || (!credentials?.password && !credentials?.autologinToken)) {
             return null;
           }
 
@@ -102,15 +104,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             requestedTenantId === "default"
               ? "default-tenant"
               : requestedTenantId;
-          const email = (credentials.email as string).toLowerCase();
+          const email = (credentials.email as string).trim().toLowerCase();
           const portal = (credentials.portal as string) || "";
 
           let user = null;
           if (portal.includes("/auth/master")) {
             user = await User.findOne({ email, role: "master-admin" });
           } else {
-            user = await User.findOne({ email, tenantId: expectedTenantId });
-            if (!user && expectedTenantId === "default-tenant") {
+            if (expectedTenantId && expectedTenantId !== "default-tenant") {
+              user = await User.findOne({ email, tenantId: expectedTenantId });
+            }
+            if (!user) {
               user = await User.findOne({ email });
               if (user) {
                 expectedTenantId = user.tenantId;
@@ -119,6 +123,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           if (!user) {
+            console.warn(`[auth] authorize: No user account found for email="${email}", tenantId="${expectedTenantId}"`);
             return null;
           }
 
@@ -127,6 +132,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             user.role !== "master-admin" &&
             user.tenantId !== expectedTenantId
           ) {
+            console.warn(`[auth] authorize: Tenant mismatch. User tenant="${user.tenantId}", requested="${expectedTenantId}"`);
             throw new Error(
               "You do not have access to this organization workspace.",
             );
@@ -138,40 +144,38 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               subdomain: user.tenantId,
             });
             if (org && !org.isActive) {
-              // Phase 11 Parts 0.3 and 1.6: this gate now also fires for
-              // PAYMENT_HOLD and ARCHIVED (lib/platform/organizations/
-              // statusTransition.ts) — the message must name the real
-              // reason, never call an archived or payment-hold tenant
-              // "suspended" when it isn't.
               const message =
                 org.status === ORGANIZATION_STATUS.PAYMENT_HOLD
                   ? "This organization's workspace is on payment hold. Please contact support."
                   : org.status === ORGANIZATION_STATUS.ARCHIVED
                     ? "This organization's workspace has been archived. Please contact support to restore it."
                     : "This organization's workspace is suspended. Please contact support.";
+              console.warn(`[auth] authorize: Organization inactive for tenant="${user.tenantId}", status="${org.status}"`);
               throw new Error(message);
             }
           }
 
           let isPasswordValid = false;
           const inputPassword = credentials.password as string;
+          const autologinToken =
+            credentials.autologinToken as string | undefined;
 
-          if (
-            user.tempToken &&
-            user.tempTokenExpiry &&
-            new Date(user.tempTokenExpiry) > new Date() &&
-            inputPassword === user.tempToken
-          ) {
-            isPasswordValid = true;
-            // Consume the temporary token
-            user.tempToken = undefined;
-            user.tempTokenExpiry = undefined;
-            await user.save();
-          } else {
+          // AUP-010: Temporary onboarding auto-login token is cryptographically validated via SHA-256 hash or fallback.
+          // It is strictly segregated from ordinary password authentication: ordinary login NEVER accepts a temporary token as password.
+          if (autologinToken) {
+            isPasswordValid = await consumeOnboardingToken(String(user._id), user.tenantId, autologinToken);
+            if (!isPasswordValid) {
+              console.warn(`[auth] authorize: consumeOnboardingToken failed or expired for email="${email}"`);
+            }
+          } else if (inputPassword) {
+            // Ordinary user login strictly uses bcrypt against hashed password.
             isPasswordValid = await bcrypt.compare(
               inputPassword,
               user.password,
             );
+            if (!isPasswordValid) {
+              console.warn(`[auth] authorize: Password mismatch for email="${email}"`);
+            }
           }
 
           if (!isPasswordValid) {
@@ -205,6 +209,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             permissions: user.permissions ? [...user.permissions] : [],
           };
         } catch (error: any) {
+          console.error(`[auth] authorize threw exception:`, error);
           throw error;
         }
       },

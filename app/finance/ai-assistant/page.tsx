@@ -380,7 +380,7 @@ export default function FinanceAIAssistantPage() {
         dashboardTitle="finance Dashboard"
         userName="Finance User"
         userRole="finance"
-        onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profileHref="/finance/profile"
       >
         <div className="flex h-[calc(100vh-8rem)] gap-4 bg-background p-4">
@@ -412,7 +412,7 @@ export default function FinanceAIAssistantPage() {
       dashboardTitle="finance Dashboard"
       userName={session?.user?.name || 'User'}
       userRole={session?.user?.role || 'finance'}
-      onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profileHref="/finance/profile"
     >
       <div className="flex h-[calc(100vh-8rem)] ">

@@ -32,7 +32,7 @@ export interface ISalesView extends Document {
 
 const SalesViewSchema: Schema<ISalesView> = new Schema(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     entityType: { type: String, required: true, default: "customers" },
     name: { type: String, required: true, trim: true },
     criteria: [

@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
     );
   } catch (error: unknown) {
     return NextResponse.json(
-      { error: (error as Error).message || "Something went wrong" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }

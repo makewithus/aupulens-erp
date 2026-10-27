@@ -94,7 +94,7 @@ const AiSchedulePeriodSchema = new Schema<IAiSchedulePeriod>(
 
 const AiScheduleSchema: Schema<IAiSchedule> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     scheduleType: { type: String, enum: Object.values(AI_SCHEDULE_TYPE), required: true },
     sourceRef: { model: { type: String, required: true }, id: { type: String, required: true } },
     status: { type: String, enum: Object.values(AI_SCHEDULE_STATUS), default: AI_SCHEDULE_STATUS.DRAFT },

@@ -27,7 +27,7 @@ export interface ICalendarEvent extends Document {
 
 const CalendarEventSchema = new Schema<ICalendarEvent>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     title: { type: String, required: true },
     description: { type: String },
     type: { type: String, enum: ["meeting", "reminder", "deadline", "other"], default: "meeting" },

@@ -46,6 +46,8 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   experimental: {
     middlewareClientMaxBodySize: "100mb",
+    // Bound build workers on development machines and small CI runners.
+    cpus: Number(process.env.AUP_BUILD_CPUS) || 2,
   },
 
   // Keep these Node-only document parsers OUT of the webpack server bundle.

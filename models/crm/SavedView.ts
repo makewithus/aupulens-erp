@@ -15,7 +15,7 @@ export interface ISavedView extends Document {
 
 const SavedViewSchema = new Schema<ISavedView>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true },
     entity_type: { type: String, required: true },
     owner_id: { type: Schema.Types.ObjectId, ref: "User", required: true },

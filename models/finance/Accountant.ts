@@ -19,7 +19,7 @@ export interface IAccountant extends Document {
 
 const AccountantSchema: Schema<IAccountant> = new Schema(
   {
-    tenantId: { type: String, index: true },
+    tenantId: { type: String, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     firmName: { type: String, required: true, trim: true },
     country: { type: String, required: true, trim: true },

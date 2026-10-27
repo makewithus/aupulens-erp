@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     await connectDB();
 
     // The form only collects shipmentId (a select) — look up its number, the

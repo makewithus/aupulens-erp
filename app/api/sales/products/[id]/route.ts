@@ -20,6 +20,8 @@ function productIdentityFilter(body: any, tenantId: string, excludeId?: string) 
   };
 }
 
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -31,6 +33,9 @@ export async function GET(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     await connectDB();
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -47,11 +52,7 @@ export async function GET(
 
     return NextResponse.json({ product });
   } catch (error) {
-    console.error("Error fetching product:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -66,8 +67,12 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     await connectDB();
-    const body = sanitizeProductPayload(await request.json());
+
+const body = sanitizeProductPayload(await request.json());
     for (const key of ["_id", "tenantId", "createdBy", "createdAt", "updatedAt"]) delete body[key];
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -101,6 +106,7 @@ export async function PATCH(
     await dedupeProductsForTenant(tenantId);
 
     return NextResponse.json({ product });
+
   } catch (error: any) {
     console.error("Error updating product:", error);
     if (error?.name === "ValidationError") {
@@ -136,8 +142,12 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
@@ -151,11 +161,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: "Product deleted successfully" });
+
   } catch (error) {
-    console.error("Error deleting product:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }

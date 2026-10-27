@@ -206,7 +206,7 @@ export default function ReceivablesPage() {
         userName={session?.user?.name || 'User'}
         userEmail={session?.user?.email || ''}
         userRole={session?.user?.role || 'finance'}
-        onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
       >
         <div className="space-y-6">
           <div><div className="h-9 w-80 bg-muted animate-pulse rounded mb-2" /><div className="h-5 w-96 bg-muted animate-pulse rounded" /></div>
@@ -233,7 +233,7 @@ export default function ReceivablesPage() {
       userName={session?.user?.name || ''}
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={() => { fetchInvoices(page, debouncedQuery, statusFilter, dateFrom, dateTo); fetchAllInvoicesForStats(statusFilter, dateFrom, dateTo); }}
     >
       <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">

@@ -132,7 +132,7 @@ export default function IntegrationsPage() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={(session?.user as any)?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={load}
     >
     <div className="max-w-6xl mx-auto">

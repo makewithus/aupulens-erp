@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -12,9 +14,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { id } = await params;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     const { action, credentials } = body;
 
     const gateway = await PaymentGateway.findOne({ _id: id, tenantId });
@@ -49,9 +52,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     return NextResponse.json({ success: false, message: "Unknown action" }, { status: 400 });
+
   } catch (error: any) {
     console.error("Online payment gateway PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -63,7 +67,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { id } = await params;
 
     const gateway = await PaymentGateway.findOne({ _id: id, tenantId });
@@ -79,8 +84,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await PaymentGateway.deleteOne({ _id: id, tenantId });
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
     console.error("Online payment gateway DELETE error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

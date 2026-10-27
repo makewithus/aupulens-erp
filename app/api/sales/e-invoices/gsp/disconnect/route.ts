@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -11,11 +12,13 @@ export async function POST() {
     }
 
     await connectDB();
-    await EinvoiceGspCredential.deleteOne({ tenantId: session.user.tenantId });
+
+await EinvoiceGspCredential.deleteOne({ tenantId: session.user.tenantId });
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
     console.error("GSP disconnect POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

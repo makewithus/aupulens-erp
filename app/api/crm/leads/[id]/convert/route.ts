@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   if (!lead) return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
   if (lead.status !== 'Qualified') return NextResponse.json({ success: false, message: "Lead must be Qualified to convert" }, { status: 422 });
   
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
   const sessionDb = await mongoose.startSession();
   
   try {
@@ -88,7 +90,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     return NextResponse.json({ success: true, data: { lead, account, contact, opportunity } });
   } catch (error: any) {
     await sessionDb.abortTransaction();
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   } finally {
     sessionDb.endSession();
   }

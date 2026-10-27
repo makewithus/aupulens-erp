@@ -333,7 +333,7 @@ function DeliveryChallansPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "sales"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={load}
     >
       <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">

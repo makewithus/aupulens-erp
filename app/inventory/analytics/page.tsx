@@ -66,21 +66,30 @@ export default function InventoryAnalyticsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const cachedWh = getInstantCachedData<any>("/api/inventory/warehouse");
-  const cachedStock = getInstantCachedData<any>("/api/inventory/stock");
-  const cachedBatch = getInstantCachedData<any>("/api/inventory/batch");
-  const cachedOrders = getInstantCachedData<any>("/api/inventory/orders");
-  const cachedMoves = getInstantCachedData<any>("/api/inventory/stock-moves");
-
-  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedWh);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
   const [dateRange, setDateRange] = useState('30');
 
-  const [warehouses, setWarehouses] = useState<Warehouse[]>(() => cachedWh?.warehouses || []);
-  const [stockItems, setStockItems] = useState<StockItem[]>(() => cachedStock?.items || []);
-  const [batches, setBatches] = useState<Batch[]>(() => cachedBatch?.batches || []);
-  const [orders, setOrders] = useState<Order[]>(() => cachedOrders?.orders || []);
-  const [stockMoves, setStockMoves] = useState<any[]>(() => cachedMoves?.moves || []);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [stockMoves, setStockMoves] = useState<any[]>([]);
+
+  useEffect(() => {
+    const cachedWh = getInstantCachedData<any>("/api/inventory/warehouse", { allowPreHydration: true });
+    const cachedStock = getInstantCachedData<any>("/api/inventory/stock", { allowPreHydration: true });
+    const cachedBatch = getInstantCachedData<any>("/api/inventory/batch", { allowPreHydration: true });
+    const cachedOrders = getInstantCachedData<any>("/api/inventory/orders", { allowPreHydration: true });
+    const cachedMoves = getInstantCachedData<any>("/api/inventory/stock-moves", { allowPreHydration: true });
+
+    if (cachedWh?.warehouses) setWarehouses(cachedWh.warehouses);
+    if (cachedStock?.items) setStockItems(cachedStock.items);
+    if (cachedBatch?.batches) setBatches(cachedBatch.batches);
+    if (cachedOrders?.orders) setOrders(cachedOrders.orders);
+    if (cachedMoves?.moves || cachedMoves?.items) setStockMoves(cachedMoves.moves || cachedMoves.items);
+    if (cachedWh || cachedStock) setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -96,7 +105,7 @@ export default function InventoryAnalyticsPage() {
         cachedFetch('/api/inventory/warehouse'),
         cachedFetch('/api/inventory/stock'),
         cachedFetch('/api/inventory/batch'),
-        cachedFetch('/api/inventory/orders'),
+        cachedFetch('/api/inventory/orders?limit=1000'),
         cachedFetch('/api/inventory/stock-moves'),
       ]);
 
@@ -118,7 +127,7 @@ export default function InventoryAnalyticsPage() {
       }
       if (movesRes.ok) {
         const data = await movesRes.json();
-        setStockMoves(data.moves || []);
+        setStockMoves(data.moves || data.items || []);
       }
     } catch (err) {
       console.error('Error fetching analytics data:', err);
@@ -261,15 +270,21 @@ export default function InventoryAnalyticsPage() {
   // Real Daily Throughput Data for DailyBrickBarChart
   const dailyThroughputData = useMemo(() => {
     const map = new Map<string, number>();
+    const toDateStr = (val: any) => {
+      if (!val) return "";
+      if (typeof val === 'string') return val.split("T")[0];
+      try { return new Date(val).toISOString().split("T")[0]; } catch { return ""; }
+    };
+
     stockMoves.forEach((m) => {
-      const d = (m.scheduledDate || m.createdAt || "").split("T")[0];
+      const d = toDateStr(m.scheduledDate || m.createdAt);
       if (d) {
-        const linesCount = (m.lines || []).reduce((s: number, l: any) => s + (l.quantity || 1), 0);
+        const linesCount = (m.lines || []).reduce((s: number, l: any) => s + (l.quantity || l.done || l.demand || 1), 0);
         map.set(d, (map.get(d) || 0) + linesCount);
       }
     });
     filteredOrders.forEach((o) => {
-      const d = (o.orderDate || (o as any).createdAt || "").split("T")[0];
+      const d = toDateStr(o.orderDate || (o as any).createdAt);
       if (d) {
         map.set(d, (map.get(d) || 0) + (o.totalQuantity || 1));
       }
@@ -306,7 +321,7 @@ export default function InventoryAnalyticsPage() {
     });
   }, [warehouses, orders, batches]);
 
-  if (status === 'loading') {
+  if (status === 'loading' || (isLoading && !warehouses.length && !stockItems.length)) {
     return (
       <DashboardLayout
         sidebarSections={inventorySidebarConfig}
@@ -320,7 +335,7 @@ export default function InventoryAnalyticsPage() {
         userName={(session as any)?.user?.name || ''}
         userEmail={(session as any)?.user?.email || ''}
         userRole={(session as any)?.user?.role || undefined}
-        onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profilePath="/inventory/profile"
       >
         <AnalyticsPageSkeleton />
@@ -341,7 +356,7 @@ export default function InventoryAnalyticsPage() {
       userName={(session as any)?.user?.name || ''}
       userEmail={(session as any)?.user?.email || ''}
       userRole={(session as any)?.user?.role || undefined}
-      onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchAllData}
       profilePath="/inventory/profile"
     >

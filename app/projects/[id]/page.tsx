@@ -31,7 +31,7 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
     userName: session?.user?.name || "",
     userEmail: session?.user?.email || "",
     userRole: session?.user?.role,
-    onSignOut: () => signOut({ callbackUrl: "/auth/admin" }),
+    onSignOut: () => signOut({ callbackUrl: "/auth" }),
   };
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,7 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
     if (!confirm("Delete this project? This cannot be undone.")) return;
     const res = await fetch(`/api/projects/${params.id}`, { method: "DELETE" });
     const data = await res.json();
-    if (data.success) { toast.success("Deleted"); router.push("/projects"); }
+    if (data.success) { toast.success("Deleted"); router.push("/projects/list"); }
     else toast.error(data.message || "Failed to delete");
   };
 

@@ -13,6 +13,7 @@
  * real tier-change path that exists today) are wired. Faking a payment
  * event with no real payment behind it would be worse than not having one.
  */
+import type { ClientSession } from "mongoose";
 import dbConnect from "@/lib/db";
 import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import { type SubscriptionEventType, type OrganizationTier } from "@/lib/constants/statuses";
@@ -24,9 +25,9 @@ export async function appendSubscriptionEvent(params: {
   amount?: number;
   currency?: string;
   meta?: Record<string, unknown>;
-}): Promise<void> {
+}, session?: ClientSession): Promise<void> {
   await dbConnect();
-  await SubscriptionEvent.create({
+  const data = {
     tenantId: params.tenantId,
     type: params.type,
     tier: params.tier,
@@ -34,5 +35,7 @@ export async function appendSubscriptionEvent(params: {
     currency: params.currency ?? "USD",
     occurredAt: new Date(),
     meta: params.meta,
-  });
+  };
+  if (session) await SubscriptionEvent.create([data], { session });
+  else await SubscriptionEvent.create(data);
 }

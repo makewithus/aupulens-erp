@@ -33,7 +33,7 @@ const JournalTemplateLineSchema = new Schema<IJournalTemplateLine>(
 
 const JournalTemplateSchema: Schema<IJournalTemplate> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     templateName: { type: String, required: true, trim: true },
     referenceNumber: { type: String, trim: true },
     notes: { type: String, required: true, maxlength: 500 },

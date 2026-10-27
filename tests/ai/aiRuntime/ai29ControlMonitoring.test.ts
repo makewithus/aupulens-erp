@@ -53,19 +53,22 @@ async function postJournal(opts: {
   voucherType?: string;
   lines: { accountId: mongoose.Types.ObjectId; debit: number; credit: number; sourceId?: mongoose.Types.ObjectId }[];
 }) {
-  return JournalEntry.create({
-    tenantId: TENANT,
-    header: { name: opts.name, date: opts.date, journalType: "general" },
-    voucherType: opts.voucherType,
-    status: "posted",
-    voucherStatus: "posted",
-    createdBy: opts.createdBy,
-    approvalRequired: Boolean(opts.approvedBy),
-    approvalDetails: opts.approvedBy ? { approvedBy: opts.approvedBy, approvedAt: opts.date } : undefined,
-    semanticOverride: opts.semanticOverride,
-    lineIds: opts.lines.map((l) => ({ accountId: l.accountId, label: "line", debit: l.debit, credit: l.credit, sourceId: l.sourceId })),
-    totals: { amountUntaxed: 0, amountTax: 0, amountTotal: opts.lines.reduce((s, l) => s + l.debit, 0) },
-  });
+  // These tests detect legacy approval violations, which production posting now rejects.
+    const entry = new JournalEntry({
+        tenantId: TENANT,
+        header: { name: opts.name, date: opts.date, journalType: "general" },
+        voucherType: opts.voucherType,
+        status: "posted",
+        voucherStatus: "posted",
+        createdBy: opts.createdBy,
+        approvalRequired: Boolean(opts.approvedBy),
+        approvalDetails: opts.approvedBy ? { approvedBy: opts.approvedBy, approvedAt: opts.date } : undefined,
+        semanticOverride: opts.semanticOverride,
+        lineIds: opts.lines.map((l) => ({ accountId: l.accountId, label: "line", debit: l.debit, credit: l.credit, sourceId: l.sourceId })),
+        totals: { amountUntaxed: 0, amountTax: 0, amountTotal: opts.lines.reduce((s, l) => s + l.debit, 0) },
+      });
+    await JournalEntry.collection.insertOne(entry.toObject());
+    return entry;
 }
 
 describe("AI-29 — Audit / control monitoring", () => {

@@ -1,3 +1,4 @@
+import { crmEditableFields } from "@/lib/crm/editableFields";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -8,92 +9,118 @@ import "@/models/crm/Opportunity";
 import { scoreLeadWithAi, calculateLeadScore } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
+import { canAccessDemoDoc } from "@/lib/auth/scopeFilter";
+
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  requireRole(session, ['lead.view', 'lead.read']);
-  
-  await dbConnect();
-  const lead = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId })
-      .populate('owner_id', 'name')
-      .populate('campaign_id', 'name')
-      .populate('converted_account_id', 'company_name')
-      .populate('converted_contact_id', 'first_name last_name')
-      .populate('converted_opportunity_id', 'deal_name').lean();
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    requireRole(session, ['lead.view', 'lead.read']);
     
-  if (!lead) return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
-  return NextResponse.json({ success: true, data: lead });
+    await dbConnect();
+    const lead = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId })
+        .populate('owner_id', 'name')
+        .populate('campaign_id', 'name')
+        .populate('converted_account_id', 'company_name')
+        .populate('converted_contact_id', 'first_name last_name')
+        .populate('converted_opportunity_id', 'deal_name').lean();
+
+    if (!lead || !canAccessDemoDoc(session, lead)) return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
+    return NextResponse.json({ success: true, data: lead });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  const roleCheck = requireRole(session, ['lead.edit', 'lead.write']);
-  if (roleCheck) return roleCheck;
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
 
-  await dbConnect();
-  const lead = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId });
-  if (!lead) return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
-  
-  const body = await req.json();
-  
-  // Status transition validation
-  if (body.status && body.status !== lead.status) {
-    if (lead.status === 'Attempting Contact' && body.status === 'Connected') {
-      // requires activity check, skipping for brevity but normally enforced
-    } else if (body.status === 'Disqualified' && !body.disqualification_reason) {
-      return NextResponse.json({ success: false, message: "Disqualification reason required" }, { status: 422 });
-    } else if (lead.status === 'Connected' && body.status === 'Qualified') {
-      if (!lead.budget_range && !body.budget_range) return NextResponse.json({ success: false, message: "Budget required" }, { status: 422 });
-      if (!lead.expected_timeline && !body.expected_timeline) return NextResponse.json({ success: false, message: "Timeline required" }, { status: 422 });
-    } else if (body.status === 'Converted') {
-      return NextResponse.json({ success: false, message: "Use /convert endpoint" }, { status: 422 });
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    const roleCheck = requireRole(session, ['lead.edit', 'lead.write']);
+    if (roleCheck) return roleCheck;
+
+    await dbConnect();
+    const lead = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId });
+    if (!lead || !canAccessDemoDoc(session, lead)) return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
+
+    const body = stripProtectedFields(await req.json());
+
+    // Status transition validation
+    if (body.status && body.status !== lead.status) {
+      if (lead.status === 'Attempting Contact' && body.status === 'Connected') {
+        // requires activity check, skipping for brevity but normally enforced
+      } else if (body.status === 'Disqualified' && !body.disqualification_reason) {
+        return NextResponse.json({ success: false, message: "Disqualification reason required" }, { status: 422 });
+      } else if (lead.status === 'Connected' && body.status === 'Qualified') {
+        if (!lead.budget_range && !body.budget_range) return NextResponse.json({ success: false, message: "Budget required" }, { status: 422 });
+        if (!lead.expected_timeline && !body.expected_timeline) return NextResponse.json({ success: false, message: "Timeline required" }, { status: 422 });
+      } else if (body.status === 'Converted') {
+        return NextResponse.json({ success: false, message: "Use /convert endpoint" }, { status: 422 });
+      }
     }
+
+    const safeUpdates = crmEditableFields("lead", body);
+    Object.assign(lead, safeUpdates);
+    lead.lead_score = calculateLeadScore(lead);
+    await lead.save();
+
+    const tenantId = session.user.tenantId;
+    const leadId = String(lead._id);
+    const snapshot = typeof (lead as any).toObject === "function" ? (lead as any).toObject() : { ...lead };
+    void (async () => {
+      try {
+        const { score, insight } = await scoreLeadWithAi(tenantId, snapshot);
+        if (typeof score === "number") {
+          await CrmLead.updateOne({ _id: leadId, tenantId }, { $set: { lead_score: score } });
+        }
+        if (insight?.ok) {
+          await recordAiInsight({
+            tenantId, entityType: "Lead", entityId: leadId,
+            insightType: "Recommendation", insight,
+            severity: score < 30 ? "Medium" : "Low",
+          });
+        }
+      } catch { /* background best-effort */ }
+    })();
+
+    return NextResponse.json({ success: true, data: lead });
+  } catch (error) {
+    return handleRouteError(error);
   }
-  
-  Object.assign(lead, body);
-  // Instant deterministic score; save + respond immediately. The LLM refinement
-  // runs in the background so the update isn't blocked on an AI round-trip.
-  lead.lead_score = calculateLeadScore(lead);
-  await lead.save();
-
-  const tenantId = session.user.tenantId;
-  const leadId = String(lead._id);
-  const snapshot = typeof (lead as any).toObject === "function" ? (lead as any).toObject() : { ...lead };
-  void (async () => {
-    try {
-      const { score, insight } = await scoreLeadWithAi(tenantId, snapshot);
-      if (typeof score === "number") {
-        await CrmLead.updateOne({ _id: leadId, tenantId }, { $set: { lead_score: score } });
-      }
-      if (insight?.ok) {
-        await recordAiInsight({
-          tenantId, entityType: "Lead", entityId: leadId,
-          insightType: "Recommendation", insight,
-          severity: score < 30 ? "Medium" : "Low",
-        });
-      }
-    } catch { /* background best-effort */ }
-  })();
-
-  return NextResponse.json({ success: true, data: lead });
 }
 
 export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  const roleCheck = requireRole(session, ['lead.delete']);
-  if (roleCheck) return roleCheck;
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
 
-  await dbConnect();
-  const lead = await CrmLead.findOneAndUpdate(
-    { _id: params.id, tenantId: session.user.tenantId },
-    { status: 'Disqualified', disqualification_reason: 'Deleted' },
-    { new: true }
-  );
-  return NextResponse.json({ success: true, data: lead });
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    const roleCheck = requireRole(session, ['lead.delete']);
+    if (roleCheck) return roleCheck;
+
+    await dbConnect();
+    const existing = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId });
+    if (!existing || !canAccessDemoDoc(session, existing)) return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
+
+    const lead = await CrmLead.findOneAndUpdate(
+      { _id: params.id, tenantId: session.user.tenantId },
+      { status: 'Disqualified', disqualification_reason: 'Deleted' },
+      { new: true }
+    );
+    return NextResponse.json({ success: true, data: lead });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }

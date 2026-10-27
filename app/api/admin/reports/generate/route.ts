@@ -697,51 +697,65 @@ export async function POST(request: NextRequest) {
       }
 
       case "balance": {
-        const [invoices, products] = await Promise.all([
-          Invoice.find({ tenantId }).lean(),
-          Product.find({ tenantId }).lean(),
-        ]);
+        const { buildPostedJournalReport } = await import("@/lib/accounting/reports");
+        const report = await buildPostedJournalReport({
+          tenantId,
+          endDate: new Date(),
+        });
 
-        // Current Assets - Accounts Receivable (Amount Due on Customer Invoices)
-        const receivables = invoices
-          .filter(
-            (inv: any) =>
-              inv.moveType === "out_invoice" && inv.state === DOCUMENT_STATUS.POSTED,
-          )
-          .reduce(
-            (sum, inv: any) => sum + (Number(inv.amountResidual) || 0),
-            0,
-          );
+        const unclosedEarnings = report.income.total - report.expense.total;
+        const equityAccounts: Record<string, any> = { ...report.equity.accounts };
+        if (Math.abs(unclosedEarnings) > 0.01) {
+          equityAccounts.current_year_earnings = {
+            id: "current_year_earnings",
+            code: "CYE",
+            name: "Retained Earnings (derived from unclosed P&L)",
+            accountType: "equity_unaffected",
+            internalGroup: "equity",
+            amount: unclosedEarnings,
+          };
+        }
 
-        // Inventory Value (Products * Cost)
-        const inventoryValue = products.reduce((sum, p: any) => {
-          const qty = p.tab_inventory?.quantity_on_hand || 0;
-          const cost = p.tab_general_information?.standard_price || 0;
-          return sum + qty * cost;
-        }, 0);
+        const assetAccounts = Object.values(report.asset?.accounts || {}).sort((a: any, b: any) =>
+          String(a.code || "").localeCompare(String(b.code || ""))
+        );
+        const liabilityAccounts = Object.values(report.liability?.accounts || {}).sort((a: any, b: any) =>
+          String(a.code || "").localeCompare(String(b.code || ""))
+        );
+        const equityList = Object.values(equityAccounts).sort((a: any, b: any) =>
+          String(a.code || "").localeCompare(String(b.code || ""))
+        );
 
-        const totalCurrentAssets = receivables + inventoryValue;
+        const totalAssets = report.asset?.total ?? 0;
+        const totalLiabilities = report.liability?.total ?? 0;
+        const totalEquity = equityList.reduce((sum, a: any) => sum + (Number(a.amount) || 0), 0);
+        const liabilitiesAndEquity = totalLiabilities + totalEquity;
+        const isBalanced = Math.abs(totalAssets - liabilitiesAndEquity) <= 0.01;
 
-        // Current Liabilities - Accounts Payable (Amount Due on Vendor Bills)
-        const payables = invoices
-          .filter(
-            (inv: any) =>
-              inv.moveType === "in_invoice" && inv.state === DOCUMENT_STATUS.POSTED,
-          )
-          .reduce(
-            (sum, inv: any) => sum + (Number(inv.amountResidual) || 0),
-            0,
-          );
-
-        const totalCurrentLiabilities = payables;
-
-        // Equity = Assets - Liabilities
-        const equity = totalCurrentAssets - totalCurrentLiabilities;
+        const renderRows = (accounts: any[], emptyMsg: string) => {
+          if (accounts.length === 0) {
+            return `<tr><td colspan="2" class="py-2.5 px-4 text-center text-sm text-gray-500 italic">${emptyMsg}</td></tr>`;
+          }
+          return accounts
+            .map(
+              (acc: any) => `
+              <tr class="border-b border-gray-300">
+                <td class="py-2.5 px-4 text-sm font-medium text-black">
+                  ${acc.name} ${acc.code ? `<span class="ml-1 text-xs text-gray-500 font-mono">(${acc.code})</span>` : ""}
+                </td>
+                <td class="py-2.5 px-4 text-right text-sm font-semibold text-black tabular-nums">
+                  ${acc.amount < 0 ? "-" : ""}₹${Math.abs(acc.amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            `
+            )
+            .join("");
+        };
 
         htmlContent = `
           <div class="mb-8">
             <h2 class="text-2xl font-bold text-black mb-2">Balance Sheet</h2>
-            <p class="text-sm text-black">As of: ${new Date().toLocaleDateString()}</p>
+            <p class="text-sm text-black">As of: ${new Date().toLocaleDateString()} (UTC)</p>
           </div>
 
           <div class="mb-8">
@@ -754,17 +768,12 @@ export async function POST(request: NextRequest) {
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-gray-300">
-                  <td class="py-3 px-4 font-medium text-black">Accounts Receivable</td>
-                  <td class="py-3 px-4 text-right text-black">₹${receivables.toLocaleString()}</td>
-                </tr>
-                <tr class="border-b border-gray-300">
-                  <td class="py-3 px-4 font-medium text-black">Inventory</td>
-          <td class="py-3 px-4 text-right text-black">₹${inventoryValue.toLocaleString()}</td>
-                </tr>
-                <tr class="bg-gray-100">
-                  <td class="py-3 px-4 font-bold text-black">Total Current Assets</td>
-                  <td class="py-3 px-4 text-right font-bold text-black">₹${totalCurrentAssets.toLocaleString()}</td>
+                ${renderRows(assetAccounts, "No asset accounts with balances")}
+                <tr class="bg-gray-100 font-bold border-t-2 border-black">
+                  <td class="py-3 px-4 font-bold text-black uppercase">Total Assets</td>
+                  <td class="py-3 px-4 text-right font-bold text-black tabular-nums">
+                    ${totalAssets < 0 ? "-" : ""}₹${Math.abs(totalAssets).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -780,13 +789,12 @@ export async function POST(request: NextRequest) {
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-gray-300">
-                  <td class="py-3 px-4 font-medium text-black">Accounts Payable</td>
-                  <td class="py-3 px-4 text-right text-black">₹${payables.toLocaleString()}</td>
-                </tr>
-                <tr class="bg-gray-100">
-                  <td class="py-3 px-4 font-bold text-black">Total Current Liabilities</td>
-                  <td class="py-3 px-4 text-right font-bold text-black">₹${totalCurrentLiabilities.toLocaleString()}</td>
+                ${renderRows(liabilityAccounts, "No liability accounts with balances")}
+                <tr class="bg-gray-100 font-bold border-t-2 border-black">
+                  <td class="py-3 px-4 font-bold text-black uppercase">Total Liabilities</td>
+                  <td class="py-3 px-4 text-right font-bold text-black tabular-nums">
+                    ${totalLiabilities < 0 ? "-" : ""}₹${Math.abs(totalLiabilities).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -795,10 +803,19 @@ export async function POST(request: NextRequest) {
           <div class="mb-8">
             <h3 class="text-lg font-bold mb-4 text-black border-b-2 border-black pb-2">Equity</h3>
             <table class="w-full text-left mb-6 border border-black">
+              <thead>
+                <tr class="border-b-2 border-black bg-gray-100">
+                  <th class="py-3 px-4 font-bold text-black">Description</th>
+                  <th class="py-3 px-4 font-bold text-black text-right">Amount</th>
+                </tr>
+              </thead>
               <tbody>
-                <tr class="bg-gray-100">
-                  <td class="py-3 px-4 font-bold text-black">Owner's Equity</td>
-                  <td class="py-3 px-4 text-right font-bold text-black">₹${equity.toLocaleString()}</td>
+                ${renderRows(equityList, "No equity accounts with balances")}
+                <tr class="bg-gray-100 font-bold border-t-2 border-black">
+                  <td class="py-3 px-4 font-bold text-black uppercase">Total Equity</td>
+                  <td class="py-3 px-4 text-right font-bold text-black tabular-nums">
+                    ${totalEquity < 0 ? "-" : ""}₹${Math.abs(totalEquity).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -810,15 +827,21 @@ export async function POST(request: NextRequest) {
               <tbody>
                 <tr class="border-b border-gray-300 bg-gray-100">
                   <td class="py-3 px-4 font-bold text-black">Total Assets</td>
-                  <td class="py-3 px-4 text-right font-bold text-black">₹${totalCurrentAssets.toLocaleString()}</td>
+                  <td class="py-3 px-4 text-right font-bold text-black">
+                    ${totalAssets < 0 ? "-" : ""}₹${Math.abs(totalAssets).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                 </tr>
                 <tr class="bg-gray-100">
                   <td class="py-3 px-4 font-bold text-black">Total Liabilities + Equity</td>
-                  <td class="py-3 px-4 text-right font-bold text-black">₹${(totalCurrentLiabilities + equity).toLocaleString()}</td>
+                  <td class="py-3 px-4 text-right font-bold text-black">
+                    ${liabilitiesAndEquity < 0 ? "-" : ""}₹${Math.abs(liabilitiesAndEquity).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                 </tr>
               </tbody>
             </table>
-            <p class="text-sm text-black italic mt-2">Assets = Liabilities + Equity (Balance Sheet Equation)</p>
+            <p class="text-sm ${isBalanced ? "text-green-700 font-semibold" : "text-red-700 font-semibold"} italic mt-2">
+              ${isBalanced ? "✓ Balanced — Assets = Liabilities + Equity" : `⚠ Out of Balance by ₹${Math.abs(totalAssets - liabilitiesAndEquity).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            </p>
           </div>
         `;
         break;

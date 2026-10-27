@@ -70,7 +70,7 @@ export interface IOpportunity extends Document {
 
 const OpportunitySchema = new Schema<IOpportunity>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     account_id: { type: Schema.Types.ObjectId, ref: "Account", index: true },
     contacts: [{ type: Schema.Types.ObjectId, ref: "Contact" }],

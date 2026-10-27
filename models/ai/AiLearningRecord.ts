@@ -29,7 +29,7 @@ export interface IAiLearningRecord extends Document {
 
 const AiLearningRecordSchema: Schema<IAiLearningRecord> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     workflowId: { type: String, required: true, index: true },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true },
     proposal: { type: Schema.Types.Mixed, default: {} },

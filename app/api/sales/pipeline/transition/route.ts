@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing deal or target stage." }, { status: 400 });
     }
     await connectDB();
-    const result = await transitionDeal({
+
+const result = await transitionDeal({
       tenantId: session.user.tenantId,
       userId: session.user.id,
       kind,
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
       to,
     });
     return NextResponse.json({ success: true, ...result });
+
   } catch (error: any) {
     if (error instanceof DealError) {
       return NextResponse.json({ success: false, error: error.message }, { status: error.status });

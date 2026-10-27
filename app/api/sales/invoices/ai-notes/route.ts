@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { callClaudeForTenant, resolveTenantAiSettings } from "@/lib/ai/tenantAi";
@@ -12,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     const { field, context } = body; // field: "notes" | "terms"; context: the document type / situation
     if (!field) {
       return NextResponse.json({ success: false, message: "field is required" }, { status: 400 });
@@ -50,6 +52,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: { text: text.trim() } });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

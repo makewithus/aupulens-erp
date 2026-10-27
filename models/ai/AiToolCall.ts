@@ -19,6 +19,7 @@ export type AiToolCallStatus = (typeof AI_TOOL_CALL_STATUS)[keyof typeof AI_TOOL
 
 export interface IAiToolCall extends Document {
   tenantId: string;
+  actorUserId?: string | null;
   runId: mongoose.Types.ObjectId;
   toolName: string;
   idempotencyKey: string;
@@ -33,7 +34,8 @@ export interface IAiToolCall extends Document {
 
 const AiToolCallSchema: Schema<IAiToolCall> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
+    actorUserId: { type: String, default: null },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true },
     toolName: { type: String, required: true },
     idempotencyKey: { type: String, required: true },

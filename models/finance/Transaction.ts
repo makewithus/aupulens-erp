@@ -21,7 +21,7 @@ export interface ITransaction extends Document {
 
 const TransactionSchema = new Schema<ITransaction>(
   {
-    tenantId: { type: String, required: true, index: true }, // NEW: Multi-tenant support
+    tenantId: { type: String, required: true, index: true, immutable: true }, // NEW: Multi-tenant support
     date: { type: Date, required: true },
     account: { type: String, required: true },
     accountCategory: {

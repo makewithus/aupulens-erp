@@ -1,7 +1,9 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import DunningRule from "@/models/sales/DunningRule";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -10,8 +12,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
     const rule = await DunningRule.findOne({ _id: id, tenantId: session.user.tenantId }).lean();
     if (!rule) {
       return NextResponse.json({ success: false, message: "Dunning rule not found" }, { status: 404 });
@@ -19,8 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ success: true, data: rule });
   } catch (error: any) {
-    console.error("Dunning rule GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -31,9 +35,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
-    const body = await request.json();
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
+
+const body = stripProtectedFields(await request.json());
 
     const update: Record<string, any> = {};
     if (body.name !== undefined) update.name = body.name;
@@ -53,9 +61,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     return NextResponse.json({ success: true, data: rule });
+
   } catch (error: any) {
-    console.error("Dunning rule PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -66,10 +74,14 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
-    const rule = await DunningRule.findOneAndDelete({
+    await connectDB();
+
+
+const rule = await DunningRule.findOneAndDelete({
       _id: id,
       tenantId: session.user.tenantId,
       isDefault: false,
@@ -82,8 +94,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
-    console.error("Dunning rule DELETE error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

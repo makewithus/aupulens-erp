@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
     
     if (!body.dcNumber || !body.customer || !body.deliveryAddress || !body.items || body.items.length === 0) {
       return NextResponse.json(
@@ -46,13 +47,15 @@ export async function POST(request: Request) {
     }
 
     await connectDB();
-    const challan = await DeliveryChallan.create({
+
+const challan = await DeliveryChallan.create({
       ...body,
       tenantId,
       createdBy: (session.user as any).id || body.createdBy,
     });
     
     return NextResponse.json({ challan }, { status: 201 });
+
   } catch (error) {
     console.error('Error creating delivery challan:', error);
     if ((error as any).code === 11000) {

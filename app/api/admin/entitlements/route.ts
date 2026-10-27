@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import connectDB from "@/lib/db";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 
@@ -10,6 +11,7 @@ export async function GET() {
     return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
   }
 
+  await connectDB();
   const tenantId = session.user.tenantId;
   const resolved = await resolveEntitlements(tenantId);
   if (resolved.source === "permissive_default") {

@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -11,6 +13,11 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ALLOWED_ROLES = ["hr", "admin", "master-admin"];
+    if (!ALLOWED_ROLES.includes(session.user?.role)) {
+      return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
     }
 
     const tenantIdGuard = requireTenantId(session);
@@ -37,7 +44,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items: payrolls });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Fetch payroll error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -51,11 +59,12 @@ export async function POST(req: NextRequest) {
     const tenantIdCheck = requireTenantId(session);
     if (tenantIdCheck) return tenantIdCheck;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     await connectDB();
 
     // Accept both nested { payrollPeriod: { month, year } } and flat { month, year }
-    const ppMonth = body.payrollPeriod?.month || body.month;
+
+const ppMonth = body.payrollPeriod?.month || body.month;
     const ppYear = body.payrollPeriod?.year || body.year;
 
     if (!ppMonth || !ppYear) {
@@ -186,7 +195,8 @@ export async function POST(req: NextRequest) {
       { success: true, payroll, employeesIncluded: employees.length },
       { status: 201 },
     );
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -44,7 +46,7 @@ export async function GET() {
     return NextResponse.json({ success: true, data: gateways });
   } catch (error: any) {
     console.error("Online payment gateways GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -56,8 +58,9 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
+
+const tenantId = session.user.tenantId;
+    const body = stripProtectedFields(await request.json());
 
     if (!body.name?.trim() || !body.provider?.trim()) {
       return NextResponse.json(
@@ -76,6 +79,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, data: gateway }, { status: 201 });
+
   } catch (error: any) {
     if (error?.code === 11000) {
       return NextResponse.json(
@@ -84,6 +88,6 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("Online payment gateways POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

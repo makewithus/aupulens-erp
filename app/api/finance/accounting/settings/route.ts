@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -28,8 +30,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
   await connectDB();
-  try {
-    const body = await req.json();
+
+try {
+    const body = stripProtectedFields(await req.json());
     const update: Record<string, unknown> = {};
     for (const section of ALLOWED_SECTIONS) {
       if (body[section] && typeof body[section] === "object") {
@@ -50,6 +53,7 @@ export async function PATCH(req: NextRequest) {
     );
     return NextResponse.json({ success: true, data: doc });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
+
 }

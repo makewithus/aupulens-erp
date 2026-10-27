@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -113,7 +115,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Subscriptions GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -125,8 +127,9 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
-    const body = await request.json();
+
+const tenantId = session.user.tenantId;
+    const body = stripProtectedFields(await request.json());
 
     if (!body.customerId) {
       return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
@@ -212,6 +215,7 @@ export async function POST(request: NextRequest) {
     await dispatchSubscriptionEvent(tenantId, "created", { subscriptionId: String(subscription._id) });
 
     return NextResponse.json({ success: true, data: subscription }, { status: 201 });
+
   } catch (error: any) {
     if (error?.code === 11000) {
       return NextResponse.json(
@@ -220,6 +224,6 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("Subscriptions POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+import { validateObjectId } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -8,6 +9,8 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   const { id } = await props.params;
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
+  const idGuard = validateObjectId(id);
+  if (idGuard) return idGuard;
   await dbConnect();
   const runs = await WorkflowRun.find({ tenantId: session.user.tenantId, workflowId: id })
     .sort({ createdAt: -1 })

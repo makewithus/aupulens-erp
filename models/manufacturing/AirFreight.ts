@@ -23,7 +23,7 @@ export interface IAirFreight extends mongoose.Document {
 }
 
 const AirFreightSchema = new Schema<IAirFreight>({
-  tenantId: { type: String, required: true, index: true },
+  tenantId: { type: String, required: true, index: true, immutable: true },
   flightNumber: { type: String, required: true },
   airline: { type: String, required: true },
   origin: { type: String, required: true },

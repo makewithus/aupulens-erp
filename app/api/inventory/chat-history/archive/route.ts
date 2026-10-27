@@ -18,11 +18,13 @@ export async function PATCH(request: NextRequest) {
   }
 
   await dbConnect();
-  const chat = await ChatHistory.findOneAndUpdate(
+
+const chat = await ChatHistory.findOneAndUpdate(
     { _id: chatId, userId: session.user.id, tenantId, module: "inventory" },
     { isArchived },
     { new: true },
   );
   if (!chat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   return NextResponse.json({ chat });
+
 }

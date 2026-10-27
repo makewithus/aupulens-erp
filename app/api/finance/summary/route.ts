@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -223,10 +224,22 @@ export async function GET() {
         : payables.total > 0
           ? Number(((effectiveCash + receivables.total) / payables.total).toFixed(2))
           : 1.0;
-    const profitMargin =
-      allTimeRevenue > 0
-        ? Number(((allTimeNetIncome / allTimeRevenue) * 100).toFixed(1))
-        : 0;
+    const hasRecordedCosts = allTimeExpenses > 0;
+    const profitAvailable = allTimeRevenue > 0 && hasRecordedCosts;
+    const profitMargin = profitAvailable
+      ? Number(((allTimeNetIncome / allTimeRevenue) * 100).toFixed(1))
+      : null;
+    const profitStatus = (allTimeRevenue > 0 && !hasRecordedCosts)
+      ? "incomplete"
+      : profitAvailable
+        ? "available"
+        : "unavailable";
+    const profitUnavailableReason = (allTimeRevenue > 0 && !hasRecordedCosts)
+      ? "Cost of goods sold and operating expenses have not been posted to the general ledger"
+      : !profitAvailable
+        ? "Revenue and expense records are not yet available"
+        : undefined;
+
     const avgCollectionPeriod =
       allTimeRevenue > 0
         ? Math.round(receivables.total / (allTimeRevenue / 180))
@@ -236,9 +249,19 @@ export async function GET() {
         ? Number((allTimeExpenses / (payables.total || 1)).toFixed(2))
         : 0;
     const monthlyBurn = allTimeExpenses > 0 ? Math.round(allTimeExpenses / 6) : 0;
-    const cashRunway = monthlyBurn > 0 ? Number((effectiveCash / monthlyBurn).toFixed(1)) : 12.0;
-    const ebitda = allTimeNetIncome;
+    const runwayAvailable = monthlyBurn > 0 && effectiveCash > 0;
+    const cashRunway = runwayAvailable ? Number((effectiveCash / monthlyBurn).toFixed(1)) : null;
+    const cashRunwayStatus = runwayAvailable ? "available" : "unavailable";
+    const cashRunwayReason = !runwayAvailable
+      ? (monthlyBurn === 0 && effectiveCash === 0
+          ? "No liquid cash or historical expense burn recorded"
+          : monthlyBurn === 0
+            ? "Insufficient historical expense burn to calculate runway"
+            : "No liquid cash reserves available")
+      : undefined;
+    const ebitda = profitAvailable ? allTimeNetIncome : null;
     const operatingMargin = profitMargin;
+
 
     // Authentic Expense Breakdown from posted ledger accounts
     const rawExpenseAccounts = Object.values(allTimeJournalReport.expense?.accounts || {});
@@ -305,7 +328,11 @@ export async function GET() {
           quickRatio,
           profitMargin,
           operatingMargin,
+          profitStatus,
+          profitUnavailableReason,
           cashRunway,
+          cashRunwayStatus,
+          cashRunwayReason,
           ebitda,
           avgCollectionPeriod,
           payablesTurnover,
@@ -353,6 +380,6 @@ export async function GET() {
     return NextResponse.json(payload);
   } catch (error: any) {
     console.error("Finance summary error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

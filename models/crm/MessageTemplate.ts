@@ -11,7 +11,7 @@ export interface IMessageTemplate extends Document {
 
 const MessageTemplateSchema = new Schema<IMessageTemplate>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true },
     channel: { type: String, required: true, enum: ["Email", "WhatsApp", "SMS"] },
     subject: { type: String },

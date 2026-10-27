@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -8,6 +9,7 @@ import {
   PERIOD_CLOSING_STATUS,
   type PeriodClosingStatus,
 } from "@/lib/constants/statuses";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(
   req: NextRequest,
@@ -19,6 +21,9 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -37,7 +42,7 @@ export async function GET(
 
     return NextResponse.json(item);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -51,7 +56,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const body = await req.json();
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const body = stripProtectedFields(await req.json());
     const userId = (session.user as any).id;
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -59,7 +67,8 @@ export async function PATCH(
 
     await dbConnect();
 
-    const existing = await PeriodClosing.findOne({ _id: id, tenantId });
+
+const existing = await PeriodClosing.findOne({ _id: id, tenantId });
     if (!existing)
       return NextResponse.json({ error: "Period not found" }, { status: 404 });
 
@@ -119,8 +128,9 @@ export async function PATCH(
     );
 
     return NextResponse.json(item);
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -134,12 +144,16 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
-    const existing = await PeriodClosing.findOne({ _id: id, tenantId });
+
+const existing = await PeriodClosing.findOne({ _id: id, tenantId });
     if (!existing)
       return NextResponse.json({ error: "Period not found" }, { status: 404 });
 
@@ -154,7 +168,8 @@ export async function DELETE(
 
     await PeriodClosing.findOneAndDelete({ _id: id, tenantId });
     return NextResponse.json({ message: "Period deleted" });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

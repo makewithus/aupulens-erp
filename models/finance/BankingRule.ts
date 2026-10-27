@@ -54,7 +54,7 @@ const BankingRuleCriterionSchema = new Schema<IBankingRuleCriterion>(
 
 const BankingRuleSchema: Schema<IBankingRule> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     ruleName: { type: String, required: true, trim: true },
     applyTo: {
       type: String,

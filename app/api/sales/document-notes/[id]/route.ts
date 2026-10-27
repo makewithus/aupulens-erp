@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -11,8 +13,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await connectDB();
-    const { id } = await params;
-    const body = await request.json();
+
+const { id } = await params;
+    const body = stripProtectedFields(await request.json());
     delete body.tenantId;
 
     const doc = await DocumentNote.findOneAndUpdate(
@@ -25,8 +28,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     return NextResponse.json({ success: true, data: doc });
+
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -38,14 +42,16 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await connectDB();
-    const { id } = await params;
+
+const { id } = await params;
     const doc = await DocumentNote.findOneAndDelete({ _id: id, tenantId: session.user.tenantId });
     if (!doc) {
       return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, message: "Deleted" });
+
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

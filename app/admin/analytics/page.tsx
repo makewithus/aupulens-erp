@@ -345,7 +345,7 @@ export default function AdminAnalytics() {
         userName="Admin"
         userEmail=""
         userRole="admin"
-        onSignOut={() => signOut({ callbackUrl: '/auth/admin' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profilePath="/admin/profile"
       >
         <AnalyticsPageSkeleton />
@@ -363,7 +363,7 @@ export default function AdminAnalytics() {
         userName={session?.user?.name || 'Admin'}
         userEmail={session?.user?.email}
         userRole={session?.user?.role}
-        onSignOut={() => signOut({ callbackUrl: '/auth/admin' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profilePath="/admin/profile"
       >
         <AnalyticsPageSkeleton />
@@ -381,7 +381,7 @@ export default function AdminAnalytics() {
         userName={session?.user?.name || 'Admin'}
         userEmail={session?.user?.email}
         userRole={session?.user?.role}
-        onSignOut={() => signOut({ callbackUrl: '/auth/admin' })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profilePath="/admin/profile"
       >
         <div className="flex items-center justify-center min-h-[400px]">
@@ -412,7 +412,7 @@ export default function AdminAnalytics() {
       userName={session?.user?.name || ''}
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: '/auth/admin' })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profilePath="/admin/profile"
     >
       <div className="bg-background min-h-screen -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8">

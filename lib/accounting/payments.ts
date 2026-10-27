@@ -435,21 +435,13 @@ export async function postCustomerPaymentJournal({
   const needsTds = Math.abs(dTds) >= POSTING_EPSILON;
   const needsAdvances = Math.abs(dUnused) >= POSTING_EPSILON;
 
-  // These use three different query shapes (by _id, by account_type, by
-  // code) so they can't be folded into one batched query the way
-  // salesInvoicePosting.ts's same-shape lookups were — but they (and the
-  // customer lookup for the narration) are all independent of each other,
-  // so running them concurrently instead of sequentially still cuts this
-  // from ~6 round-trips to ~1 round-trip's worth of wall-clock time on the
-  // hot path of every payment posting.
-  const [customer, depositAccount, bankChargesAccount, tdsAccount, receivableAccount, advancesAccount] = await Promise.all([
-    Customer.findOne({ _id: payment.customerId, tenantId }).select("header.name header.displayName").lean(),
-    resolveDepositAccountForPosting(tenantId, payment.depositToAccountId),
-    needsBankCharges ? resolveAccountByCode(tenantId, BANK_CHARGES_CODE, "Bank Charges") : null,
-    needsTds ? resolveTdsReceiptAccount(tenantId, payment.tdsAccountId) : null,
-    resolveReceivableAccountForPosting(tenantId),
-    needsAdvances ? resolveAccountByCode(tenantId, CUSTOMER_ADVANCES_CODE, "Customer Advances") : null,
-  ]);
+  // MongoDB sessions do not support parallel operations inside a transaction.
+  const customer = await Customer.findOne({ _id: payment.customerId, tenantId }).select("header.name header.displayName").lean();
+  const depositAccount = await resolveDepositAccountForPosting(tenantId, payment.depositToAccountId);
+  const bankChargesAccount = needsBankCharges ? await resolveAccountByCode(tenantId, BANK_CHARGES_CODE, "Bank Charges") : null;
+  const tdsAccount = needsTds ? await resolveTdsReceiptAccount(tenantId, payment.tdsAccountId) : null;
+  const receivableAccount = await resolveReceivableAccountForPosting(tenantId);
+  const advancesAccount = needsAdvances ? await resolveAccountByCode(tenantId, CUSTOMER_ADVANCES_CODE, "Customer Advances") : null;
 
   const customerName = (customer as any)?.header?.displayName || (customer as any)?.header?.name || "Customer";
   const narration = `Payment ${payment.paymentNumber} from ${customerName}${

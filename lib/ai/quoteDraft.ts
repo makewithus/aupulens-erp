@@ -23,7 +23,9 @@ function productLine(product: any, qty: number) {
     [k: string]: any;
   };
   const unit = g.unit || g.uom || "unit";
-  return { itemId: String(product._id), name: product.header.name, qty, unit, unitPrice: g.list_price, discount: 0, discountMode: "percent" as const, taxRate: g.gstRate || 0, hsn: g.hsnSacCode, gstTreatment: g.gstTreatment };
+  const parsedGst = typeof g.customer_taxes === "string" ? parseFloat(g.customer_taxes.match(/(\d+(?:\.\d+)?)/)?.[1] || "0") : 0;
+  const taxRate = g.gstRate !== undefined ? g.gstRate : parsedGst;
+  return { itemId: String(product._id), name: product.header.name, qty, unit, unitPrice: g.list_price, discount: 0, discountMode: "percent" as const, taxRate, hsn: g.hsnSacCode, gstTreatment: g.gstTreatment };
 }
 function draftSummary(name: string, line: ReturnType<typeof productLine>) {
   const qty = line.qty;
@@ -42,19 +44,64 @@ export async function prepareQuoteDraft(scope: Scope, text: string, requestId: s
     discounts.push(Number(before ?? after));
     return "";
   });
-  // Two supported, explicit word orders. Missing slots return specific questions.
+  // Replace word numbers with digits (English & Hindi)
+  const wordNumbers: Record<string, string> = {
+    one: "1", two: "2", three: "3", four: "4", five: "5",
+    six: "6", seven: "7", eight: "8", nine: "9", ten: "10",
+    ek: "1", do: "2", teen: "3", chaar: "4", paanch: "5",
+  };
+  q = q.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|ek|do|teen|chaar|paanch)\b/gi, (w) => wordNumbers[w.toLowerCase()] || w);
+
+  // Normalise Hindi phrasing to English structure for quote extraction
+  q = q.replace(/(?:ke\s+liye|ko)\s+/gi, "for ")
+       .replace(/(?:ka\s+)?quote\s+(?:banao|banayein|karo|taiyar|banana)/gi, "quote")
+       .replace(/quote\s+(?:banao|banayein|karo|taiyar|banana)(?:\s+for)?/gi, "quote for");
+
+  // Supported patterns:
+  // 1. quote for <customer>, <qty> <product>
+  // 2. quote for <qty> <product> to/for <customer>
+  // 3. quote for <customer> for/with <qty> <product>
+  // 4. quote for <customer> of <qty> <product>
   const full = q.match(/quote\s+for\s+(.+?),\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(.+)$/i);
-  const short = q.match(/quote\s+for\s+([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(.+?)\s+to\s+(.+)$/i);
-  const customerText = full?.[1] || short?.[3] || q.match(/quote\s+for\s+([^,]+)(?:,|$)/i)?.[1];
-  if (!customerText || /^\d/.test(customerText)) throw new ErpToolError("MISSING_FIELD", "Which customer should this quote be for?");
-  if (!full && !short) throw new ErpToolError("MISSING_FIELD", /,\s*[a-z]/i.test(q) ? "What quantity do you need?" : "Which product should I include?");
-  const qty = Number(full?.[2] || short?.[1]);
+  const short = q.match(/quote\s+for\s+([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(.+?)\s+(?:to|for)\s+(.+)$/i);
+  const customerFirst = q.match(/quote\s+for\s+(.+?)\s+(?:with|for|of)\s+([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(.+)$/i);
+  const general = q.match(/(?:create\s+)?quote\s+(?:for\s+)?(?:([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(?:units?\s+(?:of\s+)?)?(.+?)\s+(?:for|to)\s+(.+)|(.+?)\s+(?:for|with)\s+([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s+(?:units?\s+(?:of\s+)?)?(.+))$/i);
+
+  let customerText = full?.[1] || short?.[3] || customerFirst?.[1] || general?.[3] || general?.[4] || q.match(/quote\s+for\s+([^,]+)(?:,|$)/i)?.[1];
+  if (customerText) {
+    customerText = customerText.replace(/^(?:the\s+)?customer\s+/i, "").trim();
+  }
+  let rawQty = full?.[2] || short?.[1] || customerFirst?.[2] || general?.[1] || general?.[5];
+  let rawProduct = full?.[3] || short?.[2] || customerFirst?.[3] || general?.[2] || general?.[6];
+
+  if (!customerText || /^\d/.test(customerText.trim())) {
+    throw new ErpToolError("MISSING_FIELD", "Which customer should this quote be for?");
+  }
+  if (!rawQty && !rawProduct) {
+    throw new ErpToolError("MISSING_FIELD", "Which product should I include?");
+  }
+  if (!rawQty) {
+    throw new ErpToolError("MISSING_FIELD", "What quantity do you need?");
+  }
+
+  const qty = Number(rawQty);
   if (!Number.isFinite(qty) || qty <= 0) throw new ErpToolError("BUSINESS_RULE", "Quantity must be greater than zero.");
-  let productText = (full?.[3] || short?.[2] || "").trim().replace(/^,\s*|,\s*$/g, "").replace(/chairs$/i, "chair");
+
+  let productText = (rawProduct || "").trim()
+    .replace(/^,\s*|,\s*$/g, "")
+    .replace(/^(?:units?|pieces?|pcs|nos)\s+(?:of\s+)?/i, "")
+    .replace(/^of\s+/i, "")
+    .replace(/chairs$/i, "chair");
+
   productText = productText.replace(/(?:,\s*|\s+)(?:(?:with|and|at)\s+)?(?:a\s+)?(?:([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:%|percent(?:age)?)\s*discount\b|discount\s*(?:of\s+)?([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:%|percent(?:age)?)?\b).*/gi, (m, b, a) => {
     if (!discounts.length) discounts.push(Number(b ?? a));
     return "";
   }).trim().replace(/^,\s*|,\s*$/g, "");
+
+  if (!productText) {
+    throw new ErpToolError("MISSING_FIELD", "Which product should I include?");
+  }
+
   if (discounts.length > 1 || /\bdiscount\b/i.test(productText)) throw new ErpToolError("BUSINESS_RULE", "Specify one percentage discount from 0–100%, for example, with a 10% discount.");
   if (discounts.length > 0 && (discounts[0] < 0 || discounts[0] > 100)) {
     throw new ErpToolError("BUSINESS_RULE", `A ${discounts[0]}% discount is not allowed; the range is 0–100%.`);
@@ -63,8 +110,18 @@ export async function prepareQuoteDraft(scope: Scope, text: string, requestId: s
   const tenantFilter = scope.tenantId === "default" || scope.tenantId === "default-tenant"
     ? { $in: ["default", "default-tenant"] }
     : scope.tenantId;
-  const products = await Product.find({ tenantId: tenantFilter, "header.sale_ok": { $ne: false }, "header.name": { $regex: productText.split(/\s+/).map(escapeRegex).join(".*"), $options: "i" } }).select("header tab_general_information").limit(6).maxTimeMS(5000).lean();
-  const exact = products.filter(p => p.header.name.toLowerCase() === productText.toLowerCase());
+  const products = await Product.find({
+    tenantId: tenantFilter,
+    "header.sale_ok": { $ne: false },
+    $or: [
+      { "header.name": { $regex: productText.split(/\s+/).map(escapeRegex).join(".*"), $options: "i" } },
+      { "tab_general_information.default_code": { $regex: escapeRegex(productText), $options: "i" } },
+    ],
+  }).select("header tab_general_information").limit(6).maxTimeMS(5000).lean();
+  const exact = products.filter(p =>
+    p.header.name.toLowerCase() === productText.toLowerCase() ||
+    p.tab_general_information?.default_code?.toLowerCase() === productText.toLowerCase()
+  );
   let matches = exact.length ? exact : [];
   if (!matches.length && products.length > 0) {
     const queryLower = productText.toLowerCase().trim();

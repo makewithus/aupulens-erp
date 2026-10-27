@@ -23,7 +23,7 @@ export interface IAiAccountingPolicy extends Document {
 
 const AiAccountingPolicySchema: Schema<IAiAccountingPolicy> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     policyKey: { type: String, required: true },
     scopeConditions: { type: Schema.Types.Mixed, default: {} },
     statedTreatment: { type: String, required: true },

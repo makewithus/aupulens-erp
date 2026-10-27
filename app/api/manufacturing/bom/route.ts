@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -28,7 +30,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ boms });
   } catch (error: any) {
     console.error("Fetch BoMs Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await connectDB();
 
@@ -61,6 +63,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ bom }, { status: 201 });
   } catch (error: any) {
     console.error("Create BoM Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

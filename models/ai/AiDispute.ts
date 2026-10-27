@@ -35,7 +35,7 @@ export interface IAiDispute extends Document {
 
 const AiDisputeSchema: Schema<IAiDispute> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     workflowId: { type: String, required: true },
     subjectModel: { type: String, required: true },
     subjectId: { type: Schema.Types.ObjectId, required: true },

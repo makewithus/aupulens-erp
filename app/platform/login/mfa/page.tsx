@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,9 @@ import { AuthHeader } from "@/components/auth/AuthHeader";
 
 export default function PlatformMfaPage() {
   const router = useRouter();
+  const setupStarted = useRef(false);
+  const [error, setError] = useState("");
+  const [useBackupCode, setUseBackupCode] = useState(false);
   const [mode, setMode] = useState<"setup" | "verify" | null>(null);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -31,7 +34,8 @@ export default function PlatformMfaPage() {
     setChallengeToken(token);
     setMode(storedMode);
 
-    if (storedMode === "setup") {
+    if (storedMode === "setup" && !setupStarted.current) {
+      setupStarted.current = true;
       fetch("/api/platform/auth/mfa/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -43,9 +47,9 @@ export default function PlatformMfaPage() {
             setQrDataUrl(body.data.qrDataUrl);
             setManualSecret(body.data.secret);
           } else {
-            toast.error(body.message ?? "Could not start MFA setup.");
+            setError(body.message ?? "Could not start MFA setup. Please restart sign-in.");
           }
-        });
+        }).catch(() => setError("Could not start MFA setup. Please restart sign-in."));
     }
   }, [router]);
 
@@ -53,6 +57,7 @@ export default function PlatformMfaPage() {
     e.preventDefault();
     if (!challengeToken) return;
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/platform/auth/mfa/verify", {
         method: "POST",
@@ -61,7 +66,12 @@ export default function PlatformMfaPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        toast.error(body.message ?? "Incorrect code.");
+        setError(body.message ?? "Incorrect code.");
+        if (body.code === "CHALLENGE_EXPIRED") {
+          sessionStorage.removeItem("platform_mfa_challenge");
+          sessionStorage.removeItem("platform_mfa_mode");
+          setChallengeToken(null);
+        }
         return;
       }
       sessionStorage.removeItem("platform_mfa_challenge");
@@ -72,9 +82,9 @@ export default function PlatformMfaPage() {
         return; // show backup codes once before continuing
       }
       toast.success("MFA verified successfully.");
-      router.push("/platform");
+      window.location.replace("/platform");
     } catch {
-      toast.error("Something went wrong. Try again.");
+      setError("Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
@@ -98,7 +108,7 @@ export default function PlatformMfaPage() {
           <div className="flex items-center justify-end pt-6">
             <button
               type="button"
-              onClick={() => router.push("/platform")}
+              onClick={() => window.location.replace("/platform")}
               className="group inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] font-bold text-foreground transition-all duration-300 hover:text-foreground/80"
             >
               I&apos;ve saved these — continue
@@ -132,22 +142,23 @@ export default function PlatformMfaPage() {
             )}
           </div>
         )}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <form onSubmit={handleVerify} className="space-y-6">
           <div className="space-y-1">
             <Label htmlFor="code" className="font-mono text-[11px] text-muted-foreground/60">
-              6-digit code
+              {useBackupCode ? "Backup code" : "6-digit code"}
             </Label>
             <Input
               id="code"
               type="text"
-              pattern="\d{6}"
-              inputMode="numeric"
+              pattern={useBackupCode ? "[a-fA-F0-9]{10}" : "[0-9]{6}"}
+              inputMode={useBackupCode ? "text" : "numeric"}
               autoComplete="one-time-code"
-              maxLength={6}
-              minLength={6}
+              maxLength={useBackupCode ? 10 : 6}
+              minLength={useBackupCode ? 10 : 6}
               placeholder="000000"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => setCode(useBackupCode ? e.target.value.replace(/[^a-fA-F0-9]/g, '').toLowerCase() : e.target.value.replace(/\D/g, ''))}
               required
               disabled={loading}
               className="h-10 px-0 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 shadow-none text-center tracking-[0.5em] text-lg"
@@ -156,7 +167,7 @@ export default function PlatformMfaPage() {
           <div className="flex items-center justify-end pt-6">
             <button 
               type="submit" 
-              disabled={loading}
+              disabled={loading || !challengeToken || (mode === "setup" && !qrDataUrl)}
               className="group inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] font-bold text-foreground transition-all duration-300 hover:text-foreground/80 disabled:opacity-50"
             >
               {loading ? (
@@ -173,6 +184,14 @@ export default function PlatformMfaPage() {
             </button>
           </div>
         </form>
+        {mode === "verify" && <button type="button" className="text-sm underline" onClick={() => { setUseBackupCode(!useBackupCode); setCode(""); setError(""); }}>
+          {useBackupCode ? "Use authenticator code" : "Use a backup code"}
+        </button>}
+        <button type="button" className="text-sm underline block" onClick={() => {
+          sessionStorage.removeItem("platform_mfa_challenge");
+          sessionStorage.removeItem("platform_mfa_mode");
+          router.replace("/platform/login");
+        }}>Restart sign-in</button>
       </div>
     </AuthLayout>
   );

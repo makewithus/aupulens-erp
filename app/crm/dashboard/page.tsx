@@ -61,14 +61,13 @@ function CrmDashboardSkeleton() {
 }
 
 export default function CRMDashboardPage() {
-  const cachedPipe = getInstantCachedData<any>("/api/crm/pipeline/analytics");
-  const [pipelineData, setPipelineData] = useState<any>(() => cachedPipe?.data ?? null);
-  const [healthData, setHealthData] = useState<any>(() => getInstantCachedData<any>("/api/crm/health")?.data ?? null);
-  const [churnData, setChurnData] = useState<any>(() => getInstantCachedData<any>("/api/crm/churn")?.data ?? null);
-  const [renewalData, setRenewalData] = useState<any>(() => getInstantCachedData<any>("/api/crm/renewals")?.data ?? null);
-  const [expansionData, setExpansionData] = useState<any>(() => getInstantCachedData<any>("/api/crm/expansion")?.data ?? null);
-  const [highValueDeals, setHighValueDeals] = useState<any[]>(() => getInstantCachedData<any>("/api/crm/opportunities?limit=5")?.data ?? []);
-  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedPipe);
+  const [pipelineData, setPipelineData] = useState<any>(null);
+  const [healthData, setHealthData] = useState<any>(null);
+  const [churnData, setChurnData] = useState<any>(null);
+  const [renewalData, setRenewalData] = useState<any>(null);
+  const [expansionData, setExpansionData] = useState<any>(null);
+  const [highValueDeals, setHighValueDeals] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchJson = async (url: string, fresh: boolean = false) => {
@@ -110,7 +109,26 @@ export default function CRMDashboardPage() {
   }, []);
 
   useEffect(() => {
+    // 1. Immediately hydrate from client cache if present (safe post-hydration)
+    const cachedPipe = getInstantCachedData<any>("/api/crm/pipeline/analytics", { allowPreHydration: true });
+    if (cachedPipe?.data) {
+      setPipelineData(cachedPipe.data);
+      setIsLoading(false);
+    }
+    const cachedHealth = getInstantCachedData<any>("/api/crm/health", { allowPreHydration: true });
+    if (cachedHealth?.data) setHealthData(cachedHealth.data);
+    const cachedChurn = getInstantCachedData<any>("/api/crm/churn", { allowPreHydration: true });
+    if (cachedChurn?.data) setChurnData(cachedChurn.data);
+    const cachedRenewal = getInstantCachedData<any>("/api/crm/renewals", { allowPreHydration: true });
+    if (cachedRenewal?.data) setRenewalData(cachedRenewal.data);
+    const cachedExp = getInstantCachedData<any>("/api/crm/expansion", { allowPreHydration: true });
+    if (cachedExp?.data) setExpansionData(cachedExp.data);
+    const cachedOpps = getInstantCachedData<any>("/api/crm/opportunities?limit=5", { allowPreHydration: true });
+    if (cachedOpps?.data) setHighValueDeals(cachedOpps.data.slice(0, 5));
+
+    // 2. Revalidate live data via SWR
     loadData(false);
+
     const handleRevalidated = (e: any) => {
       if (e?.detail?.url?.includes("/api/crm")) {
         loadData(false);

@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { transcribeAudio, isSpeechConfigured } from "@/lib/ai/speechToText";
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, text });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, message: err?.message || "Transcription failed. Please try again." },
+      { success: false, message: safeInternalErrorMessage() },
       { status: 500 }
     );
   }

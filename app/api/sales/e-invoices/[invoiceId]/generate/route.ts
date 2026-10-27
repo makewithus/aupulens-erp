@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -16,7 +17,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { invoiceId } = await params;
 
     const invoice = await (SalesInvoice as any).findOne({ _id: invoiceId, tenantId }).lean();
@@ -77,8 +79,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       { success: result.ok, message: result.error, data: record },
       { status: result.ok ? 200 : 422 },
     );
+
   } catch (error: any) {
     console.error("E-Invoice generate POST error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

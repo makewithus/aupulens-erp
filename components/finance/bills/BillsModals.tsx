@@ -44,6 +44,11 @@ export function BillsModals({
   handleSaveInvoice,
 }: BillsModalsProps) {
   const patchBill = async (body: any, successMessage: string) => {
+    if (!formData?._id) {
+      setFormData((prev: any) => ({ ...prev, ...body }));
+      await handleSubmit(body.state);
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/finance/bills/${formData._id}`, {

@@ -5,6 +5,9 @@ import {
   type DocumentStatus,
 } from "@/lib/constants/statuses";
 
+export type AssetStatus = DocumentStatus | "running";
+export const ASSET_STATUS_VALUES = [...DOCUMENT_STATUS_VALUES, "running"] as const;
+
 export interface IAsset extends Document {
   name: string;
   purchaseDate: Date;
@@ -15,10 +18,12 @@ export interface IAsset extends Document {
   accounts: {
     assetAccountId: mongoose.Types.ObjectId;
     depreciationAccountId: mongoose.Types.ObjectId;
+    fundingAccountId?: mongoose.Types.ObjectId;
   };
-  status: DocumentStatus;
+  status: AssetStatus;
   chatter: any[];
   tenantId: string;
+  isDemo?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -46,10 +51,15 @@ const AssetSchema = new Schema<IAsset>(
         ref: "Account",
         required: true,
       },
+      fundingAccountId: {
+        type: Schema.Types.ObjectId,
+        ref: "Account",
+        required: false,
+      },
     },
     status: {
       type: String,
-      enum: DOCUMENT_STATUS_VALUES,
+      enum: ASSET_STATUS_VALUES,
       default: DOCUMENT_STATUS.DRAFT,
     },
     chatter: [
@@ -59,7 +69,8 @@ const AssetSchema = new Schema<IAsset>(
         createdAt: { type: Date, default: Date.now },
       },
     ],
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
+    isDemo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

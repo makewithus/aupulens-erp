@@ -67,6 +67,38 @@ export default function ProfitLossPage() {
         ? `${dateRange.from.toLocaleDateString()} - ${dateRange.to.toLocaleDateString()}`
         : "All Time";
 
+    const incomeAccounts = Object.values(data.income?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+    const expenseAccounts = Object.values(data.expense?.accounts || {}).sort((a: any, b: any) =>
+      String(a.code || "").localeCompare(String(b.code || ""))
+    );
+
+    const renderRows = (accounts: any[], emptyLabel: string) => {
+      if (accounts.length === 0) {
+        return `
+          <tr class="border-b border-gray-200">
+            <td colspan="2" class="py-3 px-4 text-sm text-gray-500 italic text-center">${emptyLabel}</td>
+          </tr>
+        `;
+      }
+      return accounts
+        .map(
+          (acc: any) => `
+          <tr class="border-b border-gray-200">
+            <td class="py-2.5 px-4 text-sm text-gray-900">
+              <span class="font-medium">${acc.name}</span>
+              ${acc.code ? `<span class="ml-2 font-mono text-xs text-gray-500">(${acc.code})</span>` : ""}
+            </td>
+            <td class="py-2.5 px-4 text-right text-sm font-semibold tabular-nums text-gray-900">
+              ${formatInr(acc.amount)}
+            </td>
+          </tr>
+        `
+        )
+        .join("");
+    };
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -75,96 +107,95 @@ export default function ProfitLossPage() {
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @media print {
-            body { -webkit-print-color-adjust: exact; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px 16px; }
         </style>
       </head>
-      <body class="p-8 bg-white text-black">
-        <div class="max-w-4xl mx-auto">
-          <div class="mb-8 border-b-2 border-black pb-4">
-            <h1 class="text-3xl font-bold uppercase mb-2">Profit & Loss Statement</h1>
+      <body class="p-8 bg-white text-black font-sans">
+        <div class="max-w-4xl mx-auto space-y-8">
+          <div class="border-b-2 border-black pb-4">
+            <h1 class="text-3xl font-black uppercase tracking-tight mb-2">Profit & Loss Statement</h1>
             <div class="flex justify-between items-end">
               <div>
-                <p class="text-sm font-medium">Organization: Aupulens</p>
-                <p class="text-sm text-muted-foreground">Generated: ${new Date().toLocaleString()}</p>
+                <p class="text-sm font-semibold text-gray-800">Organization: Aupulens</p>
+                <p class="text-xs text-gray-500">Generated: ${new Date().toLocaleString()}</p>
               </div>
               <p class="text-lg font-bold">Period: ${dateStr}</p>
             </div>
           </div>
 
-          <!-- SUMMARY CARDS (Simulated) -->
-          <div class="grid grid-cols-3 gap-4 mb-8">
-            <div class="p-4 bg-muted border border-border">
-              <p class="text-sm font-medium text-muted-foreground uppercase">Total Income</p>
-              <p class="text-xl font-bold text-green-700">₹${totalIncome.toLocaleString()}</p>
+          <!-- SUMMARY CARDS -->
+          <div class="grid grid-cols-3 gap-4 border border-gray-300 p-4 bg-gray-50 text-center">
+            <div>
+              <p class="text-xs font-bold uppercase text-gray-500">Total Income</p>
+              <p class="text-xl font-black text-emerald-700 mt-1">${formatInr(totalIncome)}</p>
             </div>
-            <div class="p-4 bg-muted border border-border">
-              <p class="text-sm font-medium text-muted-foreground uppercase">Total Expenses</p>
-              <p class="text-xl font-bold text-red-700">₹${totalExpenses.toLocaleString()}</p>
+            <div>
+              <p class="text-xs font-bold uppercase text-gray-500">Total Expenses</p>
+              <p class="text-xl font-black text-red-700 mt-1">${formatInr(totalExpenses)}</p>
             </div>
-            <div class="p-4 bg-muted border border-border">
-              <p class="text-sm font-medium text-muted-foreground uppercase">Net Profit</p>
-              <p class="text-xl font-bold ${netProfit >= 0 ? "text-green-700" : "text-red-700"}">₹${netProfit.toLocaleString()}</p>
+            <div>
+              <p class="text-xs font-bold uppercase text-gray-500">Net Profit</p>
+              <p class="text-xl font-black ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"} mt-1">${formatInr(netProfit)}</p>
             </div>
           </div>
 
           <!-- INCOME -->
-          <div class="mb-8">
-            <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Income</h3>
-            <table class="w-full text-left mb-4">
+          <div>
+            <div class="flex justify-between items-baseline border-b-2 border-black pb-2 mb-2">
+              <h3 class="text-lg font-bold uppercase tracking-wider">Income</h3>
+              <span class="text-base font-bold tabular-nums text-emerald-700">${formatInr(totalIncome)}</span>
+            </div>
+            <table class="w-full text-left">
               <thead>
-                <tr class="bg-accent border-b border-black">
-                  <th class="py-2 px-4 font-bold">Description</th>
-                  <th class="py-2 px-4 font-bold text-right">Amount</th>
+                <tr class="bg-gray-100 border-b border-black text-xs uppercase font-bold text-gray-700">
+                  <th class="py-2 px-4">Description</th>
+                  <th class="py-2 px-4 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-border">
-                  <td class="py-2 px-4">Revenue from Sales</td>
-                  <td class="py-2 px-4 text-right">₹${totalIncome.toLocaleString()}</td>
-                </tr>
-                <tr class="bg-muted font-bold">
-                  <td class="py-2 px-4">Total Income</td>
-                  <td class="py-2 px-4 text-right">₹${totalIncome.toLocaleString()}</td>
+                ${renderRows(incomeAccounts, "No income accounts with balances")}
+                <tr class="bg-gray-100 font-bold border-t-2 border-black">
+                  <td class="py-3 px-4 uppercase text-sm">Total Income</td>
+                  <td class="py-3 px-4 text-right text-base tabular-nums font-black text-emerald-700">${formatInr(totalIncome)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <!-- EXPENSES -->
-          <div class="mb-8">
-            <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Expenses</h3>
-            <table class="w-full text-left mb-4">
+          <div>
+            <div class="flex justify-between items-baseline border-b-2 border-black pb-2 mb-2">
+              <h3 class="text-lg font-bold uppercase tracking-wider">Expenses</h3>
+              <span class="text-base font-bold tabular-nums text-red-700">${formatInr(totalExpenses)}</span>
+            </div>
+            <table class="w-full text-left">
               <thead>
-                <tr class="bg-accent border-b border-black">
-                  <th class="py-2 px-4 font-bold">Description</th>
-                  <th class="py-2 px-4 font-bold text-right">Amount</th>
+                <tr class="bg-gray-100 border-b border-black text-xs uppercase font-bold text-gray-700">
+                  <th class="py-2 px-4">Description</th>
+                  <th class="py-2 px-4 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-border">
-                  <td class="py-2 px-4">Cost of Goods Sold / Operating Expenses</td>
-                  <td class="py-2 px-4 text-right">₹${totalExpenses.toLocaleString()}</td>
-                </tr>
-                <tr class="bg-muted font-bold">
-                  <td class="py-2 px-4">Total Expenses</td>
-                  <td class="py-2 px-4 text-right">₹${totalExpenses.toLocaleString()}</td>
+                ${renderRows(expenseAccounts, "No expense accounts with balances")}
+                <tr class="bg-gray-100 font-bold border-t-2 border-black">
+                  <td class="py-3 px-4 uppercase text-sm">Total Expenses</td>
+                  <td class="py-3 px-4 text-right text-base tabular-nums font-black text-red-700">${formatInr(totalExpenses)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <!-- NET PROFIT -->
-          <div class="mb-8">
-            <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Net Summary</h3>
-            <table class="w-full text-left mb-4">
-              <tbody>
-                <tr class="bg-accent font-bold border-t-2 border-black">
-                  <td class="py-3 px-4 text-lg">Net Profit / (Loss)</td>
-                  <td class="py-3 px-4 text-right text-lg">₹${netProfit.toLocaleString()}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="border-2 border-black p-4 bg-gray-50 flex justify-between items-center">
+            <span class="text-lg font-bold uppercase tracking-wider">Net Profit / (Loss)</span>
+            <span class="text-xl font-black tabular-nums ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"}">${formatInr(netProfit)}</span>
+          </div>
+
+          <div class="pt-8 text-center text-xs text-gray-400">
+            <p>End of Report — Generated by Aupulens ERP</p>
           </div>
 
           <div class="mt-12 text-center text-sm text-muted-foreground">
@@ -201,7 +232,7 @@ export default function ProfitLossPage() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={load}
     >
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">

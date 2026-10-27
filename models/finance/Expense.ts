@@ -69,7 +69,7 @@ const ExpenseSchema = new Schema<IExpense>(
     },
     journalEntryId: { type: Schema.Types.ObjectId, ref: "JournalEntry" },
     chatter: [ChatterMessageSchema],
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
   },
   { timestamps: true },
 );

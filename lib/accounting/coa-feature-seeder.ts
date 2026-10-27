@@ -1,3 +1,4 @@
+import { getAccountingSession } from "@/lib/accounting/transaction";
 import mongoose from "mongoose";
 import AccountType from "@/models/finance/AccountType";
 import Account from "@/models/finance/Account";
@@ -130,7 +131,111 @@ const ACCOUNTANTS_DATA = [
   },
 ];
 
-export async function seedNewChartOfAccounts(tenantId: string, createdByUserId: string) {
+const ACCOUNT_TYPE_META: Record<string, { internal_group: string; account_type: string }> = {
+  "Accounts Payable": { internal_group: "liability", account_type: "liability_payable" },
+  "Accounts Receivable": { internal_group: "asset", account_type: "asset_receivable" },
+  "Accruals and Deferred Income": { internal_group: "liability", account_type: "liability_current" },
+  "Bank": { internal_group: "asset", account_type: "asset_cash" },
+  "Called-up Share Capital Not Paid": { internal_group: "asset", account_type: "asset_current" },
+  "Cash": { internal_group: "asset", account_type: "asset_cash" },
+  "Cost Of Goods Sold": { internal_group: "expense", account_type: "expense_direct_cost" },
+  "Credit Card": { internal_group: "liability", account_type: "liability_credit_card" },
+  "Deferred Tax Asset": { internal_group: "asset", account_type: "asset_non_current" },
+  "Deferred Tax Liability": { internal_group: "liability", account_type: "liability_non_current" },
+  "Equity": { internal_group: "equity", account_type: "equity" },
+  "Expense": { internal_group: "expense", account_type: "expense" },
+  "Fixed Asset": { internal_group: "asset", account_type: "asset_fixed" },
+  "Income": { internal_group: "income", account_type: "income" },
+  "Intangible Asset": { internal_group: "asset", account_type: "asset_fixed" },
+  "Non Current Asset": { internal_group: "asset", account_type: "asset_non_current" },
+  "Non Current Liability": { internal_group: "liability", account_type: "liability_non_current" },
+  "Other Asset": { internal_group: "asset", account_type: "asset_current" },
+  "Other Current Asset": { internal_group: "asset", account_type: "asset_current" },
+  "Other Current Liability": { internal_group: "liability", account_type: "liability_current" },
+  "Other Expense": { internal_group: "expense", account_type: "expense" },
+  "Other Income": { internal_group: "income", account_type: "income_other" },
+  "Other Liability": { internal_group: "liability", account_type: "liability_current" },
+  "Overseas Tax Payable": { internal_group: "liability", account_type: "liability_current" },
+  "Payment Clearing Account": { internal_group: "asset", account_type: "asset_current" },
+  "Staff Cost": { internal_group: "expense", account_type: "expense" },
+  "Stock": { internal_group: "asset", account_type: "asset_current" },
+};
+
+const CANONICAL_ACCOUNT_CODES: Record<string, string> = {
+  "Accounts Receivable": "1200",
+  "Accounts Payable": "2100",
+  "TDS Receivable": "1210",
+  "Inventory Asset": "1300",
+  "Furniture and Equipment": "1400",
+  "Petty Cash": "1110",
+  "Undeposited Funds": "1105",
+  "Tax Payable": "2160",
+  "Owner's Equity": "3100",
+  "Capital Stock": "3110",
+  "Retained Earnings": "3200",
+  "Sales": "4100",
+  "Cost of Goods Sold": "5100",
+  "Bank Fees and Charges": "5150",
+  "Salaries and Employee Wages": "5200",
+  "Depreciation Expense": "5300",
+  "Depreciation And Amortisation": "5310",
+  "Finished Goods": "1310",
+  "Work In Progress": "1320",
+  "Investments": "1500",
+  "Prepaid Expenses": "1230",
+  "Employee Advance": "1240",
+  "Advance Tax": "1250",
+  "Accrued Purchases": "2110",
+  "Unearned Revenue": "2150",
+  "Construction Loans": "2500",
+  "Mortgages": "2510",
+  "TDS Payable": "2180",
+  "Opening Balance Adjustments": "2190",
+  "Dimension Adjustments": "2195",
+  "Employee Reimbursements": "2198",
+  "General Income": "4200",
+  "Shipping Charge": "4300",
+  "Interest Income": "4400",
+  "Late Fee Income": "4500",
+  "Other Charges": "4600",
+  "Discount": "4700",
+  "Purchase Discounts": "5110",
+  "Raw Materials And Consumables": "5120",
+  "Job Costing": "5130",
+  "Subcontractor": "5140",
+  "Materials": "5160",
+  "Labor": "5170",
+  "Advertising And Marketing": "5400",
+  "Office Supplies": "5410",
+  "Repairs and Maintenance": "5420",
+  "Consultant Expense": "5430",
+  "Meals and Entertainment": "5440",
+  "Credit Card Charges": "5450",
+  "Printing and Stationery": "5460",
+  "Bad Debt": "5470",
+  "Postage": "5480",
+  "Janitorial Expense": "5490",
+  "Rent Expense": "5500",
+  "IT and Internet Expenses": "5510",
+  "Automobile Expense": "5520",
+  "Telephone Expense": "5530",
+  "Travel Expense": "5540",
+  "Exchange Gain or Loss": "5550",
+  "Fuel/Mileage Expenses": "5560",
+  "Contract Assets": "1260",
+  "Transportation Expense": "5570",
+  "Lodging": "5580",
+  "Merchandise": "5590",
+  "Dividends Paid": "3300",
+  "Distributions": "3310",
+  "Opening Balance Offset": "3320",
+  "Drawings": "3330",
+  "Uncategorized": "5999",
+  "Other Expenses": "5900",
+};
+
+export async function seedNewChartOfAccounts(tenantId: string, createdByUserId: string, session?: mongoose.ClientSession) {
+  session ??= getAccountingSession();
   if (!mongoose.Types.ObjectId.isValid(createdByUserId)) {
     throw new Error("A valid user is required to initialize Chart of Accounts.");
   }
@@ -155,56 +260,116 @@ export async function seedNewChartOfAccounts(tenantId: string, createdByUserId: 
       upsert: true,
     },
   }));
-  await AccountType.bulkWrite(typeOps, { ordered: false });
+  await AccountType.bulkWrite(typeOps, { ordered: !session ? false : true, session });
 
   // Fetch all types to build the map
-  const allTypes = await AccountType.find({ tenantId }, { name: 1, _id: 1 });
-  const typeMap = new Map();
-  allTypes.forEach((t) => typeMap.set(t.name, t._id));
+  const allTypes = await AccountType.find({ tenantId }, { name: 1, _id: 1 }).session(session || null);
+  const typeMap = new Map<string, mongoose.Types.ObjectId>();
+  allTypes.forEach((t) => typeMap.set(t.name, t._id as mongoose.Types.ObjectId));
 
-  // 2. Bulk Upsert Accounts
-  const accountOps = ACCOUNTS_DATA.map((a, index) => {
+  // 2. Upsert Accounts without creating duplicates
+  for (let index = 0; index < ACCOUNTS_DATA.length; index++) {
+    const a = ACCOUNTS_DATA[index];
     const accTypeId = typeMap.get(a.type);
-    if (!accTypeId) {
-      console.warn(`AccountType ${a.type} not found for account ${a.name}`);
+    const specific = a.name === "Retained Earnings" ? { internal_group: "equity", account_type: "equity_unaffected" } : (a.name === "Depreciation Expense" || a.name === "Depreciation And Amortisation") ? { internal_group: "expense", account_type: "expense_depreciation" } : undefined;
+    const meta = specific || ACCOUNT_TYPE_META[a.type] || { internal_group: "off_balance", account_type: "off_balance" };
+    const canonicalCode = CANONICAL_ACCOUNT_CODES[a.name] || (a as any).code || undefined;
+
+    // Look for existing account by code, accountName, or legacy name
+    const existing = await Account.findOne({
+      tenantId,
+      $or: [
+        ...(canonicalCode ? [{ code: canonicalCode }, { accountCode: canonicalCode }] : []),
+        { accountName: a.name },
+        { name: a.name },
+        { name: { $regex: new RegExp(`^${a.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, "i") } },
+        { accountName: { $regex: new RegExp(`^${a.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, "i") } },
+      ],
+    }).session(session || null);
+
+    if (existing) {
+      let changed = false;
+      if (!existing.accountType && accTypeId) {
+        existing.accountType = accTypeId;
+        changed = true;
+      }
+      if (!existing.internal_group || existing.internal_group === "off_balance") {
+        existing.internal_group = meta.internal_group;
+        changed = true;
+      }
+      if (!existing.account_type || existing.account_type === "off_balance") {
+        existing.account_type = meta.account_type;
+        changed = true;
+      }
+      if (!existing.accountName) {
+        existing.accountName = a.name;
+        changed = true;
+      }
+      if (!existing.name) {
+        existing.name = a.name;
+        changed = true;
+      }
+      if (!existing.code && canonicalCode) {
+        existing.code = canonicalCode;
+        changed = true;
+      }
+      if (!existing.accountCode && canonicalCode) {
+        existing.accountCode = canonicalCode;
+        changed = true;
+      }
+      if (existing.isActive === undefined || existing.isActive === null) {
+        existing.isActive = true;
+        changed = true;
+      }
+      if (!existing.status) {
+        existing.status = "active";
+        changed = true;
+      }
+      if (meta.account_type === "asset_receivable" || meta.account_type === "liability_payable") {
+        if (!existing.reconcile) {
+          existing.reconcile = true;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await existing.save({ session });
+      }
+    } else {
+      const stableCode = canonicalCode || (a as any).code || `SYS-${1000 + index}`;
+      const data = {
+        tenantId,
+        accountName: a.name,
+        name: a.name,
+        code: stableCode,
+        accountCode: stableCode,
+        accountType: accTypeId,
+        internal_group: meta.internal_group,
+        account_type: meta.account_type,
+        reconcile: meta.account_type === "asset_receivable" || meta.account_type === "liability_payable",
+        isLocked: a.locked,
+        isActive: true,
+        status: "active",
+        watchlist: false,
+        createdBy: userId,
+      };
+      if (session) await Account.create([data], { session });
+      else await Account.create(data);
     }
-    
-    return {
-      updateOne: {
-        filter: { tenantId, accountName: a.name },
-        update: {
-          $setOnInsert: {
-            tenantId,
-            accountName: a.name,
-            accountCode: a.code || undefined,
-            code: `SYS-${Date.now()}-${index}`, // Bypass legacy unique index
-            name: a.name, // Keep legacy name in sync just in case
-            accountType: accTypeId,
-            isLocked: a.locked,
-            isActive: true,
-            status: "active" as const,
-            watchlist: false,
-            createdBy: userId,
-          },
-        },
-        upsert: true,
-      },
-    };
-  });
-  
-  if (accountOps.length > 0) {
-    await Account.bulkWrite(accountOps, { ordered: false });
   }
 
-  // 3. Seed Accountants (Global directory)
-  const existingAccountants = await Accountant.countDocuments();
-  if (existingAccountants === 0) {
-    const accountantOps = ACCOUNTANTS_DATA.map((acct) => ({
-      insertOne: {
-        document: acct,
-      },
-    }));
-    await Accountant.bulkWrite(accountantOps, { ordered: false });
+  // 3. Seed Accountants (Global directory) - run outside session to prevent catalog changes in transactions
+  try {
+    const existingAccountants = await Accountant.countDocuments({});
+    if (existingAccountants === 0) {
+      const accountantOps = ACCOUNTANTS_DATA.map((acct) => ({
+        insertOne: {
+          document: acct,
+        },
+      }));
+      await Accountant.bulkWrite(accountantOps, { ordered: false });
+    }
+  } catch (accountantErr) {
+    console.warn("Notice: global accountants directory seeding skipped:", accountantErr);
   }
 }
 

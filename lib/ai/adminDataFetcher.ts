@@ -1,4 +1,4 @@
-import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
+import { issuedInvoiceFilter, invoiceRevenueExpression, invoiceGrossValueExpression } from "@/lib/sales/invoiceEligibility";
 import { buildPostedJournalReport } from "@/lib/accounting/reports";
 import SaleOrder from "@/models/sales/SaleOrder";
 import InventoryItem from "@/models/inventory/InventoryItem";
@@ -11,7 +11,14 @@ import Shipment from "@/models/manufacturing/Shipment";
 import Organization from "@/models/admin/Organization";
 import mongoose from "mongoose";
 
+function assertTenantIdentity(tenantId: string): void {
+  if (typeof tenantId !== "string" || !tenantId.trim()) {
+    throw new Error("Tenant identity is required");
+  }
+}
+
 export async function fetchAdminFinanceData(tenantId: string) {
+  assertTenantIdentity(tenantId);
   const [transactions, payments, invoices, salesInvoices, paymentCount, transactionCount] = await Promise.all([
     (Transaction as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
     (Payment as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
@@ -23,9 +30,11 @@ export async function fetchAdminFinanceData(tenantId: string) {
 
   const issued = await SalesInvoice.aggregate([
     { $match: { tenantId, ...issuedInvoiceFilter() } },
-    { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    { $group: { _id: null, total: { $sum: invoiceRevenueExpression }, grossTotal: { $sum: invoiceGrossValueExpression } } },
   ]).exec();
   const issuedRevenue = issued[0]?.total || 0;
+  const issuedGross = issued[0]?.grossTotal || 0;
+
   const totalTransactions = paymentCount > 0 ? paymentCount : transactionCount;
 
   const combinedInvoices = salesInvoices.length > 0 ? salesInvoices : invoices;
@@ -65,6 +74,7 @@ export async function fetchAdminFinanceData(tenantId: string) {
 }
 
 export async function fetchAdminSalesData(tenantId: string) {
+  assertTenantIdentity(tenantId);
   const [orders, salesInvoices] = await Promise.all([
     (SaleOrder as any)
       .find({ tenantId })
@@ -82,7 +92,7 @@ export async function fetchAdminSalesData(tenantId: string) {
     SaleOrder.countDocuments({ tenantId }),
     SalesInvoice.aggregate([
       { $match: { tenantId, ...issuedInvoiceFilter() } },
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      { $group: { _id: null, total: { $sum: invoiceRevenueExpression }, grossTotal: { $sum: invoiceGrossValueExpression } } },
     ]).exec(),
   ]);
   const totalRevenue = issued[0]?.total || 0;
@@ -116,7 +126,7 @@ export async function fetchAdminSalesData(tenantId: string) {
         {
           $group: {
             _id: { year: { $year: "$invoiceDate" }, month: { $month: "$invoiceDate" } },
-            total: { $sum: { $ifNull: ["$totalAmount", 0] } },
+            total: { $sum: invoiceRevenueExpression },
           },
         },
         { $sort: { "_id.year": 1, "_id.month": 1 } },
@@ -154,6 +164,7 @@ export async function fetchAdminSalesData(tenantId: string) {
 }
 
 export async function fetchAdminInventoryData(tenantId: string) {
+  assertTenantIdentity(tenantId);
   const items = await InventoryItem.find({ tenantId }).lean();
 
   const totalItems = items.length;
@@ -179,6 +190,7 @@ export async function fetchAdminInventoryData(tenantId: string) {
 }
 
 export async function fetchAdminManufacturingData(tenantId: string) {
+  assertTenantIdentity(tenantId);
   const [shipments, totalShipments] = await Promise.all([
     (Shipment as any)
       .find({ tenantId })
@@ -201,7 +213,8 @@ export async function fetchAdminManufacturingData(tenantId: string) {
 }
 
 export async function fetchAdminUsersData(tenantId: string) {
-  const users = await (User as any).find({ tenantId }).select("-password").lean();
+  assertTenantIdentity(tenantId);
+  const users = await (User as any).find({ tenantId }).select("-password -tempToken -tempTokenHash -tempTokenExpiry -passwordResetTokenHash -passwordResetTokenExpiry").lean();
 
   const roleCounts: Record<string, number> = {};
   users.forEach((u: any) => {
@@ -216,6 +229,7 @@ export async function fetchAdminUsersData(tenantId: string) {
 }
 
 export async function fetchAdminGeneralData(tenantId: string) {
+  assertTenantIdentity(tenantId);
   const [users, orders, items, org] = await Promise.all([
     User.countDocuments({ tenantId }),
     SaleOrder.countDocuments({ tenantId }),

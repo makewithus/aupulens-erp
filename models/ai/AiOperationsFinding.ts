@@ -19,7 +19,7 @@ export interface IAiOperationsFinding extends Document {
 
 const AiOperationsFindingSchema: Schema<IAiOperationsFinding> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true },
     healthByModule: { type: [Schema.Types.Mixed], default: [] },
     healthByIntegration: { type: [Schema.Types.Mixed], default: [] },

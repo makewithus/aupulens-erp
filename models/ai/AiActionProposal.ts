@@ -24,7 +24,7 @@ export interface IAiActionProposal extends Document {
 
 const AiActionProposalSchema: Schema<IAiActionProposal> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     module: { type: String, default: "finance" },
     actionType: { type: String, enum: AI_ACTION_TYPE_VALUES, required: true },

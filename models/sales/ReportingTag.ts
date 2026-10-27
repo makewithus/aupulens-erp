@@ -13,7 +13,7 @@ export interface IReportingTag extends Document {
 
 const ReportingTagSchema: Schema<IReportingTag> = new Schema(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },

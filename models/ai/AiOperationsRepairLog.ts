@@ -25,7 +25,7 @@ export interface IAiOperationsRepairLog extends Document {
 
 const AiOperationsRepairLogSchema: Schema<IAiOperationsRepairLog> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     issueKey: { type: String, required: true, index: true },
     repairType: { type: String, enum: ["requeue_dead_letter", "retry_integration_connection", "refresh_tax_projection", "relink_orphan"], required: true },
     attempt: { type: Number, required: true },

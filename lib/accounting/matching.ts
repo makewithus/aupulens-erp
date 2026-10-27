@@ -85,7 +85,7 @@ export async function runPOMatching(invoiceId: string, tenantId: string) {
 
   const poRef = invoice.poReference?.trim();
   if (!poRef) {
-    invoice.poMatchStatus = "pending";
+    invoice.poMatchStatus = "not_applicable";
     await invoice.save();
     return;
   }

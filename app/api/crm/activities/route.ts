@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -5,6 +6,7 @@ import CrmActivity from "@/models/crm/Activity";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { requireRole } from "@/lib/crm/rbac";
 import { summarizeAndStoreConversation } from "@/lib/crm/ai/conversationSummary";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 const SUMMARIZABLE_ACTIVITY_TYPES = new Set(["Call", "Meeting"]);
 const MIN_NOTE_LENGTH_FOR_SUMMARY = 20;
@@ -24,8 +26,10 @@ export async function GET(req: NextRequest) {
 
   await dbConnect();
   const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '25');
+  const rawPage = Number(searchParams.get('page') || '1');
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? Math.min(rawPage, 100000) : 1;
+  const rawLimit = Number(searchParams.get('limit') || '25');
+  const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 25;
   const query: any = { tenantId: session.user.tenantId };
   
   if (searchParams.get('linked_record_id')) {
@@ -38,6 +42,8 @@ export async function GET(req: NextRequest) {
     ];
   }
   if (searchParams.get('type')) query.type = searchParams.get('type');
+
+  const scopedQuery = applyDemoScope(session, query);
 
   // Metrics for dashboard
   const today = new Date();
@@ -55,19 +61,19 @@ export async function GET(req: NextRequest) {
     quotesSent,
     tasksCompleted,
   ] = await Promise.all([
-    CrmActivity.countDocuments(query),
-    CrmActivity.find(query)
+    CrmActivity.countDocuments(scopedQuery),
+    CrmActivity.find(scopedQuery)
       .sort({ activity_date: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .populate('performed_by_id', 'name email')
       .lean(),
-    CrmActivity.countDocuments({ ...query, activity_date: { $gte: today } }),
-    CrmActivity.countDocuments({ ...query, activity_date: { $gte: startOfWeek } }),
-    CrmActivity.countDocuments({ ...query, type: 'Call' }),
-    CrmActivity.countDocuments({ ...query, type: 'Meeting' }),
-    CrmActivity.countDocuments({ ...query, type: 'Quote Sent' }),
-    CrmActivity.countDocuments({ ...query, type: 'Task' }), // Simplified for now
+    CrmActivity.countDocuments({ ...scopedQuery, activity_date: { $gte: today } }),
+    CrmActivity.countDocuments({ ...scopedQuery, activity_date: { $gte: startOfWeek } }),
+    CrmActivity.countDocuments({ ...scopedQuery, type: 'Call' }),
+    CrmActivity.countDocuments({ ...scopedQuery, type: 'Meeting' }),
+    CrmActivity.countDocuments({ ...scopedQuery, type: 'Quote Sent' }),
+    CrmActivity.countDocuments({ ...scopedQuery, type: 'Task' }), // Simplified for now
   ]);
 
   return NextResponse.json({ 
@@ -96,7 +102,7 @@ export async function POST(req: NextRequest) {
   if (roleCheck) return roleCheck;
 
   await dbConnect();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
   body.tenantId = session.user.tenantId;
   body.createdBy = session.user.id;
   body.performed_by_id = session.user.id;

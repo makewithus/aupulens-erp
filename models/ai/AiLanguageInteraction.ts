@@ -17,7 +17,7 @@ export interface IAiLanguageInteraction extends Document {
 
 const AiLanguageInteractionSchema = new Schema<IAiLanguageInteraction>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     userId: { type: String },
     feature: { type: String },
     trace: { type: Schema.Types.Mixed, required: true },

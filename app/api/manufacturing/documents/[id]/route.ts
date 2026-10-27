@@ -1,3 +1,4 @@
+import { validateObjectId } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -19,6 +20,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const tenantId = (session.user as any).tenantId;
     const { id } = await params;
 
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
     await connectDB();
     const doc = await DocumentModel.findOneAndUpdate(
       { _id: id, tenantId },

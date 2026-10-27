@@ -98,6 +98,7 @@ export interface IEmployee extends Document {
     type: "comment" | "notification";
     createdAt: Date;
   }>;
+  isDemo?: boolean;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -105,7 +106,7 @@ export interface IEmployee extends Document {
 
 const EmployeeSchema = new Schema<IEmployee>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true , immutable: true },
     userId: { type: Schema.Types.ObjectId, ref: "User" },
     employeeCode: { type: String, required: true, trim: true },
     firstName: { type: String, required: true, trim: true },
@@ -219,6 +220,7 @@ const EmployeeSchema = new Schema<IEmployee>(
       },
     ],
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    isDemo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

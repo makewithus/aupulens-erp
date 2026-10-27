@@ -22,7 +22,7 @@ export interface IAccount extends Document {
 }
 
 const AccountSchema = new Schema<IAccount>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true , immutable: true },
   company_name: { type: String, required: true },
   type: { type: String, enum: ['Prospect','Customer','Partner','Vendor','Other'] },
   industry: { type: String },

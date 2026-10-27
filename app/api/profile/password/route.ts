@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     console.error('Change password error:', error);
     return NextResponse.json(
-      { error: (error as Error).message || 'Something went wrong' },
+      { error: safeInternalErrorMessage() },
       { status: 500 }
     );
   }

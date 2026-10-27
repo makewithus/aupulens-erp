@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
     const parsedRows = xlsx.utils.sheet_to_json(sheet, { raw: false }) as Record<string, any>[];
     rawRecords = parsedRows.map((row) => mapRecord(row, entityType));
   } else {
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     entityType = body.entityType;
     strict = !!body.strict;
     rawRecords = Array.isArray(body.records) ? body.records : [];

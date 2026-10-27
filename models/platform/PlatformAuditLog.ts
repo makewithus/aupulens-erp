@@ -41,7 +41,7 @@ export interface IPlatformAuditLog extends Document {
 
 const PlatformAuditLogSchema = new Schema<IPlatformAuditLog>(
   {
-    tenantId: { type: String },
+    tenantId: { type: String, immutable: true },
     actorId: { type: String, required: true },
     actorType: {
       type: String,

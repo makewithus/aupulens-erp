@@ -14,7 +14,7 @@ export interface ISubscriptionNotificationSetting extends Document {
 
 const SubscriptionNotificationSettingSchema = new Schema<ISubscriptionNotificationSetting>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     eventKey: { type: String, required: true },
     label: { type: String, required: true },
     enabled: { type: Boolean, default: true },

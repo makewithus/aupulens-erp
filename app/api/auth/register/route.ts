@@ -1,6 +1,9 @@
+import { checkAuthRateLimit } from "@/lib/auth/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Types } from "mongoose";
+import { registrationTransaction } from "@/lib/auth/registrationTransaction";
 import connectDB from "@/lib/db";
 import User from "@/models/auth/User";
 import Organization from "@/models/admin/Organization";
@@ -20,7 +23,16 @@ function isValidTenantSlug(value: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await checkAuthRateLimit(req, "/api/auth/register");
+  if (limited) return limited;
+
   try {
+    if (process.env.ALLOW_PUBLIC_REGISTRATION !== "true") {
+      return NextResponse.json(
+        { error: "Public registration is disabled. Ask an administrator for an invitation.", code: "PUBLIC_REGISTRATION_DISABLED" },
+        { status: 403 },
+      );
+    }
     const body = await req.json();
     const {
       name,
@@ -76,11 +88,14 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
+    // All tenant provisioning writes either commit together or roll back together.
+    return await registrationTransaction(async (session) => {
+    const options = session ? { session } : {};
     // Check if user already exists within the selected tenant.
     const existingUser = await User.findOne({
       email: normalizedEmail,
       tenantId,
-    });
+    }, null, options);
     if (existingUser) {
       return NextResponse.json(
         { error: "User with this email already exists in this organization" },
@@ -88,63 +103,79 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tenantUserCount = await User.countDocuments({ tenantId });
-    // Default to true to allow registration of test accounts/users in prod/dev unless explicitly set to "false"
-    const allowPublicRegistration =
-      process.env.ALLOW_PUBLIC_REGISTRATION !== "false";
+    const tenantUserCount = await User.countDocuments({ tenantId }, options);
+    let organization: any = null;
+    let isNewOrganization = false;
 
-    if (tenantUserCount > 0 && !allowPublicRegistration) {
-      return NextResponse.json(
-        {
-          error:
-            "Public registration is disabled for this organization. Ask an administrator to create your user account.",
+    if (tenantId !== DEFAULT_TENANT_ID) {
+      organization = await Organization.findOne({ subdomain: tenantId }, null, options);
+
+      if (organization) {
+        // AUP-002: Public self-registration CANNOT register into an existing organization.
+        // It must NOT create admins or overwrite ownership of existing organizations.
+        return NextResponse.json(
+          {
+            error:
+              "An organization with this subdomain already exists. Please sign in or ask your organization administrator for an invitation.",
+            code: "ORGANIZATION_EXISTS",
+          },
+          { status: 409 },
+        );
+      }
+
+      // Create new organization
+      isNewOrganization = true;
+      const temporaryOwnerUserId = new Types.ObjectId();
+      const countryInfo = getCountryInfo(country || "India");
+      const organizationData = {
+        name: companyName || `${name}'s Organization`,
+        subdomain: tenantId,
+        ownerUserId: temporaryOwnerUserId,
+        settings: {
+          themeColor: "#3b82f6",
+          timezone: countryInfo.timezone,
+          currency: countryInfo.currencyCode,
+          country: country || "India",
+          state: state || "",
+          industry: industry || "",
+          isGstRegistered: !!isGstRegistered,
+          enabledModules: enabledModules || [],
         },
-        { status: 403 },
-      );
+      };
+      organization = session ? (await Organization.create([organizationData], options))[0] : await Organization.create(organizationData);
+
+      // Real billing-history event (Phase 3)
+      await appendSubscriptionEvent({
+        tenantId: organization.subdomain,
+        type: SUBSCRIPTION_EVENT_TYPE.CREATED,
+        tier: organization.tier,
+      }, session);
+    } else {
+      if (tenantUserCount > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Public registration is disabled for this organization. Ask an administrator to create your user account.",
+            code: "PUBLIC_REGISTRATION_DISABLED",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    let organization = null;
-    if (tenantId !== DEFAULT_TENANT_ID) {
-      organization = await Organization.findOne({ subdomain: tenantId });
-
-      if (!organization) {
-        const temporaryOwnerUserId = new Types.ObjectId();
-        const countryInfo = getCountryInfo(country || "India");
-        organization = await Organization.create({
-          name: companyName || `${name}'s Organization`,
-          subdomain: tenantId,
-          ownerUserId: temporaryOwnerUserId,
-          settings: {
-            themeColor: "#3b82f6",
-            timezone: countryInfo.timezone,
-            currency: countryInfo.currencyCode,
-            country: country || "India",
-            state: state || "",
-            industry: industry || "",
-            isGstRegistered: !!isGstRegistered,
-            enabledModules: enabledModules || [],
-          },
-        });
-
-        // Real billing-history event (Phase 3) — org.tier uses the schema
-        // default ("starter") at this point, no real payment has occurred
-        // yet (no payment gateway wired in — see lib/sales/paymentGateway.ts).
-        await appendSubscriptionEvent({
-          tenantId: organization.subdomain,
-          type: SUBSCRIPTION_EVENT_TYPE.CREATED,
-          tier: organization.tier,
-        });
-      }
-    }
-
-    const tempToken = `autologin_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+    // AUP-010: Cryptographically secure temporary token with SHA-256 hash storage
+    const rawTempToken = `autologin_${crypto.randomBytes(24).toString("hex")}`;
+    const tempTokenHash = crypto
+      .createHash("sha256")
+      .update(rawTempToken)
+      .digest("hex");
     const tempTokenExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
 
     // Create user
-    const user = await User.create({
+    const userData = {
       name: String(name).trim(),
       email: normalizedEmail,
       phone: String(phone).trim(),
@@ -153,30 +184,26 @@ export async function POST(req: NextRequest) {
       status: ENTITY_STATUS.ACTIVE,
       dateOfJoining: new Date(),
       tenantId,
-      tempToken,
+      tempTokenHash,
       tempTokenExpiry,
-    });
+    };
+    const user = session ? (await User.create([userData], options))[0] : await User.create(userData);
 
-    if (organization && String(organization.ownerUserId) !== String(user._id)) {
+    // Only assign ownership if this organization was newly created in this request
+    if (isNewOrganization && organization) {
       organization.ownerUserId = user._id as Types.ObjectId;
-      await organization.save();
+      await organization.save(options);
     }
 
-    // Seed default hierarchical Chart of Accounts for this tenant
-    try {
-      const { seedChartOfAccounts } = await import("@/lib/accounting/coa-seeder");
-      const { seedNewChartOfAccounts } = await import("@/lib/accounting/coa-feature-seeder");
-      await seedChartOfAccounts(tenantId, String(user._id));
-      await seedNewChartOfAccounts(tenantId, String(user._id));
-    } catch (coaError) {
-      console.error("Failed to seed Chart of Accounts on registration:", coaError);
-      // We do not fail the registration if COA seeding fails, but log it
-    }
+    const { seedChartOfAccounts } = await import("@/lib/accounting/coa-seeder");
+    const { seedNewChartOfAccounts } = await import("@/lib/accounting/coa-feature-seeder");
+    await seedChartOfAccounts(tenantId, String(user._id), session);
+    await seedNewChartOfAccounts(tenantId, String(user._id), session);
 
     return NextResponse.json(
       {
         message: "Admin account created successfully",
-        tempToken,
+        tempToken: rawTempToken,
         user: {
           id: String(user._id),
           name: user.name,
@@ -187,12 +214,16 @@ export async function POST(req: NextRequest) {
           tenantId: user.tenantId,
         },
       },
-      { status: 201 },
+      { status: 201, headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } },
     );
+    });
   } catch (error: unknown) {
-    console.error("Registration error:", error);
+    // Do not expose database errors or onboarding credentials in logs/responses.
+    if ((error as any)?.code === 11000) {
+      return NextResponse.json({ error: "Organization or account already exists", code: "ORGANIZATION_EXISTS" }, { status: 409 });
+    }
     return NextResponse.json(
-      { error: (error as Error).message || "Something went wrong" },
+      { error: "Registration failed. Please try again or contact support.", code: "REGISTRATION_FAILED" },
       { status: 500 },
     );
   }

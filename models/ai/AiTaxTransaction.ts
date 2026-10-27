@@ -40,7 +40,7 @@ export interface IAiTaxTransaction extends Document {
 
 const AiTaxTransactionSchema: Schema<IAiTaxTransaction> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     sourceRef: { model: { type: String, required: true }, id: { type: Schema.Types.ObjectId, required: true } },
     direction: { type: String, enum: Object.values(AI_TAX_DIRECTION), required: true },
     jurisdiction: { type: String, default: null },

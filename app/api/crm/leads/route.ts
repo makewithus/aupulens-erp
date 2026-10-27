@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -7,6 +9,7 @@ import { scoreLeadWithAi, calculateLeadScore } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -43,7 +46,8 @@ export async function GET(req: NextRequest) {
     if (Object.keys(range).length > 0) query.createdAt = range;
   }
 
-  const baseQuery = CrmLead.find(query).sort({ createdAt: -1 }).populate('owner_id', 'name email');
+  const scopedQuery = applyDemoScope(session, query);
+  const baseQuery = CrmLead.find(scopedQuery).sort({ createdAt: -1 }).populate('owner_id', 'name email');
 
   // Pagination is opt-in via `page` — omitting it keeps returning everything,
   // matching the convention used across the rest of this codebase.
@@ -57,7 +61,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
 
   const [total, leads] = await Promise.all([
-    CrmLead.countDocuments(query),
+    CrmLead.countDocuments(scopedQuery),
     baseQuery.skip((page - 1) * limit).limit(limit).lean(),
   ]);
 
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   await dbConnect();
   try {
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     if (!body.lead_name || !body.source || !body.owner_id) {
       return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
     }
@@ -134,6 +138,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: lead });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

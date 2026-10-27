@@ -63,7 +63,7 @@ export interface IMigrationJob extends mongoose.Document {
 
 const MigrationJobSchema = new Schema<IMigrationJob>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     batchId: { type: Schema.Types.ObjectId, ref: "MigrationBatch", index: true },
     name: { type: String, required: true, trim: true },
     sourceSystem: { type: String, enum: MIGRATION_SOURCE_SYSTEM_VALUES, required: true },

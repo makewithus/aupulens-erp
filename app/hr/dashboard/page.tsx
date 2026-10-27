@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,11 +38,18 @@ export default function HRDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const cachedHR = getInstantCachedData<any>("/api/hr/summary");
-  const [summaryData, setSummaryData] = useState<any>(() => cachedHR ?? null);
+  const [summaryData, setSummaryData] = useState<any>(null);
   const [pendingLeavesList, setPendingLeavesList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedHR);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    const cachedHR = getInstantCachedData<any>("/api/hr/summary");
+    if (cachedHR) {
+      setSummaryData(cachedHR);
+      setIsLoading(false);
+    }
+  }, []);
 
   const fetchHRData = useCallback(async (fresh: boolean = false) => {
     try {
@@ -54,7 +62,7 @@ export default function HRDashboardPage() {
       if (sumRes.ok) {
         const d = await sumRes.json();
         setSummaryData(d);
-        if (fresh) toast.success("Live HR data synchronized");
+        if (fresh) toast.success("HR dashboard updated");
       }
       if (leaveRes.ok) {
         const ld = await leaveRes.json();
@@ -114,7 +122,7 @@ export default function HRDashboardPage() {
   const departmentDistribution = useMemo(() => {
     if (!summaryData?.departmentDistribution?.length) return [];
     return summaryData.departmentDistribution.map((d: any) => ({
-      name: d.departmentName,
+      name: d.name || d.departmentName || "Unassigned",
       value: d.count,
     }));
   }, [summaryData]);
@@ -257,13 +265,22 @@ export default function HRDashboardPage() {
                 <Users className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black tracking-tight text-foreground">
-              {hrStats.totalEmployees} Team Members
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>{hrStats.onboardingEmployees} currently onboarding</span>
-            </div>
+            {isLoading ? (
+              <div className="space-y-2 mt-1">
+                <Skeleton className="h-8 w-36" />
+                <Skeleton className="h-3.5 w-44 mt-2" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black tracking-tight text-foreground">
+                  {hrStats.totalEmployees} Team Members
+                </div>
+                <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>{hrStats.onboardingEmployees} currently onboarding</span>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -281,12 +298,21 @@ export default function HRDashboardPage() {
                 <CalendarCheck className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black tracking-tight text-emerald-400">
-              {hrStats.todayAttendanceRate}%
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-400 font-semibold">
-              <span>{hrStats.presentToday} checked in • {hrStats.onLeaveToday} on leave</span>
-            </div>
+            {isLoading ? (
+              <div className="space-y-2 mt-1">
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-3.5 w-48 mt-2" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black tracking-tight text-emerald-400">
+                  {hrStats.todayAttendanceRate}%
+                </div>
+                <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-400 font-semibold">
+                  <span>{hrStats.presentToday} checked in • {hrStats.onLeaveToday} on leave</span>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -304,12 +330,21 @@ export default function HRDashboardPage() {
                 <DollarSign className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black tracking-tight text-foreground">
-              {formatCurrency(hrStats.monthlyNetPayroll)}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-purple-400 font-semibold">
-              <span>Gross: {formatCurrency(hrStats.monthlyGrossPayroll)}</span>
-            </div>
+            {isLoading ? (
+              <div className="space-y-2 mt-1">
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-3.5 w-40 mt-2" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black tracking-tight text-foreground">
+                  {formatCurrency(hrStats.monthlyNetPayroll)}
+                </div>
+                <div className="flex items-center gap-1.5 mt-2 text-[11px] text-purple-400 font-semibold">
+                  <span>Gross: {formatCurrency(hrStats.monthlyGrossPayroll)}</span>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -327,12 +362,21 @@ export default function HRDashboardPage() {
                 <ShieldCheck className="w-4 h-4" />
               </span>
             </div>
-            <div className="text-2xl font-black tracking-tight text-foreground">
-              {hrStats.attritionRate}%
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-500 font-semibold">
-              <span>{hrStats.pendingLeavesCount} leave approvals pending</span>
-            </div>
+            {isLoading ? (
+              <div className="space-y-2 mt-1">
+                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-3.5 w-44 mt-2" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-black tracking-tight text-foreground">
+                  {hrStats.attritionRate}%
+                </div>
+                <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-500 font-semibold">
+                  <span>{hrStats.pendingLeavesCount} leave approvals pending</span>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -397,7 +441,9 @@ export default function HRDashboardPage() {
                     </div>
                     <div>
                       <div className="font-semibold text-xs text-foreground">Leave Requests</div>
-                      <div className="text-[10px] text-muted-foreground">{hrStats.pendingLeavesCount} pending sign-off</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {isLoading ? "Checking pending..." : `${hrStats.pendingLeavesCount} pending sign-off`}
+                      </div>
                     </div>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
@@ -461,7 +507,12 @@ export default function HRDashboardPage() {
               </Badge>
             </CardHeader>
             <CardContent className="p-5 flex-1 flex flex-col justify-center items-center">
-              {departmentDistribution.length > 0 ? (
+              {isLoading ? (
+                <div className="h-[220px] w-full flex flex-col items-center justify-center gap-3">
+                  <Skeleton className="h-32 w-32 rounded-full" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              ) : departmentDistribution.length > 0 ? (
                 <CanvasPieChart
                   data={departmentDistribution}
                   title="Staff"
@@ -518,7 +569,22 @@ export default function HRDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {pendingLeaveRequests.length === 0 ? (
+                    {isLoading ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <tr key={i}>
+                          <td className="p-3 pl-5 space-y-1">
+                            <Skeleton className="h-3.5 w-24" />
+                            <Skeleton className="h-2.5 w-16" />
+                          </td>
+                          <td className="p-3"><Skeleton className="h-3.5 w-16" /></td>
+                          <td className="p-3 space-y-1">
+                            <Skeleton className="h-3.5 w-20" />
+                            <Skeleton className="h-2.5 w-24" />
+                          </td>
+                          <td className="p-3 pr-5 text-right"><Skeleton className="h-6 w-14 ml-auto" /></td>
+                        </tr>
+                      ))
+                    ) : pendingLeaveRequests.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="p-8 text-center text-muted-foreground text-xs font-mono">
                           No pending leave approvals
@@ -597,7 +663,19 @@ export default function HRDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {recentHires.length === 0 ? (
+                    {isLoading ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <tr key={i}>
+                          <td className="p-3 pl-5 space-y-1">
+                            <Skeleton className="h-3.5 w-28" />
+                            <Skeleton className="h-2.5 w-20" />
+                          </td>
+                          <td className="p-3"><Skeleton className="h-3.5 w-20" /></td>
+                          <td className="p-3"><Skeleton className="h-3.5 w-16" /></td>
+                          <td className="p-3 pr-5 text-right"><Skeleton className="h-5 w-14 ml-auto" /></td>
+                        </tr>
+                      ))
+                    ) : recentHires.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="p-8 text-center text-muted-foreground text-xs font-mono">
                           No recent hires recorded for this organization
@@ -618,7 +696,7 @@ export default function HRDashboardPage() {
                               className={cn(
                                 "font-mono text-[10px]",
                                 hire.status.includes("Active")
-                                  ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                                   ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
                                   : "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"
                               )}
                             >

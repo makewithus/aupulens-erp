@@ -16,7 +16,7 @@ export interface IDepartment extends Document {
 
 const DepartmentSchema = new Schema<IDepartment>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     code: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
@@ -31,6 +31,7 @@ const DepartmentSchema = new Schema<IDepartment>(
 
 DepartmentSchema.index({ tenantId: 1, code: 1 }, { unique: true });
 DepartmentSchema.index({ tenantId: 1, name: 1 });
+DepartmentSchema.index({ tenantId: 1, isActive: 1 });
 
 const Department: Model<IDepartment> =
   (mongoose.models.Department as Model<IDepartment>) ||

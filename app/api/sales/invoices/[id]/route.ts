@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
@@ -15,6 +16,8 @@ import { advanceSaleOrderOnInvoicePaid } from "@/lib/sales/q2cSync";
 import Payment from "@/models/sales/Payment";
 import JournalEntry from "@/models/finance/JournalEntry";
 import { validateInvoiceTaxRequirements } from "@/lib/tax/invoiceValidation";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 const ZERO_SNAPSHOT: SalesInvoiceSnapshot = { taxableAmount: 0, totalTax: 0, tcsAmount: 0, tdsAmount: 0 };
 const REVENUE_RECOGNIZED_STATUSES = new Set([
@@ -31,8 +34,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
     const invoice = await (SalesInvoice as any)
       .findOne({ _id: id, tenantId: session.user.tenantId })
       .populate("customerId")
@@ -45,8 +51,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ success: true, data: invoice });
   } catch (error: any) {
-    console.error("Sales Invoice GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -57,141 +62,146 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
-    const tenantId = session.user.tenantId;
     const { id } = await params;
-    const body = await request.json();
-    for (const key of ["tenantId", "createdBy", "postedSnapshot", "journalEntryIds", "sourceQuoteId", "_id"]) delete body[key];
-    delete body.tenantId;
-    delete body.number; // Immutable once assigned
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
-    // Fetched once as a live document (not .lean()) since it's also used
-    // below to apply the update and .save() — previously this was fetched
-    // twice (once .lean() just for the merge, once live for the write).
-    const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId });
-    if (!invoice) {
-      return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
-    }
-    const existing = invoice.toObject();
+    await connectDB();
+    const transactionRequestBody = await request.json();
+    return await withAccountingTransaction(async () => {
+      const tenantId = session.user.tenantId;
+      const body = stripProtectedFields(structuredClone(transactionRequestBody));
+      for (const key of ["tenantId", "createdBy", "postedSnapshot", "journalEntryIds", "sourceQuoteId", "_id"]) delete body[key];
+      delete body.tenantId;
+      delete body.number; // Immutable once assigned
 
-    const merged = { ...existing, ...body };
-    const isDraft = merged.status === SALES_INVOICE_STATUS.DRAFT;
-
-    if (!isDraft) {
-      if (!merged.customerId) {
-        return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
+      // Fetched once as a live document (not .lean()) since it's also used
+      // below to apply the update and .save() — previously this was fetched
+      // twice (once .lean() just for the merge, once live for the write).
+      const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId });
+      if (!invoice) {
+        return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
       }
-      if (!Array.isArray(merged.lineItems) || merged.lineItems.length === 0) {
-        return NextResponse.json({ success: false, message: "At least one line item is required" }, { status: 400 });
+      const existing = invoice.toObject();
+
+      const merged = { ...existing, ...body };
+      const isDraft = merged.status === SALES_INVOICE_STATUS.DRAFT;
+
+      if (!isDraft) {
+        if (!merged.customerId) {
+          return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
+        }
+        if (!Array.isArray(merged.lineItems) || merged.lineItems.length === 0) {
+          return NextResponse.json({ success: false, message: "At least one line item is required" }, { status: 400 });
+        }
+        const taxRequirementError = await validateInvoiceTaxRequirements(tenantId, merged.lineItems);
+        if (taxRequirementError) {
+          return NextResponse.json({ success: false, message: taxRequirementError }, { status: 400 });
+        }
       }
-      const taxRequirementError = await validateInvoiceTaxRequirements(tenantId, merged.lineItems);
-      if (taxRequirementError) {
-        return NextResponse.json({ success: false, message: taxRequirementError }, { status: 400 });
-      }
-    }
 
-    const org = await Organization.findOne({ subdomain: tenantId }).lean();
-    const sellerState = (org as any)?.settings?.state;
+      const org = await Organization.findOne({ subdomain: tenantId }).lean();
+      const sellerState = (org as any)?.settings?.state;
 
-    const financialIssues = merged.lineItems?.length ? validateQuoteInput({ ...merged, lineItems: merged.lineItems }) : [];
-    if (financialIssues.length) return NextResponse.json({ success: false, message: financialIssues.join(" "), code: "BUSINESS_RULE" }, { status: 400 });
-    const totals = computeInvoiceTotals({
-      lineItems: merged.lineItems || [],
-      itemLevelDiscountPercent: merged.itemLevelDiscountPercent || 0,
-      additionalCharges: merged.additionalCharges || [],
-      extraDiscount: merged.extraDiscount || 0,
-      extraDiscountMode: merged.extraDiscountMode || "amount",
-      roundOff: !!merged.roundOff,
-      sellerState,
-      placeOfSupply: merged.placeOfSupply,
-      tdsRate: merged.taxes?.tds || 0,
-      tcsRate: merged.taxes?.tcs || 0,
-    });
+      const financialIssues = merged.lineItems?.length ? validateQuoteInput({ ...merged, lineItems: merged.lineItems }) : [];
+      if (financialIssues.length) return NextResponse.json({ success: false, message: financialIssues.join(" "), code: "BUSINESS_RULE" }, { status: 400 });
+      const totals = computeInvoiceTotals({
+        lineItems: merged.lineItems || [],
+        itemLevelDiscountPercent: merged.itemLevelDiscountPercent || 0,
+        additionalCharges: merged.additionalCharges || [],
+        extraDiscount: merged.extraDiscount || 0,
+        extraDiscountMode: merged.extraDiscountMode || "amount",
+        roundOff: !!merged.roundOff,
+        sellerState,
+        placeOfSupply: merged.placeOfSupply,
+        tdsRate: merged.taxes?.tds || 0,
+        tcsRate: merged.taxes?.tcs || 0,
+      });
 
-    const status = resolveInvoiceStatus({
-      requestedStatus: merged.status || SALES_INVOICE_STATUS.SAVED,
-      totalAmount: totals.totalAmount,
-      payments: merged.payments || [],
-      markedFullyPaid: merged.markedFullyPaid,
-      dueDate: merged.dueDate,
-    });
+      const status = resolveInvoiceStatus({
+        requestedStatus: merged.status || SALES_INVOICE_STATUS.SAVED,
+        totalAmount: totals.totalAmount,
+        payments: merged.payments || [],
+        markedFullyPaid: merged.markedFullyPaid,
+        dueDate: merged.dueDate,
+      });
 
-    // Same fix as the POST route: lineItems[].lineTotal is required by the
-    // schema but never sent by the InvoiceForm UI — merge computeInvoiceTotals'
-    // per-line lineTotal back in here rather than trusting the client to
-    // supply it. This is also what unblocks recording a payment against an
-    // invoice whose lineTotal was never set on creation (applyAllocationsToInvoices
-    // re-saves the whole document, which re-validates every path).
-    const lineItemsWithTotals = (merged.lineItems || []).map((li: any, i: number) => {
-      const computed = totals.computedLines[i];
-      return {
-        ...li,
-        gross: computed?.gross ?? li.gross,
-        lineDiscountAmount: computed?.lineDiscountAmount ?? li.lineDiscountAmount,
-        taxableValue: computed?.taxableValue ?? li.taxableValue,
-        taxAmount: computed?.taxAmount ?? li.taxAmount,
-        lineTotal: computed?.lineTotal ?? 0,
+      // Same fix as the POST route: lineItems[].lineTotal is required by the
+      // schema but never sent by the InvoiceForm UI — merge computeInvoiceTotals'
+      // per-line lineTotal back in here rather than trusting the client to
+      // supply it. This is also what unblocks recording a payment against an
+      // invoice whose lineTotal was never set on creation (applyAllocationsToInvoices
+      // re-saves the whole document, which re-validates every path).
+      const lineItemsWithTotals = (merged.lineItems || []).map((li: any, i: number) => {
+        const computed = totals.computedLines[i];
+        return {
+          ...li,
+          gross: computed?.gross ?? li.gross,
+          lineDiscountAmount: computed?.lineDiscountAmount ?? li.lineDiscountAmount,
+          taxableValue: computed?.taxableValue ?? li.taxableValue,
+          taxAmount: computed?.taxAmount ?? li.taxAmount,
+          lineTotal: computed?.lineTotal ?? 0,
+        };
+      });
+
+      const update = {
+        ...body,
+        lineItems: lineItemsWithTotals,
+        taxableAmount: totals.taxableAmount,
+        totalDiscount: totals.totalDiscount,
+        totalAmount: totals.totalAmount,
+        taxes: {
+          tds: merged.taxes?.tds || 0,
+          tcs: merged.taxes?.tcs || 0,
+          gstBreakup: totals.gstBreakup,
+        },
+        status,
       };
+
+      Object.assign(invoice, update);
+
+      // Reconcile the GL to this invoice's new state — a no-op if nothing
+      // revenue-relevant changed, a reclass if amounts changed, or a full
+      // reversal if the invoice moved back to draft/cancelled. See the POST
+      // route and lib/accounting/salesInvoicePosting.ts for why this exists.
+      const nextSnapshot: SalesInvoiceSnapshot = REVENUE_RECOGNIZED_STATUSES.has(status as any)
+        ? { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount, cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, roundOffAmount: totals.roundOffAmount }
+        : ZERO_SNAPSHOT;
+      // Same "Mark as fully paid" GL-blind fix as the POST route — see
+      // lib/sales/paymentAllocation.ts's settleInvoiceShortfallWithSystemPayment
+      // for why this exists.
+      let systemPayment: { paymentId: any; journalEntryIds: any[] } | null = null;
+      try {
+        const paidSum = (invoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+        const shortfall = Math.round((totals.totalAmount - paidSum) * 100) / 100;
+        if (invoice.markedFullyPaid && status === SALES_INVOICE_STATUS.PAID && shortfall > 0.005) {
+          systemPayment = await settleInvoiceShortfallWithSystemPayment({
+            tenantId,
+            customerId: String(invoice.customerId),
+            invoice,
+            amount: shortfall,
+            createdBy: session.user.id,
+            paymentDate: invoice.invoiceDate,
+          });
+        }
+
+        await postSalesInvoiceJournal({ invoice, tenantId, createdBy: session.user.id, current: nextSnapshot });
+        await invoice.save();
+        if (invoice.status === SALES_INVOICE_STATUS.PAID) {
+          await advanceSaleOrderOnInvoicePaid(tenantId, invoice._id);
+        }
+      } catch (postingError: any) {
+        if (systemPayment) {
+          await JournalEntry.deleteMany({ _id: { $in: systemPayment.journalEntryIds }, tenantId });
+          await Payment.deleteOne({ _id: systemPayment.paymentId });
+        }
+        return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+      }
+
+      return NextResponse.json({ success: true, data: invoice });
     });
-
-    const update = {
-      ...body,
-      lineItems: lineItemsWithTotals,
-      taxableAmount: totals.taxableAmount,
-      totalDiscount: totals.totalDiscount,
-      totalAmount: totals.totalAmount,
-      taxes: {
-        tds: merged.taxes?.tds || 0,
-        tcs: merged.taxes?.tcs || 0,
-        gstBreakup: totals.gstBreakup,
-      },
-      status,
-    };
-
-    Object.assign(invoice, update);
-
-    // Reconcile the GL to this invoice's new state — a no-op if nothing
-    // revenue-relevant changed, a reclass if amounts changed, or a full
-    // reversal if the invoice moved back to draft/cancelled. See the POST
-    // route and lib/accounting/salesInvoicePosting.ts for why this exists.
-    const nextSnapshot: SalesInvoiceSnapshot = REVENUE_RECOGNIZED_STATUSES.has(status as any)
-      ? { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount, cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, roundOffAmount: totals.roundOffAmount }
-      : ZERO_SNAPSHOT;
-    // Same "Mark as fully paid" GL-blind fix as the POST route — see
-    // lib/sales/paymentAllocation.ts's settleInvoiceShortfallWithSystemPayment
-    // for why this exists.
-    let systemPayment: { paymentId: any; journalEntryIds: any[] } | null = null;
-    try {
-      const paidSum = (invoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
-      const shortfall = Math.round((totals.totalAmount - paidSum) * 100) / 100;
-      if (invoice.markedFullyPaid && status === SALES_INVOICE_STATUS.PAID && shortfall > 0.005) {
-        systemPayment = await settleInvoiceShortfallWithSystemPayment({
-          tenantId,
-          customerId: String(invoice.customerId),
-          invoice,
-          amount: shortfall,
-          createdBy: session.user.id,
-          paymentDate: invoice.invoiceDate,
-        });
-      }
-
-      await postSalesInvoiceJournal({ invoice, tenantId, createdBy: session.user.id, current: nextSnapshot });
-      await invoice.save();
-      if (invoice.status === SALES_INVOICE_STATUS.PAID) {
-        await advanceSaleOrderOnInvoicePaid(tenantId, invoice._id);
-      }
-    } catch (postingError: any) {
-      if (systemPayment) {
-        await JournalEntry.deleteMany({ _id: { $in: systemPayment.journalEntryIds }, tenantId });
-        await Payment.deleteOne({ _id: systemPayment.paymentId });
-      }
-      return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, data: invoice });
   } catch (error: any) {
-    console.error("Sales Invoice PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -202,33 +212,37 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
-    const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId: session.user.tenantId });
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
-    if (!invoice) {
-      return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
-    }
+    await connectDB();
+    return await withAccountingTransaction(async () => {
+      const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId: session.user.tenantId });
 
-    const paidSum = (invoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
-    const isPostedOrPaid = ["paid", "partially_paid", "saved", "posted", "overdue"].includes(invoice.status) || paidSum > 0 || invoice.markedFullyPaid;
+      if (!invoice) {
+        return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
+      }
 
-    if (isPostedOrPaid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Cannot delete an issued, posted, or paid invoice. Use credit note or void/cancellation workflows.",
-          code: "FINANCIAL_INTEGRITY_VIOLATION",
-        },
-        { status: 409 }
-      );
-    }
+      const paidSum = (invoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+      const isPostedOrPaid = ["paid", "partially_paid", "saved", "posted", "overdue"].includes(invoice.status) || paidSum > 0 || invoice.markedFullyPaid;
 
-    await (SalesInvoice as any).deleteOne({ _id: invoice._id, tenantId: session.user.tenantId });
+      if (isPostedOrPaid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Cannot delete an issued, posted, or paid invoice. Use credit note or void/cancellation workflows.",
+            code: "FINANCIAL_INTEGRITY_VIOLATION",
+          },
+          { status: 409 }
+        );
+      }
 
-    return NextResponse.json({ success: true, message: "Invoice deleted" });
+      await (SalesInvoice as any).deleteOne({ _id: invoice._id, tenantId: session.user.tenantId });
+
+      return NextResponse.json({ success: true, message: "Invoice deleted" });
+    });
   } catch (error: any) {
-    console.error("Sales Invoice DELETE error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

@@ -1,3 +1,4 @@
+import { checkAuthRateLimit } from "@/lib/auth/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
@@ -16,6 +17,8 @@ function hashToken(token: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await checkAuthRateLimit(req, "/api/auth/password-reset/confirm");
+  if (limited) return limited;
   try {
     const body = await req.json();
     const email = (body.email || "").trim().toLowerCase();
@@ -39,12 +42,12 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const tokenHash = hashToken(token);
-    const user = await User.findOne({
-      tenantId,
-      email,
-      passwordResetTokenHash: tokenHash,
-      passwordResetTokenExpiry: { $gt: new Date() },
-    });
+    const password = await bcrypt.hash(newPassword, 12);
+    const user = await User.findOneAndUpdate(
+      { tenantId, email, passwordResetTokenHash: tokenHash, passwordResetTokenExpiry: { $gt: new Date() } },
+      { $set: { password }, $unset: { passwordResetTokenHash: "", passwordResetTokenExpiry: "" } },
+      { new: false, runValidators: true },
+    ).select("_id");
 
     if (!user) {
       return NextResponse.json(
@@ -52,11 +55,6 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-
-    user.password = await bcrypt.hash(newPassword, 12);
-    user.passwordResetTokenHash = undefined;
-    user.passwordResetTokenExpiry = undefined;
-    await user.save();
 
     return NextResponse.json({ success: true, message: "Password updated. You can now sign in." });
   } catch (error: any) {

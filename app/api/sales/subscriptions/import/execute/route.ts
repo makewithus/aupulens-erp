@@ -15,7 +15,8 @@ export async function POST(request: Request) {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -157,6 +158,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, imported, skipped, overwritten, errors });
+
   } catch (error) {
     console.error("Subscription Import Execution Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

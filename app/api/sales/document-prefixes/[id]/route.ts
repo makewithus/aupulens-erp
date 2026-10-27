@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -12,9 +14,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { id } = await params;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
 
     const row = await DocumentPrefix.findOne({ _id: id, tenantId });
     if (!row) {
@@ -30,11 +33,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     await row.save();
 
     return NextResponse.json({ success: true, data: row });
+
   } catch (error: any) {
     if (error?.code === 11000) {
       return NextResponse.json({ success: false, message: "That prefix/suffix value already exists for this document type" }, { status: 409 });
     }
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -46,7 +50,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { id } = await params;
     const row = await DocumentPrefix.findOneAndDelete({ _id: id, tenantId });
     if (!row) {
@@ -58,7 +63,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     return NextResponse.json({ success: true, message: "Deleted" });
+
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

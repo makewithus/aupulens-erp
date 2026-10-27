@@ -14,7 +14,7 @@ export default function CrmLayout({ children }: { children: React.ReactNode }) {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
       {children}
     </DashboardLayout>

@@ -215,6 +215,7 @@ describe("AI tool registry — permissioned ERP tool layer", () => {
       runId: RUN_ID,
       toolName: "test_inflight_tool",
       idempotencyKey: "inflight-key",
+      actorUserId: ADMIN_USER_ID,
       argsHash: "irrelevant",
       status: "in_flight",
     });

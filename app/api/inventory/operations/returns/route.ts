@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -95,7 +97,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -108,12 +110,13 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await connectDB();
 
     // Auto-generate return name (WH/RET/00001)
-    if (!body.header.name) {
+
+if (!body.header.name) {
       const prefix = "WH/RET/";
       const count = await StockTransfer.countDocuments({
         tenantId,
@@ -135,7 +138,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ item: transfer }, { status: 201 });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

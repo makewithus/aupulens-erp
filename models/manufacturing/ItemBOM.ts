@@ -24,7 +24,7 @@ export interface IItemBOM extends Document {
 
 const ItemBOMSchema = new Schema<IItemBOM>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     bomNumber: { type: String, required: true, trim: true },
     itemToProduceId: {

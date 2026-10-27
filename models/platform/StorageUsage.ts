@@ -24,7 +24,7 @@ export interface IStorageUsage extends Document {
 
 const StorageUsageSchema = new Schema<IStorageUsage>(
   {
-    tenantId: { type: String, required: true, unique: true },
+    tenantId: { type: String, required: true, unique: true, immutable: true },
     totalBytes: { type: Number, required: true, default: 0 },
     fileCount: { type: Number, required: true, default: 0 },
     lastUploadAt: { type: Date, required: true, default: Date.now },

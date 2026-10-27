@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -73,13 +75,13 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
 
-    const payload = { items: moves };
+    const payload = { items: moves, moves };
     setCachedData(cacheKey, payload, 20_000);
     return NextResponse.json(payload);
   } catch (error: any) {
     console.error("Error fetching stock moves:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }
@@ -94,12 +96,13 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await connectDB();
 
     // Auto-generate reference if not provided
-    if (!body.reference) {
+
+if (!body.reference) {
       const prefixMap: Record<string, string> = {
         internal: "INT",
         incoming: "IN",
@@ -158,6 +161,7 @@ export async function POST(req: NextRequest) {
 
     invalidateCache(`inv-stock-moves:${tenantId}`);
     return NextResponse.json({ item: move }, { status: 201 });
+
   } catch (error: any) {
     console.error("Error creating stock move:", error);
     if (error.code === 11000) {
@@ -167,7 +171,7 @@ export async function POST(req: NextRequest) {
       );
     }
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }

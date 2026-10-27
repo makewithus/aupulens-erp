@@ -18,7 +18,7 @@ export interface IEmailTemplate extends Document {
 
 const EmailTemplateSchema = new Schema<IEmailTemplate>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     key: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     subject: { type: String, required: true, default: "" },

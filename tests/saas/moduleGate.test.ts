@@ -345,9 +345,11 @@ describe("applyModuleGating — pass-through cases (returns null)", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("org fetch returns null → fail open, null returned", async () => {
+  it("missing organization fails closed for a non-legacy tenant", async () => {
     const fetcher = vi.fn().mockResolvedValue(null);
-    expect(await applyModuleGating("/finance/summary", makeUser(), fetcher)).toBeNull();
+    const response = await applyModuleGating("/api/finance/reports", makeUser(), fetcher, true);
+    expect(response?.status).toBe(403);
+    expect((await response!.json()).code).toBe("ORGANIZATION_NOT_FOUND");
   });
 
   it("admin module on starter → allowed (admin is in all tiers)", async () => {

@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -126,32 +127,28 @@ export async function GET(req: NextRequest) {
           status: "active_disbursement",
         };
 
-    // Department-wise employee distribution
-    const departmentDistribution = await Employee.aggregate([
-      { $match: { ...tenantMatch, lifecycleStatus: "active" } },
+    // Department-wise employee distribution from authoritative Department master
+    const allDepartments = await Department.find({ ...tenantMatch, isActive: true }).select("_id name code").sort({ name: 1 }).lean();
+    const empDeptCounts = await Employee.aggregate([
+      { $match: { ...tenantMatch, lifecycleStatus: { $ne: "exited" } } },
       {
         $group: {
           _id: "$departmentId",
           count: { $sum: 1 },
         },
       },
-      {
-        $lookup: {
-          from: "departments",
-          localField: "_id",
-          foreignField: "_id",
-          as: "department",
-        },
-      },
-      { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          departmentName: { $ifNull: ["$department.name", "Unassigned"] },
-          count: 1,
-        },
-      },
-      { $sort: { count: -1 } },
     ]);
+    const empCountByDeptId: Record<string, number> = {};
+    for (const ec of empDeptCounts) {
+      if (ec._id) empCountByDeptId[String(ec._id)] = ec.count;
+    }
+    const departmentDistribution = allDepartments.map((dept: any) => ({
+      _id: dept._id,
+      name: dept.name,
+      departmentName: dept.name,
+      code: dept.code,
+      count: empCountByDeptId[String(dept._id)] || 0,
+    }));
 
     // Daily shift attendance trend
     const dailyAttendanceAgg = await Attendance.aggregate([
@@ -197,6 +194,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(responsePayload);
   } catch (error: any) {
     console.error("HR Summary Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

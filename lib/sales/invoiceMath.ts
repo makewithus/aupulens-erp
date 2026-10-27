@@ -1,3 +1,4 @@
+import { allocatePaise } from "@/lib/accounting/allocatePaise";
 import { normalizeIndianState } from "@/lib/constants/indianStates";
 // Pure functions — invoice line/tax/total math. No DB access, fully unit-testable.
 
@@ -222,15 +223,27 @@ export function computeHsnSummary(
     row.total += lineTaxable + lineTax;
     map.set(hsn, row);
   }
-  return Array.from(map.values()).map((r) => ({
-    ...r,
-    taxableValue: round2(r.taxableValue),
-    cgstAmount: round2(r.cgstAmount),
-    sgstAmount: round2(r.sgstAmount),
-    igstAmount: round2(r.igstAmount),
-    totalTax: round2(r.totalTax),
-    total: round2(r.total),
-  }));
+  const rows = Array.from(map.values());
+  const authoritativeTax = round2(rows.reduce((sum, row) => sum + row.totalTax, 0));
+  const taxes = allocatePaise(authoritativeTax, rows.map(row => Math.max(0, row.totalTax)));
+  const cgsts = isInterState ? rows.map(() => 0) : allocatePaise(round2(authoritativeTax / 2), taxes);
+  return rows.map((r, index) => {
+    const taxableValue = round2(r.taxableValue);
+    const totalTax = taxes[index];
+    const igstAmount = isInterState ? totalTax : 0;
+    const cgstAmount = cgsts[index];
+    const sgstAmount = isInterState ? 0 : round2(totalTax - cgstAmount);
+    const total = round2(taxableValue + totalTax);
+    return {
+      hsn: r.hsn,
+      taxableValue,
+      cgstAmount,
+      sgstAmount,
+      igstAmount,
+      totalTax,
+      total,
+    };
+  });
 }
 
 function round2(n: number): number {

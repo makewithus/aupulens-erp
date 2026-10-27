@@ -60,7 +60,7 @@ export interface IItem extends Document {
 
 const ItemSchema = new Schema<IItem>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true, trim: true },
     type: { type: String, enum: ["goods", "service"], default: "goods" },
     category: { type: String, trim: true },

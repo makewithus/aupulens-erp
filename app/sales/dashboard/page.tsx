@@ -25,6 +25,7 @@ import {
   BarChart3,
   GitBranch,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
@@ -40,61 +41,109 @@ export default function SalesDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const cachedSummary = getInstantCachedData<any>("/api/sales/summary");
-  const cachedAnalytics = getInstantCachedData<any>("/api/sales/analytics");
-  const cachedOrders = getInstantCachedData<any>("/api/sales/orders?limit=5");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [salesKPIs, setSalesKPIs] = useState<{
+    netRevenue: number;
+    revenueGrowthMoM: number;
+    openPipelineValue: number;
+    openQuotesCount: number;
+    averageOrderValue: number;
+    aovChange: number;
+    q2cConversionRate: number;
+    activeSubscriptionsARR: number;
+    activeTenants: number;
+  } | null>(null);
 
-  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedSummary);
+  const [channelDistribution, setChannelDistribution] = useState<{ name: string; value: number }[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [q2cPipelineStages, setQ2cPipelineStages] = useState<any[]>([]);
+  const [dailyOrders, setDailyOrders] = useState<any[]>([]);
+  const [tradingLineData, setTradingLineData] = useState<any[]>([]);
 
-  const initRev = cachedSummary?.totalRevenue ?? 0;
-  const initOrders = cachedSummary?.totalOrders ?? 0;
-  const initQuotes = cachedSummary?.totalQuotations ?? 0;
-  const initAov = initOrders > 0 ? Math.round(initRev / initOrders) : 0;
-  const initConv = initQuotes > 0 ? Math.min(100, Math.round((initOrders / initQuotes) * 100)) : 0;
+  const applyDashboardData = useCallback((summaryRes: any, analyticsRes: any, ordersRes: any) => {
+    if (!summaryRes && !analyticsRes && !ordersRes) return;
 
-  // Sales-specific parameters & KPIs (Dynamic with database isolation)
-  const [salesKPIs, setSalesKPIs] = useState(() => ({
-    netRevenue: initRev,
-    revenueGrowthMoM: cachedSummary?.trends?.revenue ?? 0,
-    openPipelineValue: initQuotes * initAov,
-    openQuotesCount: initQuotes,
-    averageOrderValue: initAov,
-    aovChange: cachedSummary?.trends?.orders ?? 0,
-    q2cConversionRate: initConv,
-    activeSubscriptionsARR: initRev * 12,
-    activeTenants: 1,
-  }));
+    const rev = summaryRes?.totalRevenue ?? 0;
+    const ordersCount = summaryRes?.totalOrders ?? 0;
+    const quotesCount = summaryRes?.totalQuotations ?? 0;
+    const aov = ordersCount > 0 ? Math.round(rev / ordersCount) : 0;
+    const convRate = quotesCount > 0 ? Math.min(100, Math.round((ordersCount / quotesCount) * 100)) : 0;
 
-  const [channelDistribution, setChannelDistribution] = useState<{ name: string; value: number }[]>(() => {
-    if (Array.isArray(cachedAnalytics?.topProducts) && cachedAnalytics.topProducts.length > 0) {
-      return cachedAnalytics.topProducts.map((p: any) => ({ name: p.name, value: p.value }));
+    setSalesKPIs({
+      netRevenue: rev,
+      revenueGrowthMoM: summaryRes?.trends?.revenue ?? 0,
+      openPipelineValue: quotesCount * aov,
+      openQuotesCount: quotesCount,
+      averageOrderValue: aov,
+      aovChange: summaryRes?.trends?.orders ?? 0,
+      q2cConversionRate: convRate,
+      activeSubscriptionsARR: rev * 12,
+      activeTenants: 1,
+    });
+
+    if (Array.isArray(analyticsRes?.topProducts) && analyticsRes.topProducts.length > 0) {
+      setChannelDistribution(analyticsRes.topProducts.map((p: any) => ({ name: p.name, value: p.value })));
+    } else {
+      setChannelDistribution([]);
     }
-    return [];
-  });
-  const [recentOrders, setRecentOrders] = useState<any[]>(() => {
-    if (cachedOrders?.items && Array.isArray(cachedOrders.items)) {
-      return cachedOrders.items.map((ord: any) => ({
-        id: ord.name || ord.code || (ord._id ? `SO-${ord._id.slice(-6).toUpperCase()}` : "SO-NEW"),
-        customer: ord.partnerId?.name || ord.customerName || "Customer",
-        amount: ord.totals?.amountTotal || ord.totalAmount || 0,
-        stage: ord.status === "sale" || ord.status === "done" ? "Accepted" : (ord.status === "invoiced" ? "Invoiced" : "Draft"),
-        date: ord.createdAt ? new Date(ord.createdAt).toLocaleDateString("en-IN") : "Recent",
-        status: ord.status || "Pending",
+
+    if (Array.isArray(analyticsRes?.dailyOrders)) {
+      setDailyOrders(analyticsRes.dailyOrders);
+    } else {
+      setDailyOrders([]);
+    }
+
+    if (Array.isArray(analyticsRes?.revenue)) {
+      setTradingLineData(analyticsRes.revenue.map((r: any) => ({ date: r.month, value: r.amount })));
+    } else {
+      setTradingLineData([]);
+    }
+
+    setQ2cPipelineStages([
+      { name: "Draft Quotations", count: quotesCount, value: `₹${(quotesCount * aov).toLocaleString("en-IN")}`, percent: quotesCount > 0 ? 100 : 0, color: BRAND_COLORS.accent.blue },
+      { name: "Confirmed Orders", count: ordersCount, value: `₹${rev.toLocaleString("en-IN")}`, percent: convRate, color: BRAND_COLORS.accent.green },
+    ]);
+
+    if (ordersRes?.items && Array.isArray(ordersRes.items)) {
+      setRecentOrders(ordersRes.items.map((ord: any) => {
+        const partner = ord.header?.partnerId || ord.partnerId;
+        const customerDisplayName =
+          partner?.header?.displayName ||
+          partner?.header?.name ||
+          partner?.header?.companyName ||
+          partner?.name ||
+          ord.customerName ||
+          ord.header?.customerName ||
+          "";
+
+        const orderNumber = ord.header?.name || ord.name || ord.code || (ord._id ? `SO-${String(ord._id).slice(-6).toUpperCase()}` : "SO-NEW");
+        const statusVal = ord.salesOrderStatus || ord.status || "draft";
+        const stageVal =
+          statusVal === "sale" || statusVal === "done" || statusVal === "confirmed"
+            ? "Accepted"
+            : statusVal === "invoiced"
+            ? "Invoiced"
+            : statusVal === "cancel" || statusVal === "cancelled"
+            ? "Cancelled"
+            : "Draft";
+
+        return {
+          id: orderNumber,
+          customer: customerDisplayName || "Customer",
+          amount: ord.totals?.amountTotal || ord.totalAmount || 0,
+          stage: stageVal,
+          date: ord.header?.dateOrder
+            ? new Date(ord.header.dateOrder).toLocaleDateString("en-IN")
+            : ord.createdAt
+            ? new Date(ord.createdAt).toLocaleDateString("en-IN")
+            : "Recent",
+          status: statusVal,
+        };
       }));
+    } else {
+      setRecentOrders([]);
     }
-    return [];
-  });
-  const [q2cPipelineStages, setQ2cPipelineStages] = useState<any[]>(() => [
-    { name: "Draft Quotations", count: initQuotes, value: `₹${(initQuotes * initAov).toLocaleString("en-IN")}`, percent: initQuotes > 0 ? 100 : 0, color: BRAND_COLORS.accent.blue },
-    { name: "Confirmed Orders", count: initOrders, value: `₹${initRev.toLocaleString("en-IN")}`, percent: initConv, color: BRAND_COLORS.accent.green },
-  ]);
-  const [dailyOrders, setDailyOrders] = useState<any[]>(() => cachedAnalytics?.dailyOrders ?? []);
-  const [tradingLineData, setTradingLineData] = useState<any[]>(() => {
-    if (Array.isArray(cachedAnalytics?.revenue)) {
-      return cachedAnalytics.revenue.map((r: any) => ({ date: r.month, value: r.amount }));
-    }
-    return [];
-  });
+  }, []);
 
   const loadSalesDashboard = useCallback(async () => {
     try {
@@ -113,73 +162,28 @@ export default function SalesDashboardPage() {
         fetchJson("/api/sales/orders?limit=5"),
       ]);
 
-      const rev = summaryRes?.totalRevenue ?? 0;
-      const ordersCount = summaryRes?.totalOrders ?? 0;
-      const quotesCount = summaryRes?.totalQuotations ?? 0;
-      const aov = ordersCount > 0 ? Math.round(rev / ordersCount) : 0;
-      const convRate = quotesCount > 0 ? Math.min(100, Math.round((ordersCount / quotesCount) * 100)) : 0;
-
-      setSalesKPIs({
-        netRevenue: rev,
-        revenueGrowthMoM: summaryRes?.trends?.revenue ?? 0,
-        openPipelineValue: quotesCount * aov,
-        openQuotesCount: quotesCount,
-        averageOrderValue: aov,
-        aovChange: summaryRes?.trends?.orders ?? 0,
-        q2cConversionRate: convRate,
-        activeSubscriptionsARR: rev * 12,
-        activeTenants: 1,
-      });
-
-      // Top products / channels
-      if (Array.isArray(analyticsRes?.topProducts) && analyticsRes.topProducts.length > 0) {
-        setChannelDistribution(analyticsRes.topProducts.map((p: any) => ({ name: p.name, value: p.value })));
-      } else {
-        setChannelDistribution([]);
-      }
-
-      // Daily orders for DailyBrickBarChart
-      if (Array.isArray(analyticsRes?.dailyOrders)) {
-        setDailyOrders(analyticsRes.dailyOrders);
-      } else {
-        setDailyOrders([]);
-      }
-
-      // Trading line monthly revenue
-      if (Array.isArray(analyticsRes?.revenue)) {
-        setTradingLineData(analyticsRes.revenue.map((r: any) => ({ date: r.month, value: r.amount })));
-      } else {
-        setTradingLineData([]);
-      }
-
-      // Pipeline stages
-      setQ2cPipelineStages([
-        { name: "Draft Quotations", count: quotesCount, value: `₹${(quotesCount * aov).toLocaleString("en-IN")}`, percent: quotesCount > 0 ? 100 : 0, color: BRAND_COLORS.accent.blue },
-        { name: "Confirmed Orders", count: ordersCount, value: `₹${rev.toLocaleString("en-IN")}`, percent: convRate, color: BRAND_COLORS.accent.green },
-      ]);
-
-      // Recent orders
-      if (ordersRes?.items && Array.isArray(ordersRes.items)) {
-        setRecentOrders(ordersRes.items.map((ord: any) => ({
-          id: ord.name || ord.code || (ord._id ? `SO-${ord._id.slice(-6).toUpperCase()}` : "SO-NEW"),
-          customer: ord.partnerId?.name || ord.customerName || "Customer",
-          amount: ord.totals?.amountTotal || ord.totalAmount || 0,
-          stage: ord.status === "sale" || ord.status === "done" ? "Accepted" : (ord.status === "invoiced" ? "Invoiced" : "Draft"),
-          date: ord.createdAt ? new Date(ord.createdAt).toLocaleDateString("en-IN") : "Recent",
-          status: ord.status || "Pending",
-        })));
-      } else {
-        setRecentOrders([]);
-      }
+      applyDashboardData(summaryRes, analyticsRes, ordersRes);
     } catch (err) {
       console.error("Failed to load sales dashboard:", err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [applyDashboardData]);
 
   useEffect(() => {
+    // 1. Immediately hydrate from cache in post-hydration effect (safe, 0ms instant display)
+    const cachedSummary = getInstantCachedData<any>("/api/sales/summary", { allowPreHydration: true });
+    const cachedAnalytics = getInstantCachedData<any>("/api/sales/analytics", { allowPreHydration: true });
+    const cachedOrders = getInstantCachedData<any>("/api/sales/orders?limit=5", { allowPreHydration: true });
+
+    if (cachedSummary) {
+      applyDashboardData(cachedSummary, cachedAnalytics, cachedOrders);
+      setIsLoading(false);
+    }
+
+    // 2. Fetch fresh telemetry data
     loadSalesDashboard();
+
     const handleRevalidated = (e: any) => {
       if (e?.detail?.url?.includes("/api/sales")) {
         loadSalesDashboard();
@@ -187,7 +191,7 @@ export default function SalesDashboardPage() {
     };
     window.addEventListener("aup:revalidated", handleRevalidated);
     return () => window.removeEventListener("aup:revalidated", handleRevalidated);
-  }, [loadSalesDashboard]);
+  }, [applyDashboardData, loadSalesDashboard]);
 
   return (
     <DashboardLayout
@@ -199,7 +203,7 @@ export default function SalesDashboardPage() {
       userName={session?.user?.name || "Executive"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "sales"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 min-w-0 max-w-full font-mono">
         {/* Header with KPI Title & Quick Action Buttons */}
@@ -267,35 +271,43 @@ export default function SalesDashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
           <StatCard
             title="Net Sales Revenue"
+            isLoading={isLoading || !salesKPIs}
             value={
-              salesKPIs.netRevenue >= 10000000
-                ? `₹${(salesKPIs.netRevenue / 10000000).toFixed(2)} Cr`
-                : `₹${salesKPIs.netRevenue.toLocaleString("en-IN")}`
+              salesKPIs
+                ? salesKPIs.netRevenue >= 10000000
+                  ? `₹${(salesKPIs.netRevenue / 10000000).toFixed(2)} Cr`
+                  : `₹${salesKPIs.netRevenue.toLocaleString("en-IN")}`
+                : null
             }
             visual={<UsersGraph />}
-            subtitle="MTD realized volume"
+            subtitle={salesKPIs ? "MTD realized volume" : undefined}
           />
           <StatCard
             title="Active Q2C Pipeline"
+            isLoading={isLoading || !salesKPIs}
             value={
-              salesKPIs.openPipelineValue >= 10000000
-                ? `₹${(salesKPIs.openPipelineValue / 10000000).toFixed(2)} Cr`
-                : `₹${salesKPIs.openPipelineValue.toLocaleString("en-IN")}`
+              salesKPIs
+                ? salesKPIs.openPipelineValue >= 10000000
+                  ? `₹${(salesKPIs.openPipelineValue / 10000000).toFixed(2)} Cr`
+                  : `₹${salesKPIs.openPipelineValue.toLocaleString("en-IN")}`
+                : null
             }
             visual={<ActivePulse />}
-            subtitle={`${salesKPIs.openQuotesCount} active quotations`}
+            subtitle={salesKPIs ? `${salesKPIs.openQuotesCount} active quotations` : undefined}
           />
           <StatCard
             title="Average Order Value"
-            value={`₹${salesKPIs.averageOrderValue.toLocaleString("en-IN")}`}
+            isLoading={isLoading || !salesKPIs}
+            value={salesKPIs ? `₹${salesKPIs.averageOrderValue.toLocaleString("en-IN")}` : null}
             visual={<UsersGraph />}
-            subtitle="Basket size expansion"
+            subtitle={salesKPIs ? "Basket size expansion" : undefined}
           />
           <StatCard
             title="Q2C Conversion Rate"
-            value={`${salesKPIs.q2cConversionRate}%`}
+            isLoading={isLoading || !salesKPIs}
+            value={salesKPIs ? `${salesKPIs.q2cConversionRate}%` : null}
             visual={<InactiveOrbit />}
-            subtitle="Quote-to-cash win rate"
+            subtitle={salesKPIs ? "Quote-to-cash win rate" : undefined}
           />
         </div>
 
@@ -343,27 +355,43 @@ export default function SalesDashboardPage() {
             </div>
 
             <div className="space-y-4">
-              {q2cPipelineStages.map((stg) => (
-                <div key={stg.name} className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-muted-foreground">{stg.name}</span>
-                    <span className="font-bold">{stg.value}</span>
+              {isLoading || !salesKPIs ? (
+                Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="flex justify-between">
+                      <Skeleton className="h-3.5 w-28 rounded-none" />
+                      <Skeleton className="h-3.5 w-16 rounded-none" />
+                    </div>
+                    <Skeleton className="h-2 w-full rounded-none" />
+                    <div className="flex justify-between">
+                      <Skeleton className="h-2.5 w-20 rounded-none" />
+                      <Skeleton className="h-2.5 w-16 rounded-none" />
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-muted/40 rounded-none overflow-hidden">
-                    <div
-                      className="h-full transition-all duration-500"
-                      style={{
-                        width: `${stg.percent}%`,
-                        backgroundColor: stg.color,
-                      }}
-                    />
+                ))
+              ) : (
+                q2cPipelineStages.map((stg) => (
+                  <div key={stg.name} className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-medium text-muted-foreground">{stg.name}</span>
+                      <span className="font-bold">{stg.value}</span>
+                    </div>
+                    <div className="w-full h-2 bg-muted/40 rounded-none overflow-hidden">
+                      <div
+                        className="h-full transition-all duration-500"
+                        style={{
+                          width: `${stg.percent}%`,
+                          backgroundColor: stg.color,
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>{stg.count} Active Orders</span>
+                      <span>{stg.percent}% conversion</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>{stg.count} Active Orders</span>
-                    <span>{stg.percent}% conversion</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </Card>
 
@@ -410,7 +438,17 @@ export default function SalesDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
-                    {recentOrders.length === 0 ? (
+                    {isLoading || !salesKPIs ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i} className="py-3">
+                          <td className="py-3 pr-4"><Skeleton className="h-4 w-20 rounded-none" /></td>
+                          <td className="py-3 pr-4"><Skeleton className="h-4 w-32 rounded-none" /></td>
+                          <td className="py-3 pr-4"><Skeleton className="h-4 w-24 rounded-none" /></td>
+                          <td className="py-3 pr-4"><Skeleton className="h-4 w-16 rounded-none" /></td>
+                          <td className="py-3"><Skeleton className="h-4 w-16 rounded-none" /></td>
+                        </tr>
+                      ))
+                    ) : recentOrders.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="py-12 text-center text-muted-foreground font-mono">
                           No commercial orders found for this organization.

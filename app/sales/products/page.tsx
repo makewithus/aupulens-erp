@@ -566,7 +566,7 @@ function ProductsPageInner() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
       <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">

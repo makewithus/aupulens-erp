@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -6,6 +8,7 @@ import BankAccount from "@/models/finance/BankAccount";
 import JournalEntry from "@/models/finance/JournalEntry";
 import AccountingSettings from "@/models/finance/AccountingSettings";
 import { DOCUMENT_STATUS, CURRENCY_ADJUSTMENT_FILTER } from "@/lib/constants/statuses";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 function dateRangeForFilter(filter: string | null): { $gte?: Date; $lte?: Date } | undefined {
   if (!filter || filter === CURRENCY_ADJUSTMENT_FILTER.ALL) return undefined;
@@ -79,64 +82,67 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
   await connectDB();
-  try {
-    const body = await req.json();
-    const tenantId = session.user.tenantId;
+  const transactionRequestBody = await req.json();
+  return await withAccountingTransaction(async () => {
+    try {
+      const body = stripProtectedFields(structuredClone(transactionRequestBody));
+      const tenantId = session.user.tenantId;
 
-    if (!body.currency || body.exchangeRate === undefined || !body.dateOfAdjustment || !body.notes) {
-      return NextResponse.json(
-        { success: false, message: "Currency, Date of Adjustment, Exchange Rate, and Notes are required" },
-        { status: 400 },
-      );
+      if (!body.currency || body.exchangeRate === undefined || !body.dateOfAdjustment || !body.notes) {
+        return NextResponse.json(
+          { success: false, message: "Currency, Date of Adjustment, Exchange Rate, and Notes are required" },
+          { status: 400 },
+        );
+      }
+
+      const settings = await AccountingSettings.findOne({ tenantId }).lean();
+      const baseCurrency = settings?.currency?.baseCurrency || "INR";
+      const currencyEntry = settings?.currency?.enabledCurrencies?.find((c: any) => c.code === body.currency);
+      const previousExchangeRate =
+        (await CurrencyAdjustment.findOne({ tenantId, currency: body.currency }).sort({ dateOfAdjustment: -1 }).lean())
+          ?.exchangeRate ?? currencyEntry?.exchangeRate ?? Number(body.exchangeRate);
+
+      const glAccountIds = (await BankAccount.find({ tenantId, currency: body.currency }, { glAccountId: 1 }).lean())
+        .map((a: any) => a.glAccountId)
+        .filter(Boolean);
+
+      let openBalance = 0;
+      if (glAccountIds.length > 0) {
+        const [agg] = await JournalEntry.aggregate([
+          { $match: { tenantId, status: DOCUMENT_STATUS.POSTED } },
+          { $unwind: "$lineIds" },
+          { $match: { "lineIds.accountId": { $in: glAccountIds } } },
+          { $group: { _id: null, debit: { $sum: "$lineIds.debit" }, credit: { $sum: "$lineIds.credit" } } },
+        ]);
+        openBalance = agg ? (agg.debit || 0) - (agg.credit || 0) : 0;
+      }
+
+      const exchangeRate = Number(body.exchangeRate);
+      const gainOrLoss = Number((openBalance * (exchangeRate - previousExchangeRate)).toFixed(2));
+
+      const doc = await CurrencyAdjustment.create({
+        tenantId,
+        currency: body.currency,
+        baseCurrency,
+        dateOfAdjustment: new Date(body.dateOfAdjustment),
+        exchangeRate,
+        previousExchangeRate,
+        gainOrLoss,
+        notes: body.notes,
+        createdBy: session.user.id,
+      });
+
+      // Keep the settings snapshot in sync so the next adjustment's "previous rate" is accurate.
+      if (currencyEntry) {
+        await AccountingSettings.updateOne(
+          { tenantId, "currency.enabledCurrencies.code": body.currency },
+          { $set: { "currency.enabledCurrencies.$.exchangeRate": exchangeRate } },
+        );
+      }
+
+      return NextResponse.json({ success: true, data: doc }, { status: 201 });
+    } catch (error: any) {
+      return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
     }
-
-    const settings = await AccountingSettings.findOne({ tenantId }).lean();
-    const baseCurrency = settings?.currency?.baseCurrency || "INR";
-    const currencyEntry = settings?.currency?.enabledCurrencies?.find((c: any) => c.code === body.currency);
-    const previousExchangeRate =
-      (await CurrencyAdjustment.findOne({ tenantId, currency: body.currency }).sort({ dateOfAdjustment: -1 }).lean())
-        ?.exchangeRate ?? currencyEntry?.exchangeRate ?? Number(body.exchangeRate);
-
-    const glAccountIds = (await BankAccount.find({ tenantId, currency: body.currency }, { glAccountId: 1 }).lean())
-      .map((a: any) => a.glAccountId)
-      .filter(Boolean);
-
-    let openBalance = 0;
-    if (glAccountIds.length > 0) {
-      const [agg] = await JournalEntry.aggregate([
-        { $match: { tenantId, status: DOCUMENT_STATUS.POSTED } },
-        { $unwind: "$lineIds" },
-        { $match: { "lineIds.accountId": { $in: glAccountIds } } },
-        { $group: { _id: null, debit: { $sum: "$lineIds.debit" }, credit: { $sum: "$lineIds.credit" } } },
-      ]);
-      openBalance = agg ? (agg.debit || 0) - (agg.credit || 0) : 0;
-    }
-
-    const exchangeRate = Number(body.exchangeRate);
-    const gainOrLoss = Number((openBalance * (exchangeRate - previousExchangeRate)).toFixed(2));
-
-    const doc = await CurrencyAdjustment.create({
-      tenantId,
-      currency: body.currency,
-      baseCurrency,
-      dateOfAdjustment: new Date(body.dateOfAdjustment),
-      exchangeRate,
-      previousExchangeRate,
-      gainOrLoss,
-      notes: body.notes,
-      createdBy: session.user.id,
-    });
-
-    // Keep the settings snapshot in sync so the next adjustment's "previous rate" is accurate.
-    if (currencyEntry) {
-      await AccountingSettings.updateOne(
-        { tenantId, "currency.enabledCurrencies.code": body.currency },
-        { $set: { "currency.enabledCurrencies.$.exchangeRate": exchangeRate } },
-      );
-    }
-
-    return NextResponse.json({ success: true, data: doc }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
-  }
+  });
 }

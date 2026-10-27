@@ -83,6 +83,7 @@ export interface ISaleOrder extends mongoose.Document {
     deliveryChallanId?: mongoose.Types.ObjectId;
     status?: string;
   };
+  deliveryChallanId?: mongoose.Types.ObjectId;
   revenueRecognition?: {
     recognizedAt?: Date;
     recognizedBy?: mongoose.Types.ObjectId;
@@ -132,7 +133,7 @@ export interface ISaleOrder extends mongoose.Document {
 const SaleOrderSchema = new Schema<ISaleOrder>(
   {
     invoiceConversionStartedAt: Date,
-    tenantId: { type: Schema.Types.Mixed, index: true },
+    tenantId: { type: Schema.Types.Mixed, index: true , immutable: true },
     header: {
       name: { type: String, required: true },
       partnerId: {
@@ -228,6 +229,7 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
       deliveryChallanId: { type: Schema.Types.ObjectId, ref: "DeliveryChallan" },
       status: { type: String },
     },
+    deliveryChallanId: { type: Schema.Types.ObjectId, ref: "DeliveryChallan" },
     revenueRecognition: {
       recognizedAt: { type: Date },
       recognizedBy: { type: Schema.Types.ObjectId, ref: "User" },

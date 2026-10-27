@@ -204,14 +204,20 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
       name: li.name,
     }));
     const taxMode = form.taxes.mode;
+    const selectedCustomer = customers.find((c) => c._id === form.customerId);
+    const placeOfSupply =
+      selectedCustomer?.contact_details?.billing_address?.state ||
+      selectedCustomer?.billingAddress?.state;
+
     return computeInvoiceTotals({
       lineItems,
       extraDiscount: form.extraDiscount,
       extraDiscountMode: form.extraDiscountMode,
       tdsRate: taxMode === "tds" ? form.taxes.rate : 0,
       tcsRate: taxMode === "tcs" ? form.taxes.rate : 0,
+      placeOfSupply,
     });
-  }, [form]);
+  }, [form, customers]);
 
   const grandTotal = totals.totalAmount + (Number(form.adjustment) || 0);
 
@@ -646,8 +652,14 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
               <span>Sub Total</span>
               <span>{totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
+            {totals.totalDiscount > 0 && (
+              <div className="flex justify-between text-muted-foreground text-xs">
+                <span>Discount</span>
+                <span>- {totals.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center gap-2">
-              <span>Discount</span>
+              <span>Extra Discount</span>
               <div className="flex items-center gap-1">
                 <Input
                   type="number"
@@ -666,6 +678,30 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
                 </Select>
               </div>
             </div>
+
+            {totals.taxableAmount !== totals.subtotal && (
+              <div className="flex justify-between font-medium text-foreground/90">
+                <span>Taxable Amount</span>
+                <span>{totals.taxableAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+
+            {/* GST Breakdown (SYS-13) */}
+            {totals.gstBreakup && totals.gstBreakup.filter((g) => g.label !== "TDS" && g.label !== "TCS").length > 0 ? (
+              totals.gstBreakup
+                .filter((g) => g.label !== "TDS" && g.label !== "TCS")
+                .map((g, idx) => (
+                  <div key={idx} className="flex justify-between text-muted-foreground">
+                    <span>{g.label}</span>
+                    <span>{Number(g.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                ))
+            ) : totals.totalTax > 0 ? (
+              <div className="flex justify-between text-muted-foreground">
+                <span>GST ({totals.taxableAmount > 0 ? Math.round((totals.totalTax / totals.taxableAmount) * 100) : 0}%)</span>
+                <span>{totals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <RadioGroup

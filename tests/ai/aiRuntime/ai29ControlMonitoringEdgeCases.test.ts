@@ -34,14 +34,17 @@ async function makeAccount(tenantId: string, account_type: string, internal_grou
 }
 
 async function postJournal(tenantId: string, opts: { name: string; date: Date; lines: { accountId: mongoose.Types.ObjectId; debit: number; credit: number }[] }) {
-  return JournalEntry.create({
-    tenantId,
-    header: { name: opts.name, date: opts.date, journalType: "general" },
-    status: "posted",
-    voucherStatus: "posted",
-    lineIds: opts.lines.map((l) => ({ accountId: l.accountId, label: "line", debit: l.debit, credit: l.credit })),
-    totals: { amountUntaxed: 0, amountTax: 0, amountTotal: opts.lines.reduce((s, l) => s + l.debit, 0) },
-  });
+  // These tests detect legacy approval violations, which production posting now rejects.
+    const entry = new JournalEntry({
+        tenantId,
+        header: { name: opts.name, date: opts.date, journalType: "general" },
+        status: "posted",
+        voucherStatus: "posted",
+        lineIds: opts.lines.map((l) => ({ accountId: l.accountId, label: "line", debit: l.debit, credit: l.credit })),
+        totals: { amountUntaxed: 0, amountTax: 0, amountTotal: opts.lines.reduce((s, l) => s + l.debit, 0) },
+      });
+    await JournalEntry.collection.insertOne(entry.toObject());
+    return entry;
 }
 
 describe("AI-29 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)", () => {
@@ -183,7 +186,6 @@ describe("AI-29 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
     const start = Date.now();
     const envelope = await runWorkflow(ai29ControlMonitoring, { tenantId: TENANT, eventKey: "period.horizon.reached", payload: { period: PERIOD, periodStart: "2026-01-01T00:00:00.000Z", periodEnd: "2026-01-31T23:59:59.999Z" } });
     const elapsedMs = Date.now() - start;
-    // eslint-disable-next-line no-console
     console.log(`AI-29 large-volume control sweep (10,000 posted journal entries): ${elapsedMs}ms`);
 
     expect(envelope.status).not.toBe("failed");

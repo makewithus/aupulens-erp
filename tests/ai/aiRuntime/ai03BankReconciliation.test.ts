@@ -160,7 +160,8 @@ describe("AI-03 — Bank reconciliation", () => {
     // A journal entry for a DIFFERENT tenant with the same account id string coincidentally
     // reused would be a modelling error; instead simulate via a same-tenant account but ensure
     // tenant scoping is what prevents cross-tenant matching by checking the query is tenant-scoped.
-    await JournalEntry.create({
+    // Deliberately corrupt historical fixture; production model writes now reject this.
+    await JournalEntry.collection.insertOne({
       tenantId: TENANT_B,
       header: { name: `JE-OTHER-${Date.now()}`, date, journalType: "bank" },
       voucherStatus: "posted",

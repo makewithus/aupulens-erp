@@ -27,7 +27,7 @@ export interface IDeliveryChallan extends mongoose.Document {
 
 const DeliveryChallanSchema = new Schema<IDeliveryChallan>(
   {
-  tenantId: { type: String, required: true, index: true },
+  tenantId: { type: String, required: true, index: true, immutable: true },
     dcNumber: { type: String, required: true },
     customer: { type: String, required: true },
     customerEmail: { type: String },

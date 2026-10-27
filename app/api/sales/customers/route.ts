@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
     const page = searchParams.get("page") ? parseInt(searchParams.get("page")!, 10) : null;
     const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!, 10) : null;
 
-    let query: Record<string, any> = { tenantId };
+    let query: Record<string, any> = { tenantId, isCustomer: { $ne: false } };
     if (searchParams.get("excludeSupplierPartners") === "true") {
       query["customFields.migrationPartnerType"] = { $ne: "vendor" };
     }
@@ -180,7 +181,8 @@ export async function POST(request: Request) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
-    const body = await request.json();
+
+const body = stripProtectedFields(await request.json());
 
     if (!body.header?.name && !body.header?.displayName) {
       return NextResponse.json(
@@ -231,6 +233,7 @@ export async function POST(request: Request) {
     await safeEmitEvent(tenantId, "master_data.changed", { model: "Customer", id: String(customer._id), tenantId });
 
     return NextResponse.json({ customer }, { status: 201 });
+
   } catch (error) {
     console.error("Error creating customer:", error);
     return NextResponse.json(

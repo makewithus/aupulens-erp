@@ -1,6 +1,8 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
 import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_ai_safety";
 
@@ -61,9 +63,6 @@ describe("Part 4.5 safety assertions", () => {
     // entirely — same "grep the real source" spirit as this file's other structural tests.
     const internalStateTools = listTools().filter((t) => t.category === "internal_state");
     expect(internalStateTools.length).toBeGreaterThan(0); // the category itself must be in use, not just declared
-
-    const fs = require("node:fs") as typeof import("node:fs");
-    const path = require("node:path") as typeof import("node:path");
 
     // {tool name} -> {source file, handler function name} — every current internal_state tool.
     const handlerLocations: Record<string, { file: string; fn: string }> = {

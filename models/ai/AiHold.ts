@@ -31,7 +31,7 @@ export interface IAiHold extends Document {
 
 const AiHoldSchema: Schema<IAiHold> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     subjectRef: { model: { type: String, required: true }, id: { type: String, required: true } },
     reason: { type: String, required: true },
     placedByWorkflow: { type: String, required: true },

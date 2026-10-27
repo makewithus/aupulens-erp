@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { indexTenantDocuments, ragQuery } from "@/lib/ai/rag";
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
   }
 
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   if (body.action === "index") {
     const result = await indexTenantDocuments(tenantId);

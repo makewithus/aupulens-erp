@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false }, { status: 401 });
 
   await dbConnect();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   const { name, file_url, file_type, linked_record_type, linked_record_id, parent_document_id } =
     body;

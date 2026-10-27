@@ -30,7 +30,7 @@ export interface IBatch extends Document {
 
 const BatchSchema: Schema<IBatch> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     batchNumber: { type: String, required: true, trim: true },
     lotNumber: { type: String, required: true, trim: true },
     itemCode: { type: String, required: true, trim: true },

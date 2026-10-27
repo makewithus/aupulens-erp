@@ -37,7 +37,7 @@ export interface IAiWorkflowPolicy extends Document {
 
 const AiWorkflowPolicySchema: Schema<IAiWorkflowPolicy> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     workflowId: { type: String, required: true },
     maxAutonomyLevel: {
       type: String,

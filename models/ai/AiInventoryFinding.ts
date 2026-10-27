@@ -22,7 +22,7 @@ export interface IAiInventoryFinding extends Document {
 
 const AiInventoryFindingSchema: Schema<IAiInventoryFinding> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     period: { type: String, required: true },
     accountMapping: { type: Schema.Types.Mixed, default: {} },
     subledgerToGl: { type: Schema.Types.Mixed, default: null },

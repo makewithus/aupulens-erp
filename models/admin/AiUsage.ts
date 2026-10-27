@@ -13,7 +13,7 @@ export interface IAiUsage extends Document {
 
 const AiUsageSchema: Schema<IAiUsage> = new Schema(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     period:   { type: String, required: true },
     count:    { type: Number, required: true, default: 0, min: 0 },
   },

@@ -21,7 +21,7 @@ export interface IOnboardingPlan extends Document {
 
 const OnboardingPlanSchema = new Schema<IOnboardingPlan>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     account_id: { type: Schema.Types.ObjectId, ref: "CrmAccount", required: true },
     opportunity_id: { type: Schema.Types.ObjectId, ref: "CrmOpportunity" },
     owner_id: { type: Schema.Types.ObjectId, ref: "User", required: true },

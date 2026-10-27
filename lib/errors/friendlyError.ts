@@ -38,7 +38,7 @@ function unique<T>(xs: T[]): T[] {
   return Array.from(new Set(xs));
 }
 
-const TECHNICAL = /(at path|BSONError|ObjectId|Cast to|validation failed|MongoServerError|MongooseError|E11000|ECONN|ETIMEDOUT|ENOTFOUND|TypeError|ReferenceError|SyntaxError|undefined|is not a function|Unexpected token|stack|\bat\s+\S+\s+\(|JSON\.parse|Internal server error|status code \d{3}|fetch failed|^Failed to fetch$|NetworkError|Load failed)/i;
+const TECHNICAL = /(at path|BSONError|ObjectId|Cast to|validation failed|Mongo\w*Error|MongooseError|E11000|ECONN|ETIMEDOUT|ENOTFOUND|TypeError|ReferenceError|SyntaxError|undefined|is not a function|Unexpected token|stack|\bat\s+\S+\s+\(|JSON\.parse|Internal server error|status code \d{3}|fetch failed|^Failed to fetch$|NetworkError|Load failed)/i;
 
 export function isAbortError(raw: unknown): boolean {
   if (!raw) return false;
@@ -96,8 +96,13 @@ export function friendlyError(raw: unknown, fallback = "Something went wrong. Pl
   }
   // Cast: Cast to ObjectId failed for value "" (type string) at path "departmentId"
   for (const m of msg.matchAll(/Cast to (\w+) failed for value .*? at path "([\w.]+)"/gi)) {
-    const label = humanizeField(m[2]);
-    problems.push(m[1] === "ObjectId" ? `Please select a ${label.toLowerCase()}` : m[1] === "Number" ? `${label} must be a number` : m[1] === "date" || m[1] === "Date" ? `${label} must be a valid date` : `${label} is not valid`);
+    const fieldPath = m[2];
+    if (fieldPath === "_id" || fieldPath === "id") {
+      problems.push("Invalid identifier format");
+    } else {
+      const label = humanizeField(fieldPath);
+      problems.push(m[1] === "ObjectId" ? `Please select a ${label.toLowerCase()}` : m[1] === "Number" ? `${label} must be a number` : m[1] === "date" || m[1] === "Date" ? `${label} must be a valid date` : `${label} is not valid`);
+    }
   }
   // min/max: Path `x` (-1) is less than minimum allowed value (0).
   for (const m of msg.matchAll(/Path [`'"]([\w.]+)[`'"] \(.*?\) is (less|more) than (minimum|maximum) allowed value \((.*?)\)/gi)) {

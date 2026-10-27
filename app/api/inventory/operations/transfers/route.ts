@@ -1,10 +1,12 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import StockTransfer from "@/models/inventory/StockTransfer";
 import Customer from "@/models/sales/Customer";
-import Product from "@/models/inventory/Product"; // Ensure model registration
+import Product from "@/models/inventory/Product";
 
 export async function GET(req: NextRequest) {
   try {
@@ -87,7 +89,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ transfers, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error: any) {
     console.error("Fetch Transfers Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -100,12 +102,13 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await connectDB();
 
     // Auto-generate name if not provided (Simplistic)
-    if (!body.header.name) {
+
+if (!body.header.name) {
       const prefix =
         body.header.operationType === "incoming" ? "WH/IN/" : "WH/OUT/";
       const count = await StockTransfer.countDocuments({
@@ -127,8 +130,9 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ transfer }, { status: 201 });
+
   } catch (error: any) {
     console.error("Create Transfer Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

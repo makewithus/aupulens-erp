@@ -15,7 +15,7 @@ export interface IApiUsage extends Document {
 const ApiUsageSchema = new Schema<IApiUsage>(
   {
     apiKeyId: { type: Schema.Types.ObjectId, ref: "ApiKey", required: true },
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     route: { type: String, required: true },
     statusCode: { type: Number, required: true },
     latencyMs: { type: Number, required: true },

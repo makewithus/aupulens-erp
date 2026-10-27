@@ -52,7 +52,7 @@ export interface IAiMasterDataProfile extends Document {
 
 const AiMasterDataProfileSchema: Schema<IAiMasterDataProfile> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     entityModel: { type: String, required: true },
     recordId: { type: String, required: true },
     missingFields: { type: [String], default: [] },

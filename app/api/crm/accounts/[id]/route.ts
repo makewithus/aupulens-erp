@@ -1,3 +1,4 @@
+import { crmEditableFields } from "@/lib/crm/editableFields";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -16,9 +17,14 @@ import CrmFieldVisit from "@/models/crm/FieldVisit";
 import CrmHandoff from "@/models/crm/Handoff";
 import { getNextBestActionWithAi } from "@/lib/crm/ai/nextBestAction";
 import { requireRole } from "@/lib/crm/rbac";
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const { id } = await props.params;
+  try {
+    const { id } = await props.params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
@@ -162,10 +168,17 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       }
     },
   });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const { id } = await props.params;
+  try {
+    const { id } = await props.params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
@@ -173,14 +186,18 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   if (roleCheck) return roleCheck;
 
   await dbConnect();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
+  const safeBody = crmEditableFields("account", body);
   const account = await CrmAccount.findOneAndUpdate(
     { _id: id, tenantId: session.user.tenantId },
-    body,
-    { new: true }
+    { $set: safeBody },
+    { new: true, runValidators: true }
   );
   if (!account)
     return NextResponse.json({ success: false, message: "Account not found" }, { status: 404 });
 
-  return NextResponse.json({ success: true, data: account });
+    return NextResponse.json({ success: true, data: account });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }

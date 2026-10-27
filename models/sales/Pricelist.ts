@@ -48,7 +48,7 @@ const PricelistItemSchema = new Schema<IPricelistItem>({
 
 const PricelistSchema = new Schema<IPricelist>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true },
     currencyId: { type: String, default: "INR" },
     items: [PricelistItemSchema],

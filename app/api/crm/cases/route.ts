@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { safeHandler } from "@/lib/api/safeHandler";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -75,7 +76,7 @@ async function POST_handler(req: NextRequest) {
   
   await dbConnect();
   try {
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     sanitizeEnumFields(CrmCase, body);
     body.tenantId = session.user.tenantId;
     body.createdBy = session.user.id;

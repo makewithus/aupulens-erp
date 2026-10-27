@@ -17,7 +17,7 @@ export interface ITransactionLock extends Document {
 
 const TransactionLockSchema: Schema<ITransactionLock> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     module: { type: String, enum: TRANSACTION_LOCK_MODULE_VALUES, required: true },
     lockedUpToDate: { type: Date, default: null },
     reason: { type: String, trim: true },

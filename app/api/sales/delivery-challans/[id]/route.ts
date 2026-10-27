@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import DeliveryChallan from "@/models/sales/DeliveryChallan";
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 export async function GET(
   request: Request,
@@ -17,11 +18,13 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const { id } = await params;
     await connectDB();
     const challan = await DeliveryChallan.findOne({ _id: id, tenantId }).lean();
 
@@ -34,11 +37,7 @@ export async function GET(
 
     return NextResponse.json(challan);
   } catch (error) {
-    console.error("Error fetching delivery challan:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -55,14 +54,18 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const body = stripProtectedFields(await request.json());
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const { id } = await params;
     await connectDB();
 
-    const challan = await DeliveryChallan.findOneAndUpdate(
+
+const challan = await DeliveryChallan.findOneAndUpdate(
       { _id: id, tenantId },
       { $set: body },
       { new: true, runValidators: true },
@@ -76,18 +79,15 @@ export async function PATCH(
     }
 
     return NextResponse.json(challan);
+
   } catch (error) {
-    console.error("Error updating delivery challan:", error);
-    if ((error as any).code === 11000) {
+    if ((error as any)?.code === 11000) {
       return NextResponse.json(
         { error: "DC number already exists" },
         { status: 409 },
       );
     }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -104,12 +104,16 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const { id } = await params;
     await connectDB();
-    const challan = await DeliveryChallan.findOneAndDelete({ _id: id, tenantId });
+
+const challan = await DeliveryChallan.findOneAndDelete({ _id: id, tenantId });
 
     if (!challan) {
       return NextResponse.json(
@@ -121,11 +125,8 @@ export async function DELETE(
     return NextResponse.json({
       message: "Delivery Challan deleted successfully",
     });
+
   } catch (error) {
-    console.error("Error deleting delivery challan:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }

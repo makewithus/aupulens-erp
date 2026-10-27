@@ -35,7 +35,7 @@ export default function PurchaseOrderPopupContent({
     (async () => {
       try {
         const [vendorRes, productRes] = await Promise.all([
-          fetch("/api/sales/customers"),
+          fetch("/api/purchasing/suppliers"),
           fetch("/api/sales/products"),
         ]);
         const [vendorData, productData] = await Promise.all([
@@ -43,7 +43,15 @@ export default function PurchaseOrderPopupContent({
           productRes.json(),
         ]);
         if (!active) return;
-        setVendors(vendorData.items || []);
+        let vendorItems = vendorData.items || [];
+        if (vendorItems.length === 0) {
+          try {
+            const fallbackRes = await fetch("/api/sales/customers");
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData.items?.length) vendorItems = fallbackData.items;
+          } catch {}
+        }
+        setVendors(vendorItems);
         setProducts(productData.items || []);
       } catch (e) {
         console.error("Fetch purchase order popup resources error:", e);

@@ -45,48 +45,49 @@ const MASTER_MODULES = [
     title: "Sales",
     icon: ShoppingCart,
     config: salesSidebarConfig,
-    // Selecting the module jumps straight into its tabbed interface
-    // (Customers selected) instead of just previewing the sidebar sections.
-    landingHref: "/sales/customers",
+    landingHref: "/sales/dashboard",
   },
   {
     id: "inventory",
     title: "Inventory",
     icon: Package,
     config: inventorySidebarConfig,
+    landingHref: "/inventory/dashboard",
   },
   {
     id: "finance",
     title: "Finance",
     icon: DollarSign,
     config: financeSidebarConfig,
-    // Selecting the module jumps straight into Chart of Accounts instead of
-    // just previewing the sidebar sections.
-    landingHref: "/finance/accounting",
+    landingHref: "/finance/summary",
   },
   {
     id: "manufacturing",
     title: "Manufacturing",
     icon: Factory,
     config: manufacturingSidebarConfig,
+    landingHref: "/manufacturing/dashboard",
   },
   {
     id: "hr",
     title: "HR",
     icon: Users,
     config: hrSidebarConfig,
+    landingHref: "/hr/dashboard",
   },
   {
     id: "admin",
     title: "Admin",
     icon: ShieldCheck,
     config: adminSidebarConfig,
+    landingHref: "/admin/dashboard",
   },
   {
     id: "crm",
     title: "CRM",
     icon: Users,
     config: crmSidebarConfig,
+    landingHref: "/crm/dashboard",
   },
   {
     id: "projects",
@@ -94,6 +95,7 @@ const MASTER_MODULES = [
     title: "Projects",
     icon: FolderKanban,
     config: projectsSidebarConfig,
+    landingHref: "/projects/dashboard",
   },
 ];
 
@@ -101,12 +103,12 @@ const MODULES = [
   {
     id: "sales",
     title: "Sales",
-    href: "/sales/pipeline",
+    href: "/sales/dashboard",
   },
   {
     id: "inventory",
     title: "Inventory",
-    href: "/inventory/summary",
+    href: "/inventory/dashboard",
   },
   {
     id: "finance",
@@ -137,7 +139,7 @@ const MODULES = [
     id: "projects",
     moduleKey: "project",
     title: "Projects",
-    href: "/projects",
+    href: "/projects/dashboard",
   },
 ];
 

@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
@@ -93,7 +94,8 @@ export async function POST(req: NextRequest) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
-    const body = await req.json();
+
+const body = stripProtectedFields(await req.json());
 
     const batch = await Batch.create({
       ...body,
@@ -103,6 +105,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ batch }, { status: 201 });
+
   } catch (error) {
     console.error('Error creating batch:', error);
     return NextResponse.json({ error: 'Failed to create batch' }, { status: 500 });

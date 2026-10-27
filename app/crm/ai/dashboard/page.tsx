@@ -23,12 +23,17 @@ function formatCurrency(n: number) {
 }
 
 export default function AIDashboard() {
-  const cachedAi = getInstantCachedData<any>("/api/crm/ai/dashboard");
-  const [data, setData] = useState<any>(() => cachedAi?.data ?? null);
-  const [loading, setLoading] = useState<boolean>(() => !cachedAi);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
+    const cachedAi = getInstantCachedData<any>("/api/crm/ai/dashboard", { allowPreHydration: true });
+    if (cachedAi?.data) {
+      setData(cachedAi.data);
+      setLoading(false);
+    }
+
     async function loadData() {
       try {
         const res = await cachedFetch("/api/crm/ai/dashboard");

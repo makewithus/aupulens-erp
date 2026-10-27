@@ -189,7 +189,8 @@ export async function POST(request: Request) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
-    const body = sanitizeProductPayload(await request.json());
+
+const body = sanitizeProductPayload(await request.json());
 
     if (!body.header?.name) {
       return NextResponse.json(
@@ -253,6 +254,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ product }, { status: 201 });
+
   } catch (error: any) {
     console.error("Error creating product:", error);
     if (error?.name === "ValidationError") {

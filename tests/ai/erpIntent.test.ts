@@ -5,6 +5,10 @@ import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 
 describe("ERP intent and financial validation", () => {
+  it("keeps a P&L analysis request primary when it also asks to identify missing data", () => {
+    expect(parseErpIntent("Analyse the company's profit or loss for October 2026. Show revenue, expenses, cost of goods sold, and net profit or loss. Use available posted financial records only, and explicitly identify any missing data.")).toMatchObject({ type: "profit_loss" });
+    expect(parseErpIntent("Which accounting records or mappings are missing?")).toEqual({ type: "missing_accounting_records" });
+  });
   it.each([
     ["hw many invocies r overdue", { entity: "invoice", operation: "count", status: "overdue" }],
     ["rajesh kumr pending paymnt", { entity: "invoice", customer: "rajesh kumar", status: "unpaid" }],

@@ -1,3 +1,4 @@
+import { handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -25,10 +26,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const tenantId = (session.user as any).tenantId;
     const userId = (session.user as any).id;
     await dbConnect();
-    bootstrapAiRuntime();
+
+bootstrapAiRuntime();
 
     const { id } = await params;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     const outcome = body.outcome as "confirmed" | "expected";
     if (outcome !== "confirmed" && outcome !== "expected") {
       return NextResponse.json({ error: "outcome must be 'confirmed' or 'expected'" }, { status: 400 });
@@ -41,7 +43,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     );
 
     return NextResponse.json({ result });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

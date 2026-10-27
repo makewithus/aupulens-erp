@@ -1,3 +1,4 @@
+import { validateObjectId } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -11,6 +12,8 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
 
+  const idGuard = validateObjectId(id);
+  if (idGuard) return idGuard;
   await dbConnect();
   const job = await MigrationJob.findOne({ _id: id, tenantId: session.user.tenantId }).lean();
   if (!job) return NextResponse.json({ success: false }, { status: 404 });

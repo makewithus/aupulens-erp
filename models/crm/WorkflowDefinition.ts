@@ -15,7 +15,7 @@ export interface IWorkflowDefinition extends Document {
 
 const WorkflowDefinitionSchema = new Schema<IWorkflowDefinition>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true },
     description: { type: String },
     entity: { type: String, required: true }, // Lead, Account, etc.

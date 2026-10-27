@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
     const items = await query.lean();
     return NextResponse.json({ items, total: items.length, page: 1, totalPages: 1 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -73,11 +75,12 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await dbConnect();
 
-    const expense = new Expense({
+
+const expense = new Expense({
       ...body,
       tenantId,
       // Default to current user if not provided
@@ -93,7 +96,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, expense });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

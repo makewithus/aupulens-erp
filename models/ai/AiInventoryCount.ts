@@ -23,7 +23,7 @@ export interface IAiInventoryCount extends Document {
 
 const AiInventoryCountSchema: Schema<IAiInventoryCount> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     warehouse: { type: String },
     countedQty: { type: Number, required: true },

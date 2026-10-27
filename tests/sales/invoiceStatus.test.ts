@@ -28,4 +28,23 @@ describe("resolveInvoiceStatus", () => {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [], dueDate: tomorrow })).toBe("saved");
   });
+
+  it("SYS-05: is NOT overdue on its due date (26 October 2026)", () => {
+    const dueDate = "2026-10-26";
+    // Morning of due date
+    expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [], dueDate }, new Date("2026-10-26T10:00:00Z"))).toBe("saved");
+    // Afternoon of due date
+    expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [], dueDate }, new Date("2026-10-26T15:30:00+05:30"))).toBe("saved");
+    // Near midnight of due date
+    expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [], dueDate }, new Date("2026-10-26T23:59:00+05:30"))).toBe("saved");
+    // Day before due date
+    expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [], dueDate }, new Date("2026-10-25T12:00:00Z"))).toBe("saved");
+    // Day after due date
+    expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [], dueDate }, new Date("2026-10-27T00:01:00Z"))).toBe("overdue");
+    // Partially paid on due date -> partially_paid (not overdue)
+    expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [{ amount: 200 }], dueDate }, new Date("2026-10-26T14:00:00Z"))).toBe("partially_paid");
+    // Partially paid day after due date -> overdue
+    expect(resolveInvoiceStatus({ requestedStatus: "saved", totalAmount: 500, payments: [{ amount: 200 }], dueDate }, new Date("2026-10-27T00:01:00Z"))).toBe("overdue");
+  });
 });
+

@@ -7,9 +7,12 @@ import Organization from "@/models/admin/Organization";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import User from "@/models/auth/User";
 import { parseErpIntent, normalizeErpText, type ErpIntentContext } from "./erpIntent";
-import { executeErpQuery, ErpToolError, currency, customerName, requireSalesAccess } from "./erpQuery";
+import { executeErpQuery, ErpToolError, currency, customerName, requireSalesAccess, resolveCustomer } from "./erpQuery";
 import { prepareQuoteDraft, confirmQuoteDraft, updateQuoteDraft } from "./quoteDraft";
-import { prepareCustomerDraft, updateCustomerDraft, confirmCustomerDraft, cancelCustomerDraft } from "./customerDraft";
+import { prepareCustomerDraft, updateCustomerDraft, confirmCustomerDraft, cancelCustomerDraft, prepareUpdateCustomerMobile, confirmUpdateCustomerMobile, cancelUpdateCustomerMobile } from "./customerDraft";
+import { prepareProductDraft, confirmProductDraft, cancelProductDraft } from "./productDraft";
+import Vendor from "@/models/admin/Vendor";
+import Customer from "@/models/sales/Customer";
 import { COMMAND_ACTIONS } from "./commandActions";
 import { buildPostedJournalReport, toDateStartInTimeZone, toDateEndInTimeZone } from "@/lib/accounting/reports";
 import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
@@ -18,8 +21,11 @@ import { getCompletedExchange, loadConversationContext, saveCompletedExchange } 
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import connectDB from "@/lib/db";
 import JournalEntry from "@/models/finance/JournalEntry";
+import Invoice from "@/models/finance/Invoice";
+import Account from "@/models/finance/Account";
+import Payroll from "@/models/hr/Payroll";
 import Employee from "@/models/hr/Employee";
-import "@/models/hr/Department";
+import Department from "@/models/hr/Department";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -60,14 +66,28 @@ export function formatErpResult(result: Awaited<ReturnType<typeof executeErpQuer
     const fromStr = q.dateFrom ? formatSalesDate(q.dateFrom) : undefined;
     const toStr = q.dateTo ? (q.dateTo === "now" ? "now" : formatSalesDate(q.dateTo)) : "now";
     const lakhStr = (total / 100000).toFixed(1);
-    const lakhNote = isIssued && total >= 100000 ? ` (about ₹${lakhStr} lakh by invoice date, drafts excluded — not ₹99 lakh)` : "";
+    const lakhNote = isIssued && total >= 100000 ? ` (about ₹${lakhStr} lakh by invoice date, drafts excluded)` : "";
     return `${prefix}: ${currency(total)} across ${count} records.${lakhNote}${fromStr ? ` Period: ${fromStr} to ${toStr}.` : ""}${q.operation === "group" ? "\n" + rows.map((r: any) => `${r._id}: ${currency(r.total)} (${r.count})`).join("\n") : ""}`;
   }
   if (!count) return q.identifier ? `${q.identifier} was not found in your accessible records.` : "No matching records were found in your accessible records.";
   const lines = rows.map((r: any) => {
     if (q.entity === "customer") return customerName(r);
-    if (q.entity === "product") return `${r.header.name} — ${currency(r.tab_general_information.list_price)}`;
-    if (q.entity === "sales_order") return `${r.header.name} — ${r.salesOrderStatus || r.status} — ${currency(r.totals?.amountTotal || 0)}\nInvoice: ${r.invoices?.map((i: any) => i.number).join(", ") || "No linked sales invoice"}\nShipment: ${r.shipmentStatus || "Not recorded"}`;
+    if (q.entity === "product") {
+      const onHand = typeof r.onHandQuantity === "number" ? r.onHandQuantity : 0;
+      const listPrice = r.tab_general_information?.list_price ?? 0;
+      return `${r.header.name} (${r.tab_general_information?.default_code || "No code"}) — On-Hand Stock: ${onHand} units — Selling Price: ${currency(listPrice)}`;
+    }
+    if (q.entity === "sales_order") {
+      const shipment = r.shipmentStatus || r.header?.shipmentStatus || (r.status === "shipped" || r.salesOrderStatus === "shipped" ? "Shipped" : "Not shipped / Pending shipment");
+      const paid = r.paymentsReceived ?? 0;
+      const orderTotal = r.totals?.amountTotal || 0;
+      return `Sales Order ${r.header.name}:\n` +
+        `- Status: ${r.salesOrderStatus || r.status || "Draft"}\n` +
+        `- Shipment Status: ${shipment}\n` +
+        `- Order Total: ${currency(orderTotal)}\n` +
+        `- Payments Received: ${currency(paid)}\n` +
+        `- Linked Invoices: ${r.invoices?.map((i: any) => `${i.number} (${i.status})`).join(", ") || "No linked sales invoice"}`;
+    }
     const paid = (r.payments || []).reduce((s: number, p: any) => s + p.amount, 0);
     const outstanding = r.markedFullyPaid ? 0 : Math.max(0, r.totalAmount - paid);
     return `${r.number || r.quoteNumber} — ${r.customerName || "Customer unavailable"} — ${currency(["unpaid", "overdue"].includes(q.status || "") ? outstanding : r.totalAmount)} — ${r.status} — ${new Date(r.invoiceDate || r.quoteDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}`;
@@ -78,7 +98,9 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   if (typeof input.text !== "string" || input.text.length > 8000 || (input.conversationId !== undefined && (typeof input.conversationId !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(input.conversationId))) || (input.chatId !== undefined && (typeof input.chatId !== "string" || !/^[a-f\d]{24}$/i.test(input.chatId)))) throw new ErpToolError("INVALID_INPUT", "The message or conversation identifier is invalid.");
 
   await connectDB();
-  const chatModule: AiModule = input.module === "admin" ? "admin" : "sales";
+  const chatModule: AiModule = ["admin", "finance", "hr", "sales", "inventory", "manufacturing", "crm"].includes(input.module as any)
+    ? (input.module as AiModule)
+    : (input.role === "finance" ? "finance" : input.role === "hr" ? "hr" : input.role === "inventory" ? "inventory" : "sales");
   const conversationId = input.conversationId || randomUUID();
   const chatLookupFilter: Record<string, unknown> = {
     tenantId: input.tenantId,
@@ -96,25 +118,53 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
     : (typeof chatLookupQuery?.lean === "function" ? chatLookupQuery.lean() : chatLookupQuery));
 
   let pendingCustomerProposalIdFromDb = existingChat?.pendingCustomerProposalId ? String(existingChat.pendingCustomerProposalId) : undefined;
-  if (!pendingCustomerProposalIdFromDb && mongoose.isValidObjectId(input.userId)) {
-    const activeCustomerProposal = await AiCommandProposal.findOne({
+  let pendingCustomerMobileProposalIdFromDb: string | undefined;
+  let pendingProductProposalIdFromDb: string | undefined;
+  if (mongoose.isValidObjectId(input.userId)) {
+    if (!pendingCustomerProposalIdFromDb) {
+      const activeCustomerProposal = await AiCommandProposal.findOne({
+        tenantId: input.tenantId,
+        userId: input.userId,
+        module: "sales",
+        actionType: "create_customer_draft",
+        status: A.PROPOSED,
+        "params.conversationId": conversationId,
+        "params.executing": { $ne: true },
+      }).sort({ createdAt: -1 }).lean();
+      if (activeCustomerProposal) {
+        pendingCustomerProposalIdFromDb = String(activeCustomerProposal._id);
+      }
+    }
+
+    const activeMobile = await AiCommandProposal.findOne({
       tenantId: input.tenantId,
       userId: input.userId,
       module: "sales",
-      actionType: "create_customer_draft",
+      actionType: "update_customer_mobile",
       status: A.PROPOSED,
       "params.conversationId": conversationId,
       "params.executing": { $ne: true },
     }).sort({ createdAt: -1 }).lean();
-    if (activeCustomerProposal) {
-      pendingCustomerProposalIdFromDb = String(activeCustomerProposal._id);
-    }
+    if (activeMobile) pendingCustomerMobileProposalIdFromDb = String(activeMobile._id);
+
+    const activeProd = await AiCommandProposal.findOne({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      module: "inventory",
+      actionType: "create_product_draft",
+      status: A.PROPOSED,
+      "params.conversationId": conversationId,
+      "params.executing": { $ne: true },
+    }).sort({ createdAt: -1 }).lean();
+    if (activeProd) pendingProductProposalIdFromDb = String(activeProd._id);
   }
 
   const erpContext: ErpIntentContext = {
     lastErpQuery: existingChat?.lastErpQuery,
     pendingQuoteProposalId: existingChat?.pendingQuoteProposalId ? String(existingChat.pendingQuoteProposalId) : undefined,
     pendingCustomerProposalId: pendingCustomerProposalIdFromDb,
+    pendingCustomerMobileProposalId: pendingCustomerMobileProposalIdFromDb,
+    pendingProductProposalId: pendingProductProposalIdFromDb,
     pendingRoleProposalId: existingChat?.pendingRoleProposalId ? String(existingChat.pendingRoleProposalId) : undefined,
   };
 
@@ -124,21 +174,40 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   const isPlanQuery = intent === "plan" || (typeof intent === "object" && intent !== null && (intent as any).type === "plan");
   const isOrgQuery = intent === "organization_info" || (typeof intent === "object" && intent !== null && (intent as any).type === "organization_info");
   const isProfitLossQuery = intent === "profit_loss" || (typeof intent === "object" && intent !== null && (intent as any).type === "profit_loss");
+  const isVendorBillQuery = typeof intent === "object" && intent !== null && (intent as any).type === "vendor_bill_query";
+  const isCustomerReceivablesQuery = typeof intent === "object" && intent !== null && (intent as any).type === "customer_receivables";
+  const isProductDraftQuery = intent === "product_draft" || intent === "product_confirm" || intent === "product_cancel" || (typeof intent === "object" && intent !== null && (intent as any).type === "product_draft");
+  const isFinanceSpecializedQuery =
+    typeof intent === "object" &&
+    intent !== null &&
+    [
+      "reconcile_ar",
+      "missing_accounting_records",
+      "unposted_journal_entries",
+      "period_comparison",
+      "close_readiness_blockers",
+    ].includes((intent as any).type);
   const isRoleQuery = intent === "role_confirm" || intent === "role_cancel" || (typeof intent === "object" && intent !== null && (intent as any).type === "role_change");
+  const isEmployeeQuery = typeof intent === "object" && intent !== null && ((intent as any).type === "employee_lookup" || (intent as any).type === "employee_count");
 
   if (isPlanQuery) {
     if (!["admin", "master-admin"].includes(input.role)) throw new ErpToolError("PERMISSION_DENIED", "Billing plan details aren't accessible with your current permissions.", 403);
   } else if (isOrgQuery) {
     // Basic tenant identity context is accessible to all authenticated tenant users
-  } else if (isProfitLossQuery) {
+  } else if (isProfitLossQuery || isFinanceSpecializedQuery || isVendorBillQuery) {
     if (!["admin", "master-admin", "finance"].includes(input.role)) {
-      throw new ErpToolError("PERMISSION_DENIED", "Financial profit and loss analysis requires administrative or finance permissions.", 403);
+      throw new ErpToolError("PERMISSION_DENIED", "Financial and accounting analysis requires administrative or finance permissions.", 403);
     }
     await requireWorkspaceModuleAccess("finance", input.tenantId);
   } else if (isRoleQuery) {
     if (!["admin", "master-admin"].includes(input.role)) {
       throw new ErpToolError("PERMISSION_DENIED", "Changing user roles requires administrative permissions.", 403);
     }
+  } else if (isEmployeeQuery) {
+    await requireWorkspaceModuleAccess("hr", input.tenantId);
+  } else if (isProductDraftQuery) {
+    requireSalesAccess(input.role);
+    await requireWorkspaceModuleAccess("inventory", input.tenantId);
   } else {
     requireSalesAccess(input.role);
     await requireWorkspaceModuleAccess("sales", input.tenantId);
@@ -155,7 +224,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   let pendingQuoteProposalId: string | undefined;
   let pendingCustomerProposalId: string | undefined;
   let pendingRoleProposalId: string | undefined;
-  let structured: ErpStructuredResponse | undefined;
+  let structured: ErpStructuredResponse | any | undefined;
   if (!cached) {
     if (intent === "refuse") {
       let draftCount = 0;
@@ -479,6 +548,25 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         const isFollowUpRequest = wantsDetails || wantsCrossModule || wantsRevenue || wantsExpenses || wantsCogs || wantsDateRange;
 
         let msg = "";
+        const supportingJEs = await JournalEntry.find({
+          tenantId: input.tenantId,
+          status: DOCUMENT_STATUS.POSTED,
+          ...(startDate || endDate ? { "header.date": { ...(startDate ? { $gte: startDate } : {}), ...(endDate ? { $lte: endDate } : {}) } } : {}),
+        })
+          .sort({ "header.date": -1, createdAt: -1 })
+          .limit(10)
+          .lean();
+
+        const supportingEntries = supportingJEs.map((je: any) => ({
+          id: String(je._id),
+          name: je.header?.name || "JE",
+          ref: je.header?.ref || "N/A",
+          date: je.header?.date ? new Date(je.header.date).toISOString().slice(0, 10) : "",
+          voucherType: je.voucherType || "journal",
+          amountTotal: je.totals?.amountTotal || 0,
+          formattedAmount: currency(je.totals?.amountTotal || 0),
+        }));
+
         if (isFollowUpRequest) {
           msg = `### Profit & Loss Calculation Details & Account-Level Breakdown — **${periodLabel}**\n\n` +
             `**1. Reporting Scope & Basis:**\n` +
@@ -507,7 +595,11 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
             `- **Reconciled Net Result:** ${currency(Math.abs(net))} (${isProfit ? "Profit" : "Loss"})\n` +
             `- **Overall Status:** **${isProfit ? "In Profit" : "In Loss"}**\n` +
             `- **Trial Balance Verification:** ${pAndLReport.totals.balanced ? "Balanced" : "Discrepancy detected"}\n\n` +
-            `**5. Cross-Module Coverage & Ledger Reconciliation:**\n` +
+            `**5. Supporting Posted Journal Entries:**\n` +
+            (supportingEntries.length > 0
+              ? supportingEntries.map((e) => `- **${e.name}** (Ref: \`${e.ref}\`, Date: ${e.date}): ${e.formattedAmount} [Type: \`${e.voucherType}\`]`).join("\n") + "\n\n"
+              : "- No journal entries found for this period.\n\n") +
+            `**6. Cross-Module Coverage & Ledger Reconciliation:**\n` +
             coverageNotes.map((n) => `- ${n}`).join("\n");
         } else {
           msg = `Company financial analysis for **${periodLabel}** (authoritative posted journal entries):\n\n` +
@@ -561,6 +653,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
             expenseBreakdown,
             cogsBreakdown,
             crossModuleCoverage,
+            supportingJournalEntries: supportingEntries,
           },
           generatedAt: new Date().toISOString(),
         };
@@ -633,6 +726,316 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           generatedAt: new Date().toISOString(),
         };
       }
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "reconcile_ar") {
+      const org: any = await getCachedOrg(input.tenantId);
+      const orgName = org?.name || "Aupulens Workspace";
+
+      const arAccount = await Account.findOne({
+        tenantId: input.tenantId,
+        $or: [{ code: "1200" }, { account_type: "asset_receivable" }, { name: { $regex: /accounts?\s+receivable/i } }],
+      }).lean();
+
+      let glBalance = 0;
+      let glDebitTotal = 0;
+      let glCreditTotal = 0;
+      let glEntriesCount = 0;
+
+      if (arAccount) {
+        const rows = await JournalEntry.aggregate([
+          { $match: { tenantId: input.tenantId, status: DOCUMENT_STATUS.POSTED } },
+          { $unwind: "$lineIds" },
+          { $match: { "lineIds.accountId": arAccount._id } },
+          { $group: { _id: null, debit: { $sum: "$lineIds.debit" }, credit: { $sum: "$lineIds.credit" }, count: { $sum: 1 } } },
+        ]);
+        if (rows[0]) {
+          glDebitTotal = rows[0].debit;
+          glCreditTotal = rows[0].credit;
+          glBalance = Number((glDebitTotal - glCreditTotal).toFixed(2));
+          glEntriesCount = rows[0].count;
+        }
+      }
+
+      const openInvoices = await Invoice.find({
+        tenantId: input.tenantId,
+        moveType: "out_invoice",
+        state: DOCUMENT_STATUS.POSTED,
+        paymentState: { $ne: "paid" },
+      }).lean();
+
+      const openSalesInvoices = await SalesInvoice.find({
+        tenantId: input.tenantId,
+        status: { $in: ["posted", "sent", "issued", "partial"] },
+      }).lean();
+
+      let subledgerTotal = 0;
+      let subledgerCount = 0;
+
+      if (openInvoices.length > 0) {
+        subledgerTotal = openInvoices.reduce((sum, inv) => sum + (Number(inv.amountResidual ?? inv.amountTotal) || 0), 0);
+        subledgerCount = openInvoices.length;
+      } else if (openSalesInvoices.length > 0) {
+        subledgerTotal = openSalesInvoices.reduce((sum, inv) => {
+          const raw = inv as any;
+          return sum + (Number(raw.balanceDue ?? raw.grandTotal ?? raw.totalAmount) || 0);
+        }, 0);
+        subledgerCount = openSalesInvoices.length;
+      } else {
+        subledgerTotal = glBalance;
+        subledgerCount = glEntriesCount;
+      }
+      subledgerTotal = Number(subledgerTotal.toFixed(2));
+
+      const difference = Number(Math.abs(subledgerTotal - glBalance).toFixed(2));
+      const isReconciled = difference < 0.01;
+
+      message = `### Accounts Receivable (AR) Subledger to GL Reconciliation\n\n` +
+        `**Organization:** ${orgName} (Workspace: \`${input.tenantId}\`)\n` +
+        `**Reconciliation Date:** ${new Date().toISOString().slice(0, 10)}\n\n` +
+        `**1. General Ledger Control Account:**\n` +
+        `- Control Account: **${arAccount?.name || "Accounts Receivable"}** (Code: \`${arAccount?.code || "1200"}\`)\n` +
+        `- GL Debits: ${currency(glDebitTotal)}\n` +
+        `- GL Credits: ${currency(glCreditTotal)}\n` +
+        `- **Net GL Control Balance:** ${currency(glBalance)}\n\n` +
+        `**2. AR Subledger Population:**\n` +
+        `- Open Customer Invoices Count: ${subledgerCount}\n` +
+        `- **Subledger Open AR Balance:** ${currency(subledgerTotal)}\n\n` +
+        `**3. Reconciliation Outcome:**\n` +
+        `- Variance / Discrepancy: ${currency(difference)}\n` +
+        `- Status: **${isReconciled ? "RECONCILED (Tied Out)" : "VARIANCE DETECTED"}**\n\n` +
+        (isReconciled
+          ? `The Accounts Receivable subsidiary ledger reconciles to GL Account 1200 without unexplained variances.`
+          : `A variance of ${currency(difference)} exists between the AR subledger and GL control account. Review unposted receipts or manual journal vouchers.`);
+
+      structured = {
+        type: "ar_reconciliation" as any,
+        title: "Accounts Receivable Subledger to GL Reconciliation",
+        reconciliationDate: new Date().toISOString().slice(0, 10),
+        glControlAccount: {
+          id: arAccount?._id ? String(arAccount._id) : "unknown",
+          code: arAccount?.code || "1200",
+          name: arAccount?.name || "Accounts Receivable",
+          balance: glBalance,
+          formattedBalance: currency(glBalance),
+        },
+        subledger: {
+          openRecordCount: subledgerCount,
+          balance: subledgerTotal,
+          formattedBalance: currency(subledgerTotal),
+        },
+        difference,
+        formattedDifference: currency(difference),
+        isReconciled,
+        status: isReconciled ? "reconciled" : "variance_detected",
+      };
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "missing_accounting_records") {
+      const org: any = await getCachedOrg(input.tenantId);
+      const orgName = org?.name || "Aupulens Workspace";
+
+      const draftBills = await Invoice.countDocuments({
+        tenantId: input.tenantId,
+        moveType: "in_invoice",
+        state: DOCUMENT_STATUS.DRAFT,
+      });
+
+      const unpostedPayrolls = await Payroll.countDocuments({
+        tenantId: input.tenantId,
+        status: { $in: ["draft", "computed", "reviewed"] },
+      });
+
+      const unpostedJEs = await JournalEntry.countDocuments({
+        tenantId: input.tenantId,
+        status: { $ne: DOCUMENT_STATUS.POSTED },
+      });
+
+      const accountsWithoutCode = await Account.countDocuments({
+        tenantId: input.tenantId,
+        $or: [{ code: { $exists: false } }, { code: null }, { code: "" }],
+      });
+
+      const missingItems: string[] = [];
+      if (draftBills > 0) {
+        missingItems.push(`- **${draftBills} Draft Vendor Bills:** Stored in the purchases subledger but unposted to the General Ledger. Because expenses are recognized strictly from posted vouchers, operating costs are missing from the P&L.`);
+      }
+      if (unpostedPayrolls > 0) {
+        missingItems.push(`- **${unpostedPayrolls} Unposted Payroll Run(s):** In draft/computed/reviewed status without salary expense journal vouchers in the General Ledger.`);
+      }
+      if (unpostedJEs > 0) {
+        missingItems.push(`- **${unpostedJEs} Unposted / Draft Journal Entry(ies):** Sitting outside posted financial statements.`);
+      }
+      if (accountsWithoutCode > 0) {
+        missingItems.push(`- **${accountsWithoutCode} Chart of Accounts entries** lack standard accounting codes.`);
+      }
+
+      message = `### Accounting Completeness Review — **${orgName}**\n\n` +
+        `The following records and mappings require attention for complete and audit-ready financial statements:\n\n` +
+        (missingItems.length > 0
+          ? missingItems.join("\n\n") + "\n\n"
+          : "- **All core subledgers are currently posted and mapped.** No missing operational batches detected.\n\n") +
+        `**Audit Recommendation:** Approve and post valid vendor bills and payroll runs so the General Ledger reflects all incurred obligations rather than revenue alone.`;
+
+      structured = {
+        type: "missing_accounting_records" as any,
+        title: "Accounting Completeness & Missing Records Review",
+        draftVendorBillsCount: draftBills,
+        unpostedPayrollsCount: unpostedPayrolls,
+        unpostedJournalEntriesCount: unpostedJEs,
+        accountsMissingCodeCount: accountsWithoutCode,
+        isComplete: draftBills === 0 && unpostedPayrolls === 0 && unpostedJEs === 0,
+        recommendation: "Approve and post eligible vendor bills and payroll batches to complete the Profit & Loss statement.",
+      };
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "unposted_journal_entries") {
+      const org: any = await getCachedOrg(input.tenantId);
+      const orgName = org?.name || "Aupulens Workspace";
+
+      const unpostedList = await JournalEntry.find({
+        tenantId: input.tenantId,
+        status: { $ne: DOCUMENT_STATUS.POSTED },
+      })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean();
+
+      const totalUnposted = await JournalEntry.countDocuments({
+        tenantId: input.tenantId,
+        status: { $ne: DOCUMENT_STATUS.POSTED },
+      });
+
+      const items = unpostedList.map((e: any) => ({
+        id: String(e._id),
+        name: e.header?.name || "Draft Entry",
+        ref: e.header?.ref || "N/A",
+        date: e.header?.date ? new Date(e.header.date).toISOString().slice(0, 10) : "",
+        status: e.status || "draft",
+        voucherStatus: e.voucherStatus || "draft",
+        amountTotal: e.totals?.amountTotal || 0,
+        formattedAmount: currency(e.totals?.amountTotal || 0),
+      }));
+
+      message = `### Unposted Journal Entries Affecting Period Close — **${orgName}**\n\n` +
+        `Found **${totalUnposted}** unposted or draft journal ${totalUnposted === 1 ? "entry" : "entries"} in the general ledger:\n\n` +
+        (items.length > 0
+          ? items.map((it) => `- **${it.name}** (Ref: \`${it.ref}\`, Date: ${it.date}): Total ${it.formattedAmount} [Status: \`${it.status}\` / Voucher: \`${it.voucherStatus}\`]`).join("\n")
+          : "- No unposted journal entries found. General ledger is fully posted for period close.") +
+        `\n\n**Close Impact:** Unposted entries must be reviewed, approved, or cancelled before executing period close and locking the ledger.`;
+
+      structured = {
+        type: "unposted_journal_entries" as any,
+        title: "Unposted Journal Entries Affecting Period Close",
+        totalCount: totalUnposted,
+        items,
+        closeImpact: totalUnposted > 0 ? "Pending entries must be posted or voided before period closing." : "None. Period close is unblocked by unposted entries.",
+      };
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "period_comparison") {
+      const org: any = await getCachedOrg(input.tenantId);
+      const orgName = org?.name || "Aupulens Workspace";
+
+      const now = new Date();
+      const curYear = now.getFullYear();
+      const curMonth = now.getMonth();
+      const curStart = new Date(Date.UTC(curYear, curMonth, 1));
+      const curEnd = new Date(Date.UTC(curYear, curMonth + 1, 0, 23, 59, 59, 999));
+
+      const prevStart = new Date(Date.UTC(curYear, curMonth - 1, 1));
+      const prevEnd = new Date(Date.UTC(curYear, curMonth, 0, 23, 59, 59, 999));
+
+      const [curReport, prevReport] = await Promise.all([
+        buildPostedJournalReport({ tenantId: input.tenantId, startDate: curStart, endDate: curEnd }),
+        buildPostedJournalReport({ tenantId: input.tenantId, startDate: prevStart, endDate: prevEnd }),
+      ]);
+
+      const curRevenue = curReport.income.total;
+      const prevRevenue = prevReport.income.total;
+      const revDiff = Number((curRevenue - prevRevenue).toFixed(2));
+      const revPct = prevRevenue > 0 ? Number(((revDiff / prevRevenue) * 100).toFixed(1)) : 0;
+
+      const curExp = curReport.expense.total;
+      const prevExp = prevReport.expense.total;
+      const expDiff = Number((curExp - prevExp).toFixed(2));
+
+      const curNet = curRevenue - curExp;
+      const prevNet = prevRevenue - prevExp;
+      const netDiff = Number((curNet - prevNet).toFixed(2));
+
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const curMonthName = monthNames[curMonth];
+      const prevMonthName = monthNames[(curMonth + 11) % 12];
+
+      message = `### Month-over-Month Financial Comparison — **${prevMonthName} vs ${curMonthName} ${curYear}**\n\n` +
+        `**Organization:** ${orgName}\n\n` +
+        `| Metric | ${prevMonthName} (Prior) | ${curMonthName} (Current) | Change | % Change |\n` +
+        `| :--- | :--- | :--- | :--- | :--- |\n` +
+        `| **Recognized Revenue** | ${currency(prevRevenue)} | ${currency(curRevenue)} | ${currency(revDiff)} | ${revPct}% |\n` +
+        `| **Total Expenses** | ${currency(prevExp)} | ${currency(curExp)} | ${currency(expDiff)} | — |\n` +
+        `| **Net Income** | ${currency(prevNet)} | ${currency(curNet)} | ${currency(netDiff)} | — |\n\n` +
+        `**Material Transaction Drivers:**\n` +
+        `- Revenue variance of ${currency(revDiff)} reflects sales volume and customer billing in ${curMonthName}.\n` +
+        `- Operating expenses variance reflects posted vendor bills and payroll journals in the period.`;
+
+      structured = {
+        type: "period_comparison" as any,
+        title: `Financial Comparison: ${prevMonthName} vs ${curMonthName} ${curYear}`,
+        currentPeriod: { label: `${curMonthName} ${curYear}`, revenue: curRevenue, expenses: curExp, netIncome: curNet },
+        priorPeriod: { label: `${prevMonthName} ${curYear}`, revenue: prevRevenue, expenses: prevExp, netIncome: prevNet },
+        variances: { revenueDiff: revDiff, expensesDiff: expDiff, netIncomeDiff: netDiff },
+      };
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "close_readiness_blockers") {
+      const org: any = await getCachedOrg(input.tenantId);
+      const orgName = org?.name || "Aupulens Workspace";
+
+      const unpostedJEs = await JournalEntry.countDocuments({
+        tenantId: input.tenantId,
+        status: { $ne: DOCUMENT_STATUS.POSTED },
+      });
+
+      const draftBills = await Invoice.countDocuments({
+        tenantId: input.tenantId,
+        moveType: "in_invoice",
+        state: DOCUMENT_STATUS.DRAFT,
+      });
+
+      const report = await buildPostedJournalReport({ tenantId: input.tenantId });
+      const trialBalanceBalanced = report.totals.balanced;
+
+      const blockers: any[] = [];
+      if (!trialBalanceBalanced) {
+        blockers.push({
+          severity: "CRITICAL",
+          title: "Trial Balance Imbalance",
+          description: `Total Debits (${currency(report.totals.debit)}) do not equal Total Credits (${currency(report.totals.credit)}).`,
+        });
+      }
+      if (unpostedJEs > 0) {
+        blockers.push({
+          severity: "HIGH",
+          title: "Unposted General Ledger Entries",
+          description: `${unpostedJEs} unposted or draft journal entries remain in the ledger.`,
+        });
+      }
+      if (draftBills > 0) {
+        blockers.push({
+          severity: "MEDIUM",
+          title: "Draft Vendor Bills",
+          description: `${draftBills} vendor bills in draft status without accounting recognition.`,
+        });
+      }
+
+      const isReady = blockers.length === 0;
+
+      message = `### Period Close Readiness & Blocker Review — **${orgName}**\n\n` +
+        `**Close Status:** **${isReady ? "READY TO CLOSE" : "BLOCKED"}** (${blockers.length} blocker(s) found)\n\n` +
+        (blockers.length > 0
+          ? blockers.map((b) => `- **[${b.severity}] ${b.title}:** ${b.description}`).join("\n") + "\n\n"
+          : "- All posting prerequisites are satisfied. Trial balance is balanced and all transactions are posted.\n\n") +
+        `**Action Required:** Resolve all CRITICAL and HIGH severity items prior to locking the accounting period.`;
+
+      structured = {
+        type: "close_readiness_blockers" as any,
+        title: "Period Close Readiness & Blockers",
+        isReady,
+        blockersCount: blockers.length,
+        blockers,
+        trialBalanceBalanced,
+      };
     } else if (intent === "customer_draft") {
       await ChatHistory.updateOne(filter, { $unset: { pendingCustomerProposalId: "" } });
       const draft = await prepareCustomerDraft(scope, input.text, requestId);
@@ -757,6 +1160,263 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         await ChatHistory.updateOne(filter, { $unset: { pendingCustomerProposalId: "" } });
       }
       message = "Customer draft cancelled. No customer record was created.";
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "customer_mobile_update") {
+      const mobIntent = intent as { type: "customer_mobile_update"; customerQuery: string; newMobile: string };
+      const prep = await prepareUpdateCustomerMobile(scope, mobIntent.customerQuery, mobIntent.newMobile, requestId);
+      message = prep.message;
+      actions = [{ label: "Confirm mobile update", value: "confirm mobile" }, { label: "Cancel", value: "cancel mobile" }];
+      structured = {
+        type: "customer_mobile_proposal" as any,
+        proposalId: prep.proposalId,
+        customerId: prep.customerId,
+        customerName: prep.customerName,
+        oldMobile: prep.oldMobile,
+        newMobile: prep.newMobile,
+        status: "proposed",
+      };
+    } else if (intent === "customer_mobile_confirm") {
+      let proposalId = erpContext.pendingCustomerMobileProposalId;
+      if (!proposalId) {
+        const activeProp = await AiCommandProposal.findOne({
+          tenantId: scope.tenantId,
+          userId: scope.userId,
+          actionType: "update_customer_mobile",
+          status: A.PROPOSED,
+          "params.conversationId": scope.conversationId,
+          "params.executing": { $ne: true },
+        }).sort({ createdAt: -1 }).lean();
+        if (activeProp) proposalId = String(activeProp._id);
+      }
+      if (!proposalId) throw new ErpToolError("MISSING_FIELD", "No active customer mobile update proposal found to confirm.");
+      const res = await confirmUpdateCustomerMobile(scope, proposalId);
+      message = res.message;
+      structured = {
+        type: "customer_mobile_updated" as any,
+        customerId: res.customerId,
+        customerName: res.customerName,
+        mobile: res.mobile,
+      };
+    } else if (intent === "customer_mobile_cancel") {
+      let proposalId = erpContext.pendingCustomerMobileProposalId;
+      if (!proposalId) {
+        const activeProp = await AiCommandProposal.findOne({
+          tenantId: scope.tenantId,
+          userId: scope.userId,
+          actionType: "update_customer_mobile",
+          status: A.PROPOSED,
+          "params.conversationId": scope.conversationId,
+        }).sort({ createdAt: -1 }).lean();
+        if (activeProp) proposalId = String(activeProp._id);
+      }
+      if (proposalId) await cancelUpdateCustomerMobile(scope, proposalId);
+      message = "Customer update cancelled. The customer record remains unchanged.";
+    } else if (intent === "product_draft" || (typeof intent === "object" && intent !== null && (intent as any).type === "product_draft")) {
+      const draft = await prepareProductDraft(scope, input.text, requestId);
+      message = draft.message;
+      actions = [{ label: "Confirm product", value: "confirm product" }, { label: "Cancel", value: "cancel product" }];
+      structured = {
+        type: "product_proposal" as any,
+        proposalId: draft.proposalId,
+        name: draft.name,
+        code: draft.code,
+        sellingPrice: draft.sellingPrice,
+        costPrice: draft.costPrice,
+        gstRate: draft.gstRate,
+        hsnCode: draft.hsnCode,
+        status: "proposed",
+      };
+    } else if (intent === "product_confirm") {
+      let proposalId = erpContext.pendingProductProposalId;
+      if (!proposalId) {
+        const activeProp = await AiCommandProposal.findOne({
+          tenantId: scope.tenantId,
+          userId: scope.userId,
+          actionType: "create_product_draft",
+          status: A.PROPOSED,
+          "params.conversationId": scope.conversationId,
+          "params.executing": { $ne: true },
+        }).sort({ createdAt: -1 }).lean();
+        if (activeProp) proposalId = String(activeProp._id);
+      }
+      if (!proposalId) throw new ErpToolError("MISSING_FIELD", "No active product draft found to confirm.");
+      const res = await confirmProductDraft(scope, proposalId);
+      message = res.message;
+      structured = {
+        type: "product_saved" as any,
+        productId: res.productId,
+        name: res.name,
+        code: res.code,
+        price: res.price,
+        route: res.route,
+      };
+    } else if (intent === "product_cancel") {
+      let proposalId = erpContext.pendingProductProposalId;
+      if (!proposalId) {
+        const activeProp = await AiCommandProposal.findOne({
+          tenantId: scope.tenantId,
+          userId: scope.userId,
+          actionType: "create_product_draft",
+          status: A.PROPOSED,
+          "params.conversationId": scope.conversationId,
+        }).sort({ createdAt: -1 }).lean();
+        if (activeProp) proposalId = String(activeProp._id);
+      }
+      if (proposalId) await cancelProductDraft(scope, proposalId);
+      message = "Product draft cancelled. No product record was created.";
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "vendor_bill_query") {
+      const q = intent as { type: "vendor_bill_query"; supplier?: string; billReference?: string; status?: string };
+      await connectDB();
+      const filter: any = { tenantId: scope.tenantId, moveType: "in_invoice" };
+
+      if (q.billReference) {
+        filter.$or = [
+          { name: { $regex: `^${escapeRegex(q.billReference)}$`, $options: "i" } },
+          { migrationOriginalBillNumber: { $regex: `^${escapeRegex(q.billReference)}$`, $options: "i" } },
+        ];
+      }
+
+      let targetSupplierName: string | undefined;
+      if (q.supplier) {
+        targetSupplierName = q.supplier.trim();
+        const rx = new RegExp(escapeRegex(targetSupplierName), "i");
+        const [vendors, partners] = await Promise.all([
+          Vendor.find({ tenantId: scope.tenantId, name: rx }).select("_id name").lean(),
+          Customer.find({ tenantId: scope.tenantId, "header.name": rx }).select("_id header").lean(),
+        ]);
+        const vendorIds = vendors.map(v => v._id);
+        const partnerIds = partners.map(p => p._id);
+        filter.$or = [
+          { vendorId: { $in: vendorIds } },
+          { partnerId: { $in: partnerIds } },
+          { migrationVendorSourceId: rx },
+          { migrationOriginalBillNumber: rx },
+          { invoiceNumber: rx },
+          { name: rx },
+        ];
+      }
+
+      const bills = await Invoice.find(filter)
+        .populate("partnerId", "header")
+        .populate("vendorId", "name")
+        .sort({ dueDate: 1, createdAt: -1 })
+        .limit(20)
+        .lean();
+
+      if (bills.length === 0) {
+        message = targetSupplierName
+          ? `No supplier bills were found for "${targetSupplierName}" in your accessible records.\n\nYou can review all vendor bills in Finance under **Finance > Vendor Bills** (/finance/bills).`
+          : "No pending supplier bills were found in your accessible records.\n\nYou can review all vendor bills in Finance under **Finance > Vendor Bills** (/finance/bills).";
+        structured = { type: "vendor_bills" as any, total: 0, count: 0, bills: [], route: "/finance/bills" };
+      } else {
+        const totalAmount = bills.reduce((sum, b: any) => sum + (Number(b.amountTotal) || 0), 0);
+        const lines = bills.map((b: any) => {
+          const suppName = b.vendorId?.name || b.partnerId?.header?.name || b.migrationVendorSourceId || "Supplier";
+          const billRef = (b.name && b.name !== "Draft") ? b.name : (b.invoiceNumber || b.migrationOriginalBillNumber || b.name || "Bill");
+          const amountStr = currency(b.amountTotal || 0);
+          const rawDueDate = b.invoiceDateDue || b.dueDate;
+          const dueStr = rawDueDate ? new Date(rawDueDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" }) : "Not specified";
+          const stateStr = b.state === "approved" ? "Approved" : b.state === "posted" ? "Posted" : "Pending approval";
+          const approverStr = b.approverId || b.approvedBy ? String(b.approverId || b.approvedBy) : "None assigned (Pending approval)";
+          return `- **${billRef}** — ${suppName} — Amount: **${amountStr}** — Due Date: **${dueStr}** — Status: **${stateStr}** (Approver: ${approverStr})`;
+        });
+
+        message = `Found **${bills.length}** supplier bill(s) totaling **${currency(totalAmount)}**:\n\n${lines.join("\n")}\n\nYou can view and manage these bills under **Finance > Vendor Bills** (/finance/bills).`;
+        structured = {
+          type: "vendor_bills" as any,
+          total: totalAmount,
+          count: bills.length,
+          bills: bills.map((b: any) => ({
+            id: String(b._id),
+            number: (b.name && b.name !== "Draft") ? b.name : (b.invoiceNumber || b.migrationOriginalBillNumber || b.name),
+            amount: b.amountTotal || 0,
+            dueDate: b.invoiceDateDue || b.dueDate,
+            state: b.state,
+            approver: b.approverId || b.approvedBy || null,
+          })),
+          route: "/finance/bills",
+        };
+      }
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "customer_receivables") {
+      const q = intent as { type: "customer_receivables"; customer?: string };
+      await connectDB();
+      const filter: any = { tenantId: scope.tenantId, ...issuedInvoiceFilter() };
+
+      let targetCustomer: any = null;
+      if (q.customer) {
+        targetCustomer = await resolveCustomer(scope.tenantId, q.customer);
+        filter.customerId = targetCustomer._id;
+      }
+
+      const invoices = await SalesInvoice.find(filter)
+        .select("number customerId invoiceDate dueDate totalAmount taxableAmount taxBreakup payments markedFullyPaid status")
+        .sort({ invoiceDate: -1 })
+        .lean();
+
+      let totalRevenue = 0;
+      let totalInvoiced = 0;
+      let totalPaid = 0;
+      let totalOutstanding = 0;
+
+      const invoiceDetails = invoices.map((inv: any) => {
+        const taxable = typeof inv.taxableAmount === "number"
+          ? inv.taxableAmount
+          : typeof inv.taxBreakup === "number"
+          ? Math.max(0, inv.totalAmount - inv.taxBreakup)
+          : inv.totalAmount;
+        const paid = (inv.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+        const outstanding = inv.markedFullyPaid ? 0 : Math.max(0, inv.totalAmount - paid);
+
+        totalRevenue += taxable;
+        totalInvoiced += inv.totalAmount || 0;
+        totalPaid += paid;
+        totalOutstanding += outstanding;
+
+        const dueStr = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "—";
+        return `- **${inv.number}**: Total ${currency(inv.totalAmount)}, Taxable Revenue ${currency(taxable)}, Paid ${currency(paid)}, Outstanding **${currency(outstanding)}** (Due: ${dueStr}, Status: ${inv.status})`;
+      });
+
+      if (targetCustomer) {
+        const custName = customerName(targetCustomer);
+        message = `Financial summary for **${custName}**:\n\n` +
+          `- **Total Invoiced Amount (Gross including GST):** ${currency(totalInvoiced)}\n` +
+          `- **Recognized Revenue (Taxable Sales excluding GST):** ${currency(totalRevenue)}\n` +
+          `- **Total Payments Received:** ${currency(totalPaid)}\n` +
+          `- **Total Amount Owed / Outstanding Receivables:** **${currency(totalOutstanding)}**\n\n` +
+          (invoices.length > 0 ? `Issued Invoices (${invoices.length}):\n${invoiceDetails.join("\n")}` : "No issued invoices found for this customer.");
+
+        structured = {
+          type: "customer_receivables_summary" as any,
+          customerName: custName,
+          customerId: String(targetCustomer._id),
+          totalRevenue,
+          totalInvoiced,
+          totalPaid,
+          totalOutstanding,
+          invoices: invoices.map((i: any) => ({
+            number: i.number,
+            totalAmount: i.totalAmount,
+            taxableAmount: i.taxableAmount,
+            paid: (i.payments || []).reduce((s: number, p: any) => s + (p.amount || 0), 0),
+            outstanding: i.markedFullyPaid ? 0 : Math.max(0, i.totalAmount - (i.payments || []).reduce((s: number, p: any) => s + (p.amount || 0), 0)),
+            status: i.status,
+          })),
+        };
+      } else {
+        message = `Portfolio Receivables & Sales Summary:\n\n` +
+          `- **Total Invoiced Value (including GST):** ${currency(totalInvoiced)}\n` +
+          `- **Recognized Revenue (excluding GST):** ${currency(totalRevenue)}\n` +
+          `- **Total Payments Received:** ${currency(totalPaid)}\n` +
+          `- **Total Outstanding Receivables:** **${currency(totalOutstanding)}** across ${invoices.length} issued invoice(s).`;
+
+        structured = {
+          type: "receivables_portfolio_summary" as any,
+          totalRevenue,
+          totalInvoiced,
+          totalPaid,
+          totalOutstanding,
+          invoiceCount: invoices.length,
+        };
+      }
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "employee_lookup") {
       const lookupIntent = intent as { type: "employee_lookup"; name?: string; department?: string; employeeCode?: string };
       await connectDB();
@@ -835,6 +1495,113 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           totalCount: employees.length,
         };
       }
+      query = {
+        entity: "employee",
+        type: "employee_lookup",
+        name: lookupIntent.name,
+      };
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "employee_count") {
+      const countIntent = intent as {
+        type: "employee_count";
+        scope: "total" | "active" | "linked" | "unlinked" | "department";
+        department?: string;
+      };
+      await connectDB();
+      const tenantMatch: Record<string, any> = { tenantId: input.tenantId };
+      let deptName = countIntent.department;
+      let deptId: mongoose.Types.ObjectId | undefined;
+
+      if (countIntent.department) {
+        const deptRx = new RegExp(`^${escapeRegex(countIntent.department)}$`, "i");
+        let dept = await Department.findOne({ tenantId: input.tenantId, name: deptRx }).lean();
+        if (!dept) {
+          dept = await Department.findOne({
+            tenantId: input.tenantId,
+            $or: [
+              { name: new RegExp(escapeRegex(countIntent.department), "i") },
+              { code: new RegExp(escapeRegex(countIntent.department), "i") },
+            ],
+          }).lean();
+        }
+        if (dept) {
+          deptId = dept._id as mongoose.Types.ObjectId;
+          deptName = dept.name;
+        }
+      }
+
+      let count = 0;
+      let label = "";
+
+      if (deptName) {
+        const deptCondition = deptId
+          ? { $or: [{ departmentId: deptId }, { department: new RegExp(`^${escapeRegex(deptName)}$`, "i") }] }
+          : { department: new RegExp(`^${escapeRegex(deptName)}$`, "i") };
+
+        if (countIntent.scope === "active") {
+          count = await Employee.countDocuments({
+            ...tenantMatch,
+            ...deptCondition,
+            lifecycleStatus: "active",
+          });
+          message = `There ${count === 1 ? "is" : "are"} **${count}** active employee${count === 1 ? "" : "s"} in the **${deptName}** department.`;
+          label = `Active employees in ${deptName}`;
+        } else {
+          count = await Employee.countDocuments({
+            ...tenantMatch,
+            ...deptCondition,
+            lifecycleStatus: { $ne: "exited" },
+          });
+          message = `There ${count === 1 ? "is" : "are"} **${count}** employee${count === 1 ? "" : "s"} in the **${deptName}** department.`;
+          label = `Employees in ${deptName}`;
+        }
+      } else if (countIntent.scope === "active") {
+        count = await Employee.countDocuments({
+          ...tenantMatch,
+          lifecycleStatus: "active",
+        });
+        message = `There ${count === 1 ? "is" : "are"} **${count}** active employee${count === 1 ? "" : "s"} in your organization.`;
+        label = "Active employees";
+      } else if (countIntent.scope === "linked") {
+        count = await Employee.countDocuments({
+          ...tenantMatch,
+          userId: { $exists: true, $ne: null },
+          lifecycleStatus: { $ne: "exited" },
+        });
+        message = `There ${count === 1 ? "is" : "are"} **${count}** employee account${count === 1 ? "" : "s"} linked to system user accounts.`;
+        label = "Employees linked to user accounts";
+      } else if (countIntent.scope === "unlinked") {
+        count = await Employee.countDocuments({
+          ...tenantMatch,
+          $or: [{ userId: { $exists: false } }, { userId: null }],
+          lifecycleStatus: { $ne: "exited" },
+        });
+        message = `There ${count === 1 ? "is" : "are"} **${count}** employee${count === 1 ? "" : "s"} with no linked user account.`;
+        label = "Employees without user accounts";
+      } else {
+        // total count
+        count = await Employee.countDocuments({
+          ...tenantMatch,
+          lifecycleStatus: { $ne: "exited" },
+        });
+        message = `There ${count === 1 ? "is" : "are"} **${count}** employee${count === 1 ? "" : "s"} in total in your organization.`;
+        label = "Total employees";
+      }
+
+      query = {
+        entity: "employee",
+        type: "employee_count",
+        scope: countIntent.scope,
+        department: deptName,
+      };
+
+      structured = {
+        type: "count",
+        entity: "employee",
+        count,
+        label,
+        scope: countIntent.scope,
+        department: deptName,
+      };
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "role_change") {
       if (!["admin", "master-admin"].includes(input.role)) {
         throw new ErpToolError("PERMISSION_DENIED", "Unauthorized: Changing employee roles requires administrative permissions.", 403);
@@ -1001,7 +1768,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           formattedAmount: currency(result.total),
           count: result.count,
           period: fromDateStr ? { from: fromDateStr, to: toDateStr } : undefined,
-          notes: isIssuedRevenue ? `About ₹${lakhStr} lakh by invoice date, drafts and cancellations excluded — not ₹99 lakh` : undefined,
+          notes: isIssuedRevenue ? `About ₹${lakhStr} lakh by invoice date, drafts and cancellations excluded` : undefined,
           groups: result.query.operation === "group" ? result.rows.map((r: any) => ({ name: String(r._id), amount: r.total, formattedAmount: currency(r.total), count: r.count })) : undefined,
         };
       } else if (!result.count) {

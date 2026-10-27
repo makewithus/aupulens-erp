@@ -1,3 +1,5 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
+import { validateObjectId } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -14,6 +16,8 @@ export async function GET(req: NextRequest, props: RouteProps) {
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false }, { status: 401 });
 
+  const idGuard = validateObjectId(id);
+  if (idGuard) return idGuard;
   await dbConnect();
 
   const doc = await CrmDocument.findOne({ _id: id, tenantId: session.user.tenantId })
@@ -66,7 +70,7 @@ export async function PATCH(req: NextRequest, props: RouteProps) {
   if (!doc)
     return NextResponse.json({ success: false, message: "Document not found" }, { status: 404 });
 
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   if (body.is_archived !== undefined) {
     const prevArchived = doc.is_archived;

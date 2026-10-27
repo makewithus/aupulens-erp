@@ -15,7 +15,7 @@ export interface IHSCode extends mongoose.Document {
 }
 
 const HSCodeSchema = new Schema<IHSCode>({
-  tenantId: { type: String, required: true, index: true },
+  tenantId: { type: String, required: true, index: true, immutable: true },
   hsCode: { type: String, required: true },
   description: { type: String, required: true },
   category: { type: String, required: true },

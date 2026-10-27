@@ -1,3 +1,4 @@
+import { handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -26,7 +27,7 @@ export async function POST(
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
 
     await connectDB();
 
@@ -122,9 +123,6 @@ export async function POST(
     return NextResponse.json({ opportunity, customer }, { status: 201 });
   } catch (error: any) {
     console.error("CRM opportunity convert error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }

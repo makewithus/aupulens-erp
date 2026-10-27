@@ -21,7 +21,7 @@ export interface IHandoff extends Document {
 
 const HandoffSchema = new Schema<IHandoff>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     recordType: { type: String, required: true },
     recordId: { type: Schema.Types.ObjectId, required: true },
     handoffType: { type: String, required: true },

@@ -1,4 +1,6 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
+import { isValidObjectId } from "mongoose";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -15,15 +17,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const role = (session.user as any)?.role;
+    if (!["finance", "admin", "master-admin"].includes(role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
+    }
+
     await connectDB();
-    const { saleOrderId } = await req.json();
+
+const { saleOrderId } = await req.json();
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
-    if (!saleOrderId) {
+    if (!saleOrderId || !isValidObjectId(saleOrderId)) {
       return NextResponse.json(
-        { error: "Sale Order ID is required" },
+        { error: "Valid Sale Order ID is required" },
         { status: 400 },
       );
     }
@@ -113,10 +121,11 @@ export async function POST(req: NextRequest) {
     await newInvoice.populate("partnerId");
 
     return NextResponse.json(newInvoice, { status: 201 });
+
   } catch (error: any) {
     console.error("Error creating invoice from order:", error);
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }

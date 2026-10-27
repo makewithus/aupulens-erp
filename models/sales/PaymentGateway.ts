@@ -24,7 +24,7 @@ export interface IPaymentGateway extends Document {
 
 const PaymentGatewaySchema = new Schema<IPaymentGateway>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
     provider: { type: String, required: true, trim: true },
     status: { type: String, enum: PAYMENT_GATEWAY_STATUS_VALUES, default: PAYMENT_GATEWAY_STATUS.DISCONNECTED },

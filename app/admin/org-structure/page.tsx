@@ -80,7 +80,7 @@ export default function OrgStructurePage() {
     userName: session?.user?.name || "",
     userEmail: session?.user?.email || "",
     userRole: (session?.user as any)?.role,
-    onSignOut: () => signOut({ callbackUrl: "/auth/admin" }),
+    onSignOut: () => signOut({ callbackUrl: "/auth" }),
   };
 
   if (loading) return (

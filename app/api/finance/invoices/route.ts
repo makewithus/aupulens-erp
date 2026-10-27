@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -129,7 +130,8 @@ export async function POST(req: Request) {
 
     await connectDB();
 
-    const body = await req.json();
+
+const body = stripProtectedFields(await req.json());
 
     let partnerId = body.partnerId;
     if (!partnerId && (body.customerName || body.customerEmail)) {
@@ -228,6 +230,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ invoice }, { status: 201 });
+
   } catch (error) {
     console.error("Error creating invoice:", error);
     return NextResponse.json(

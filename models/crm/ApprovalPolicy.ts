@@ -45,7 +45,7 @@ const ApprovalStepSchema = new Schema<IApprovalStep>(
 
 const ApprovalPolicySchema = new Schema<IApprovalPolicy>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     entity: { type: String, required: true, default: "Quote" },
     name: { type: String, required: true },
     enabled: { type: Boolean, default: true },

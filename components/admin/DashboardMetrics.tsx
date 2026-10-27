@@ -18,9 +18,9 @@ export function DashboardMetrics({
   return (
     <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
       {has("finance") && <StatCard
-        title="Net Income"
-        value={summary.finance.profitAvailable ? formatCurrency(summary.finance.netIncome) : "Unavailable"}
-        subtitle={summary.finance.profitAvailable ? "All time · Posted revenue − costs" : "Costs need review"}
+        title="Net Income · Posted"
+        value={summary.finance.profitAvailable ? formatCurrency(summary.finance.netIncome) : "Review ledger"}
+        subtitle={summary.finance.profitAvailable ? "All time · Posted revenue − expenses" : "Ledger needs review"}
       />}
 
       {has("finance") && <StatCard

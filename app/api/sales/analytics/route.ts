@@ -3,7 +3,9 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import SaleOrder from '@/models/sales/SaleOrder';
+import SalesInvoice from '@/models/sales/SalesInvoice';
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { issuedInvoiceFilter, invoiceRevenueExpression } from "@/lib/sales/invoiceEligibility";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 export async function GET() {
@@ -52,26 +54,27 @@ export async function GET() {
         { $sort: { '_id.year': 1, '_id.month': 1 } }
       ]),
 
-      // Aggregate revenue by month
-      SaleOrder.aggregate([
+      // Aggregate recognized revenue by month (excluding GST)
+      SalesInvoice.aggregate([
         {
           $match: {
             tenantId,
-            createdAt: { $gte: sixMonthsAgo },
-            status: { $nin: [DOCUMENT_STATUS.CANCELLED, DOCUMENT_STATUS.DRAFT] }
+            invoiceDate: { $gte: sixMonthsAgo },
+            ...issuedInvoiceFilter()
           }
         },
         {
           $group: {
             _id: {
-              month: { $month: '$createdAt' },
-              year: { $year: '$createdAt' }
+              month: { $month: '$invoiceDate' },
+              year: { $year: '$invoiceDate' }
             },
-            amount: { $sum: '$totals.amountTotal' }
+            amount: { $sum: invoiceRevenueExpression }
           }
         },
         { $sort: { '_id.year': 1, '_id.month': 1 } }
       ]),
+
 
       // Get top products
       SaleOrder.aggregate([

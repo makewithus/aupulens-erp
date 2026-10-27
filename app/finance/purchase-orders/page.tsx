@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -89,6 +90,9 @@ function PurchaseOrdersPageInner() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [receiveLines, setReceiveLines] = useState<Array<{ lineIndex: number; name: string; ordered: number; alreadyReceived: number; remaining: number; qty: number }>>([]);
+  const [isReceiving, setIsReceiving] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -99,7 +103,7 @@ function PurchaseOrdersPageInner() {
     setPage(1);
   }, [debouncedQuery, dateFrom, dateTo, statusFilter, partnerId]);
 
-  const load = async (currentPage = page, search = debouncedQuery) => {
+  const load = async (currentPage = page, search = debouncedQuery, force = false) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
@@ -108,7 +112,7 @@ function PurchaseOrdersPageInner() {
       if (dateTo) params.set("dateTo", dateTo);
       if (statusFilter) params.set("status", statusFilter);
       if (partnerId) params.set("partnerId", partnerId);
-      const res = await cachedFetch(`/api/finance/purchase-orders?${params.toString()}`);
+      const res = await cachedFetch(`/api/finance/purchase-orders?${params.toString()}`, undefined, { force });
       const data = await res.json();
       setOrders(data.items || []);
       setTotal(data.total ?? 0);
@@ -229,11 +233,66 @@ function PurchaseOrdersPageInner() {
       if (!res.ok) throw new Error(json.error || "Status update failed");
       toast.success(`Purchase order ${status.replace("_", " ")}`);
       setIsModalOpen(false);
-      load();
+      load(page, debouncedQuery, true);
     } catch (error: any) {
       toast.error(error.message || "Status update failed");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenReceiveModal = () => {
+    if (!formData?.orderLines) return;
+    const lines = formData.orderLines
+      .map((l: any, idx: number) => {
+        const ordered = Number(l.productQty) || 0;
+        const alreadyReceived = Number(l.receivedQty) || 0;
+        const remaining = Math.max(0, ordered - alreadyReceived);
+        return {
+          lineIndex: idx,
+          name: l.name || `Line #${idx + 1}`,
+          ordered,
+          alreadyReceived,
+          remaining,
+          qty: remaining,
+        };
+      })
+      .filter((l: any) => l.remaining > 0);
+
+    setReceiveLines(lines);
+    setIsReceiveModalOpen(true);
+  };
+
+  const handleReceiveGoods = async () => {
+    if (!formData?._id) return;
+    setIsReceiving(true);
+    try {
+      const payload = {
+        items: receiveLines.map((l) => ({
+          lineIndex: l.lineIndex,
+          quantity: Number(l.qty) || 0,
+        })),
+      };
+
+      const res = await fetch(`/api/finance/purchase-orders/${formData._id}/receive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to receive goods");
+      }
+
+      toast.success(data.message || "Goods received successfully into inventory");
+      setIsReceiveModalOpen(false);
+      setIsModalOpen(false);
+      load(page, debouncedQuery, true);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to receive goods");
+    } finally {
+      setIsReceiving(false);
     }
   };
 
@@ -510,6 +569,15 @@ function PurchaseOrdersPageInner() {
                   <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Post Order
                 </Button>
               )}
+              {formData?.status === DOCUMENT_STATUS.POSTED && (
+                <Button
+                  className="none-xl text-xs font-black tracking-widest uppercase bg-green-600 hover:bg-green-700 text-white transition-all px-6"
+                  disabled={isSubmitting || !formData.orderLines?.some((l: any) => ((Number(l.productQty) || 0) - (Number(l.receivedQty) || 0)) > 0)}
+                  onClick={handleOpenReceiveModal}
+                >
+                  <Package className="h-3.5 w-3.5 mr-2" /> Receive Goods
+                </Button>
+              )}
               {formData?.status &&
                 formData.status !== DOCUMENT_STATUS.POSTED &&
                 formData.status !== DOCUMENT_STATUS.CANCELLED &&
@@ -557,6 +625,62 @@ function PurchaseOrdersPageInner() {
             isViewOnly={formData.status === DOCUMENT_STATUS.POSTED}
           />
         )}
+      </ModularModal>
+
+      <ModularModal
+        open={isReceiveModalOpen}
+        onOpenChange={setIsReceiveModalOpen}
+        title={`Receive Goods: ${formData?.name || "Purchase Order"}`}
+        className="max-w-xl"
+        footer={
+          <div className="flex justify-end gap-3 w-full">
+            <Button variant="ghost" onClick={() => setIsReceiveModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white font-bold"
+              disabled={isReceiving || receiveLines.every((l) => Number(l.qty) <= 0)}
+              onClick={handleReceiveGoods}
+            >
+              {isReceiving ? "Receiving..." : "Confirm Receipt"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="p-6 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Enter the quantity received for each line item. Received goods will be recorded in the Inventory ledger and stock on hand will increase.
+          </p>
+          <div className="space-y-3">
+            {receiveLines.map((line, idx) => (
+              <div key={idx} className="p-3 bg-muted/40 rounded-lg border space-y-2">
+                <div className="flex justify-between items-center text-sm font-bold">
+                  <span>{line.name}</span>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    Ordered: {line.ordered} | Received: {line.alreadyReceived} | Remaining: {line.remaining}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label className="text-xs whitespace-nowrap">Receive Qty:</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max={line.remaining}
+                    value={line.qty}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setReceiveLines((prev) =>
+                        prev.map((pl, pidx) => (pidx === idx ? { ...pl, qty: val } : pl))
+                      );
+                    }}
+                    className="max-w-[120px] font-mono text-sm"
+                  />
+                  <span className="text-xs text-muted-foreground">units</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </ModularModal>
     </DashboardLayout>
   );

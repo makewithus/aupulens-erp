@@ -120,6 +120,11 @@ export const financeSidebarConfig: SidebarSection[] = [
     title: "Purchases",
     items: [
       {
+        title: "Suppliers",
+        href: "/finance/suppliers",
+        icon: Building,
+      },
+      {
         title: "Purchase Orders",
         href: "/finance/purchase-orders",
         icon: Package,

@@ -91,8 +91,17 @@ export const authConfig = {
       return session;
     },
     async redirect({ url, baseUrl }) {
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      return url;
+      try {
+        const target = new URL(url, baseUrl);
+        if (target.origin !== new URL(baseUrl).origin) return baseUrl;
+        if (
+          target.pathname.startsWith("/auth/") &&
+          !["/auth/master", "/auth/forgot-password", "/auth/reset-password"].includes(target.pathname)
+        ) target.pathname = "/auth";
+        return target.href;
+      } catch {
+        return baseUrl;
+      }
     },
   },
   session: {

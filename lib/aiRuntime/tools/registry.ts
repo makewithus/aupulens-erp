@@ -97,6 +97,7 @@ const registry = new Map<string, ToolDefinition<any, any>>();
  *  same-process repeat call. The persistent AiToolCall store (A.3) is the real cross-instance
  *  guarantee; this is purely a performance shortcut on top of it. */
 const idempotencyCache = new Map<string, unknown>();
+const tenantCacheKey = (tenantId: string, toolName: string, key: string, userId?: string) => JSON.stringify([tenantId, userId || "system", toolName, key]);
 
 /** How long an `in_flight` row is trusted before being treated as abandoned and retried. */
 const IN_FLIGHT_TIMEOUT_MS = 60_000;
@@ -143,6 +144,7 @@ async function callWithPersistentIdempotency<TResult>(
   try {
     lockRow = await AiToolCall.create({
       tenantId: ctx.tenantId,
+      actorUserId: ctx.userId || null,
       runId: ctx.runId,
       toolName: tool.name,
       idempotencyKey,
@@ -154,8 +156,11 @@ async function callWithPersistentIdempotency<TResult>(
     if (!isDuplicateKey) throw err;
 
     const existing = await AiToolCall.findOne({ tenantId: ctx.tenantId, toolName: tool.name, idempotencyKey });
+    if (existing && (existing as any).actorUserId !== (ctx.userId || null) && !((existing as any).actorUserId == null && !ctx.userId)) {
+      throw new ToolPermissionDeniedError(tool.name, "Idempotency key belongs to a different acting identity");
+    }
     if (existing?.status === AI_TOOL_CALL_STATUS.SUCCEEDED) {
-      idempotencyCache.set(`${tool.name}::${idempotencyKey}`, existing.result);
+      idempotencyCache.set(tenantCacheKey(ctx.tenantId, tool.name, idempotencyKey, ctx.userId), existing.result);
       return existing.result as TResult;
     }
     if (existing?.status === AI_TOOL_CALL_STATUS.FAILED) {
@@ -185,7 +190,7 @@ async function callWithPersistentIdempotency<TResult>(
     lockRow.result = (result as unknown as Record<string, unknown>) ?? null;
     lockRow.completedAt = new Date();
     await lockRow.save();
-    idempotencyCache.set(`${tool.name}::${idempotencyKey}`, result);
+    idempotencyCache.set(tenantCacheKey(ctx.tenantId, tool.name, idempotencyKey, ctx.userId), result);
     return result as TResult;
   } catch (err: unknown) {
     lockRow.status = AI_TOOL_CALL_STATUS.FAILED;
@@ -202,6 +207,12 @@ export async function callTool<TResult = unknown>(
   ctx: ToolCallContext,
   opts?: { idempotencyKey?: string },
 ): Promise<{ result: TResult; record: ToolCallRecord }> {
+  if (typeof ctx.tenantId !== "string" || !ctx.tenantId.trim()) {
+    throw new Error("Tenant identity is required");
+  }
+  if (Object.hasOwn(args, "tenantId") && args.tenantId !== ctx.tenantId) {
+    throw new ToolPermissionDeniedError(toolName, "Tool tenant must match authenticated context");
+  }
   const startedAt = new Date();
   const tool = registry.get(toolName);
 
@@ -213,7 +224,7 @@ export async function callTool<TResult = unknown>(
     throw new ToolAutonomyExceededError(toolName, ctx.requestedAutonomy, tool.maxAutonomyLevel);
   }
 
-  if (isWriteEffect(tool.sideEffect) && tool.category !== "internal_state") {
+  if ((isWriteEffect(tool.sideEffect) || (ctx.userId && tool.module)) && tool.category !== "internal_state") {
     // Structural enforcement (Hard Rule 4): every draft/execute tool call is permission-
     // checked here, inside callTool() itself — not left to each workflow to remember to
     // call check_permission first. A tool with no declared `module` fails closed.
@@ -227,7 +238,7 @@ export async function callTool<TResult = unknown>(
     }
   }
 
-  const cacheKey = opts?.idempotencyKey ? `${toolName}::${opts.idempotencyKey}` : undefined;
+  const cacheKey = opts?.idempotencyKey ? tenantCacheKey(ctx.tenantId, toolName, opts.idempotencyKey, ctx.userId) : undefined;
   if (cacheKey && idempotencyCache.has(cacheKey)) {
     const cached = idempotencyCache.get(cacheKey) as TResult;
     return {

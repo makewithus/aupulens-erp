@@ -29,6 +29,7 @@ export interface IUser extends Document {
   employeeId?: string;
   designation?: string;
   profilePic?: string;
+  preferences?: { theme?: "light" | "dark" | "system"; language?: string; timezone?: string };
   dateOfJoining?: Date;
   status: EntityStatus;
   // Reserved for a future granular per-user permission system. Currently
@@ -42,6 +43,7 @@ export interface IUser extends Document {
   updatedAt: Date;
   createdBy?: mongoose.Types.ObjectId;
   tempToken?: string;
+  tempTokenHash?: string;
   tempTokenExpiry?: Date;
   // Self-service password reset (distinct from tempToken, which is the
   // short-lived post-signup auto-login token) — stores a SHA-256 hash of
@@ -52,7 +54,7 @@ export interface IUser extends Document {
 
 const UserSchema: Schema<IUser> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true }, // NEW: Index for performance
+    tenantId: { type: String, required: true, index: true, immutable: true }, // NEW: Index for performance
     name: { type: String, required: true, trim: true },
     email: {
       type: String,
@@ -84,6 +86,14 @@ const UserSchema: Schema<IUser> = new Schema(
     employeeId: { type: String, trim: true },
     designation: { type: String, trim: true },
     profilePic: { type: String },
+    preferences: {
+      type: new Schema({
+        theme: { type: String, enum: ["light", "dark", "system"] },
+        language: { type: String, maxlength: 35 },
+        timezone: { type: String, maxlength: 100 },
+      }, { _id: false, strict: true }),
+      default: undefined,
+    },
     dateOfJoining: { type: Date, default: Date.now },
     status: {
       type: String,
@@ -93,10 +103,11 @@ const UserSchema: Schema<IUser> = new Schema(
     },
     permissions: { type: [String], default: [] },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
-    tempToken: { type: String },
-    tempTokenExpiry: { type: Date },
-    passwordResetTokenHash: { type: String },
-    passwordResetTokenExpiry: { type: Date },
+    tempToken: { type: String, select: false },
+    tempTokenHash: { type: String, select: false },
+    tempTokenExpiry: { type: Date, select: false },
+    passwordResetTokenHash: { type: String, select: false },
+    passwordResetTokenExpiry: { type: Date, select: false },
   },
   { timestamps: true }
 );

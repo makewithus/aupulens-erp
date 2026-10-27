@@ -38,7 +38,7 @@ export interface IAiAnomaly extends Document {
 
 const AiAnomalySchema: Schema<IAiAnomaly> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     detectorId: { type: String, required: true, index: true },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true },
     severity: { type: String, enum: ["critical", "high", "medium", "low", "info"], required: true },

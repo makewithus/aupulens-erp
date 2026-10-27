@@ -11,6 +11,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const ALLOWED_ROLES = ["inventory", "finance", "admin", "master-admin"];
+    if (!session.user?.role || !ALLOWED_ROLES.includes(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const productIdsParam = searchParams.get("productIds");
 
@@ -34,6 +39,7 @@ export async function GET(req: NextRequest) {
     for (const productId of productIds) levels[productId] = 0;
 
     const stockMovements = await Stock.find({
+      tenantId,
       product: { $in: productIds },
       isReserved: { $ne: true }, // Exclude reserved stock
     }).lean();
@@ -51,6 +57,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ levels });
   } catch (error: any) {
     console.error("Stock levels error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

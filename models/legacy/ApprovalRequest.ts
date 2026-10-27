@@ -14,7 +14,7 @@ export interface IApprovalRequest extends Document {
 }
 
 const ApprovalRequestSchema = new Schema<IApprovalRequest>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   type: { type: String },
   requested_by_id: { type: Schema.Types.ObjectId, ref: "User" },
   approver_id: { type: Schema.Types.ObjectId, ref: "User" },

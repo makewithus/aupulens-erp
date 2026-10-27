@@ -35,7 +35,7 @@ export interface IAiCommunicationDraft extends Document {
 
 const AiCommunicationDraftSchema: Schema<IAiCommunicationDraft> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     workflowId: { type: String, required: true },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun", required: true },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },

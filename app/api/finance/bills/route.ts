@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { computeBillTotals } from "@/lib/accounting/billMath";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -6,6 +8,7 @@ import dbConnect from "@/lib/db";
 import Invoice from "@/models/finance/Invoice";
 import Customer from "@/models/sales/Customer";
 import Product from "@/models/inventory/Product";
+import Account from "@/models/finance/Account";
 import {
   DOCUMENT_STATUS,
   DOCUMENT_STATUS_VALUES,
@@ -142,12 +145,17 @@ export async function GET(req: NextRequest) {
                 $cond: [
                   {
                     $and: [
+                      { $eq: ["$state", DOCUMENT_STATUS.POSTED] },
                       { $ne: ["$paymentState", PAYMENT_STATE.PAID] },
-                      { $ne: ["$state", DOCUMENT_STATUS.CANCELLED] },
-                      { $ne: ["$state", DOCUMENT_STATUS.REJECTED] },
                     ],
                   },
-                  { $ifNull: ["$amountTotal", 0] },
+                  {
+                    $cond: [
+                      { $gt: ["$amountTotal", 0] },
+                      "$amountTotal",
+                      { $ifNull: ["$totals.amountTotal", 0] },
+                    ],
+                  },
                   0,
                 ],
               },
@@ -219,7 +227,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -233,11 +241,12 @@ export async function POST(req: NextRequest) {
     const tenantIdCheck = requireTenantId(session);
     if (tenantIdCheck) return tenantIdCheck;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await dbConnect();
 
-    let partnerId = body.partnerId;
+
+let partnerId = body.partnerId;
     if (!partnerId && (body.vendorName || body.vendorEmail)) {
       const vendorName = body.vendorName || body.vendorEmail;
       const vendorEmail = body.vendorEmail || undefined;
@@ -325,8 +334,43 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.state === DOCUMENT_STATUS.POSTED) return NextResponse.json({ error: "Create and approve the bill before posting it." }, { status: 400 });
+
+    // SYS-18: Resolve and validate Accounts Payable control account
+    let payableAccountId = body.payableAccountId;
+    if (payableAccountId) {
+      const account = await Account.findOne({
+        _id: payableAccountId,
+        tenantId,
+        account_type: "liability_payable",
+        isActive: { $ne: false },
+        status: { $ne: "inactive" },
+      }).lean();
+      if (!account) {
+        return NextResponse.json(
+          { error: "Selected Accounts Payable account is invalid, inactive, or not a liability account." },
+          { status: 400 }
+        );
+      }
+    } else {
+      const defaultAP = await Account.findOne({
+        tenantId,
+        account_type: "liability_payable",
+        isActive: { $ne: false },
+        status: { $ne: "inactive" },
+      }).sort({ code: 1 }).lean();
+      if (defaultAP) {
+        payableAccountId = defaultAP._id;
+      } else {
+        return NextResponse.json(
+          { error: "Configure an active Accounts Payable control account before creating a supplier bill." },
+          { status: 400 },
+        );
+      }
+    }
+
     const bill = await Invoice.create({
       ...body,
+      payableAccountId,
       name,
       partnerId,
       moveType: "in_invoice",
@@ -344,7 +388,7 @@ export async function POST(req: NextRequest) {
       state: body.state || DOCUMENT_STATUS.DRAFT,
       paymentState: body.paymentState || PAYMENT_STATE.NOT_PAID,
       poMatchType: body.poMatchType || "2_way",
-      poMatchStatus: body.poMatchStatus || "pending",
+      poMatchStatus: body.poReference ? (body.poMatchStatus || "pending") : "not_applicable",
       taxMismatchStatus,
       manualReviewRequired: body.manualReviewRequired || taxMismatchStatus === "mismatch",
       discrepancyNotes: body.discrepancyNotes || (taxMismatchStatus === "mismatch" ? "Supplier bill tax details differ from product master." : undefined),
@@ -365,7 +409,8 @@ export async function POST(req: NextRequest) {
     const finalBill = await Invoice.findOne({ _id: bill._id, tenantId }).populate("partnerId", "header.name contact_details.email");
 
     return NextResponse.json({ success: true, item: finalBill || bill });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

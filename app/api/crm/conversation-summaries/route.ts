@@ -3,23 +3,27 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmConversationSummary from "@/models/crm/ConversationSummary";
 
+import { requireTenantId } from "@/lib/auth/requireTenantId";
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
+  const tenantGuard = requireTenantId(session);
+  if (tenantGuard) return tenantGuard;
 
-  await dbConnect();
   const { searchParams } = new URL(req.url);
   const recordType = searchParams.get("recordType");
   const recordId = searchParams.get("recordId");
-  if (!recordType || !recordId) {
-    return NextResponse.json({ success: false, message: "recordType and recordId are required" }, { status: 400 });
-  }
 
-  const summaries = await CrmConversationSummary.find({
+  await dbConnect();
+
+  const query: Record<string, any> = {
     tenantId: session.user.tenantId,
-    recordType,
-    recordId,
-  })
+  };
+  if (recordType) query.recordType = recordType;
+  if (recordId) query.recordId = recordId;
+
+  const summaries = await CrmConversationSummary.find(query)
     .sort({ generatedAt: -1 })
     .lean();
 

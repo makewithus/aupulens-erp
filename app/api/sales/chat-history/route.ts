@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
   const { chatId, conversationId, title, messages } = await request.json();
   await dbConnect();
 
-  let chat;
+
+let chat;
   if (chatId) {
     chat = await ChatHistory.findOneAndUpdate(
       { _id: chatId, userId: session.user.id, tenantId, module: MODULE },
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ chat });
+
 }
 
 export async function DELETE(request: NextRequest) {
@@ -85,7 +87,9 @@ export async function DELETE(request: NextRequest) {
   if (!chatId) return NextResponse.json({ error: "Chat ID required" }, { status: 400 });
 
   await dbConnect();
-  const chat = await ChatHistory.findOneAndDelete({ _id: chatId, userId: session.user.id, tenantId, module: MODULE });
+
+const chat = await ChatHistory.findOneAndDelete({ _id: chatId, userId: session.user.id, tenantId, module: MODULE });
   if (!chat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   return NextResponse.json({ success: true });
+
 }

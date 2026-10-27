@@ -1,7 +1,8 @@
+import { getAccountingSession } from "@/lib/accounting/transaction";
 import Account from "@/models/finance/Account";
 import mongoose from "mongoose";
 
-const DEFAULT_ACCOUNTS = [
+export const DEFAULT_ACCOUNTS = [
   // Assets
   { code: "1000", name: "Assets", account_type: "asset_current", internal_group: "asset", parentCode: null },
   { code: "1100", name: "Cash & Cash Equivalents", account_type: "asset_cash", internal_group: "asset", parentCode: "1000" },
@@ -56,11 +57,12 @@ const DEFAULT_ACCOUNTS = [
   { code: "5300", name: "Depreciation Expense", account_type: "expense_depreciation", internal_group: "expense", parentCode: "5000" },
 ];
 
-export async function seedChartOfAccounts(tenantId: string, createdByUserId: string) {
+export async function seedChartOfAccounts(tenantId: string, createdByUserId: string, session?: mongoose.ClientSession) {
+  session ??= getAccountingSession();
   // Check if tenant already has accounts
-  const existingCount = await Account.countDocuments({ tenantId });
+  const existingCount = await Account.countDocuments({ tenantId }, { session });
   if (existingCount > 0) {
-    const result = await ensureChartOfAccounts(tenantId, createdByUserId);
+    const result = await ensureChartOfAccounts(tenantId, createdByUserId, session);
     return {
       message:
         result.created > 0
@@ -71,7 +73,7 @@ export async function seedChartOfAccounts(tenantId: string, createdByUserId: str
     };
   }
 
-  const result = await ensureChartOfAccounts(tenantId, createdByUserId);
+  const result = await ensureChartOfAccounts(tenantId, createdByUserId, session);
   return {
     message: "Successfully seeded Chart of Accounts",
     count: result.count,
@@ -79,63 +81,149 @@ export async function seedChartOfAccounts(tenantId: string, createdByUserId: str
   };
 }
 
+const ACCOUNT_TYPE_NAME_MAP: Record<string, string> = {
+  asset_receivable: "Accounts Receivable",
+  asset_cash: "Cash",
+  asset_current: "Other Current Asset",
+  asset_non_current: "Non Current Asset",
+  asset_fixed: "Fixed Asset",
+  liability_payable: "Accounts Payable",
+  liability_current: "Other Current Liability",
+  liability_non_current: "Non Current Liability",
+  equity: "Equity",
+  equity_unaffected: "Equity",
+  income: "Income",
+  income_other: "Other Income",
+  expense: "Expense",
+  expense_depreciation: "Expense",
+  expense_direct_cost: "Cost Of Goods Sold",
+};
+
 export async function ensureChartOfAccounts(
   tenantId: string,
   createdByUserId: string,
+  session?: mongoose.ClientSession,
 ) {
+  session ??= getAccountingSession();
   if (!mongoose.Types.ObjectId.isValid(createdByUserId)) {
     throw new Error("A valid user is required to initialize Chart of Accounts.");
   }
 
-  // This runs on the hot path of every invoice save, quote conversion, and
-  // payment posting (via postSalesInvoiceJournal/postCustomerPaymentJournal
-  // both calling this first) — it previously did up to 2 sequential Mongo
-  // round-trips per DEFAULT_ACCOUNTS entry (~24 accounts) on *every* call
-  // regardless of whether they already existed, which is real, measurable
-  // latency on every save once GL posting was added (Issue #9). Fetch the
-  // tenant's existing accounts once, and only create what's actually
-  // missing — the overwhelmingly common case (any tenant past their first
-  // invoice) now costs exactly one query instead of dozens.
-  const existingAccounts = await Account.find(
-    { tenantId, code: { $in: DEFAULT_ACCOUNTS.map((a) => a.code) } },
-    "code _id",
-  ).lean();
-  const accountsByCode = new Map<string, any>(existingAccounts.map((a: any) => [a.code, a]));
+  // Find all accounts for this tenant matching default codes OR default names
+  const defaultCodes = DEFAULT_ACCOUNTS.map((a) => a.code);
+  const defaultNames = DEFAULT_ACCOUNTS.map((a) => a.name);
 
-  const missing = DEFAULT_ACCOUNTS.filter((a) => !accountsByCode.has(a.code));
+  const existingAccounts = await Account.find(
+    {
+      tenantId,
+      $or: [
+        { code: { $in: defaultCodes } },
+        { accountCode: { $in: defaultCodes } },
+        { name: { $in: defaultNames } },
+        { accountName: { $in: defaultNames } },
+      ],
+    },
+  ).session(session || null);
+
+  const accountsByCode = new Map<string, any>();
+  const accountsByName = new Map<string, any>();
+
+  for (const a of existingAccounts) {
+    if (a.code) accountsByCode.set(a.code, a);
+    if (a.accountCode) accountsByCode.set(a.accountCode, a);
+    if (a.name) accountsByName.set(a.name.toLowerCase().trim(), a);
+    if (a.accountName) accountsByName.set(a.accountName.toLowerCase().trim(), a);
+  }
+
+  // Load account types for tenant
+  const AccountType = (await import("@/models/finance/AccountType")).default;
+  const existingTypes = await AccountType.find({ tenantId }).session(session || null).lean();
+  const typeMap = new Map<string, mongoose.Types.ObjectId>();
+  for (const t of existingTypes) {
+    typeMap.set(t.name.toLowerCase().trim(), t._id as mongoose.Types.ObjectId);
+    if (t.segment) typeMap.set(t.segment.toLowerCase().trim(), t._id as mongoose.Types.ObjectId);
+  }
+
   let created = 0;
 
-  if (missing.length > 0) {
-    for (const account of missing) {
-      const parentDoc = account.parentCode ? accountsByCode.get(account.parentCode) : null;
+  for (const account of DEFAULT_ACCOUNTS) {
+    const existing = accountsByCode.get(account.code) || accountsByName.get(account.name.toLowerCase().trim());
+    const typeName = ACCOUNT_TYPE_NAME_MAP[account.account_type] || "Other Current Asset";
+    const typeId = typeMap.get(typeName.toLowerCase().trim());
 
+    if (existing) {
+      // Ensure missing metadata fields are populated without duplicating
+      let dirty = false;
+      if (!existing.accountType && typeId) {
+        existing.accountType = typeId;
+        dirty = true;
+      }
+      if (!existing.accountName) {
+        existing.accountName = existing.name || account.name;
+        dirty = true;
+      }
+      if (!existing.name) {
+        existing.name = account.name;
+        dirty = true;
+      }
+      if (!existing.code) {
+        existing.code = account.code;
+        dirty = true;
+      }
+      if (!existing.accountCode) {
+        existing.accountCode = account.code;
+        dirty = true;
+      }
+      if (existing.isActive === undefined || existing.isActive === null) {
+        existing.isActive = true;
+        dirty = true;
+      }
+      if (!existing.status) {
+        existing.status = "active";
+        dirty = true;
+      }
+      if (dirty) {
+        await existing.save({ session });
+      }
+    } else {
+      const parentDoc = account.parentCode ? accountsByCode.get(account.parentCode) : null;
       try {
-        const accountDoc = await Account.create({
+        const data = {
           tenantId,
           code: account.code,
+          accountCode: account.code,
           name: account.name,
+          accountName: account.name,
+          accountType: typeId,
           account_type: account.account_type,
           internal_group: account.internal_group,
           reconcile: account.reconcile || false,
           createdBy: new mongoose.Types.ObjectId(createdByUserId),
           parentCode: account.parentCode,
           parentId: parentDoc?._id || null,
+          isActive: true,
+          status: "active",
           isSystemSeeded: true,
-        });
+        };
+        const accountDoc = session ? (await Account.create([data], { session }))[0] : await Account.create(data);
         accountsByCode.set(account.code, accountDoc);
+        accountsByName.set(account.name.toLowerCase().trim(), accountDoc);
         created += 1;
       } catch (error: any) {
-        if (error?.code !== 11000) {
+        if (session || error?.code !== 11000) {
           throw error;
         }
-        const existing = await Account.findOne({ tenantId, code: account.code }, "code _id").lean();
-        if (existing) accountsByCode.set(account.code, existing);
+        const existingDoc = await Account.findOne({ tenantId, code: account.code }).lean();
+        if (existingDoc) {
+          accountsByCode.set(account.code, existingDoc);
+          accountsByName.set(account.name.toLowerCase().trim(), existingDoc);
+        }
       }
     }
   }
 
   return {
-    count: await Account.countDocuments({ tenantId }),
+    count: await Account.countDocuments({ tenantId }, { session }),
     created,
   };
 }

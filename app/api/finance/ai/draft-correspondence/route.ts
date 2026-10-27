@@ -14,12 +14,16 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   const tenantId = (session?.user as any)?.tenantId as string | undefined;
   if (!tenantId) return NextResponse.json({ success: false }, { status: 401 });
+  if (!["finance", "admin", "master-admin"].includes((session?.user as any)?.role)) {
+    return NextResponse.json({ success: false, message: "Finance role required" }, { status: 403 });
+  }
 
   const { invoiceId, tone } = await req.json();
   if (!invoiceId) return NextResponse.json({ success: false, message: "invoiceId is required" }, { status: 400 });
 
   await dbConnect();
-  const invoice = await (SalesInvoice as any).findOne({ _id: invoiceId, tenantId }).lean();
+
+const invoice = await (SalesInvoice as any).findOne({ _id: invoiceId, tenantId }).lean();
   if (!invoice) return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
 
   let customerName: string | undefined;
@@ -41,4 +45,5 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ success: true, data: draft });
+
 }

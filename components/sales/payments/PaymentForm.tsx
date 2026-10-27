@@ -84,6 +84,7 @@ export function PaymentForm() {
   // Guards the "Deposit To" dropdown while its bank-accounts fetch is in
   // flight, so a slow connection can't make it look permanently empty/broken.
   const [bankAccountsLoading, setBankAccountsLoading] = useState(true);
+  const [bankAccountsError, setBankAccountsError] = useState<string | null>(null);
 
   useEffect(() => {
     cachedFetch("/api/sales/customers")
@@ -92,9 +93,15 @@ export function PaymentForm() {
     cachedFetch("/api/accounting/accounts?type=tds-receivable")
       .then((r) => r.json())
       .then((d) => setAccounts(d.items || []));
+    setBankAccountsLoading(true);
+    setBankAccountsError(null);
     cachedFetch("/api/accounting/accounts?type=bank")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load accounts");
+        return r.json();
+      })
       .then((d) => setBankAccounts(d.items || []))
+      .catch((e: any) => setBankAccountsError(e.message || "Failed to load bank accounts"))
       .finally(() => setBankAccountsLoading(false));
     cachedFetch("/api/sales/payment-modes")
       .then((r) => r.json())
@@ -425,18 +432,46 @@ export function PaymentForm() {
         <Label className="pt-2">
           Deposit To<span className="text-red-600">*</span>
         </Label>
-        <Select value={depositToAccountId} onValueChange={setDepositToAccountId} disabled={!enabled || bankAccountsLoading}>
-          <SelectTrigger className="max-w-sm">
-            <SelectValue placeholder={bankAccountsLoading ? "Loading accounts..." : "Select an account"} />
-          </SelectTrigger>
-          <SelectContent>
-            {bankAccounts.map((a: any) => (
-              <SelectItem key={a._id} value={a._id}>
-                {a.name || a.accountName} {a.code ? `(${a.code})` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="max-w-sm space-y-1">
+          <Select value={depositToAccountId} onValueChange={setDepositToAccountId} disabled={!enabled || bankAccountsLoading}>
+            <SelectTrigger className="w-full">
+              <SelectValue
+                placeholder={
+                  bankAccountsLoading
+                    ? "Loading accounts..."
+                    : bankAccountsError
+                    ? "Error loading accounts"
+                    : bankAccounts.length === 0
+                    ? "No cash/bank accounts found"
+                    : "Select an account"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {bankAccounts.length === 0 ? (
+                <div className="p-3 text-xs text-muted-foreground text-center">
+                  {bankAccountsLoading
+                    ? "Loading accounts..."
+                    : bankAccountsError
+                    ? "Failed to load accounts"
+                    : "No eligible cash or bank accounts available"}
+                </div>
+              ) : (
+                bankAccounts.map((a: any) => (
+                  <SelectItem key={a._id} value={a._id}>
+                    {a.name || a.accountName} {a.code ? `(${a.code})` : ""}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          {bankAccountsError && (
+            <p className="text-xs text-destructive">{bankAccountsError}</p>
+          )}
+          {!bankAccountsLoading && !bankAccountsError && bankAccounts.length === 0 && (
+            <p className="text-xs text-amber-600">No active Cash or Bank accounts exist in Chart of Accounts.</p>
+          )}
+        </div>
 
         <Label className="pt-2">Reference#</Label>
         <Input disabled={!enabled} value={reference} onChange={(e) => setReference(e.target.value)} className="max-w-sm" />

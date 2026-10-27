@@ -1,7 +1,9 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { getGstLedger, postGstSetoff } from "@/lib/accounting/gstLedger";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 function previousCompletedMonth() {
   const date = new Date();
@@ -26,9 +28,11 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!["admin", "finance"].includes(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   try {
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     await connectDB();
-    const entry = await postGstSetoff(session.user.tenantId, session.user.id, body.period, body.expected);
-    return NextResponse.json({ success: true, journalEntryId: entry._id });
+    return await withAccountingTransaction(async () => {
+      const entry = await postGstSetoff(session.user.tenantId, session.user.id, body.period, body.expected);
+      return NextResponse.json({ success: true, journalEntryId: entry._id });
+    });
   } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 400 }); }
 }

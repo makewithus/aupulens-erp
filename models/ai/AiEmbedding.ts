@@ -22,7 +22,7 @@ export interface IAiEmbedding extends Document {
 
 const AiEmbeddingSchema: Schema<IAiEmbedding> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     sourceType: { type: String, enum: ["invoice", "crm_note"], required: true },
     sourceId: { type: String, required: true },
     text: { type: String, required: true },

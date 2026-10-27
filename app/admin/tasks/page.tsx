@@ -335,7 +335,7 @@ function TasksPageInner() {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profilePath="/admin/profile"
     >
       <div className="space-y-6">

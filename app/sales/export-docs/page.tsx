@@ -161,7 +161,7 @@ export default function ExportDocsPage() {
         ]}
         userName={session?.user?.name || "User"}
         userRole={session?.user?.role || "sales"}
-        onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+        onSignOut={() => signOut({ callbackUrl: "/auth" })}
         profileHref="/sales/profile"
       >
         <TableSkeleton />
@@ -183,7 +183,7 @@ export default function ExportDocsPage() {
       ]}
       userName={session?.user?.name || "User"}
       userRole={session?.user?.role || "sales"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profileHref="/sales/profile"
     >
       <div className="space-y-6">

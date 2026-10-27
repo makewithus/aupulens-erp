@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -11,6 +13,11 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const role = (session.user as any)?.role;
+    if (!["finance", "admin", "master-admin"].includes(role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
     }
 
     await connectDB();
@@ -40,7 +47,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
+    const role = (session.user as any)?.role;
+    if (!["finance", "admin", "master-admin"].includes(role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
+    }
+
+    const body = stripProtectedFields(await req.json());
 
     if (!body.partnerId) {
       return NextResponse.json(
@@ -50,33 +62,38 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
-    // Generate Name if Draft (or logic?)
-    // Default name is "Draft" in schema.
+    // AUP-003: Strip protected fields from mass assignment
+    delete body._id;
+    delete body.tenantId;
+    delete body.createdBy;
+    delete body.createdAt;
 
     const newInvoice = new Invoice({
       ...body,
       tenantId,
       createdBy: session.user.id,
       name: body.name || "Draft",
-      state: body.state || DOCUMENT_STATUS.DRAFT,
+      state: DOCUMENT_STATUS.DRAFT, // Always created in draft
       amountResidual:
         body.amountResidual !== undefined
           ? Number(body.amountResidual)
           : Number(body.amountTotal) || 0,
-      paymentState: body.paymentState || PAYMENT_STATE.NOT_PAID,
+      paymentState: PAYMENT_STATE.NOT_PAID,
     });
 
     await newInvoice.save();
 
     return NextResponse.json(newInvoice, { status: 201 });
+
   } catch (error: any) {
     console.error("Error creating invoice:", error);
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: safeInternalErrorMessage() },
       { status: 500 },
     );
   }

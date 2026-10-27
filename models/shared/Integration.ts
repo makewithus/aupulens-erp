@@ -37,7 +37,7 @@ export interface IIntegration extends mongoose.Document {
 
 const IntegrationSchema = new Schema<IIntegration>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     connectorId: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     status: {

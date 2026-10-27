@@ -53,6 +53,7 @@ export interface IStockMove extends Document {
   responsibleId?: mongoose.Types.ObjectId;
   notes?: string;
   chatter: any[];
+  isDemo?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -75,7 +76,7 @@ const StockMoveLineSchema = new Schema({
 
 const StockMoveSchema = new Schema<IStockMove>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     reference: { type: String, required: true },
     moveType: {
       type: String,
@@ -121,6 +122,7 @@ const StockMoveSchema = new Schema<IStockMove>(
     responsibleId: { type: Schema.Types.ObjectId, ref: "User" },
     notes: { type: String },
     chatter: [MessageSchema],
+    isDemo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

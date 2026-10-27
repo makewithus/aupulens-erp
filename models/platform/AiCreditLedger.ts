@@ -28,7 +28,7 @@ export interface IAiCreditLedger extends Document {
   updatedAt: Date;
 }
 const schema = new Schema<IAiCreditLedger>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   userId: { type: String },
   planKey: { type: String },
   period: { type: String, required: true },

@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -9,6 +10,7 @@ import {
   isValidTransition,
   type DocumentStatus,
 } from "@/lib/constants/statuses";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 /* ------------------------------------------------------------------ */
 /*  helpers                                                           */
@@ -69,6 +71,9 @@ export async function GET(
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -87,7 +92,7 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ transfer });
   } catch (error) {
-    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -104,14 +109,18 @@ export async function PATCH(
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const sessionTenantIdGuard = requireTenantId(session);
     if (sessionTenantIdGuard) return sessionTenantIdGuard;
     const sessionTenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     await connectDB();
 
-    const existing = await StockTransfer.findOne({ _id: id, tenantId: sessionTenantId });
+
+const existing = await StockTransfer.findOne({ _id: id, tenantId: sessionTenantId });
     if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -508,9 +517,10 @@ export async function PATCH(
       .populate("chatter.authorId", "name image")
       .populate("operations_tab.productId", "header.name");
     return NextResponse.json({ transfer: refreshed });
+
   } catch (error: any) {
     console.error("Update Transfer Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -527,15 +537,20 @@ export async function DELETE(
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
-    const deleted = await StockTransfer.findOneAndDelete({ _id: id, tenantId });
+
+const deleted = await StockTransfer.findOneAndDelete({ _id: id, tenantId });
     if (!deleted)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ message: "Deleted" });
+
   } catch (e) {
-    return NextResponse.json({ error: "Delete Failed" }, { status: 500 });
+    return handleRouteError(e);
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { onboardingFragment } from "@/lib/auth/onboardingHandoff";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -133,24 +134,9 @@ export default function SignUpPage() {
       if (typeof window !== "undefined") {
         sessionStorage.setItem("session_active", "true");
 
-        const hostname = window.location.hostname;
-        const port = window.location.port;
-        const protocol = window.location.protocol;
-        const cleanHost = hostname.replace(/^www\./, "");
-        const isVercelDefaultDomain = hostname.endsWith(".vercel.app");
-
-        const queryParams = `?autologin=${data.tempToken}&email=${encodeURIComponent(form.email)}&session_active=true`;
-        let redirectUrl = "";
-
-        if (isVercelDefaultDomain) {
-          redirectUrl = `${protocol}//${hostname}/autologin${queryParams}`;
-        } else if (hostname === "localhost" || hostname === "127.0.0.1") {
-          const targetHost = `${form.subdomain}.localhost${port ? `:${port}` : ""}`;
-          redirectUrl = `${protocol}//${targetHost}/autologin${queryParams}`;
-        } else {
-          const targetHost = `${form.subdomain}.${cleanHost}${port ? `:${port}` : ""}`;
-          redirectUrl = `${protocol}//${targetHost}/autologin${queryParams}`;
-        }
+        // The current host is already reachable; new tenant DNS may not exist.
+        const fragment = onboardingFragment(data.tempToken, form.email);
+        const redirectUrl = `/autologin?tenant=${encodeURIComponent(form.subdomain)}${fragment}`;
 
         window.location.href = redirectUrl;
       }

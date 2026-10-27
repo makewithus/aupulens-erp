@@ -17,7 +17,7 @@ export interface ICurrencyAdjustment extends Document {
 
 const CurrencyAdjustmentSchema: Schema<ICurrencyAdjustment> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     currency: { type: String, required: true },
     baseCurrency: { type: String, required: true },
     dateOfAdjustment: { type: Date, required: true },

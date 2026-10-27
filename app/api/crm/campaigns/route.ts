@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
   }
 
   await dbConnect();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   if (!body.campaign_name || !body.campaign_code || !body.channel || !body.start_date) {
     return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 422 });

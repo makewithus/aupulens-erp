@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
-import { findHsnSacReference, lookupHsnSac, normalizeProductType } from "@/lib/tax/hsnData";
+import { lookupHsnSac, normalizeProductType } from "@/lib/tax/hsnData";
 import { checkRateLimit } from "@/lib/middleware/rateLimit";
 
 const MAX_DESCRIPTION_LENGTH = 1000;
@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const limited = checkRateLimit(req, "/api/tax/hsn-sac-lookup", session.user?.id);
+    const limited = await checkRateLimit(req, "/api/tax/hsn-sac-lookup", session.user?.id);
     if (limited) return limited;
     
     const tenantIdGuard = requireTenantId(session);

@@ -12,7 +12,7 @@ export interface ICounter extends Document {
 
 const CounterSchema = new Schema<ICounter>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     key: { type: String, required: true },
     seq: { type: Number, default: 0 },
   },

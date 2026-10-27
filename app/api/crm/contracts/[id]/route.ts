@@ -3,15 +3,20 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmContract from "@/models/crm/Contract";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 type RouteProps = { params: Promise<{ id: string }> };
 
 // ─── GET /api/crm/contracts/[id] ─────────────────────────────────────────────
 export async function GET(req: NextRequest, props: RouteProps) {
-  const { id } = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId)
-    return NextResponse.json({ success: false }, { status: 401 });
+  try {
+    const { id } = await props.params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId)
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
   await dbConnect();
 
@@ -35,22 +40,29 @@ export async function GET(req: NextRequest, props: RouteProps) {
     timestamp: new Date(),
   });
 
-  return NextResponse.json({ success: true, data: contract });
+    return NextResponse.json({ success: true, data: contract });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 // ─── PUT /api/crm/contracts/[id] ─────────────────────────────────────────────
 export async function PUT(req: NextRequest, props: RouteProps) {
-  const { id } = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId)
-    return NextResponse.json({ success: false }, { status: 401 });
+  try {
+    const { id } = await props.params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId)
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
   await dbConnect();
   const contract = await CrmContract.findOne({ _id: id, tenantId: session.user.tenantId });
   if (!contract)
     return NextResponse.json({ success: false, message: "Contract not found" }, { status: 404 });
 
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   // ── Validation ────────────────────────────────────────────────────────────
   if (contract.status === "Cancelled") {
@@ -121,15 +133,22 @@ export async function PUT(req: NextRequest, props: RouteProps) {
     });
   }
 
-  return NextResponse.json({ success: true, data: contract });
+    return NextResponse.json({ success: true, data: contract });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 // ─── DELETE /api/crm/contracts/[id] ──────────────────────────────────────────
 export async function DELETE(req: NextRequest, props: RouteProps) {
-  const { id } = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId)
-    return NextResponse.json({ success: false }, { status: 401 });
+  try {
+    const { id } = await props.params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId)
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
   await dbConnect();
   const contract = await CrmContract.findOne({ _id: id, tenantId: session.user.tenantId });
@@ -154,5 +173,8 @@ export async function DELETE(req: NextRequest, props: RouteProps) {
     timestamp: new Date(),
   });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }

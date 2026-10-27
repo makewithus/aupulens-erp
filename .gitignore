@@ -10,13 +10,50 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# testing & quality assurance
 /coverage
+# Regression tests are source files required by CI.
+__tests__/
+ci-tests.json
 
-# next.js
+# scripts & utilities
+/scripts/
+
+# documentation (all reports reside in docs/)
+docs/
+
+# markdown files (only README.md in root is tracked)
+/*.md
+!/README.md
+
+# artifacts, evidence & audits
+artifacts/
+audit_output/
+scratch/
+all_routes.txt
+inventory.json
+tmp/
+
+# root screenshots & media (preserves public/ assets)
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.gif
+/*.pdf
+
+# spreadsheets & tabular data dumps
+*.xlsx
+*.xls
+/*.csv
+
+# Next.js & build caches
 /.next/
 /.next-*/
+/.next-remediation-next/
 /out/
+/.turbo/
+/.cache/
 
 .env.*
 
@@ -51,14 +88,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Internal tooling & AI context — never expose to public repos
+# Internal tooling, agent context & IDEs
 CLAUDE.md
-docs/_context/
-docs/_planning/
 amastermds/
 .claude/
 *.claude
+.agents/
+.codex/
+.aws/
+.vscode/
+.idea/
 
-# Scratch testing & evidence
-scratch/
 

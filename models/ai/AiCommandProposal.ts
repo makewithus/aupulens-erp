@@ -32,7 +32,7 @@ export interface IAiCommandProposal extends Document {
 
 const AiCommandProposalSchema: Schema<IAiCommandProposal> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     module: { type: String, required: true },
     actionType: { type: String, required: true },

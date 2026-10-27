@@ -53,7 +53,7 @@ const BankStatementSchema = new Schema<IBankStatement>(
       enum: DOCUMENT_STATUS_VALUES,
       default: DOCUMENT_STATUS.DRAFT,
     },
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
   },
   { timestamps: true },
 );

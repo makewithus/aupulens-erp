@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
 import { friendlyError } from "@/lib/errors/friendlyError";
 import { NextRequest, NextResponse } from "next/server";
@@ -13,6 +14,7 @@ import bcrypt from "bcryptjs";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 import { syncMigratedEmployeeDepartments } from "@/lib/migration/employeeDepartmentSync";
+import { applyDemoScope, isAdminSession } from "@/lib/auth/scopeFilter";
 
 const departmentSyncLastRun = new Map<string, number>();
 const DEPARTMENT_SYNC_INTERVAL_MS = 60_000;
@@ -87,22 +89,33 @@ export async function GET(req: NextRequest) {
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
     if (dateFrom || dateTo) {
+      if (dateFrom && dateTo && new Date(dateFrom).getTime() > new Date(dateTo).getTime()) {
+        return NextResponse.json({ items: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }
       const range: any = {};
-      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) {
+        const start = new Date(dateFrom);
+        start.setUTCHours(0, 0, 0, 0);
+        range.$gte = start;
+      }
       if (dateTo && !isNaN(Date.parse(dateTo))) {
         const end = new Date(dateTo);
-        end.setHours(23, 59, 59, 999);
+        end.setUTCHours(23, 59, 59, 999);
         range.$lte = end;
       }
       if (Object.keys(range).length > 0) query.dateOfJoining = range;
     }
 
-    // Stats (KPI cards) always reflect every employee tenant-wide — unaffected
-    // by the current search/lifecycle/department/account filters, matching
-    // the original page's behavior of computing KPIs from the full,
-    // unfiltered employee set rather than just the current page.
+    const scopedQuery = applyDemoScope(session, query);
+    const statsMatch: any = { tenantId };
+    if (!isAdminSession(session)) {
+      statsMatch.isDemo = { $ne: true };
+    }
+
+    // Stats (KPI cards) reflect scoped employees tenant-wide — unaffected
+    // by the current search/lifecycle/department/account filters.
     const statsResult = await Employee.aggregate([
-      { $match: { tenantId } },
+      { $match: statsMatch },
       { $group: {
         _id: null,
         total: { $sum: 1 },
@@ -124,8 +137,8 @@ export async function GET(req: NextRequest) {
       const page = Math.max(1, parseInt(pageParam));
       const skip = (page - 1) * limit;
       const [total, employees] = await Promise.all([
-        Employee.countDocuments(query),
-        Employee.find(query)
+        Employee.countDocuments(scopedQuery),
+        Employee.find(scopedQuery)
           .populate("departmentId", "name code")
           .populate("reportingManagerId", "firstName lastName employeeCode")
           .populate("userId", "name email role status")
@@ -138,7 +151,7 @@ export async function GET(req: NextRequest) {
     }
 
     // No ?page= → return all (backward-compat for dropdowns and cross-module consumers)
-    const employees = await Employee.find(query)
+    const employees = await Employee.find(scopedQuery)
       .populate("departmentId", "name code")
       .populate("reportingManagerId", "firstName lastName employeeCode")
       .populate("userId", "name email role status")
@@ -148,7 +161,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items: employees, total: employees.length, page: 1, totalPages: 1, stats });
   } catch (error: any) {
     console.error("Get Employees Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -165,7 +178,8 @@ export async function POST(req: NextRequest) {
     const body = sanitizeEmployeePayload(await req.json());
     await connectDB();
 
-    const fieldErrors = validateEmployee(body);
+
+const fieldErrors = validateEmployee(body);
     if (Object.keys(fieldErrors).length > 0) {
       return NextResponse.json(
         { error: Object.values(fieldErrors)[0], fieldErrors },
@@ -238,8 +252,25 @@ export async function POST(req: NextRequest) {
       linkedUserId = newUser._id;
     }
 
+    // Resolve departmentId from department name if not already set
+    if (!body.departmentId && body.department) {
+      let dept = await Department.findOne({
+        tenantId,
+        name: new RegExp(`^${body.department.trim()}$`, "i"),
+      });
+      if (!dept) {
+        dept = await Department.create({
+          tenantId,
+          name: body.department.trim(),
+          code: body.department.trim().slice(0, 4).toUpperCase(),
+        });
+      }
+      body.departmentId = dept._id;
+    }
+
     const employee = new Employee({
       ...body,
+      lifecycleStatus: body.lifecycleStatus || "active",
       tenantId,
       userId: linkedUserId,
       createdBy: session.user.id,
@@ -260,6 +291,7 @@ export async function POST(req: NextRequest) {
       { success: true, employee: populated },
       { status: 201 },
     );
+
   } catch (error: any) {
     console.error("Create Employee Error:", error);
     return NextResponse.json(

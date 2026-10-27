@@ -22,7 +22,7 @@ export interface ISubscriptionEvent extends Document {
 
 const SubscriptionEventSchema: Schema<ISubscriptionEvent> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     type: {
       type: String,
       enum: SUBSCRIPTION_EVENT_TYPE_VALUES,

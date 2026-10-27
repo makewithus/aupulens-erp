@@ -22,7 +22,7 @@ export interface ITask extends mongoose.Document {
 }
 
 const TaskSchema = new mongoose.Schema({
-  tenantId: { type: String, required: true, index: true },
+  tenantId: { type: String, required: true, index: true, immutable: true },
   title: {
     type: String,
     required: [true, "Please provide a task title"],

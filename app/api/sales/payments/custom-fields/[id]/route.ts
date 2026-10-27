@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -12,8 +14,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await connectDB();
-    const { id } = await params;
-    const body = await request.json();
+
+const { id } = await params;
+    const body = stripProtectedFields(await request.json());
 
     const field = await CustomField.findOneAndUpdate(
       { _id: id, tenantId: session.user.tenantId, appliesTo: CUSTOM_FIELD_APPLIES_TO.PAYMENT },
@@ -24,8 +27,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, message: "Field not found" }, { status: 404 });
     }
     return NextResponse.json({ success: true, data: field });
+
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -37,7 +41,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await connectDB();
-    const { id } = await params;
+
+const { id } = await params;
 
     const field = await CustomField.findOneAndDelete({
       _id: id,
@@ -48,7 +53,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ success: false, message: "Field not found" }, { status: 404 });
     }
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

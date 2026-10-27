@@ -73,7 +73,7 @@ export interface ISalesQuotation extends Document {
 const SalesQuotationSchema = new Schema<ISalesQuotation>(
   {
     sourceAiProposalId: { type: Schema.Types.ObjectId },
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     quoteNumber: { type: String, required: true },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
     reference: { type: String },

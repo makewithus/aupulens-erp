@@ -181,7 +181,7 @@ export default function FinanceReturnsPage() {
       userName={session?.user?.name || "User"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "finance"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={fetchReturns}
     >
       <div className="space-y-1">

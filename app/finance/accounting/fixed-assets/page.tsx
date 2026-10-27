@@ -23,6 +23,7 @@ import {
   HardDrive,
   CheckCircle2,
   Eye,
+  Pencil,
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { AssetPopupContent } from "@/components/accounting/AssetPopupContent";
@@ -38,6 +39,7 @@ export default function FixedAssetsPage() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<any>(null);
   const [computeResult, setComputeResult] = useState<any>(null);
@@ -65,6 +67,21 @@ export default function FixedAssetsPage() {
     if (status === "authenticated") load();
   }, [status, router, load]);
 
+  const normalizeAsset = (asset: any) => ({
+    ...asset,
+    purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate) : new Date(),
+    accounts: {
+      assetAccountId:
+        typeof asset.accounts?.assetAccountId === "object"
+          ? asset.accounts?.assetAccountId?._id
+          : asset.accounts?.assetAccountId || "",
+      depreciationAccountId:
+        typeof asset.accounts?.depreciationAccountId === "object"
+          ? asset.accounts?.depreciationAccountId?._id
+          : asset.accounts?.depreciationAccountId || "",
+    },
+  });
+
   const handleOpenCreate = () => {
     setFormData({
       name: "",
@@ -79,11 +96,19 @@ export default function FixedAssetsPage() {
       },
       status: "draft",
     });
+    setIsEditing(true);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (asset: any) => {
+    setFormData(normalizeAsset(asset));
+    setIsEditing(true);
     setIsModalOpen(true);
   };
 
   const handleOpenView = (asset: any) => {
-    setFormData(asset);
+    setFormData(normalizeAsset(asset));
+    setIsEditing(false);
     setIsModalOpen(true);
   };
 
@@ -105,6 +130,7 @@ export default function FixedAssetsPage() {
       },
       status: "draft",
     });
+    setIsEditing(true);
     setIsModalOpen(true);
   });
 
@@ -114,7 +140,7 @@ export default function FixedAssetsPage() {
       !formData.originalValue ||
       !formData.accounts?.assetAccountId
     ) {
-      toast.error("Please fill in all required fields");
+      toast.error("Please fill in all required fields (Name, Value, Asset Account)");
       return;
     }
 
@@ -125,15 +151,37 @@ export default function FixedAssetsPage() {
         ? `/api/finance/assets/${formData._id}`
         : "/api/finance/assets";
 
+      const payload = {
+        name: formData.name,
+        purchaseDate: formData.purchaseDate,
+        originalValue: Number(formData.originalValue) || 0,
+        salvageValue: Number(formData.salvageValue) || 0,
+        method: formData.method || "linear",
+        durationYears: Number(formData.durationYears) || 5,
+        accounts: {
+          assetAccountId:
+            typeof formData.accounts?.assetAccountId === "object"
+              ? formData.accounts?.assetAccountId?._id
+              : formData.accounts?.assetAccountId,
+          depreciationAccountId:
+            typeof formData.accounts?.depreciationAccountId === "object"
+              ? formData.accounts?.depreciationAccountId?._id
+              : formData.accounts?.depreciationAccountId,
+        },
+      };
+
       const res = await cachedFetch(url, {
         method: isUpdate ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Failed to save asset");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to save asset");
+      }
 
-      toast.success(isUpdate ? "Asset updated" : "Asset registered");
+      toast.success(isUpdate ? "Asset updated successfully" : "Asset registered successfully");
       setIsModalOpen(false);
       load();
     } catch (error: any) {
@@ -212,7 +260,7 @@ export default function FixedAssetsPage() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
       onRefresh={load}
     >
       <div className="space-y-6">
@@ -274,7 +322,7 @@ export default function FixedAssetsPage() {
                           {asset.name}
                         </h3>
                         <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">
-                          {asset.method} 法
+                          {asset.method === "degressive" ? "DEGRESSIVE" : "LINEAR"}
                         </p>
                       </div>
                     </div>
@@ -335,14 +383,25 @@ export default function FixedAssetsPage() {
                       variant="outline"
                       size="icon"
                       className="h-9 w-9 rounded-none bg-muted/20"
+                      title="View Details"
                       onClick={() => handleOpenView(asset)}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
                     <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 rounded-none hover:bg-primary/10 hover:text-primary"
+                      title="Edit Asset"
+                      onClick={() => handleOpenEdit(asset)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="icon"
                       className="h-9 w-9 rounded-none text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                      title="Delete Asset"
                       onClick={() => handleDelete(asset._id)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -358,7 +417,13 @@ export default function FixedAssetsPage() {
       <ModularModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        title={formData?.name || "Register New Asset"}
+        title={
+          !formData?._id
+            ? "Register New Asset"
+            : isEditing
+            ? `Edit Asset: ${formData?.name || ""}`
+            : `Asset: ${formData?.name || ""}`
+        }
         className="max-w-4xl"
         footer={
           <div className="flex justify-end gap-3 px-6 py-4">
@@ -367,15 +432,26 @@ export default function FixedAssetsPage() {
               onClick={() => setIsModalOpen(false)}
               className="rounded-none"
             >
-              Cancel
+              {isEditing && formData?._id ? "Cancel" : "Close"}
             </Button>
-            {formData?.status === "draft" && (
+            {!isEditing ? (
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="rounded-none font-bold"
+              >
+                <Pencil className="h-4 w-4 mr-2" /> Edit Asset
+              </Button>
+            ) : (
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
                 className="rounded-none font-bold"
               >
-                {isSubmitting ? "Registering..." : "Save Asset"}
+                {isSubmitting
+                  ? "Saving..."
+                  : formData?._id
+                  ? "Save Changes"
+                  : "Save Asset"}
               </Button>
             )}
           </div>
@@ -385,7 +461,7 @@ export default function FixedAssetsPage() {
           <AssetPopupContent
             formData={formData}
             setFormData={setFormData}
-            isViewOnly={formData.status !== "draft"}
+            isViewOnly={!isEditing}
           />
         )}
       </ModularModal>

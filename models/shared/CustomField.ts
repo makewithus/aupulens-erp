@@ -23,7 +23,7 @@ export interface ICustomField extends Document {
 
 const CustomFieldSchema: Schema<ICustomField> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     appliesTo: { type: String, enum: CUSTOM_FIELD_APPLIES_TO_VALUES, required: true },
     label: { type: String, required: true, trim: true },
     fieldType: { type: String, enum: CUSTOM_FIELD_TYPE_VALUES, default: CUSTOM_FIELD_TYPE.TEXT },

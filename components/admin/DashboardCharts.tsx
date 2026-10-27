@@ -34,7 +34,7 @@ export function DashboardCharts({
   const net = summary.finance.netIncome;
 
   const profitAvailable = summary.finance.profitAvailable === true;
-  const margin = profitAvailable && revenue > 0 ? (net / revenue) * 100 : null;
+  const margin = profitAvailable && summary.finance.hasExpenseActivity && revenue > 0 ? (net / revenue) * 100 : null;
   const chartData = summary.chartData || [];
   const hasFinance = enabledModules.includes("finance");
   const hasSales = enabledModules.includes("sales");
@@ -75,10 +75,10 @@ export function DashboardCharts({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                Net Income
+                Net Income · Posted
               </span>
               <span className={cn("text-lg font-semibold", !profitAvailable ? "text-muted-foreground" : net >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                {profitAvailable ? formatCurrency(net) : "Unavailable"}
+                {profitAvailable ? formatCurrency(net) : "Review ledger"}
               </span>
             </div>
 
@@ -92,7 +92,9 @@ export function DashboardCharts({
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>Profit Margin</span>
               <span className="font-semibold text-foreground">
-                {margin === null ? "Unavailable" : `${margin.toFixed(1)}%`}
+                {margin === null
+                  ? !profitAvailable ? "Review ledger" : revenue <= 0 ? "No positive revenue" : "No posted costs"
+                  : `${margin.toFixed(1)}%`}
               </span>
             </div>
           </div>

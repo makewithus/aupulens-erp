@@ -214,6 +214,7 @@ export async function runDuplicateScanHandler(args: RunDuplicateScanArgs) {
 
 export function registerFinanceReadTools(): void {
   registerTool({
+    module: "finance",
     name: "get_invoice",
     description: "Reads Finance Invoice(s) (moveType in/out_invoice/refund), tenant-scoped.",
     sideEffect: AI_TOOL_SIDE_EFFECT.READ,
@@ -223,6 +224,7 @@ export function registerFinanceReadTools(): void {
   });
 
   registerTool({
+    module: "finance",
     name: "get_vendor",
     description: "Reads the Admin Vendor directory (models/admin/Vendor.ts), tenant-scoped.",
     sideEffect: AI_TOOL_SIDE_EFFECT.READ,
@@ -232,6 +234,7 @@ export function registerFinanceReadTools(): void {
   });
 
   registerTool({
+    module: "finance",
     name: "get_ledger",
     description: "Reads posted JournalEntry lines, optionally filtered by account, tenant-scoped.",
     sideEffect: AI_TOOL_SIDE_EFFECT.READ,
@@ -241,6 +244,7 @@ export function registerFinanceReadTools(): void {
   });
 
   registerTool({
+    module: "finance",
     name: "get_journal",
     description: "Reads one JournalEntry by id, tenant-scoped.",
     sideEffect: AI_TOOL_SIDE_EFFECT.READ,
@@ -250,6 +254,7 @@ export function registerFinanceReadTools(): void {
   });
 
   registerTool({
+    module: "finance",
     name: "get_bank_transactions",
     description: "Reads BankStatement documents/lines, tenant-scoped.",
     sideEffect: AI_TOOL_SIDE_EFFECT.READ,
@@ -259,6 +264,7 @@ export function registerFinanceReadTools(): void {
   });
 
   registerTool({
+    module: "finance",
     name: "get_period_status",
     description: "Reads TransactionLock + PeriodClosing state for a tenant/module.",
     sideEffect: AI_TOOL_SIDE_EFFECT.READ,
@@ -268,6 +274,7 @@ export function registerFinanceReadTools(): void {
   });
 
   registerTool({
+    module: "finance",
     name: "get_source_document",
     description: "Reads an ExtractedDocument's stored extraction metadata (no original bytes are stored — see docs/ai/SYSTEM_INVENTORY.md).",
     sideEffect: AI_TOOL_SIDE_EFFECT.READ,
@@ -277,6 +284,7 @@ export function registerFinanceReadTools(): void {
   });
 
   registerTool({
+    module: "finance",
     name: "get_chart_of_accounts",
     description: "Reads active, unlocked Account records, optionally excluding control/suspense/equity accounts.",
     sideEffect: AI_TOOL_SIDE_EFFECT.READ,
@@ -286,6 +294,7 @@ export function registerFinanceReadTools(): void {
   });
 
   registerTool({
+    module: "finance",
     name: "run_duplicate_scan",
     description:
       "Extends lib/docIntel/duplicateCheck.ts with file-hash and PO-reference matching, without changing its existing exact/near-exact behaviour for existing callers.",

@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
 
   await dbConnect();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
   const { action, entityType, ids, payload } = body;
   const tenantId = session.user.tenantId;
   const userId = session.user.id;
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({ success: true, data });
     } catch (e: any) {
-      return NextResponse.json({ success: false, message: e.message }, { status: 500 });
+      return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
     }
   }
 

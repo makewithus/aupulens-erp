@@ -54,7 +54,7 @@ export interface IPayment extends Document {
 
 const PaymentSchema = new Schema<IPayment>(
   {
-    tenantId: { type: String, required: true },
+    tenantId: { type: String, required: true, immutable: true },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
     paymentNumber: { type: String, required: true },
     paymentDate: { type: Date, default: Date.now },

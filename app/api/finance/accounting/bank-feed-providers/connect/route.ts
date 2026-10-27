@@ -1,3 +1,4 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
@@ -22,7 +23,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
   await connectDB();
-  try {
+
+try {
     const { providerId } = await req.json();
     if (!providerId || !mongoose.isValidObjectId(providerId)) {
       return NextResponse.json({ success: false, message: "A valid providerId is required" }, { status: 400 });
@@ -47,6 +49,7 @@ export async function POST(req: NextRequest) {
     // provider's OAuth/consent flow here and return the redirect URL.
     return NextResponse.json({ success: false, message: "Provider connection not yet implemented" }, { status: 501 });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
+
 }

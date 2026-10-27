@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (guard) return guard;
   try { requirePermission(session, "manage_workflows"); } catch (e: any) { return NextResponse.json({ success: false, message: e.message }, { status: 403 }); }
 
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
   const entity = body.entity || "Quote";
   const name = (body.name || "").trim();
   const steps = Array.isArray(body.steps) ? body.steps : [];

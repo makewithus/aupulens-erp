@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ success: true, data: template });
   } catch (error: any) {
     console.error("Email template GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -48,10 +50,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { key } = await params;
     const decodedKey = decodeURIComponent(key);
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
 
     const template = await EmailTemplate.findOneAndUpdate(
       { tenantId, key: decodedKey },
@@ -60,8 +63,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     );
 
     return NextResponse.json({ success: true, data: template });
+
   } catch (error: any) {
     console.error("Email template PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

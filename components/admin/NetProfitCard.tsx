@@ -19,7 +19,7 @@ export function NetProfitCard({
   const netIncome = summary.finance.netIncome;
 
   const margin =
-    profitAvailable && revenue > 0 ? ((netIncome / revenue) * 100).toFixed(1) : null;
+    profitAvailable && summary.finance.hasExpenseActivity && revenue > 0 ? ((netIncome / revenue) * 100).toFixed(1) : null;
 
   return (
     <Card className="overflow-hidden border-0 shadow-none">
@@ -33,7 +33,7 @@ export function NetProfitCard({
 
           <div>
             <h2 className="text-xl font-medium tracking-[-0.04em]">
-              Net Profit / Loss
+              Net Income · Posted
             </h2>
           </div>
         </div>
@@ -49,11 +49,11 @@ export function NetProfitCard({
               !profitAvailable ? "text-muted-foreground" : isProfit ? "text-emerald-500" : "text-rose-500"
             }`}
           >
-            {profitAvailable ? formatCurrency(netIncome) : "Unavailable"}
+            {profitAvailable ? formatCurrency(netIncome) : "Review ledger"}
           </p>
 
           <p className="mt-3 text-sm uppercase tracking-[0.18em] text-muted-foreground">
-            {profitAvailable ? `${isProfit ? "Profit" : "Loss"} · All time` : "Costs need review"}
+            {profitAvailable ? `${summary.finance.hasExpenseActivity ? isProfit ? "Profit" : "Loss" : "Posted result"} · All time` : "Ledger needs review"}
           </p>
 
           {margin && (
@@ -85,10 +85,16 @@ export function NetProfitCard({
           </div>
         </div>
 
+        {profitAvailable && summary.finance.profitNote && (
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            {summary.finance.profitNote}
+          </p>
+        )}
+
         {!profitAvailable && (
           <div className="mt-8 border border-amber-500/20 bg-amber-500/10 px-4 py-3">
             <p className="text-sm text-amber-600">
-              {summary.finance.profitUnavailableReason || "Profit and margin are unavailable until costs are posted."}
+              {summary.finance.profitUnavailableReason || "Review the posted ledger in Finance."}
             </p>
           </div>
         )}

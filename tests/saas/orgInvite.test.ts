@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { buildTenantUrl } from "@/lib/config";
 
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
 const {
@@ -272,7 +273,7 @@ describe("POST /api/auth/org/invite — invite creation", () => {
     expect(body.data.email).toBe("bob@example.com");
     expect(body.data.role).toBe("finance");
     expect(body.data.expiresAt).toBeTruthy();
-    expect(body.data.inviteLink).toContain("acme.aupulens.online");
+    expect(body.data.inviteLink).toBe(`${buildTenantUrl("acme")}/accept-invite?token=${body.data.token}`);
     expect(body.data.emailDeliveryDeferred).toBe(true);
   });
 
@@ -437,7 +438,7 @@ describe("POST /api/auth/org/accept — successful acceptance", () => {
   it("response includes workspace URL", async () => {
     const res = await ACCEPT_POST(makeAcceptRequest({ token: "valid-token-abc" }));
     const body = await res.json();
-    expect(body.data.workspaceUrl).toContain("acme.aupulens.online");
+    expect(body.data.workspaceUrl).toBe(buildTenantUrl("acme"));
   });
 
   it("attach-existing path: user already in target org → 200 without creating new User", async () => {

@@ -31,6 +31,7 @@ import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 
 export default function InventoryDashboardPage() {
@@ -39,50 +40,85 @@ export default function InventoryDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const cachedSum = getInstantCachedData<any>("/api/inventory/summary");
-  const cachedMoves = getInstantCachedData<any>("/api/inventory/stock-moves");
-  const cachedWh = getInstantCachedData<any>("/api/inventory/warehouse");
-  const cachedAlerts = getInstantCachedData<any>("/api/inventory/alerts");
-
-  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedSum);
-
-  const initS = cachedSum?.summary;
-  const initItems = initS?.totalItems?.current ?? 0;
-  const initLow = initS?.lowStock?.current ?? 0;
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Live Module Parameters for Inventory
-  const [stats, setStats] = useState(() => ({
-    totalValuation: initS?.totalValue?.current ?? 0,
+  const [stats, setStats] = useState({
+    totalValuation: 0,
     valuationChange: 0,
-    activeSKUs: initItems,
-    skuStockRate: initItems > 0 ? Math.max(0, 100 - Math.round((initLow / initItems) * 100)) : 0,
+    activeSKUs: 0,
+    skuStockRate: 0,
     warehouseCapacity: 0,
-    lowStockCount: initLow,
+    lowStockCount: 0,
     outOfStockCount: 0,
     stockTurnoverRatio: 0,
-    inboundToday: initS?.operations?.receipts ?? 0,
-    outboundToday: initS?.operations?.deliveries ?? 0,
-  }));
+    inboundToday: 0,
+    outboundToday: 0,
+  });
   const inventoryStats = stats;
 
   const [valuationByCategory, setValuationByCategory] = useState<any[]>([]);
-  const [warehouseCapacities, setWarehouseCapacities] = useState<any[]>(() => {
-    const whList = cachedWh?.data || cachedWh?.warehouses || (Array.isArray(cachedWh) ? cachedWh : []);
-    const palette = [BRAND_COLORS.accent.green, BRAND_COLORS.accent.blue, BRAND_COLORS.accent.yellow, BRAND_COLORS.accent.purple];
-    return whList.map((wh: any, i: number) => ({
-      name: wh.name || wh.warehouseCode || `Hub ${i + 1}`,
-      used: wh.occupancyRate || wh.capacityPercentage || 0,
-      capacity: wh.totalCapacity ? `${wh.totalCapacity} pallets` : "Configured",
-      status: (wh.occupancyRate || 0) > 90 ? "Near Limit" : "Operational",
-      color: palette[i % palette.length],
-    }));
-  });
+  const [warehouseCapacities, setWarehouseCapacities] = useState<any[]>([]);
   const [criticalStockAlerts, setCriticalStockAlerts] = useState<any[]>([]);
   const [recentMovements, setRecentMovements] = useState<any[]>([]);
-  const [stockMoves, setStockMoves] = useState<any[]>(() => cachedMoves?.items ?? []);
+  const [stockMoves, setStockMoves] = useState<any[]>([]);
 
   useEffect(() => {
     let isMounted = true;
+
+    // 1. Immediately hydrate from cache safely post-hydration (0ms instant display)
+    const cachedSum = getInstantCachedData<any>("/api/inventory/summary", { allowPreHydration: true });
+    const cachedMoves = getInstantCachedData<any>("/api/inventory/stock-moves", { allowPreHydration: true });
+    const cachedWh = getInstantCachedData<any>("/api/inventory/warehouse", { allowPreHydration: true });
+
+    if (cachedSum?.summary) {
+      const s = cachedSum.summary;
+      const totalItems = s.totalItems?.current || 0;
+      const lowStock = s.lowStock?.current || 0;
+      const outOfStock = s.outOfStock?.current || 0;
+      const stockRate = typeof s.inStockRate === "number"
+        ? s.inStockRate
+        : (totalItems > 0 ? Math.max(0, 100 - Math.round((lowStock / totalItems) * 100)) : 0);
+      setStats({
+        totalValuation: s.totalValue?.current || 0,
+        valuationChange: 0,
+        activeSKUs: totalItems,
+        lowStockCount: lowStock,
+        inboundToday: s.operations?.receipts || 0,
+        outboundToday: s.operations?.deliveries || 0,
+        skuStockRate: stockRate,
+        warehouseCapacity: 0,
+        outOfStockCount: outOfStock,
+        stockTurnoverRatio: 0,
+      });
+      setIsLoading(false);
+    }
+    if (cachedWh) {
+      const whList = cachedWh?.data || cachedWh?.warehouses || (Array.isArray(cachedWh) ? cachedWh : []);
+      const palette = [BRAND_COLORS.accent.green, BRAND_COLORS.accent.blue, BRAND_COLORS.accent.yellow, BRAND_COLORS.accent.purple];
+      setWarehouseCapacities(whList.map((wh: any, i: number) => ({
+        name: wh.name || wh.warehouseCode || `Hub ${i + 1}`,
+        used: wh.occupancyRate || wh.capacityPercentage || 0,
+        capacity: wh.totalCapacity ? `${wh.totalCapacity} pallets` : "Configured",
+        status: (wh.occupancyRate || 0) > 90 ? "Near Limit" : "Operational",
+        color: palette[i % palette.length],
+      })));
+    }
+    if (cachedMoves?.items && Array.isArray(cachedMoves.items)) {
+      setStockMoves(cachedMoves.items);
+      setRecentMovements(
+        cachedMoves.items.slice(0, 5).map((m: any) => ({
+          id: m.reference || m._id?.slice(-8) || "SM-MOVE",
+          sku: m.productName || m.productSku || "SKU-UNIT",
+          from: m.sourceLocation || "Primary Hub",
+          to: m.destinationLocation || "Production Floor",
+          qty: `${m.quantity || 1} units`,
+          status: m.state === "done" ? "Completed" : "In-Transit",
+          time: m.createdAt ? new Date(m.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recent",
+        }))
+      );
+    }
+
     async function fetchJson(url: string) {
       try {
         const r = await cachedFetch(url);
@@ -94,7 +130,6 @@ export default function InventoryDashboardPage() {
 
     async function loadInventoryData() {
       try {
-        setIsLoading(true);
         const [summaryRes, movesRes, whRes, alertsRes] = await Promise.allSettled([
           fetchJson("/api/inventory/summary"),
           fetchJson("/api/inventory/stock-moves"),
@@ -109,14 +144,19 @@ export default function InventoryDashboardPage() {
           const s = summaryRes.value.summary;
           const totalItems = s.totalItems?.current || 0;
           const lowStock = s.lowStock?.current || 0;
+          const outOfStock = s.outOfStock?.current || 0;
+          const stockRate = typeof s.inStockRate === "number"
+            ? s.inStockRate
+            : (totalItems > 0 ? Math.max(0, 100 - Math.round((lowStock / totalItems) * 100)) : 0);
           setStats((prev) => ({
             ...prev,
             totalValuation: s.totalValue?.current || 0,
             activeSKUs: totalItems,
             lowStockCount: lowStock,
+            outOfStockCount: outOfStock,
             inboundToday: s.operations?.receipts || 0,
             outboundToday: s.operations?.deliveries || 0,
-            skuStockRate: totalItems > 0 ? Math.max(0, 100 - Math.round((lowStock / totalItems) * 100)) : 0,
+            skuStockRate: stockRate,
           }));
         }
 
@@ -154,17 +194,17 @@ export default function InventoryDashboardPage() {
 
         // 4. Alerts
         if (alertsRes.status === "fulfilled") {
-          const alertsList = alertsRes.value?.items || alertsRes.value?.data || (Array.isArray(alertsRes.value) ? alertsRes.value : []);
+          const alertsList = alertsRes.value?.alerts || alertsRes.value?.items || alertsRes.value?.data || (Array.isArray(alertsRes.value) ? alertsRes.value : []);
           setCriticalStockAlerts(
             alertsList.slice(0, 5).map((a: any) => ({
-              sku: a.itemCode || a.sku || "SKU-ALERT",
-              name: a.name || "Stock Item",
+              sku: a.itemCode || a.sku || a.default_code || "SKU-ALERT",
+              name: a.name || a.productName || "Stock Item",
               category: a.category || "General",
-              onHand: a.quantity ?? 0,
+              onHand: a.quantity ?? a.onHand ?? 0,
               safetyStock: a.reorderLevel ?? a.minStockLevel ?? 10,
               unit: a.unit || "Units",
               leadDays: a.leadTimeDays ? `${a.leadTimeDays} Days` : "3 Days",
-              severity: (a.quantity ?? 0) === 0 ? "CRITICAL" : "HIGH",
+              severity: (a.quantity ?? a.onHand ?? 0) === 0 ? "CRITICAL" : "HIGH",
             }))
           );
         }
@@ -225,7 +265,7 @@ export default function InventoryDashboardPage() {
       userName={session?.user?.name || "Inventory Head"}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "inventory"}
-      onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 min-w-0 max-w-full font-mono">
         {/* Header Bar */}
@@ -306,11 +346,21 @@ export default function InventoryDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {formatCurrency(stats.totalValuation)}
+                {isLoading ? (
+                  <Skeleton className="h-8 w-32 rounded-none bg-muted-foreground/15 my-1" />
+                ) : (
+                  formatCurrency(stats.totalValuation)
+                )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-500 font-semibold">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>{stats.totalValuation > 0 ? "Real-time ledger asset balance" : "No asset balance recorded"}</span>
+                {isLoading ? (
+                  <Skeleton className="h-3.5 w-44 rounded-none bg-muted-foreground/10" />
+                ) : (
+                  <>
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>{stats.totalValuation > 0 ? "Real-time ledger asset balance" : "No asset balance recorded"}</span>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -330,11 +380,21 @@ export default function InventoryDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {stats.activeSKUs.toLocaleString()}
+                {isLoading ? (
+                  <Skeleton className="h-8 w-24 rounded-none bg-muted-foreground/15 my-1" />
+                ) : (
+                  stats.activeSKUs.toLocaleString()
+                )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
-                <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>{stats.skuStockRate}% in-stock fulfillment rate</span>
+                {isLoading ? (
+                  <Skeleton className="h-3.5 w-40 rounded-none bg-muted-foreground/10" />
+                ) : (
+                  <>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    <span>{stats.skuStockRate}% in-stock fulfillment rate</span>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -354,10 +414,18 @@ export default function InventoryDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-foreground">
-                {warehouseCapacities.length} Registered
+                {isLoading ? (
+                  <Skeleton className="h-8 w-24 rounded-none bg-muted-foreground/15 my-1" />
+                ) : (
+                  `${warehouseCapacities.length} Registered`
+                )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-500 font-semibold">
-                <span>{warehouseCapacities.length > 0 ? "Active facility network" : "No warehouses created"}</span>
+                {isLoading ? (
+                  <Skeleton className="h-3.5 w-36 rounded-none bg-muted-foreground/10" />
+                ) : (
+                  <span>{warehouseCapacities.length > 0 ? "Active facility network" : "No warehouses created"}</span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -377,11 +445,21 @@ export default function InventoryDashboardPage() {
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-red-500">
-                {stats.lowStockCount} SKUs
+                {isLoading ? (
+                  <Skeleton className="h-8 w-24 rounded-none bg-muted-foreground/15 my-1" />
+                ) : (
+                  `${stats.lowStockCount} SKUs`
+                )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-red-400 font-semibold">
-                <ShieldAlert className="w-3.5 h-3.5" />
-                <span>{stats.lowStockCount > 0 ? "Items requiring replenishment" : "Zero critical stockout risks"}</span>
+                {isLoading ? (
+                  <Skeleton className="h-3.5 w-40 rounded-none bg-muted-foreground/10" />
+                ) : (
+                  <>
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>{stats.lowStockCount > 0 ? "Items requiring replenishment" : "Zero critical stockout risks"}</span>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

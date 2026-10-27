@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -42,6 +43,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const role = (session.user as any)?.role;
+    if (!["finance", "admin", "master-admin"].includes(role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
+    }
+
     await connectDB();
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -64,16 +70,8 @@ export async function GET(request: NextRequest) {
         { account_type: BANK_CASH_ACCOUNT_TYPE },
         { accountType: { $in: bankCashTypeIds.map((t) => t._id) } },
       ];
-      // Exclude boilerplate rows auto-created by the two Chart-of-Accounts
-      // seeders for every tenant — the legacy seeder's "Bank Current
-      // Account"/"Main Cash" (flagged isSystemSeeded) and the newer
-      // catalog's "Undeposited Funds"/"Petty Cash" (already flagged
-      // isLocked: true, same seeder-owned semantics reused here) — so they
-      // don't leak into "Deposit To" pickers for tenants that never added a
-      // real bank account. A tenant's own accounts (via the Banking page or
-      // the inline "add account" pickers) never carry either flag.
-      query.isSystemSeeded = { $ne: true };
-      query.isLocked = { $ne: true };
+      query.isActive = { $ne: false };
+      query.status = { $ne: "inactive" };
     }
 
     let accounts = await Account.find(query)
@@ -111,12 +109,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const role = (session.user as any)?.role;
+    if (!["finance", "admin", "master-admin"].includes(role)) {
+      return NextResponse.json({ error: "Forbidden: Finance role required" }, { status: 403 });
+    }
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
-    const body = await request.json();
+
+const body = stripProtectedFields(await request.json());
 
     if (!body.code || !body.name || !body.account_type) {
       return NextResponse.json(
@@ -126,15 +129,28 @@ export async function POST(request: Request) {
     }
 
     const internal_group = GROUP_MAPPING[body.account_type];
+    if (!internal_group) {
+      return NextResponse.json(
+        { error: `Invalid account_type '${body.account_type}'. Must be mapped to an internal_group.` },
+        { status: 400 },
+      );
+    }
 
+    // AUP-003: Strict allowlist on account creation
     const account = await Account.create({
-      ...body,
+      code: String(body.code).trim(),
+      name: String(body.name).trim(),
+      account_type: body.account_type,
       internal_group,
+      description: body.description ? String(body.description).trim() : undefined,
+      reconcile: Boolean(body.reconcile),
+      parentCode: body.parentCode || undefined,
       tenantId,
       createdBy: session.user.id,
     });
 
     return NextResponse.json({ account }, { status: 201 });
+
   } catch (error: any) {
     if (error.code === 11000) {
       return NextResponse.json(

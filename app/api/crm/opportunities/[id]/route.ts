@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -13,14 +14,20 @@ import { getLlmCrmInsight } from "@/lib/crm/ai/llmInsight";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 import { calculateWinProbability, estimateWinProbabilityWithAi } from "@/lib/crm/winProbability";
 import CrmCase from "@/models/crm/Case";
+import { canAccessDemoDoc } from "@/lib/auth/scopeFilter";
 import "@/models/crm/Contact";
 import "@/models/crm/Account";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['opportunity.read']);
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    requireRole(session, ['opportunity.read']);
   
   await dbConnect();
     const opp = await CrmOpportunity.findOne({ _id: params.id, tenantId: session.user.tenantId })
@@ -28,7 +35,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
           .populate('owner_id', 'name')
           .populate('stakeholders.contact_id', 'first_name last_name email mobile').lean();
     
-  if (!opp) return NextResponse.json({ success: false }, { status: 404 });
+  if (!opp || !canAccessDemoDoc(session, opp)) return NextResponse.json({ success: false, message: "Opportunity not found" }, { status: 404 });
 
   // Calculate dynamic risk
   const lastActivity = await CrmActivity.findOne({ linked_opportunity_id: params.id }).sort({ activity_date: -1 }).lean();
@@ -98,31 +105,38 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     winProbabilityAiUsed = wp.insight.ok;
   }
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      ...(opp as any),
-      dynamicRisk,
-      healthFlags: health.flags,
-      aiAssessment,
-      winProbability,
-      winProbabilityAiUsed,
-    },
-  });
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...(opp as any),
+        dynamicRisk,
+        healthFlags: health.flags,
+        aiAssessment,
+        winProbability,
+        winProbabilityAiUsed,
+      },
+    });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }
 
 export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const session = await auth();
-  if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
+  try {
+    const params = await props.params;
+    const idGuard = validateObjectId(params.id);
+    if (idGuard) return idGuard;
+
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   const roleCheck = requireRole(session, ['opportunity.update']);
   if (roleCheck) return roleCheck;
 
   await dbConnect();
   const opp = await CrmOpportunity.findOne({ _id: params.id, tenantId: session.user.tenantId });
-  if (!opp) return NextResponse.json({ success: false }, { status: 404 });
+  if (!opp || !canAccessDemoDoc(session, opp)) return NextResponse.json({ success: false, message: "Opportunity not found" }, { status: 404 });
 
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
   const oldStage = opp.stage;
 
   if (body.stage && body.stage !== oldStage) {
@@ -213,5 +227,8 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     tenantId: session.user.tenantId, user_id: session.user.id, action: 'updated', record_type: 'Opportunity', record_id: opp._id, timestamp: new Date()
   });
 
-  return NextResponse.json({ success: true, data: opp });
+    return NextResponse.json({ success: true, data: opp });
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }

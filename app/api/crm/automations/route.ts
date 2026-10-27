@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   await dbConnect();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   const rule = await CrmAutomationRule.create({
     ...body,

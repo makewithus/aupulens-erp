@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ success: true, data: quote });
   } catch (error: any) {
     console.error("Sales Quote GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -43,9 +45,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId;
+
+const tenantId = session.user.tenantId;
     const { id } = await params;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
 
     const existing = await SalesQuotation.findOne(
       mongoose.isValidObjectId(id) ? { _id: id, tenantId } : { quoteNumber: id, tenantId }
@@ -118,9 +121,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     return NextResponse.json({ success: true, data: quote });
+
   } catch (error: any) {
     console.error("Sales Quote PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -132,7 +136,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await connectDB();
-    const { id } = await params;
+
+const { id } = await params;
     const existing = await SalesQuotation.findOne({ _id: id, tenantId: session.user.tenantId }).lean();
     if (!existing) return NextResponse.json({ success: false, message: "Quote not found" }, { status: 404 });
 
@@ -149,8 +154,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await SalesQuotation.deleteOne({ _id: id, tenantId: session.user.tenantId });
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
     console.error("Sales Quote DELETE error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

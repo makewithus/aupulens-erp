@@ -126,7 +126,7 @@ const AiFindingSchema = new Schema<IAiFinding>(
 
 const AiWorkflowRunSchema: Schema<IAiWorkflowRun> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     workflowId: { type: String, required: true, index: true },
     workflowVersion: { type: String, required: true },
     entityId: { type: String, required: true },

@@ -8,6 +8,8 @@ import "@/models/sales/Customer";
 import "@/models/inventory/Product";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { transitionDeal, DealError } from "@/lib/sales/pipelineDeals";
+import { canAccessDemoDoc } from "@/lib/auth/scopeFilter";
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 // Map client legacy status to DB DocumentStatus
 function toDbStatus(status: string): string {
@@ -47,6 +49,8 @@ export async function GET(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
     await connectDB();
     const tenantIdGuard = requireTenantId(session);
@@ -60,17 +64,13 @@ export async function GET(
       .populate("orderLines.productId")
       .lean();
 
-    if (!order) {
+    if (!order || !canAccessDemoDoc(session, order)) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     return NextResponse.json({ item: mapOrderToClient(order) });
   } catch (error) {
-    console.error("Error fetching sale order:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -85,12 +85,24 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body = await request.json();
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    const body = stripProtectedFields(await request.json());
 
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
+
+    const existing = await SaleOrder.findOne({ _id: id, tenantId });
+    if (!existing || !canAccessDemoDoc(session, existing)) {
+      return NextResponse.json(
+        { error: "Order not found or access denied" },
+        { status: 404 },
+      );
+    }
 
     // Backward-compatible mapping from legacy sale-order statuses.
     if (body.status) {
@@ -125,12 +137,14 @@ export async function PATCH(
       }
     }
 
+    const safeBody = stripProtectedFields(body);
+
     const order = await SaleOrder.findOneAndUpdate(
       {
         _id: id,
         tenantId,
       },
-      { $set: body },
+      { $set: safeBody },
       { new: true, runValidators: true },
     );
 
@@ -143,6 +157,7 @@ export async function PATCH(
 
     const clientOrder = mapOrderToClient(order.toObject());
     return NextResponse.json({ order: clientOrder });
+
   } catch (error) {
     console.error("Error updating sale order:", error);
     return NextResponse.json(
@@ -163,11 +178,24 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
     await connectDB();
-    const tenantIdGuard = requireTenantId(session);
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
+
+    const existing = await SaleOrder.findOne({ _id: id, tenantId });
+    if (!existing || !canAccessDemoDoc(session, existing)) {
+      return NextResponse.json(
+        {
+          error: "Order not found, access denied, or status prevented deletion",
+        },
+        { status: 404 },
+      );
+    }
 
     const order = await SaleOrder.findOneAndDelete({
       _id: id,
@@ -185,11 +213,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: "Order deleted successfully" });
+
   } catch (error) {
-    console.error("Error deleting sale order:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }

@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
@@ -7,7 +9,8 @@ import AirFreight from '@/models/manufacturing/AirFreight';
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== 'manufacturing' && session.user.role !== 'admin' && session.user.role !== 'master-admin') {
+    const ALLOWED_ROLES = ['manufacturing', 'admin', 'master-admin'];
+    if (!session || !ALLOWED_ROLES.includes(session.user?.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -44,7 +47,8 @@ export async function GET(request: Request) {
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== 'manufacturing' && session.user.role !== 'admin' && session.user.role !== 'master-admin') {
+    const ALLOWED_ROLES = ['manufacturing', 'admin', 'master-admin'];
+    if (!session || !ALLOWED_ROLES.includes(session.user?.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -52,7 +56,7 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     console.log('Received air freight data:', body);
 
     if (!body.flightNumber || !body.airline || !body.origin || !body.destination || 
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest) {
     console.error('Error details:', error.message, error.stack);
     return NextResponse.json({ 
       error: 'Failed to create air freight',
-      details: error.message 
+      details: safeInternalErrorMessage() 
     }, { status: 500 });
   }
 }
@@ -91,7 +95,7 @@ export async function PUT(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     const { _id, ...updateData } = body;
 
     if (!_id) {

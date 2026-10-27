@@ -32,7 +32,7 @@ export interface IAiEvent extends Document {
 
 const AiEventSchema: Schema<IAiEvent> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     eventKey: { type: String, required: true, index: true },
     payload: { type: Schema.Types.Mixed, default: {} },
     status: { type: String, enum: AI_EVENT_STATUS_VALUES, default: AI_EVENT_STATUS.PENDING },

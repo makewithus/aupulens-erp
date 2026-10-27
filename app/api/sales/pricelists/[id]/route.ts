@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Pricelist from "@/models/sales/Pricelist";
+import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 export async function GET(
   request: Request,
@@ -14,8 +15,11 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -34,11 +38,7 @@ export async function GET(
 
     return NextResponse.json({ item });
   } catch (error) {
-    console.error("Error fetching pricelist:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -52,12 +52,16 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
-    const tenantIdGuard = requireTenantId(session);
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await request.json();
+    const body = stripProtectedFields(await request.json());
 
     const item = await Pricelist.findOneAndUpdate(
       { _id: id, tenantId },
@@ -73,12 +77,9 @@ export async function PATCH(
     }
 
     return NextResponse.json({ item });
+
   } catch (error) {
-    console.error("Error updating pricelist:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }
 
@@ -92,9 +93,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
-    const tenantIdGuard = requireTenantId(session);
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
+
+const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
 
@@ -111,11 +116,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: "Pricelist deleted" });
+
   } catch (error) {
-    console.error("Error deleting pricelist:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return handleRouteError(error);
   }
 }

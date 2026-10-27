@@ -40,7 +40,7 @@ export interface IPurchaseOrder extends mongoose.Document {
 
 const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     name: { type: String, required: true },
     // Vendors/suppliers are stored as Customer documents (Odoo res.partner pattern).
     // Do NOT change this ref to "Vendor" — the admin Vendor model is a separate entity

@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { isValidAiWindowPolicy } from "@/lib/ai/usagePolicy";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -23,9 +24,14 @@ export async function GET() {
 
   try {
     await connectDB();
-    const org = await Organization.findOne({ subdomain: session.user.tenantId })
+    let org = await Organization.findOne({ subdomain: session.user.tenantId })
       .select("name settings tier subscriptionStatus")
       .lean();
+    if (!org && (session.user.tenantId === "default" || session.user.tenantId === "default-tenant")) {
+      org = await Organization.findOne({ subdomain: { $in: ["default", "default-tenant"] } })
+        .select("name settings tier subscriptionStatus")
+        .lean();
+    }
     if (!org) return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
 
     const entitlements = await resolveEntitlements(session.user.tenantId);
@@ -77,13 +83,16 @@ export async function PATCH(req: NextRequest) {
   }
 
   await connectDB();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
   const policy = body.settings?.ai?.usagePolicy;
   if (policy !== undefined && policy !== null && !isValidAiWindowPolicy(policy)) {
     return NextResponse.json({ success: false, message: "Invalid AI usage policy. Supply an explicit timezone, session duration, and request limits; null means unlimited." }, { status: 400 });
   }
 
-  const org = await Organization.findOne({ subdomain: session.user.tenantId });
+  let org = await Organization.findOne({ subdomain: session.user.tenantId });
+  if (!org && (session.user.tenantId === "default" || session.user.tenantId === "default-tenant")) {
+    org = await Organization.findOne({ subdomain: { $in: ["default", "default-tenant"] } });
+  }
   if (!org) return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
 
   if (typeof body.name === "string" && body.name.trim()) {

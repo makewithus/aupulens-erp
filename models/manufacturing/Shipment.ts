@@ -38,7 +38,7 @@ export interface IShipment extends mongoose.Document {
 }
 
 const ShipmentSchema = new Schema<IShipment>({
-  tenantId: { type: String, required: true, index: true },
+  tenantId: { type: String, required: true, index: true, immutable: true },
   shipmentNumber: { type: String, required: true },
   customerName: { type: String, required: true },
   customerEmail: { type: String },

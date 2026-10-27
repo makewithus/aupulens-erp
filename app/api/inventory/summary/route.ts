@@ -31,55 +31,18 @@ export async function GET() {
 
     await connectDB();
 
-    // These 6 reads are independent of each other, so run them concurrently
-    // instead of as a sequential waterfall.
-    const [currentItems, valueAgg, receiptsToProcess, deliveriesToProcess, manufacturingToProcess, lowStockAgg] =
+    // 1. Fetch all tracked products for the tenant (excluding service and archived)
+    const trackedProducts = await Product.find({
+      tenantId,
+      "tab_general_information.type": { $ne: "service" },
+      status: { $ne: "archived" },
+    })
+      .select("_id header.name tab_general_information.default_code tab_general_information.standard_price")
+      .lean();
+
+    // 2. Fetch operational counts and stock ledger aggregates concurrently
+    const [receiptsToProcess, deliveriesToProcess, manufacturingToProcess, stockAgg] =
       await Promise.all([
-        // 1. Total Items (Products)
-        Product.countDocuments({ tenantId }),
-
-        // 2. Total Value (Stock * Cost)
-        Stock.aggregate([
-          { $match: { tenantId } },
-          {
-            $group: {
-              _id: "$product",
-              quantity: { $sum: "$quantity" },
-            },
-          },
-          {
-            $lookup: {
-              from: "products",
-              localField: "_id",
-              foreignField: "_id",
-              as: "productDoc",
-            },
-          },
-          { $unwind: "$productDoc" },
-          {
-            $project: {
-              value: {
-                $multiply: [
-                  "$quantity",
-                  {
-                    $ifNull: [
-                      "$productDoc.tab_general_information.standard_price",
-                      0,
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-          {
-            $group: {
-              _id: null,
-              totalValue: { $sum: "$value" },
-            },
-          },
-        ]),
-
-        // 3. Operational Counts
         StockTransfer.countDocuments({
           tenantId,
           "header.operationType": "incoming",
@@ -97,7 +60,6 @@ export async function GET() {
           status: { $nin: [DOCUMENT_STATUS.CLOSED, DOCUMENT_STATUS.CANCELLED] },
         }),
 
-        // 4. Low Stock (Items with quantity <= 5)
         Stock.aggregate([
           { $match: { tenantId } },
           {
@@ -106,17 +68,42 @@ export async function GET() {
               quantity: { $sum: "$quantity" },
             },
           },
-          { $match: { quantity: { $lte: 5 } } },
-          { $count: "count" },
         ]),
       ]);
-    const totalValue = valueAgg[0]?.totalValue || 0;
-    const lowStockCount = lowStockAgg[0]?.count || 0;
+
+    const stockMap = new Map<string, number>();
+    for (const item of stockAgg) {
+      stockMap.set(String(item._id), item.quantity);
+    }
+
+    let totalValue = 0;
+    const totalTracked = trackedProducts.length;
+    let inStockCount = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+
+    for (const prod of trackedProducts) {
+      const onHand = stockMap.get(String(prod._id)) ?? 0;
+      const unitCost = prod.tab_general_information?.standard_price || 0;
+
+      if (onHand > 0) {
+        inStockCount++;
+        totalValue += onHand * unitCost;
+        if (onHand <= 5) {
+          lowStockCount++;
+        }
+      } else {
+        outOfStockCount++;
+        lowStockCount++; // 0 quantity requires replenishment
+      }
+    }
+
+    const inStockRate = totalTracked > 0 ? Math.round((inStockCount / totalTracked) * 100) : 0;
 
     const summary = {
       totalItems: {
-        current: currentItems,
-        change: 0, // No history tracking yet
+        current: totalTracked,
+        change: 0,
       },
       totalValue: {
         current: totalValue,
@@ -126,6 +113,11 @@ export async function GET() {
         current: lowStockCount,
         change: 0,
       },
+      outOfStock: {
+        current: outOfStockCount,
+        change: 0,
+      },
+      inStockRate,
       operations: {
         receipts: receiptsToProcess,
         deliveries: deliveriesToProcess,

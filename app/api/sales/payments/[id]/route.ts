@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -14,6 +15,8 @@ import "@/models/sales/Customer";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import JournalEntry from "@/models/finance/JournalEntry";
 import "@/models/finance/Account";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
+import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
 const ZERO_PAYMENT_SNAPSHOT: CustomerPaymentSnapshot = {
   allocatedTotal: 0,
@@ -29,8 +32,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
+    await connectDB();
     const payment = await (Payment as any)
       .findOne({ _id: id, tenantId: session.user.tenantId })
       .populate("customerId", "header contact_details")
@@ -43,8 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
     return NextResponse.json({ success: true, data: payment });
   } catch (error: any) {
-    console.error("Payment GET error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -62,147 +67,152 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
-    const tenantId = session.user.tenantId;
     const { id } = await params;
-    const body = await request.json();
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
 
-    const payment = await Payment.findOne({ _id: id, tenantId });
-    if (!payment) {
-      return NextResponse.json({ success: false, message: "Payment not found" }, { status: 404 });
-    }
+    await connectDB();
+    const transactionRequestBody = await request.json();
+    return await withAccountingTransaction(async () => {
+      const tenantId = session.user.tenantId;
+      const body = stripProtectedFields(structuredClone(transactionRequestBody));
 
-    if (body.action === "void") {
-      if (payment.status === PAYMENT_STATUS.PAID) await reverseAllocationsOnInvoices(tenantId, String(payment._id));
-      payment.status = PAYMENT_STATUS.VOID;
+      const payment = await Payment.findOne({ _id: id, tenantId });
+      if (!payment) {
+        return NextResponse.json({ success: false, message: "Payment not found" }, { status: 404 });
+      }
+
+      if (body.action === "void") {
+        if (payment.status === PAYMENT_STATUS.PAID) await reverseAllocationsOnInvoices(tenantId, String(payment._id));
+        payment.status = PAYMENT_STATUS.VOID;
+        try {
+          // Posts a reversing entry (mirror-image of whatever was last
+          // posted) — never mutates the original journal entry.
+          await postCustomerPaymentJournal({
+            payment,
+            tenantId,
+            createdBy: session.user.id,
+            current: ZERO_PAYMENT_SNAPSHOT,
+          });
+        } catch (postingError: any) {
+          return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+        }
+        await payment.save();
+        return NextResponse.json({ success: true, data: payment });
+      }
+
+      const amountReceived = body.amountReceived !== undefined ? Number(body.amountReceived) : payment.amountReceived;
+      const bankCharges = body.bankCharges !== undefined ? Number(body.bankCharges) || 0 : payment.bankCharges;
+      const taxDeducted = body.taxDeducted !== undefined ? !!body.taxDeducted : payment.taxDeducted;
+      const tdsAmount = taxDeducted ? Number(body.tdsAmount ?? payment.tdsAmount) || 0 : 0;
+      const allocations = (body.allocations || payment.allocations).filter(
+        (a: any) => a.invoiceId && Number(a.amount) > 0,
+      );
+
+      let unusedAmount: number;
       try {
-        // Posts a reversing entry (mirror-image of whatever was last
-        // posted) — never mutates the original journal entry.
+        unusedAmount = validateAllocations(allocations, amountReceived, bankCharges, tdsAmount);
+      } catch (e: any) {
+        return NextResponse.json({ success: false, message: e.message }, { status: 400 });
+      }
+
+      const wantsPaid = body.status === PAYMENT_STATUS.PAID;
+      let targetInvoices: { _id: any; number: string; status: string }[] = [];
+      if (wantsPaid && allocations.length) {
+        // Same guard as the create route: a draft/cancelled invoice's status
+        // never auto-derives from resolveInvoiceStatus, so allowing it here
+        // would silently attach a "paid" payment with no visible effect.
+        const invoiceIds = allocations.map((a: any) => a.invoiceId);
+        targetInvoices = await (SalesInvoice as any)
+          .find({ _id: { $in: invoiceIds }, tenantId, customerId: body.customerId || payment.customerId })
+          .select("_id number status totalAmount payments taxes")
+          .lean();
+        if (new Set(invoiceIds.map(String)).size !== invoiceIds.length || targetInvoices.length !== invoiceIds.length) return NextResponse.json({ success: false, message: "Select each invoice once and only for this customer." }, { status: 400 });
+        if (tdsAmount > 0 && targetInvoices.some((inv: any) => Number(inv.taxes?.tds) > 0)) return NextResponse.json({ success: false, message: "TDS is already recorded on an allocated invoice." }, { status: 400 });
+        const blocked = targetInvoices.find(
+          (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
+        );
+        if (blocked) {
+          return NextResponse.json(
+            { success: false, message: `Invoice ${blocked.number} is ${blocked.status} and cannot receive a payment.` },
+            { status: 400 },
+          );
+        }
+        // This payment's own previous allocations were already reversed above
+        // (if it was previously paid), so `payments` here reflects every OTHER
+        // payment's contribution — exactly what's needed to validate the new
+        // allocation amounts against each invoice's true remaining balance.
+        try {
+          validateAllocationAmounts(allocations, targetInvoices.map((inv: any) => ({ ...inv, payments: (inv.payments || []).filter((p: any) => String(p.paymentId) !== String(payment._id)) })) as any);
+        } catch (e: any) {
+          return NextResponse.json({ success: false, message: e.message }, { status: 400 });
+        }
+      }
+
+      if (payment.status === PAYMENT_STATUS.PAID) await reverseAllocationsOnInvoices(tenantId, String(payment._id));
+      payment.customerId = body.customerId || payment.customerId;
+      payment.amountReceived = amountReceived;
+      payment.bankCharges = bankCharges;
+      payment.mode = body.mode || payment.mode;
+      payment.depositToAccountId = body.depositToAccountId || payment.depositToAccountId;
+      payment.reference = body.reference ?? payment.reference;
+      payment.taxDeducted = taxDeducted;
+      payment.tdsAccountId = taxDeducted ? body.tdsAccountId ?? payment.tdsAccountId : undefined;
+      payment.tdsAmount = tdsAmount;
+      payment.allocations = allocations;
+      payment.unusedAmount = unusedAmount;
+      payment.notes = body.notes ?? payment.notes;
+      payment.paymentDate = body.paymentDate ? new Date(body.paymentDate) : payment.paymentDate;
+      payment.status = wantsPaid ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DRAFT;
+
+      // Reconcile the GL to this payment's new state — a no-op (idempotent)
+      // if nothing allocation/charge/TDS-relevant actually changed, a full
+      // reversal if going from paid back to draft, or a clean reclass entry
+      // if only the allocation mix shifted (e.g. previously-unused/excess
+      // amount now applied to a newly-added invoice).
+      //
+      // Journal posting and applying allocations to invoices must be
+      // all-or-nothing (see the same fix in the POST route above) — this used
+      // to save the payment (with the journal entry already posted) *before*
+      // applying allocations, so a failure there (e.g. a SalesInvoice
+      // validation error) left a committed "paid" payment with a posted
+      // journal entry while the invoice was never actually marked paid.
+      const allocatedTotal = allocations.reduce((acc: number, a: any) => acc + (Number(a.amount) || 0), 0);
+      const journalEntryCountBefore = payment.journalEntryIds?.length || 0;
+      try {
         await postCustomerPaymentJournal({
           payment,
           tenantId,
           createdBy: session.user.id,
-          current: ZERO_PAYMENT_SNAPSHOT,
+          current: wantsPaid
+            ? { allocatedTotal, unusedAmount, bankCharges, tdsAmount }
+            : ZERO_PAYMENT_SNAPSHOT,
+          invoiceNumbers: targetInvoices.map((inv) => inv.number),
         });
+
+        if (payment.status === PAYMENT_STATUS.PAID && allocations.length) {
+          await applyAllocationsToInvoices({
+            tenantId,
+            paymentId: String(payment._id),
+            paymentNumber: payment.paymentNumber,
+            paymentDate: payment.paymentDate,
+            mode: payment.mode,
+            allocations,
+          });
+        }
+
+        await payment.save();
       } catch (postingError: any) {
+        const newJournalEntryIds = (payment.journalEntryIds || []).slice(journalEntryCountBefore);
+        if (newJournalEntryIds.length) {
+          await JournalEntry.deleteMany({ _id: { $in: newJournalEntryIds }, tenantId });
+        }
         return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
       }
-      await payment.save();
+
       return NextResponse.json({ success: true, data: payment });
-    }
-
-    const amountReceived = body.amountReceived !== undefined ? Number(body.amountReceived) : payment.amountReceived;
-    const bankCharges = body.bankCharges !== undefined ? Number(body.bankCharges) || 0 : payment.bankCharges;
-    const taxDeducted = body.taxDeducted !== undefined ? !!body.taxDeducted : payment.taxDeducted;
-    const tdsAmount = taxDeducted ? Number(body.tdsAmount ?? payment.tdsAmount) || 0 : 0;
-    const allocations = (body.allocations || payment.allocations).filter(
-      (a: any) => a.invoiceId && Number(a.amount) > 0,
-    );
-
-    let unusedAmount: number;
-    try {
-      unusedAmount = validateAllocations(allocations, amountReceived, bankCharges, tdsAmount);
-    } catch (e: any) {
-      return NextResponse.json({ success: false, message: e.message }, { status: 400 });
-    }
-
-    const wantsPaid = body.status === PAYMENT_STATUS.PAID;
-    let targetInvoices: { _id: any; number: string; status: string }[] = [];
-    if (wantsPaid && allocations.length) {
-      // Same guard as the create route: a draft/cancelled invoice's status
-      // never auto-derives from resolveInvoiceStatus, so allowing it here
-      // would silently attach a "paid" payment with no visible effect.
-      const invoiceIds = allocations.map((a: any) => a.invoiceId);
-      targetInvoices = await (SalesInvoice as any)
-        .find({ _id: { $in: invoiceIds }, tenantId, customerId: body.customerId || payment.customerId })
-        .select("_id number status totalAmount payments taxes")
-        .lean();
-      if (new Set(invoiceIds.map(String)).size !== invoiceIds.length || targetInvoices.length !== invoiceIds.length) return NextResponse.json({ success: false, message: "Select each invoice once and only for this customer." }, { status: 400 });
-      if (tdsAmount > 0 && targetInvoices.some((inv: any) => Number(inv.taxes?.tds) > 0)) return NextResponse.json({ success: false, message: "TDS is already recorded on an allocated invoice." }, { status: 400 });
-      const blocked = targetInvoices.find(
-        (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
-      );
-      if (blocked) {
-        return NextResponse.json(
-          { success: false, message: `Invoice ${blocked.number} is ${blocked.status} and cannot receive a payment.` },
-          { status: 400 },
-        );
-      }
-      // This payment's own previous allocations were already reversed above
-      // (if it was previously paid), so `payments` here reflects every OTHER
-      // payment's contribution — exactly what's needed to validate the new
-      // allocation amounts against each invoice's true remaining balance.
-      try {
-        validateAllocationAmounts(allocations, targetInvoices.map((inv: any) => ({ ...inv, payments: (inv.payments || []).filter((p: any) => String(p.paymentId) !== String(payment._id)) })) as any);
-      } catch (e: any) {
-        return NextResponse.json({ success: false, message: e.message }, { status: 400 });
-      }
-    }
-
-    if (payment.status === PAYMENT_STATUS.PAID) await reverseAllocationsOnInvoices(tenantId, String(payment._id));
-    payment.customerId = body.customerId || payment.customerId;
-    payment.amountReceived = amountReceived;
-    payment.bankCharges = bankCharges;
-    payment.mode = body.mode || payment.mode;
-    payment.depositToAccountId = body.depositToAccountId || payment.depositToAccountId;
-    payment.reference = body.reference ?? payment.reference;
-    payment.taxDeducted = taxDeducted;
-    payment.tdsAccountId = taxDeducted ? body.tdsAccountId ?? payment.tdsAccountId : undefined;
-    payment.tdsAmount = tdsAmount;
-    payment.allocations = allocations;
-    payment.unusedAmount = unusedAmount;
-    payment.notes = body.notes ?? payment.notes;
-    payment.paymentDate = body.paymentDate ? new Date(body.paymentDate) : payment.paymentDate;
-    payment.status = wantsPaid ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DRAFT;
-
-    // Reconcile the GL to this payment's new state — a no-op (idempotent)
-    // if nothing allocation/charge/TDS-relevant actually changed, a full
-    // reversal if going from paid back to draft, or a clean reclass entry
-    // if only the allocation mix shifted (e.g. previously-unused/excess
-    // amount now applied to a newly-added invoice).
-    //
-    // Journal posting and applying allocations to invoices must be
-    // all-or-nothing (see the same fix in the POST route above) — this used
-    // to save the payment (with the journal entry already posted) *before*
-    // applying allocations, so a failure there (e.g. a SalesInvoice
-    // validation error) left a committed "paid" payment with a posted
-    // journal entry while the invoice was never actually marked paid.
-    const allocatedTotal = allocations.reduce((acc: number, a: any) => acc + (Number(a.amount) || 0), 0);
-    const journalEntryCountBefore = payment.journalEntryIds?.length || 0;
-    try {
-      await postCustomerPaymentJournal({
-        payment,
-        tenantId,
-        createdBy: session.user.id,
-        current: wantsPaid
-          ? { allocatedTotal, unusedAmount, bankCharges, tdsAmount }
-          : ZERO_PAYMENT_SNAPSHOT,
-        invoiceNumbers: targetInvoices.map((inv) => inv.number),
-      });
-
-      if (payment.status === PAYMENT_STATUS.PAID && allocations.length) {
-        await applyAllocationsToInvoices({
-          tenantId,
-          paymentId: String(payment._id),
-          paymentNumber: payment.paymentNumber,
-          paymentDate: payment.paymentDate,
-          mode: payment.mode,
-          allocations,
-        });
-      }
-
-      await payment.save();
-    } catch (postingError: any) {
-      const newJournalEntryIds = (payment.journalEntryIds || []).slice(journalEntryCountBefore);
-      if (newJournalEntryIds.length) {
-        await JournalEntry.deleteMany({ _id: { $in: newJournalEntryIds }, tenantId });
-      }
-      return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, data: payment });
+    });
   } catch (error: any) {
-    console.error("Payment PATCH error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

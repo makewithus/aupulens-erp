@@ -33,10 +33,11 @@ export interface IOpportunity extends Document {
   forecast_category?: string;
   attachments?: { name: string; url: string; uploadedAt: Date }[];
   tags?: string[];
+  isDemo?: boolean;
 }
 
 const OpportunitySchema = new Schema<IOpportunity>({
-  tenantId: { type: String, required: true },
+  tenantId: { type: String, required: true, immutable: true },
   deal_name: { type: String, required: true },
   account_id: { type: Schema.Types.ObjectId, ref: 'CrmAccount', required: true },
   contact_ids: [{ type: Schema.Types.ObjectId, ref: 'CrmContact' }],
@@ -88,7 +89,8 @@ const OpportunitySchema = new Schema<IOpportunity>({
     url: { type: String },
     uploadedAt: { type: Date, default: Date.now }
   }],
-  tags: [{ type: String }]
+  tags: [{ type: String }],
+  isDemo: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 OpportunitySchema.index({ tenantId: 1, stage: 1 });

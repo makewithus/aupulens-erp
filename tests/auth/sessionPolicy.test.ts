@@ -87,3 +87,17 @@ describe("NextAuth callback integration", () => {
     expect((session.user as any).sessionStale).toBe(true);
   });
 });
+
+
+describe("auth redirect destinations", () => {
+  const redirect = (url: string) => authConfig.callbacks.redirect({ url, baseUrl: "https://erp.example.com" });
+  it("returns to the canonical login after logout", async () => {
+    expect(await redirect("/auth")).toBe("https://erp.example.com/auth");
+    expect(await redirect("/auth/admin")).toBe("https://erp.example.com/auth");
+  });
+  it("keeps callback destinations on the current host", async () => {
+    expect(await redirect("https://missing.erp.example.com/autologin")).toBe("https://erp.example.com");
+    expect(await redirect("//evil.example/auth/admin")).toBe("https://erp.example.com");
+    expect(await redirect("/sales/invoices/123")).toBe("https://erp.example.com/sales/invoices/123");
+  });
+});

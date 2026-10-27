@@ -1,0 +1,56 @@
+name: CI Pipeline
+on:
+  push:
+    branches: [main, aupulens-ai]
+  pull_request:
+    branches: [main, aupulens-ai]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      NODE_ENV: test
+      QA_DISPOSABLE_MONGO_PORT: '27262'
+      MONGODB_URI: mongodb://127.0.0.1:27262/aupulens_test_ci
+      AUPULENS_OVERVIEW_MONGO_TEST: '1'
+      AUP_BUILD_CPUS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Generate an isolated CI-only authentication secret
+        run: node -e "require('fs').appendFileSync(process.env.GITHUB_ENV, 'AUTH_SECRET=' + require('crypto').randomBytes(32).toString('hex') + '\n')"
+      - name: Start disposable transaction-capable MongoDB
+        run: |
+          docker run --detach --name aup-ci-mongo --publish 127.0.0.1:27262:27262 mongo:7.0 --replSet aupCi --bind_ip_all --port 27262
+          node --input-type=module <<'JS'
+          import { MongoClient } from 'mongodb';
+          const client = new MongoClient('mongodb://127.0.0.1:27262/?directConnection=true', {serverSelectionTimeoutMS: 1000});
+          for (let i=0;i<30;i++) { try { await client.connect(); break; } catch { if(i===29) throw Error('Disposable Mongo failed to start'); await new Promise(r=>setTimeout(r,1000)); } }
+          await client.db('admin').command({replSetInitiate:{_id:'aupCi',members:[{_id:0,host:'127.0.0.1:27262'}]}});
+          for (let i=0;i<30;i++) { if((await client.db('admin').command({hello:1})).isWritablePrimary) break; if(i===29) throw Error('No test primary'); await new Promise(r=>setTimeout(r,1000)); }
+          await client.close();
+          JS
+      - run: npm run lint
+      - name: Generate framework types and validate build
+        run: npm run build
+        env:
+          NODE_ENV: production
+      - run: npx tsc --noEmit --incremental false
+      - run: npm test -- --maxWorkers=2 --reporter=default --reporter=json --outputFile=ci-tests.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-evidence
+          path: ci-tests.json
+      - name: Stop disposable database
+        if: always()
+        run: docker rm --force aup-ci-mongo || true

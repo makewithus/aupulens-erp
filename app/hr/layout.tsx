@@ -15,7 +15,7 @@ export default function HrLayout({ children }: { children: React.ReactNode }) {
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
-      onSignOut={() => signOut({ callbackUrl: "/auth/hr" })}
+      onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
       {children}
     </DashboardLayout>

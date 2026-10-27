@@ -5,6 +5,7 @@ import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import SaleOrder from "@/models/sales/SaleOrder";
 import { issuedInvoiceFilter, unpaidInvoiceFilter, invoiceOutstandingExpression } from "@/lib/sales/invoiceEligibility";
+import { getOnHandQuantity } from "@/lib/inventory/stockGuard";
 
 export class ErpToolError extends Error {
   constructor(public code: string, message: string, public status = 400) { super(message); }
@@ -91,7 +92,14 @@ export async function executeErpQuery(scope: { tenantId: string; role: string },
   const names = new Map(customers.map(c => [String(c._id), customerName(c)]));
   for (const row of rows) {
     row.customerName = names.get(String(row.customerId || row.header?.partnerId));
-    if (q.entity === "sales_order") row.invoices = await SalesInvoice.find({ tenantId: scope.tenantId, _id: { $in: row.salesInvoiceIds || [] } }).select("number status").limit(25).maxTimeMS(5000).lean();
+    if (q.entity === "product") {
+      row.onHandQuantity = await getOnHandQuantity(scope.tenantId, String(row._id));
+    }
+    if (q.entity === "sales_order") {
+      row.invoices = await SalesInvoice.find({ tenantId: scope.tenantId, _id: { $in: row.salesInvoiceIds || [] } }).select("number status totalAmount payments markedFullyPaid").limit(25).maxTimeMS(5000).lean();
+      row.paymentsReceived = (row.invoices || []).reduce((sum: number, inv: any) => sum + (inv.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0), 0);
+      row.totalInvoiced = (row.invoices || []).reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
+    }
   }
   return { query: q, rows, count: await model.countDocuments(filter).maxTimeMS(5000), total: null };
 }

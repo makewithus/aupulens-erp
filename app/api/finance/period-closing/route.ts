@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ items });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     const userId = (session.user as any).id;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
 
     if (!body.fiscalYear || !body.month) {
       return NextResponse.json(
@@ -49,7 +51,8 @@ export async function POST(req: NextRequest) {
     await dbConnect();
 
     // Prevent duplicate period
-    const existing = await PeriodClosing.findOne({
+
+const existing = await PeriodClosing.findOne({
       fiscalYear: body.fiscalYear,
       month: body.month,
       tenantId,
@@ -83,7 +86,8 @@ export async function POST(req: NextRequest) {
 
     await period.save();
     return NextResponse.json(period);
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
 }

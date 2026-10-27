@@ -1,3 +1,4 @@
+import { handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -23,8 +24,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ wo
     const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
-    const { workflowId } = await params;
-    const body = await req.json();
+
+const { workflowId } = await params;
+    const body = stripProtectedFields(await req.json());
 
     const update: Record<string, unknown> = {};
 
@@ -68,7 +70,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ wo
     if (!policy) return NextResponse.json({ error: "policy row not found — visit the Policy tab to seed it first" }, { status: 404 });
 
     return NextResponse.json({ policy });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

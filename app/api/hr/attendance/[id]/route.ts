@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -5,6 +6,7 @@ import connectDB from "@/lib/db";
 import Attendance from "@/models/hr/Attendance";
 import "@/models/hr/Employee";
 import "@/models/hr/Department";
+import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(
   req: NextRequest,
@@ -17,6 +19,9 @@ export async function GET(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
@@ -35,7 +40,7 @@ export async function GET(
 
     return NextResponse.json({ item: attendance });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -50,13 +55,17 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = stripProtectedFields(await req.json());
     await connectDB();
 
-    const attendance = await Attendance.findOne({ _id: id, tenantId });
+
+const attendance = await Attendance.findOne({ _id: id, tenantId });
     if (!attendance) {
       return NextResponse.json(
         { error: "Attendance record not found" },
@@ -91,8 +100,9 @@ export async function PATCH(
     await attendance.save();
 
     return NextResponse.json({ success: true, attendance });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }
 
@@ -107,12 +117,16 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
+
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
 
-    const attendance = await Attendance.findOne({ _id: id, tenantId });
+
+const attendance = await Attendance.findOne({ _id: id, tenantId });
     if (!attendance) {
       return NextResponse.json(
         { error: "Attendance record not found" },
@@ -130,7 +144,8 @@ export async function DELETE(
     await Attendance.findOneAndDelete({ _id: id, tenantId });
 
     return NextResponse.json({ success: true });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleRouteError(error);
   }
 }

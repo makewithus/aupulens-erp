@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { escapeRegex } from "@/lib/utils/regex";
 import { safeHandler } from "@/lib/api/safeHandler";
 import { NextRequest, NextResponse } from "next/server";
@@ -107,7 +108,7 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ success: false }, { status: 401 });
 
   await dbConnect();
-  const body = await req.json();
+  const body = stripProtectedFields(await req.json());
 
   // ── Validation ─────────────────────────────────────────────────────────────
   if (!body.account_id) {

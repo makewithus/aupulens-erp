@@ -75,7 +75,7 @@ const BillOfMaterialSchema = new Schema<IBillOfMaterial>(
         createdAt: { type: Date, default: Date.now },
       },
     ],
-    tenantId: { type: String, index: true },
+    tenantId: { type: String, index: true, immutable: true },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },

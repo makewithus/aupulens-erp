@@ -1,3 +1,4 @@
+import { validateObjectId } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const pageSize = Math.min(100, Math.max(10, Number(searchParams.get("pageSize") || "10")));
   const search = (searchParams.get("search") || "").trim();
 
+  const idGuard = validateObjectId(id);
+  if (idGuard) return idGuard;
   await dbConnect();
   
   const batch = await MigrationBatch.findOne({ _id: id, tenantId: session.user.tenantId }).lean();

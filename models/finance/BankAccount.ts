@@ -31,7 +31,7 @@ export interface IBankAccount extends Document {
 
 const BankAccountSchema: Schema<IBankAccount> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     accountType: { type: String, enum: BANK_ACCOUNT_TYPE_VALUES, default: BANK_ACCOUNT_TYPE.BANK },
     accountName: { type: String, required: true, trim: true },
     accountCode: { type: String, trim: true },

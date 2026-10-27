@@ -1,3 +1,5 @@
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
+import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -20,7 +22,7 @@ export async function GET() {
       .lean();
     return NextResponse.json({ success: true, data: fields });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }
 
@@ -32,7 +34,8 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const body = await request.json();
+
+const body = stripProtectedFields(await request.json());
     if (!body.label) {
       return NextResponse.json({ success: false, message: "Label is required" }, { status: 400 });
     }
@@ -44,10 +47,11 @@ export async function POST(request: NextRequest) {
       createdBy: session.user.id,
     });
     return NextResponse.json({ success: true, data: doc }, { status: 201 });
+
   } catch (error: any) {
     if (error.code === 11000) {
       return NextResponse.json({ success: false, message: "A custom field with that label already exists" }, { status: 409 });
     }
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

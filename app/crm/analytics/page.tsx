@@ -59,6 +59,11 @@ function AnalyticsPageSkeleton() {
         <div className="lg:col-span-5 h-96 rounded-xl border border-border/60 bg-muted/20" />
         <div className="lg:col-span-7 h-96 rounded-xl border border-border/60 bg-muted/20" />
       </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-4 h-96 rounded-xl border border-border/60 bg-muted/20" />
+        <div className="lg:col-span-4 h-96 rounded-xl border border-border/60 bg-muted/20" />
+        <div className="lg:col-span-4 h-96 rounded-xl border border-border/60 bg-muted/20" />
+      </div>
     </div>
   );
 }
@@ -73,8 +78,8 @@ function formatCurrency(val: number) {
 
 export default function CrmAnalyticsPage() {
   const [timeRange, setTimeRange] = useState<string>("30d");
-  const [data, setData] = useState<any>(() => getInstantCachedData<any>(`/api/crm/analytics?range=30d`));
-  const [isLoading, setIsLoading] = useState<boolean>(() => !getInstantCachedData<any>(`/api/crm/analytics?range=30d`));
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadData = useCallback(async (fresh: boolean = false) => {
@@ -99,6 +104,11 @@ export default function CrmAnalyticsPage() {
   }, [timeRange]);
 
   useEffect(() => {
+    const cached = getInstantCachedData<any>(`/api/crm/analytics?range=${timeRange}`, { allowPreHydration: true });
+    if (cached) {
+      setData(cached);
+      setIsLoading(false);
+    }
     loadData(false);
     const handleRevalidated = (e: any) => {
       if (e?.detail?.url?.includes("/api/crm")) {
@@ -107,7 +117,7 @@ export default function CrmAnalyticsPage() {
     };
     window.addEventListener("aup:revalidated", handleRevalidated);
     return () => window.removeEventListener("aup:revalidated", handleRevalidated);
-  }, [loadData]);
+  }, [loadData, timeRange]);
 
   const summary = data?.summary || {
     totalPipelineValue: 0,
@@ -310,7 +320,7 @@ export default function CrmAnalyticsPage() {
       {/* Row 1: Lead Conversion Funnel & Pipeline Velocity Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Lead-to-Customer Conversion Funnel (lg:col-span-5) */}
-        <Card className="chart-animate-in chart-delay-1 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
+        <Card className="lg:col-span-5 chart-animate-in chart-delay-1 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
           <CardHeader className="p-6 pb-3">
             <div className="flex items-center justify-between">
               <div>
@@ -335,7 +345,7 @@ export default function CrmAnalyticsPage() {
               </div>
             ) : (
               funnel.map((item: any, idx: number) => {
-                const maxCount = funnel[0]?.count || 1;
+                const maxCount = Math.max(...funnel.map((f: any) => f.count || 0), 1);
                 const pct = Math.max(8, Math.round((item.count / maxCount) * 100));
                 const colors = [
                   "from-blue-600 to-indigo-600",
@@ -383,7 +393,7 @@ export default function CrmAnalyticsPage() {
         </Card>
 
         {/* Monthly Revenue Velocity & Momentum (lg:col-span-7) */}
-        <Card className="chart-animate-in chart-delay-2 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
+        <Card className="lg:col-span-7 chart-animate-in chart-delay-2 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
           <CardHeader className="p-6 pb-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
@@ -395,17 +405,9 @@ export default function CrmAnalyticsPage() {
                   Comparison of new pipeline added vs booked revenue against target.
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-xs font-mono shrink-0">
-                <span className="flex items-center gap-1.5 text-blue-400">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-blue-500" /> Pipeline
-                </span>
-                <span className="flex items-center gap-1.5 text-emerald-400">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500" /> Won
-                </span>
-                <span className="flex items-center gap-1.5 text-amber-400">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400" /> Target
-                </span>
-              </div>
+              <Badge variant="outline" className="font-mono text-[10px] text-blue-400 bg-blue-500/10 border-blue-500/20 shrink-0 self-start sm:self-auto">
+                Historical Run-Rate
+              </Badge>
             </div>
           </CardHeader>
           <CardContent className="p-6 pt-4 flex-1 flex flex-col justify-center">
@@ -431,7 +433,7 @@ export default function CrmAnalyticsPage() {
       {/* Row 2: Lead Channel Attribution, Deal Stage Aging, Rep Leaderboard */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Lead Channel Attribution (lg:col-span-4) - showLegend={false} to prevent legend overlapping with custom list */}
-        <Card className="chart-animate-in chart-delay-3 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
+        <Card className="lg:col-span-4 chart-animate-in chart-delay-3 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
           <CardHeader className="p-6 pb-2">
             <div className="flex items-center justify-between">
               <div>
@@ -490,15 +492,27 @@ export default function CrmAnalyticsPage() {
         </Card>
 
         {/* Stage Aging & Deal Bottlenecks (lg:col-span-4) */}
-        <Card className="chart-animate-in chart-delay-4 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
+        <Card className="lg:col-span-4 chart-animate-in chart-delay-4 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
           <CardHeader className="p-6 pb-2">
-            <CardTitle className="text-base font-bold flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-400" />
-              Stage Duration & Bottleneck Radar
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Average days deals spend in each pipeline stage.
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  Stage Duration & Bottleneck Radar
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Average days deals spend in each pipeline stage.
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5 text-xs font-mono shrink-0">
+                <span className="flex items-center gap-1.5 text-purple-400">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-[#8b5cf6]" /> Actual
+                </span>
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-[#64748b]" /> Target
+                </span>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-6 pt-2 flex-1 flex flex-col justify-between">
             {stageAgingDays.length === 0 ? (
@@ -537,7 +551,7 @@ export default function CrmAnalyticsPage() {
         </Card>
 
         {/* Sales Rep Quota Leaderboard (lg:col-span-4) - Bounded height with clean scrolling */}
-        <Card className="lg:col-span-4 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
+        <Card className="lg:col-span-4 chart-animate-in chart-delay-5 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
           <CardHeader className="p-6 pb-2">
             <div className="flex items-center justify-between">
               <div>

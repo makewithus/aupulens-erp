@@ -37,7 +37,7 @@ export interface IExtractedDocument extends mongoose.Document {
 
 const ExtractedDocumentSchema = new Schema<IExtractedDocument>(
   {
-    tenantId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true, immutable: true },
     docType: { type: String, enum: DOC_INTEL_TYPE_VALUES, required: true },
     fileName: { type: String, default: "" },
     status: {

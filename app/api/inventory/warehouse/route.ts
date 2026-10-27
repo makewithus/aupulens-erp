@@ -1,3 +1,4 @@
+import { stripProtectedFields } from "@/lib/api/validateId";
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -67,7 +68,8 @@ export async function POST(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
 
     await connectDB();
-    const body = await req.json();
+
+const body = stripProtectedFields(await req.json());
 
     const warehouse = await Warehouse.create({
       ...body,
@@ -77,6 +79,7 @@ export async function POST(req: NextRequest) {
 
     invalidateCache(`inv-warehouses:${tenantId}`);
     return NextResponse.json({ warehouse }, { status: 201 });
+
   } catch (error: any) {
     if (error?.code === 11000) return NextResponse.json({ error: "That warehouse code is already in use." }, { status: 409 });
     if (error?.name === "ValidationError") return NextResponse.json({ error: Object.values(error.errors).map((e: any) => e.message).join(" ") }, { status: 400 });
