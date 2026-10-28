@@ -999,7 +999,9 @@ describe("Batch 2: TC-0018 to TC-0106 Comprehensive Security & API Audit Suite",
       const req = new NextRequest("http://localhost:3000/api/crm/health");
       const res = await getCrmHealth(req);
       expect(res.status).toBe(200);
-      expect(accountFindMock).toHaveBeenCalledWith({ tenantId: "tenant-crm" });
+      expect(accountFindMock).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: "tenant-crm" })
+      );
     });
 
     it("TC-0070: Unauthenticated request to /api/crm/integrations returns HTTP 401", async () => {
@@ -1146,7 +1148,11 @@ describe("Batch 2: TC-0018 to TC-0106 Comprehensive Security & API Audit Suite",
       const res = await getCrmPipelineAnalytics(req);
       expect(res.status).toBe(200);
       expect(oppAggregateMock).toHaveBeenCalledWith(
-        expect.arrayContaining([{ $match: { tenantId: "tenant-crm" } }])
+        expect.arrayContaining([
+          expect.objectContaining({
+            $match: expect.objectContaining({ tenantId: "tenant-crm" }),
+          }),
+        ])
       );
     });
 

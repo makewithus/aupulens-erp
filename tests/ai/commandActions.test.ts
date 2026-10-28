@@ -64,6 +64,7 @@ beforeEach(() => {
   h.connectDB.mockResolvedValue(undefined);
   h.auditCreate.mockResolvedValue({});
   h.leadCreate.mockResolvedValue({ _id: "lead-1" });
+  h.customerFind.mockReturnValue(h.chain([]));
   h.customerCreate.mockResolvedValue({ _id: "cust-1" });
   h.employeeCreate.mockResolvedValue({ _id: "emp-1" });
   h.employeeCount.mockResolvedValue(0);
