@@ -106,7 +106,10 @@ export async function GET(req?: Request) {
     const hasExpenseActivity = Object.values(ledger.expense.accounts).some(
       (account) => account.debit !== 0 || account.credit !== 0,
     );
-    const profitAvailable = ledger.totals.balanced;
+    // A balanced ledger can still be incomplete when sales are posted but
+    // their COGS/operating expenses have not reached the general ledger.
+    const profitAvailable = ledger.totals.balanced &&
+      (totalRevenue === 0 || hasExpenseActivity);
 
     // Sales: Orders & Direct Invoices
     const [

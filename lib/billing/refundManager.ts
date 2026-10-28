@@ -74,7 +74,12 @@ export async function reserveRefund(params: {
     await session.withTransaction(async () => {
       const unresolvedRefund = await BillingRefund.findOne({
         paymentRecordId: params.payment._id,
-        _id: { $ne: refund._id },
+        // Refund rows are inserted before the reservation transaction. During
+        // concurrent requests each transaction must have one deterministic
+        // winner; otherwise both can observe the other's `reserving` row and
+        // reject. Only an earlier reservation blocks this request. An earlier
+        // reservation that enters `pending` continues to block later refunds.
+        _id: { $lt: refund._id },
         status: { $in: ["reserving", "pending"] },
       }).select("_id").session(session).lean();
       if (unresolvedRefund) {
