@@ -113,7 +113,6 @@ export default function DocumentsPage() {
   const [showArchived, setShowArchived] = useState(false);
 
   const fetchDocs = async () => {
-    setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (recordFilter !== "All") params.set("linked_record_type", recordFilter);

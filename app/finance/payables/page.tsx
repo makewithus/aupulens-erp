@@ -76,7 +76,6 @@ export default function PayablesPage() {
 
   const fetchBills = useCallback(async (currentPage: number, search: string, statusF: string, from: string, to: string) => {
     try {
-      setIsLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (statusF && statusF !== 'all') params.append('status', statusF);
       if (search) params.append('search', search);

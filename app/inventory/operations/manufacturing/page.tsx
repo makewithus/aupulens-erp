@@ -204,7 +204,6 @@ function ManufacturingPageInner() {
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (statusFilter !== "all") params.set("productionStatus", statusFilter);
@@ -417,21 +416,25 @@ function ManufacturingPageInner() {
             <StatCard
               title="Total Orders"
               value={kpis.total}
+              isLoading={loading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="In Production"
               value={kpis.inProduction}
+              isLoading={loading}
               visual={<ActivePulse />}
             />
             <StatCard
               title="QC Pending"
               value={kpis.qcPending}
+              isLoading={loading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Completed MOs"
               value={kpis.completed}
+              isLoading={loading}
               visual={<ActivePulse />}
             />
           </div>

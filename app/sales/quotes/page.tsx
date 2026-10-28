@@ -184,7 +184,6 @@ function QuotesPageInner() {
   }, [debouncedQuery, statusFilter, activeViewId]);
 
   const load = useCallback(async (currentPage = page, search = debouncedQuery, statusF = statusFilter, viewId = activeViewId) => {
-    setLoading(true);
     try {
       const params = new URLSearchParams({ status: statusF, page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("search", search);

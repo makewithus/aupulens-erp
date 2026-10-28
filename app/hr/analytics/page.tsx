@@ -366,8 +366,9 @@ export default function HrAnalyticsPage() {
                 <CanvasComposedChart
                   data={trajectoryChartData}
                   xAxisKey="name"
-                  barSeries={[{ key: "Headcount", color: "#3b82f6", name: "Headcount" }]}
+                  barSeries={[{ key: "Headcount", color: "#f97316", name: "Headcount" }]}
                   lineSeries={{ key: "New Hires", color: "#10b981", name: "Hires" }}
+                  sharedScale
                 />
               </div>
             ) : (
@@ -456,7 +457,7 @@ export default function HrAnalyticsPage() {
                     data={attendanceChartData}
                     xAxisKey="name"
                     series={[
-                      { key: "Present %", color: "#10b981", name: "Present %" },
+                      { key: "Present %", color: "#f97316", name: "Present %" },
                       { key: "On Leave %", color: "#f59e0b", name: "On Leave %" },
                     ]}
                   />
@@ -494,7 +495,7 @@ export default function HrAnalyticsPage() {
                   <CanvasBarChart
                     data={performanceChartData}
                     xAxisKey="name"
-                    series={[{ key: "Employees %", color: "#8b5cf6", name: "Employees %" }]}
+                    series={[{ key: "Employees %", color: "#f97316", name: "Employees %" }]}
                   />
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 font-mono text-[11px]">

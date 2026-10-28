@@ -117,7 +117,6 @@ function LeadsPageInner() {
   const { data: session } = useSession();
 
   const fetchLeads = async (currentPage = page, currentSearch = debouncedSearch) => {
-    setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (currentSearch) params.set("search", currentSearch);

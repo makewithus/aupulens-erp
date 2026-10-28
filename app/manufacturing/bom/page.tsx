@@ -79,7 +79,6 @@ export default function BillOfMaterialsPage() {
 
   // Fetch Data
   const fetchBoms = useCallback(async () => {
-    setIsLoading(true);
     try {
       const res = await fetch("/api/manufacturing/bom");
       const data = await res.json();

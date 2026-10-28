@@ -60,6 +60,7 @@ export async function GET(req?: Request) {
       Payment,
       StockMove,
       Stock,
+      BusinessHealthSummary,
     ] = await Promise.all([
       import("@/models/sales/SalesInvoice").then((m) => m.SalesInvoice),
       import("@/models/sales/SaleOrder").then((m) => m.default),
@@ -71,7 +72,15 @@ export async function GET(req?: Request) {
       import("@/models/sales/Payment").then((m) => m.default),
       import("@/models/inventory/StockMove").then((m) => m.default),
       import("@/models/inventory/Stock").then((m) => m.default),
+      import("@/models/admin/BusinessHealthSummary").then((m) => m.default),
     ]);
+
+    // Fetch the independently generated summary in parallel with dashboard
+    // aggregation so the overview can render as one complete response.
+    const businessHealthPromise = BusinessHealthSummary.findOne({ tenantId })
+      .sort({ generatedAt: -1 })
+      .lean()
+      .catch(() => null);
 
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -299,7 +308,7 @@ export async function GET(req?: Request) {
       chartData,
     };
 
-    const responsePayload = { summary };
+    const responsePayload = { summary, businessHealth: await businessHealthPromise };
     setCachedData(cacheKey, responsePayload, 60_000);
     return NextResponse.json(responsePayload);
   } catch (error) {

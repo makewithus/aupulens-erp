@@ -74,7 +74,6 @@ function WarehousePageInner() {
 
   const fetchWarehouses = async () => {
     try {
-      setLoading(true);
       const res = await cachedFetch("/api/inventory/warehouse");
       const data = await res.json();
       setWarehouses(data.warehouses || []);

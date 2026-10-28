@@ -17,7 +17,6 @@ export default function AuditCenterPage() {
   const [actionFilter, setActionFilter] = useState("");
 
   const fetchLogs = useCallback(async () => {
-    setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (recordTypeFilter) params.set("record_type", recordTypeFilter);

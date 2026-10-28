@@ -462,6 +462,66 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const executeEmployeeAutomation = async (message: string, baseMessages: Message[]) => {
+    setIsLoading(true);
+    try {
+      const history = baseMessages
+        .filter((m) => !m.isLoading && m.text)
+        .slice(-8)
+        .map((m) => ({ role: m.role, content: m.text }));
+      const prefillRes = await fetch("/api/ai/prefill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "employee", message, history }),
+      });
+      const prefill = await prefillRes.json().catch(() => ({}));
+      if (!prefillRes.ok || !prefill.success) {
+        updatePendingAssistant({ text: prefill.message || "I couldn't read those employee details. Please send them again." });
+        setIsLoading(false);
+        return;
+      }
+
+      const details = prefill.data || {};
+      const required = [
+        ["first name", details.firstName || details.first_name],
+        ["last name", details.lastName || details.last_name],
+        ["work email", details.email],
+        ["phone number", details.phone || details.mobile],
+      ] as const;
+      const missing = required.filter(([, value]) => !String(value || "").trim()).map(([label]) => label);
+      if (missing.length) {
+        const question = missing.length === required.length
+          ? "What are the employee’s first name, last name, work email, and phone number?"
+          : `I have the details so far. Please provide the ${missing.join(", ")} so I can prepare the employee record.`;
+        updatePendingAssistant({ text: question });
+        setIsLoading(false);
+        return;
+      }
+
+      const commandRes = await fetch("/api/ai/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: `Create an employee using these user-provided details: ${JSON.stringify(details)}`,
+          context: { pathname: "/hr/employees" },
+        }),
+      });
+      const commandData = await commandRes.json().catch(() => ({}));
+      if (commandRes.ok && commandData.action === "confirm" && commandData.proposalId) {
+        updatePendingAssistant({
+          text: commandData.summary || "Review the employee details and confirm to create the record.",
+          proposal: { proposalId: commandData.proposalId, destructive: false, status: "pending" },
+        });
+      } else {
+        updatePendingAssistant({ text: commandData.message || "I couldn't prepare the employee record. Please check the details and try again." });
+      }
+    } catch {
+      updatePendingAssistant({ text: "I couldn't prepare the employee record. Please try again." });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Modules a bare "product" could belong to. If the user names one we honour it;
   // if not, we ask rather than guessing (Inventory vs Manufacturing).
   const MANUF_HINT_RX = /\b(manufactur\w*|production|factory|shop[\s-]?floor)\b/i;
@@ -487,6 +547,17 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       { role: "user", text: q, attachments: attForMsg },
       { role: "assistant", text: "", isLoading: true },
     ]);
+
+    const hasPendingEmployeeCreate = messages.some((turn) =>
+      turn.role === "assistant" &&
+      /prepared the employee form|prepared an employee form|new employee form|employee’s first name|prepare the employee record/i.test(turn.text || "")
+    );
+    const directEmployeeCreate = CREATE_VERB_RX.test(q) && findCreateTarget(q)?.target === "employee";
+    const employeeDetailsFollowUp = !CREATE_VERB_RX.test(q) && /\b(name|email|phone|mobile|designation|department)\b|@/i.test(q);
+    if (!freshAttachments.length && (directEmployeeCreate || (hasPendingEmployeeCreate && employeeDetailsFollowUp))) {
+      await executeEmployeeAutomation(q, messages);
+      return;
+    }
 
     if (!freshAttachments.length && ["sales", "admin", "master-admin", "hr", "finance", "inventory", "project", "manufacturing", "crm"].includes(session?.user?.role || "")) {
       const erp = await runErpAssistant({ text: q, module: session?.user?.role === "sales" ? "sales" : "admin", conversationId: activeConversationId, requestId: crypto.randomUUID() });
@@ -586,7 +657,15 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     }
 
     // ── AI-native create: pre-fill the real form and navigate there ──────────
-    const targetDef = CREATE_VERB_RX.test(qEnglish) ? findCreateTarget(qEnglish) : undefined;
+    const targetDef = hasPendingEmployeeCreate && employeeDetailsFollowUp
+      ? findCreateTarget("create employee")
+      : CREATE_VERB_RX.test(qEnglish)
+      ? findCreateTarget(qEnglish)
+      : undefined;
+    if (targetDef?.target === "employee") {
+      await executeEmployeeAutomation(qEnglish, messages);
+      return;
+    }
     if (targetDef) {
       // A bare "product" is ambiguous — Inventory catalogue or Manufacturing?
       // If the user didn't say, ASK instead of guessing the wrong module.

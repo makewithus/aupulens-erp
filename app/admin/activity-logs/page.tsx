@@ -67,7 +67,6 @@ export default function ActivityLogsPage() {
 
   const fetchLogs = async () => {
     try {
-      setIsLoading(true);
       const params = new URLSearchParams({ limit: '200' });
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);

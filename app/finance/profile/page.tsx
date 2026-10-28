@@ -56,7 +56,6 @@ export default function FinanceProfilePage() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      setIsLoading(true);
       setError('');
       
       // Fetch current user's profile

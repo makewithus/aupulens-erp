@@ -93,6 +93,7 @@ export default function InventoryDashboardPage() {
   const [criticalStockAlerts, setCriticalStockAlerts] = useState<any[]>([]);
   const [recentMovements, setRecentMovements] = useState<any[]>([]);
   const [stockMoves, setStockMoves] = useState<any[]>([]);
+  const [throughputLoaded, setThroughputLoaded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -137,6 +138,7 @@ export default function InventoryDashboardPage() {
     }
     if (cachedMoves?.items && Array.isArray(cachedMoves.items)) {
       setStockMoves(cachedMoves.items);
+      setThroughputLoaded(true);
       setRecentMovements(
         cachedMoves.items.slice(0, 5).map((m: any) => ({
           id: m.reference || m._id?.slice(-8) || "SM-MOVE",
@@ -207,6 +209,7 @@ export default function InventoryDashboardPage() {
             }))
           );
         }
+        setThroughputLoaded(true);
 
         // 3. Warehouses
         if (whRes.status === "fulfilled") {
@@ -259,9 +262,6 @@ export default function InventoryDashboardPage() {
   }, []);
 
   const dailyThroughputData = useMemo(() => {
-    if (!stockMoves || stockMoves.length === 0) {
-      return [];
-    }
     const countsByDate = new Map<string, number>();
     for (const move of stockMoves) {
       const d = move.scheduledDate || move.createdAt;
@@ -273,12 +273,17 @@ export default function InventoryDashboardPage() {
         : 1;
       countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + totalUnits);
     }
-    return Array.from(countsByDate.entries())
-      .map(([date, count]) => ({
-        date,
-        count,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    // The chart's range controls represent calendar days. Include zero movement
+    // dates so a 90D view is always 90 days, even when activity is sparse.
+    const today = new Date();
+    const series = [];
+    for (let offset = 729; offset >= 0; offset -= 1) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - offset);
+      const date = toLocalDateString(day);
+      series.push({ date, count: countsByDate.get(date) || 0 });
+    }
+    return series;
   }, [stockMoves]);
 
   const formatCurrency = (val: number) => {
@@ -533,13 +538,22 @@ export default function InventoryDashboardPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-5">
-                <DailyBrickBarChart
-                  height={340}
-                  colorTheme="emerald"
-                  metricLabel="Stock Units Moved"
-                  data={dailyThroughputData}
-                  valueKey="count"
-                />
+                {!throughputLoaded ? (
+                  <Skeleton className="h-[340px] w-full rounded-none bg-muted-foreground/10" />
+                ) : stockMoves.length === 0 ? (
+                  <div className="flex h-[340px] items-center justify-center text-xs text-muted-foreground font-mono">
+                    No stock movements recorded in the available history.
+                  </div>
+                ) : (
+                  <DailyBrickBarChart
+                    height={340}
+                    colorTheme="emerald"
+                    metricLabel="Stock Units Moved"
+                    unit="number"
+                    data={dailyThroughputData}
+                    valueKey="count"
+                  />
+                )}
               </CardContent>
             </Card>
           </div>

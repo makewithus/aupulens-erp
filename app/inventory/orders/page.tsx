@@ -222,7 +222,6 @@ function OrdersPageInner() {
 
   const fetchOrders = useCallback(async (currentPage = 1) => {
     try {
-      setIsLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
       if (dateFrom) params.append("dateFrom", dateFrom);
@@ -857,21 +856,25 @@ function OrdersPageInner() {
             <StatCard
               title="Total Orders"
               value={kpis.total}
+              isLoading={isLoading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Pending Orders"
               value={kpis.pending}
+              isLoading={isLoading}
               visual={<ActivePulse />}
             />
             <StatCard
               title="Processing Orders"
               value={kpis.processing}
+              isLoading={isLoading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Delivered Orders"
               value={kpis.delivered}
+              isLoading={isLoading}
               visual={<ActivePulse />}
             />
           </div>

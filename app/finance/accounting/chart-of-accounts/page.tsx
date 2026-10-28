@@ -701,10 +701,10 @@ function ChartOfAccountsPageInner() {
             {/* Stats Cards banner */}
             <div className="space-y-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1">
-                <StatCard title="Total Accounts" value={kpis.total} visual={<UsersGraph />} />
-                <StatCard title="Active Accounts" value={kpis.active} visual={<ActivePulse />} />
-                <StatCard title="Asset Accounts" value={kpis.asset} visual={<UsersGraph />} />
-                <StatCard title="Liability Accounts" value={kpis.liability} visual={<ActivePulse />} />
+                <StatCard title="Total Accounts" value={kpis.total} isLoading={loading} visual={<UsersGraph />} />
+                <StatCard title="Active Accounts" value={kpis.active} isLoading={loading} visual={<ActivePulse />} />
+                <StatCard title="Asset Accounts" value={kpis.asset} isLoading={loading} visual={<UsersGraph />} />
+                <StatCard title="Liability Accounts" value={kpis.liability} isLoading={loading} visual={<ActivePulse />} />
               </div>
 
               {/* Main Card grid */}

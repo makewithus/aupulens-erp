@@ -20,7 +20,6 @@ export default function BudgetsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchBudgets = async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch("/api/finance/accounting/budgets");
       const data = await res.json();

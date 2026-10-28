@@ -7,7 +7,7 @@ import { PayrollWorkflow } from "./PayrollWorkflow";
 interface PayrollRun {
   _id: string;
   payrollCode: string;
-  payrollPeriod: {
+  payrollPeriod?: {
     month: number;
     year: number;
   };
@@ -45,6 +45,18 @@ const monthName = (m: number) =>
     month: "long",
   });
 
+function formatPayrollPeriod(period?: PayrollRun["payrollPeriod"]) {
+  const month = Number(period?.month);
+  const year = Number(period?.year);
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    return Number.isInteger(year) && year > 0
+      ? `Payroll ${year}`
+      : "Payroll period unavailable";
+  }
+
+  return `${monthName(month)}${Number.isInteger(year) && year > 0 ? ` ${year}` : ""}`;
+}
+
 const workflowSteps = [
   { key: "draft", label: "Draft" },
   { key: "attendance_locked", label: "Lock" },
@@ -77,7 +89,7 @@ export function PayrollBatchCard({
           <div>
 
             <h2 className="text-[24px] font-medium tracking-[-0.04em]">
-            {monthName(payroll.payrollPeriod.month)} {payroll.payrollPeriod.year}
+            {formatPayrollPeriod(payroll.payrollPeriod)}
             </h2>
 
             <p className="mt-1 font-mono text-[11px] text-muted-foreground/45">

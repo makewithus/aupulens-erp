@@ -87,7 +87,6 @@ export default function ExportDocsPage() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      setIsLoading(true);
       const response = await cachedFetch("/api/sales/sale-orders");
       if (!response.ok) throw new Error("load failed");
       const data = await response.json();

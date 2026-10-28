@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { Loader2, Calendar } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
-import { TradingLineChart, LineDataPoint, generate730HistoricalData } from "@/components/charts/TradingLineChart";
+import { TradingLineChart, LineDataPoint } from "@/components/charts/TradingLineChart";
 import { cn } from "@/lib/utils";
 
 interface MonthlyPipelinePoint {
@@ -36,17 +36,6 @@ const STAGE_COLORS: Record<string, string> = {
 const FALLBACK_COLORS = ["#A77DFF", "#6CADF5", "#8AE06C", "#F1DF38", "#F56868", "#B595FF", "#88C2FF", "#757575"];
 const stageColor = (stage: string, idx: number) => STAGE_COLORS[stage] || FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
 
-const DEMO_STAGES = [
-  "Prospecting",
-  "Discovery",
-  "Requirement Gathering",
-  "Solution Fit",
-  "Proposal Sent",
-  "Negotiation",
-  "Approval",
-  "Closed Won",
-];
-
 const PRESET_DAYS = [
   { label: "7D", days: 7 },
   { label: "14D", days: 14 },
@@ -72,7 +61,7 @@ export function PipelineTrendChart() {
   const [loading, setLoading] = useState(true);
   const [dailyData, setDailyData] = useState<DailyPipelinePoint[]>([]);
   const [months, setMonths] = useState<MonthlyPipelinePoint[]>([]);
-  const [stages, setStages] = useState<string[]>(DEMO_STAGES);
+  const [stages, setStages] = useState<string[]>([]);
   const [activeStageFilter, setActiveStageFilter] = useState<string | null>(null);
 
   // Time preset state for "By Stage" mode
@@ -95,9 +84,7 @@ export function PipelineTrendChart() {
           if (d.data.months && d.data.months.length > 0) {
             setMonths(d.data.months);
           }
-          if (d.data.stages && d.data.stages.length > 0) {
-            setStages(d.data.stages);
-          }
+          if (Array.isArray(d.data.stages)) setStages(d.data.stages);
         }
         setLoading(false);
       })
@@ -106,52 +93,10 @@ export function PipelineTrendChart() {
       });
   }, []);
 
-  // Generate 730 rich daily points if backend data is empty or sparse
+  // Display only persisted opportunity data. Sparse history is still sparse;
+  // it must not be filled with synthetic points that imply business activity.
   const fullDailyDataset: DailyPipelinePoint[] = useMemo(() => {
-    if (dailyData.length >= 30) {
-      return dailyData;
-    }
-
-    // Synthesize 730 continuous daily points with realistic stage distribution
-    const totalDays = 730;
-    const now = new Date();
-    const result: DailyPipelinePoint[] = [];
-
-    // Base value calibrated around ~₹25L to ₹4.5Cr daily pipeline creation
-    let baseVal = 1850000;
-    for (let i = totalDays - 1; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 86400000);
-      const dayStr = d.toISOString().split("T")[0];
-      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-
-      // Realistic business cycles and growth
-      const secularGrowth = ((totalDays - i) / totalDays) * 1200000;
-      const seasonalWave = Math.sin((i / 45) * Math.PI) * 450000;
-      const weekendDip = isWeekend ? 0.35 : 1.0;
-      const dailyNoise = ((i * 37) % 650000) - 200000;
-
-      const totalVal = Math.max(
-        150000,
-        Math.round((baseVal + secularGrowth + seasonalWave + dailyNoise) * weekendDip)
-      );
-
-      // Distribute totalVal across stages
-      const stageMap: Record<string, number> = {};
-      const weights = [0.22, 0.18, 0.15, 0.14, 0.12, 0.09, 0.06, 0.04];
-      DEMO_STAGES.forEach((st, sIdx) => {
-        stageMap[st] = Math.round(totalVal * weights[sIdx]);
-      });
-
-      result.push({
-        date: dayStr,
-        value: totalVal,
-        weightedValue: Math.round(totalVal * 0.45),
-        count: Math.max(1, Math.round(totalVal / 250000)),
-        byStage: stageMap,
-      });
-    }
-
-    return result;
+    return dailyData;
   }, [dailyData]);
 
   // Sync initial range for "By Stage" mode
@@ -242,11 +187,12 @@ export function PipelineTrendChart() {
     if (!ctx) return;
 
     const n = visibleStageData.length;
+    const availableStages = stages.length > 0
+      ? stages
+      : Array.from(new Set(visibleStageData.flatMap((point) => Object.keys(point.byStage || {}))));
     const activeStages = activeStageFilter
       ? [activeStageFilter]
-      : stages.length > 0
-      ? stages
-      : DEMO_STAGES;
+      : availableStages;
 
     // Stacked calculations
     const stacked: number[][] = [];
@@ -622,6 +568,10 @@ export function PipelineTrendChart() {
         <div className="flex items-center justify-center min-h-[460px] gap-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin text-white" />
           Loading pipeline telemetry…
+        </div>
+      ) : fullDailyDataset.length === 0 ? (
+        <div className="flex min-h-[460px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
+          No opportunity history is available for this period.
         </div>
       ) : !isAdvanced ? (
         /* ── Overview Mode: Binance TradingLineChart ── */

@@ -101,7 +101,6 @@ export default function AttendancePage() {
 
   const load = useCallback(async (currentPage = page, search = debouncedSearch) => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (dateFrom || dateTo) {
         if (dateFrom) params.set("dateFrom", dateFrom);

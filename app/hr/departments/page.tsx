@@ -83,7 +83,6 @@ export default function DepartmentsPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const [deptRes, empRes] = await Promise.all([
         cachedFetch("/api/hr/departments"),
         cachedFetch("/api/hr/employees"),
@@ -219,24 +218,28 @@ export default function DepartmentsPage() {
             <StatCard
               title="Total Departments"
               value={totalDepts}
+              isLoading={loading}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="Active Departments"
               value={activeDepts}
+              isLoading={loading}
               visual={<ActivePulse/>}
             />
 
             <StatCard
               title="Inactive Departments" 
               value={inactiveDepts}
+              isLoading={loading}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="Assigned Employees"
               value={totalEmployeesInDepts}
+              isLoading={loading}
               visual={<UsersGraph/>}
             />
           </div>

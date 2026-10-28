@@ -17,7 +17,15 @@ export async function GET(request: Request) {
     const count = await AccountType.countDocuments({ tenantId });
     if (count === 0) {
       const { seedNewChartOfAccounts } = await import("@/lib/accounting/coa-feature-seeder");
-      await seedNewChartOfAccounts(tenantId, session.user.id);
+      try {
+        await seedNewChartOfAccounts(tenantId, session.user.id);
+      } catch (seedError: any) {
+        // Concurrent requests may race while creating the starter catalog.
+        // Duplicate-key conflicts are resolved by reading the winning rows.
+        if (seedError?.code !== 11000 && seedError?.writeErrors?.every?.((item: any) => item.code === 11000) !== true) {
+          throw seedError;
+        }
+      }
     }
 
     const accountTypes = await AccountType.find({ tenantId }).sort({ segment: 1, name: 1 });

@@ -83,7 +83,6 @@ export default function QuotesPage() {
   const [ownerOptions, setOwnerOptions] = useState<{ id: string; name: string }[]>([]);
 
   const fetchQuotes = async () => {
-    setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);

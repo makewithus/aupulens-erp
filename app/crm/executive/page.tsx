@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { TrendingUp, BarChart3, AlertCircle, ShieldAlert, Target, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,19 +11,16 @@ export default function ExecutiveCommandCenter() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a full implementation, this calls an aggregate API leveraging the engines
-    setTimeout(() => {
-      setData({
-        forecast: { best: 1200000, likely: 850000, worst: 450000, accuracy: 92 },
-        pipeline: { coverage: 3.2, gap: 0 },
-        retention: { rate: 94, churnRiskTotal: 120000 },
-        governance: { score: 88, orphans: 12 }
-      });
-      setLoading(false);
-    }, 1000);
+    cachedFetch("/api/crm/dashboard/summary", undefined, { force: true })
+      .then((r) => r.json())
+      .then((r) => r.success && setData(r.data.executive))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="p-10 text-center text-muted-foreground">Compiling enterprise analytics...</div>;
+  const money = (value: number | undefined) => value == null ? "—" : `₹${(value / 100000).toFixed(2)} L`;
+  const percent = (value: number | null | undefined) => value == null ? "—" : `${value}%`;
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -35,31 +33,31 @@ export default function ExecutiveCommandCenter() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-card border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Likely Forecast (Q3)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Current Quarter Forecast</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-sans tabular-nums font-bold text-green-400">₹{data.forecast.likely.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Best Case: ₹{data.forecast.best.toLocaleString()}</p>
+            <div className="text-2xl font-sans tabular-nums font-bold text-green-400">{money(data?.weightedForecast)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Annual weighted forecast: {money(data?.annualWeightedForecast)}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pipeline Coverage</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-sans tabular-nums font-bold">{data.pipeline.coverage}x</div>
-            <p className="text-xs text-green-500 mt-1">Healthy target achieved</p>
+            <div className="text-2xl font-sans tabular-nums font-bold">{money(data?.pipelineValue)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Open pipeline value</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Retention Rate</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-sans tabular-nums font-bold text-blue-400">{data.retention.rate}%</div>
-            <p className="text-xs text-red-400 mt-1">₹{data.retention.churnRiskTotal.toLocaleString()} At Risk</p>
+            <div className="text-2xl font-sans tabular-nums font-bold text-blue-400">{percent(data?.retentionRate)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Renewed contracts / resolved renewals</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Data Governance</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-sans tabular-nums font-bold">{data.governance.score}/100</div>
-            <p className="text-xs text-yellow-500 mt-1">{data.governance.orphans} Orphan Records</p>
+            <div className="text-2xl font-sans tabular-nums font-bold">{percent(data?.winRate)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Opportunity win rate</p>
           </CardContent>
         </Card>
       </div>

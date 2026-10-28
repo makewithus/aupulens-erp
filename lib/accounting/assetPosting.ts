@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import JournalEntry from "@/models/finance/JournalEntry";
 import Account from "@/models/finance/Account";
-import { VOUCHER_TYPE } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS, VOUCHER_STATUS, VOUCHER_TYPE } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 
 export async function syncAssetCapitalizationEntry({
@@ -70,6 +70,10 @@ export async function syncAssetCapitalizationEntry({
   if (existing) {
     // Update existing entry lines
     existing.header.date = asset.purchaseDate ? new Date(asset.purchaseDate) : new Date();
+    existing.status = DOCUMENT_STATUS.POSTED;
+    existing.voucherStatus = VOUCHER_STATUS.POSTED;
+    existing.approvalRequired = false;
+    existing.ledgerUpdatedAt = new Date();
     existing.lineIds = [
       {
         accountId: assetAccId,

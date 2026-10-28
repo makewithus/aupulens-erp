@@ -168,7 +168,6 @@ export default function ProductsPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await fetch("/api/sales/products");
       const json = await res.json();
       setData(json.items || []);

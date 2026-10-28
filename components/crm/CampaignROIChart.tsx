@@ -13,45 +13,18 @@ interface RoiTrendPoint {
   roiPercentage: number;
 }
 
-function generate730RoiData(): RoiTrendPoint[] {
-  const points: RoiTrendPoint[] = [];
-  let budget = 450000;
-  let revenue = 720000;
-  const now = new Date();
-  const totalDays = 730;
-
-  for (let i = totalDays - 1; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 86400000);
-    const dateStr = d.toISOString().split("T")[0];
-    const dailyBudget = Math.round(2500 + 1200 * Math.sin(i / 18) + ((i * 31) % 800));
-    const dailyRev = Math.round(5800 + 3400 * Math.sin(i / 14) + ((i * 73) % 1800));
-    budget += dailyBudget;
-    revenue += dailyRev;
-    const roiPercentage = ((revenue - budget) / budget) * 100;
-    points.push({
-      date: dateStr,
-      cumulativeBudget: budget,
-      cumulativeRevenue: revenue,
-      roiPercentage: Number(roiPercentage.toFixed(1)),
-    });
-  }
-  return points;
-}
-
 export function CampaignROIChart() {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme !== "light";
 
-  const [loading, setLoading] = useState(false);
-  const [allPoints, setAllPoints] = useState<RoiTrendPoint[]>(() => generate730RoiData());
+  const [loading, setLoading] = useState(true);
+  const [allPoints, setAllPoints] = useState<RoiTrendPoint[]>([]);
 
   useEffect(() => {
-    fetch("/api/crm/reports/campaign-roi")
+    fetch("/api/crm/reports/roi-trend?days=365")
       .then((res) => res.json())
       .then((d) => {
-        if (d.success && Array.isArray(d.data?.points) && d.data.points.length > 0) {
-          setAllPoints(d.data.points);
-        }
+        if (d.success && Array.isArray(d.data?.points)) setAllPoints(d.data.points);
         setLoading(false);
       })
       .catch(() => {
@@ -75,7 +48,7 @@ export function CampaignROIChart() {
   }, [allPoints]);
 
   const latestPoint = allPoints[allPoints.length - 1];
-  const latestRoi = latestPoint ? latestPoint.roiPercentage : 0;
+  const latestRoi = latestPoint?.roiPercentage;
 
   return (
     <div
@@ -105,8 +78,8 @@ export function CampaignROIChart() {
             <span className="text-[10px] text-[#757575] uppercase tracking-wider block">
               Current ROI
             </span>
-            <span className={cn("text-base font-bold", latestRoi >= 0 ? (isDark ? "text-[#8AE06C]" : "text-[#16A34A]") : "text-[#F56868]")}>
-              {latestRoi.toFixed(1)}%
+            <span className={cn("text-base font-bold", latestRoi == null ? "text-muted-foreground" : latestRoi >= 0 ? (isDark ? "text-[#8AE06C]" : "text-[#16A34A]") : "text-[#F56868]")}>
+              {latestRoi == null ? "—" : `${latestRoi.toFixed(1)}%`}
             </span>
           </div>
         </div>
@@ -117,6 +90,10 @@ export function CampaignROIChart() {
           <div className="flex items-center justify-center min-h-[420px] gap-2 text-[#757575] text-sm">
             <Loader2 className="h-4 w-4 animate-spin text-[#8AE06C]" />
             Loading ROI trend…
+          </div>
+        ) : allPoints.length === 0 ? (
+          <div className="flex min-h-[420px] items-center justify-center text-sm text-muted-foreground">
+            No campaign budget or attributed revenue history is available.
           </div>
         ) : (
           <TradingLineChart

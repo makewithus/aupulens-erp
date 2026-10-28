@@ -29,7 +29,6 @@ export default function FinanceAiCopilotPage() {
   const [drafting, setDrafting] = useState<string | null>(null);
 
   const loadScan = () => {
-    setLoading(true);
     cachedFetch("/api/finance/ai/anomalies")
       .then((r) => r.json())
       .then((d) => { if (d.success) setData(d.data); })

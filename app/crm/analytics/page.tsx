@@ -85,7 +85,6 @@ export default function CrmAnalyticsPage() {
   const loadData = useCallback(async (fresh: boolean = false) => {
     try {
       setLoadError(false);
-      setIsLoading(true);
       if (fresh) setIsRefreshing(true);
       const url = `/api/crm/analytics?range=${timeRange}${fresh ? "&fresh=true" : ""}`;
       const res = await cachedFetch(url, {
@@ -152,7 +151,8 @@ export default function CrmAnalyticsPage() {
   // Composed Chart Data: New Pipeline (Bar) vs Closed Won (Line/Bar)
   const velocityChartData = useMemo(() => {
     return monthlyVelocity.map((v: any) => ({
-      name: v.month,
+      name: String(v.month).split(" ")[0],
+      period: v.month,
       "New Pipeline": Math.round(v.newPipeline / 100000), // in Lakhs
       "Closed Won": Math.round(v.closedWon / 100000),
     }));
@@ -329,7 +329,7 @@ export default function CrmAnalyticsPage() {
       {/* Row 1: Lead Conversion Funnel & Pipeline Velocity Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Lead-to-Customer Conversion Funnel (lg:col-span-5) */}
-        <Card className="lg:col-span-5 chart-animate-in chart-delay-1 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
+        <Card className="order-2 lg:col-span-5 chart-animate-in chart-delay-1 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
           <CardHeader className="p-6 pb-3">
             <div className="flex items-center justify-between">
               <div>
@@ -397,7 +397,7 @@ export default function CrmAnalyticsPage() {
         </Card>
 
         {/* Monthly Revenue Velocity & Momentum (lg:col-span-7) */}
-        <Card className="lg:col-span-7 chart-animate-in chart-delay-2 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
+        <Card className="order-1 lg:col-span-7 chart-animate-in chart-delay-2 bg-card/60 backdrop-blur-md border border-border/60 shadow-xs rounded-xl hover:border-border/90 transition-all flex flex-col justify-between min-w-0">
           <CardHeader className="p-6 pb-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
@@ -406,7 +406,7 @@ export default function CrmAnalyticsPage() {
                   Monthly Pipeline Velocity & Closed Won (in ₹ Lakhs)
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  New pipeline and closed won values by opportunity creation month.
+                  Data comes from CRM opportunities grouped by creation month. Pipeline excludes won/lost deals; closed won reflects deals currently in Won. Hover a month for values.
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-[10px] text-blue-400 bg-blue-500/10 border-blue-500/20 shrink-0 self-start sm:self-auto">
@@ -425,8 +425,9 @@ export default function CrmAnalyticsPage() {
                 <CanvasComposedChart
                   data={velocityChartData}
                   xAxisKey="name"
-                  barSeries={[{ key: "New Pipeline", color: "#3b82f6", name: "Pipeline Added" }]}
+                  barSeries={[{ key: "New Pipeline", color: "#4f6df5", name: "Pipeline Added" }]}
                   lineSeries={{ key: "Closed Won", color: "#10b981", name: "Closed Won" }}
+                  tooltipLabelKey="period"
                 />
               )}
             </div>
@@ -527,7 +528,7 @@ export default function CrmAnalyticsPage() {
                   <CanvasBarChart
                     data={stageAgingChartData}
                     xAxisKey="name"
-                    series={[{ key: "Actual Days", color: "#8b5cf6", name: "Average Stage Age" }]}
+                    series={[{ key: "Actual Days", color: "#eab308", name: "Average Stage Age" }]}
                   />
                 </div>
                 <div className="mt-3 p-3 rounded-lg border border-border/40 bg-muted/10 font-mono text-xs space-y-1.5">

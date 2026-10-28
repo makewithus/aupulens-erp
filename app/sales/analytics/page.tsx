@@ -69,7 +69,6 @@ export default function SalesAnalyticsPage() {
 
   const fetchSalesData = useCallback(async () => {
     try {
-      setIsLoading(true);
       const [sumRes, anaRes] = await Promise.all([
         cachedFetch("/api/sales/summary"),
         cachedFetch("/api/sales/analytics"),
@@ -325,7 +324,7 @@ export default function SalesAnalyticsPage() {
                 metricLabel="Net Invoiced"
                 currencyPrefix="₹"
                 height={340}
-                colorTheme="purple"
+                colorTheme="emerald"
                 showToolbar={true}
                 initialDays={Number(dateRange) || 90}
                 isDark={isDark}
@@ -337,7 +336,7 @@ export default function SalesAnalyticsPage() {
         {/* ── 3. TWO COLUMN: DAILY BRICKS & PRODUCT ALLOCATION ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Daily Brick Bar Chart */}
-          <div className="lg:col-span-2 chart-animate-in chart-delay-2 chart-shimmer-border">
+          <div className="order-2 lg:col-span-2 chart-animate-in chart-delay-2 chart-shimmer-border">
             <Card className="border border-border/40 shadow-none rounded-none overflow-hidden bg-background h-full flex flex-col justify-between">
               <CardHeader className="p-4 sm:p-5 border-b border-border/40 flex flex-row items-center justify-between">
                 <div>
@@ -373,7 +372,7 @@ export default function SalesAnalyticsPage() {
           </div>
 
           {/* Top Selling Products / Category Radial Pie */}
-          <div className="lg:col-span-1 chart-animate-in chart-delay-3 chart-shimmer-border">
+          <div className="order-1 lg:col-span-1 chart-animate-in chart-delay-3 chart-shimmer-border">
             <Card className="border border-border/40 shadow-none rounded-none overflow-hidden bg-background h-full flex flex-col justify-between">
               <CardHeader className="p-4 sm:p-5 border-b border-border/40 flex flex-row items-center justify-between">
                 <div>

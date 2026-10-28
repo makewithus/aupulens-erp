@@ -59,7 +59,6 @@ export default function GeneralLedgerPage() {
 
   const load = useCallback(async (currentPage: number, search: string, reconciled: string, from = "", to = "") => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("search", search);
       if (reconciled) params.set("reconciled", reconciled);

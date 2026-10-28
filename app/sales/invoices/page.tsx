@@ -73,7 +73,6 @@ function SalesInvoicesLandingPageInner() {
   const invoiceRequest = useRef(0);
   const fetchInvoices = async () => {
     const requestId = ++invoiceRequest.current;
-    setLoading(true);
     try {
       const params = new URLSearchParams({ search, status: statusFilter, page: String(page), limit: "25" });
       if (dateFrom) params.set("dateFrom", dateFrom);

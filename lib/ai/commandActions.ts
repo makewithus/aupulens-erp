@@ -28,6 +28,10 @@ import User from "@/models/auth/User";
 import { getUserRoleOption, getUserRoleLabel, VALID_USER_ROLES, isRoleEnabledForModules } from "@/lib/admin/roleModules";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import SalesQuotation from "@/models/sales/SalesQuotation";
+import SaleOrder from "@/models/sales/SaleOrder";
+import Subscription from "@/models/sales/Subscription";
+import Payment from "@/models/sales/Payment";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
 import { SALES_INVOICE_STATUS, DOCUMENT_STATUS } from "@/lib/constants/statuses";
@@ -53,7 +57,38 @@ const LEDGER_TYPES: Record<string, { account_type: string; internal_group: strin
 };
 function resolveLedgerType(raw: any): { account_type: string; internal_group: string } {
   const key = String(raw ?? "").toLowerCase().trim();
-  return LEDGER_TYPES[key] || LEDGER_TYPES.expense;
+  const resolved = LEDGER_TYPES[key];
+  if (!resolved) throw new CommandActionError(`Unsupported ledger type "${key || "(empty)"}". Choose one of: ${Object.keys(LEDGER_TYPES).join(", ")}.`);
+  return resolved;
+}
+
+async function resolveCustomerRecord(params: any, tenantId: string) {
+  await connectDB();
+  if (params?.customerId) {
+    const customer = await Customer.findOne({ _id: params.customerId, tenantId }).lean();
+    if (!customer) throw new CommandActionError("Customer not found.");
+    return customer as any;
+  }
+  const name = String(params?.customerName || params?.name || params?.targetName || "").trim();
+  if (!name) throw new CommandActionError("Tell me the exact customer name to update or delete.");
+  const exact = new RegExp(`^${escapeRegex(name)}$`, "i");
+  const matches = await Customer.find({ tenantId, $or: [{ "header.name": exact }, { "header.displayName": exact }, { "header.companyName": exact }] }).limit(2).lean();
+  if (!matches.length) throw new CommandActionError(`No customer named "${name}" was found in this workspace.`);
+  if (matches.length > 1) throw new CommandActionError(`More than one customer matches "${name}". Provide a more specific name.`);
+  return matches[0] as any;
+}
+
+async function assertCustomerHasNoBusinessRecords(customerId: unknown, tenantId: string) {
+  const [invoice, quotation, order, subscription, payment] = await Promise.all([
+    SalesInvoice.exists({ tenantId, customerId }),
+    SalesQuotation.exists({ tenantId, customerId }),
+    SaleOrder.exists({ tenantId, "header.partnerId": customerId }),
+    Subscription.exists({ tenantId, customerId }),
+    Payment.exists({ tenantId, customerId }),
+  ]);
+  if (invoice || quotation || order || subscription || payment) {
+    throw new CommandActionError("This customer has linked invoices, quotations, orders, subscriptions, or payments, so it cannot be deleted. Archive or retain the record to preserve financial history.");
+  }
 }
 
 /** The classifier phrases the task text a few different ways — accept them all. */
@@ -200,9 +235,16 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
   create_customer: {
     module: "sales",
     destructive: false,
-    async buildPreview(params) {
+    async buildPreview(params, tenantId) {
+      await connectDB();
       const name = String(params?.name || params?.customerName || params?.companyName || "").trim();
       if (!name) throw new CommandActionError("A customer name is required.");
+      const duplicate = await Customer.findOne({ tenantId, "header.name": new RegExp(`^${escapeRegex(name)}$`, "i") }).lean();
+      if (duplicate) throw new CommandActionError(`A customer named "${name}" already exists. I won't prepare a duplicate.`);
+      const email = String(params?.email || "").trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new CommandActionError("Enter a valid customer email address.");
+      const phone = String(params?.phone || params?.mobile || "").trim();
+      if (phone && !/^\+?[0-9() .-]{7,20}$/.test(phone)) throw new CommandActionError("Enter a valid customer phone number.");
       const isCompany = params?.is_company ?? Boolean(params?.companyName && !params?.firstName);
       return {
         summary: `Create a new ${isCompany ? "company" : "individual"} customer "${name}"${params?.email ? ` (${params.email})` : ""}.`,
@@ -213,6 +255,8 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
       await connectDB();
       const name = String(params?.name || params?.customerName || params?.companyName || "").trim();
       if (!name) throw new CommandActionError("A customer name is required.");
+      const duplicate = await Customer.find({ tenantId, "header.name": new RegExp(`^${escapeRegex(name)}$`, "i") }).limit(1).lean();
+      if (duplicate.length) throw new CommandActionError(`A customer named "${name}" already exists. I haven't created a duplicate.`);
       const isCompany = params?.is_company ?? Boolean(params?.companyName && !params?.firstName);
       const doc = await Customer.create({
         tenantId,
@@ -236,6 +280,52 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
       });
       await CrmAuditLog.create({ tenantId, user_id: userId, action: "created", record_type: "Customer", record_id: doc._id, new_value: name });
       return { resultRef: String(doc._id), result: doc };
+    },
+  },
+
+  update_customer: {
+    module: "sales",
+    destructive: false,
+    async buildPreview(params, tenantId) {
+      const customer = await resolveCustomerRecord(params, tenantId);
+      const newName = String(params?.newName || params?.new_name || params?.updatedName || "").trim();
+      if (!newName) throw new CommandActionError("Tell me the new customer name.");
+      if (newName.length > 200) throw new CommandActionError("Customer names must be 200 characters or fewer.");
+      const duplicate = await Customer.findOne({ tenantId, _id: { $ne: customer._id }, "header.name": new RegExp(`^${escapeRegex(newName)}$`, "i") }).lean();
+      if (duplicate) throw new CommandActionError(`Another customer is already named "${newName}".`);
+      return { summary: `Rename customer "${customer.header?.name}" to "${newName}".`, preview: { customerId: String(customer._id), from: customer.header?.name, to: newName } };
+    },
+    async execute(params, tenantId, userId) {
+      const customer = await resolveCustomerRecord(params, tenantId);
+      const newName = String(params?.newName || params?.new_name || params?.updatedName || "").trim();
+      if (!newName || newName.length > 200) throw new CommandActionError("A valid new customer name (1–200 characters) is required.");
+      const duplicate = await Customer.findOne({ tenantId, _id: { $ne: customer._id }, "header.name": new RegExp(`^${escapeRegex(newName)}$`, "i") }).lean();
+      if (duplicate) throw new CommandActionError(`Another customer is already named "${newName}".`);
+      const previousName = String(customer.header?.name || "");
+      const update: Record<string, string> = { "header.name": newName, "header.displayName": newName };
+      if (customer.header?.companyName === previousName) update["header.companyName"] = newName;
+      const saved = await Customer.findOneAndUpdate({ _id: customer._id, tenantId }, { $set: update }, { new: true, runValidators: true });
+      if (!saved) throw new CommandActionError("Customer was changed or removed before the rename could be completed. Please try again.");
+      await CrmAuditLog.create({ tenantId, user_id: userId, action: "updated", record_type: "Customer", record_id: customer._id, field_name: "name", old_value: previousName, new_value: newName });
+      return { resultRef: String(customer._id), result: { id: String(customer._id), oldName: previousName, name: newName } };
+    },
+  },
+
+  delete_customer: {
+    module: "sales",
+    destructive: true,
+    async buildPreview(params, tenantId) {
+      const customer = await resolveCustomerRecord(params, tenantId);
+      await assertCustomerHasNoBusinessRecords(customer._id, tenantId);
+      return { summary: `Permanently delete customer "${customer.header?.name}". This cannot be undone.`, preview: { customerId: String(customer._id), name: customer.header?.name, irreversible: true } };
+    },
+    async execute(params, tenantId, userId) {
+      const customer = await resolveCustomerRecord(params, tenantId);
+      await assertCustomerHasNoBusinessRecords(customer._id, tenantId);
+      const deleted = await Customer.findOneAndDelete({ _id: customer._id, tenantId });
+      if (!deleted) throw new CommandActionError("Customer was changed or removed before deletion. Please try again.");
+      await CrmAuditLog.create({ tenantId, user_id: userId, action: "deleted", record_type: "Customer", record_id: customer._id, old_value: customer.header?.name });
+      return { resultRef: String(customer._id), result: { deleted: true, name: customer.header?.name } };
     },
   },
 

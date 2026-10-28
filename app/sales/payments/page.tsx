@@ -177,7 +177,6 @@ function PaymentsPageInner() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);

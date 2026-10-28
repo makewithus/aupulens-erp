@@ -58,7 +58,6 @@ export default function HSCodesPage() {
 
   const fetchHSCodes = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await fetch('/api/manufacturing/hs-codes');
       const data = await res.json();
       setHsCodes(data.hsCodes || []);

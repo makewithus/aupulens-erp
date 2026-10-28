@@ -66,7 +66,6 @@ export default function TrialBalancePage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams();
       if (dateRange?.from && dateRange?.to) {
         params.set("startDate", dateRange.from.toISOString());

@@ -105,7 +105,6 @@ function AlertsPageInner() {
 
   const fetchAlerts = useCallback(async () => {
     try {
-      setIsLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set('search', debouncedSearch);
       if (selectedWarehouse !== 'all') params.set('warehouse', selectedWarehouse);
@@ -208,21 +207,25 @@ function AlertsPageInner() {
             <StatCard
               title="Active Alerts"
               value={kpis.total}
+              isLoading={isLoading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Out of Stock"
               value={kpis.outOfStock}
+              isLoading={isLoading}
               visual={<ActivePulse />}
             />
             <StatCard
               title="Critical Warnings"
               value={kpis.critical}
+              isLoading={isLoading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Restock Valuation"
               value={`₹${kpis.totalValuation.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+              isLoading={isLoading}
               visual={<ActivePulse />}
             />
           </div>

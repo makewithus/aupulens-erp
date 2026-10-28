@@ -201,7 +201,7 @@ export function DailyBrickBarChart({
   onHover,
   year = 2026,
   initialDays = 90,
-  colorTheme = "purple",
+  colorTheme = "emerald",
 }: DailyBrickBarChartProps) {
   const storeTheme = useThemeStore((state) => state.theme);
   const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
@@ -708,79 +708,45 @@ export function DailyBrickBarChart({
     return () => ro.disconnect();
   }, []);
 
-  // ── Native Non-Passive Mouse-Wheel Zoom In & Zoom Out Handler ──
-  // High-performance RAF-batched smooth zoom with firm, decisive step progression.
-  // Reliably prevents whole-page browser zoom while providing buttery-smooth 60+ FPS zoom.
+  // Zoom around the pointer while the pointer is over the plot. Keep the range
+  // ref current so rapid wheel events compose instead of racing React renders.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const totalLen = chartData.length;
-      if (totalLen <= 1) return;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) return; // Preserve browser page zoom.
+      const total = chartData.length;
+      if (total <= 1) return;
+      event.preventDefault();
 
       const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const PAD_LEFT = 14;
-      const PAD_RIGHT = showYAxis ? 56 : 14;
-      const cW = Math.max(10, rect.width - PAD_LEFT - PAD_RIGHT);
-      const mouseRatio = Math.max(0, Math.min(1, (mx - PAD_LEFT) / cW));
+      const left = 14;
+      const right = showYAxis ? 56 : 14;
+      const plotWidth = Math.max(1, rect.width - left - right);
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left - left) / plotWidth));
+      const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? event.deltaY * 24
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? event.deltaY * 120
+          : event.deltaY;
+      const [start, end] = viewRangeRef.current;
+      const span = Math.max(1, end - start);
+      const minSpan = Math.min(7, total);
+      const nextSpan = Math.max(minSpan, Math.min(total, Math.round(span * Math.exp(Math.max(-120, Math.min(120, delta)) * 0.002))));
+      if (nextSpan === span) return;
 
-      let dy = e.deltaY;
-      if (e.deltaMode === 1) dy *= 28;
-      else if (e.deltaMode === 2) dy *= 120;
-
-      // Allow a firm, clear response per wheel tick (~12-14% window change)
-      const clampedDelta = Math.max(-100, Math.min(100, dy));
-      const [curStart, curEnd] = viewRangeRef.current;
-      const span = curEnd - curStart;
-      const minSpan = 7;
-      const maxSpan = totalLen;
-
-      // Controlled exponential zoom factor
-      const sensitivity = 0.0015;
-      const factor = Math.exp(clampedDelta * sensitivity);
-      let newSpan = Math.round(span * factor);
-
-      // Firm step guarantee: ensures noticeable progress on every scroll tick
-      const minStep = span > 60 ? 3 : span > 20 ? 2 : 1;
-      if (Math.abs(newSpan - span) < minStep) {
-        if (clampedDelta > 0 && span < maxSpan) {
-          newSpan = Math.min(maxSpan, span + minStep);
-        } else if (clampedDelta < 0 && span > minSpan) {
-          newSpan = Math.max(minSpan, span - minStep);
-        }
-      }
-
-      newSpan = Math.max(minSpan, Math.min(maxSpan, newSpan));
-      if (newSpan === span && ((clampedDelta > 0 && span >= maxSpan) || (clampedDelta < 0 && span <= minSpan))) {
-        return;
-      }
-
-      // Anchor zoom around cursor position
-      const centerIdx = curStart + mouseRatio * span;
-      let newStart = Math.round(centerIdx - mouseRatio * newSpan);
-      let newEnd = newStart + newSpan;
-
-      if (newStart < 0) {
-        newStart = 0;
-        newEnd = Math.min(totalLen, newSpan);
-      }
-      if (newEnd > totalLen) {
-        newEnd = totalLen;
-        newStart = Math.max(0, totalLen - newSpan);
-      }
-
-      viewRangeRef.current = [newStart, newEnd];
-
-      // Batch state update with display refresh rate via requestAnimationFrame
+      const anchor = start + ratio * span;
+      let nextStart = Math.round(anchor - ratio * nextSpan);
+      let nextEnd = nextStart + nextSpan;
+      if (nextStart < 0) { nextStart = 0; nextEnd = nextSpan; }
+      if (nextEnd > total) { nextEnd = total; nextStart = total - nextSpan; }
+      viewRangeRef.current = [nextStart, nextEnd];
       if (rafIdRef.current === null) {
         rafIdRef.current = requestAnimationFrame(() => {
           rafIdRef.current = null;
-          setViewRange([...viewRangeRef.current]);
+          setViewRange(viewRangeRef.current);
+          setActivePreset("");
         });
       }
     };
@@ -1008,7 +974,7 @@ export function DailyBrickBarChart({
             "text-[10px] uppercase tracking-widest hidden sm:block",
             isDark ? "text-muted-foreground" : "text-slate-500 font-medium"
           )}>
-            {visibleData.length} Visible Days • Mouse Wheel to Zoom
+        {visibleData.length} Visible Days • Scroll to Zoom
           </div>
         </div>
       )}
@@ -1053,7 +1019,7 @@ export function DailyBrickBarChart({
               "flex items-center gap-1.5 px-2 py-0.5 rounded text-xs border transition-colors",
               isDark
                 ? "bg-[#14181d] border-border/60 text-white"
-                : "bg-white border-slate-300 text-slate-900 focus-within:border-purple-500 shadow-2xs"
+                : "bg-white border-slate-300 text-slate-900 focus-within:border-emerald-500 shadow-2xs"
             )}>
               <Calendar className={cn("h-3 w-3", isDark ? "text-muted-foreground" : "text-slate-400")} />
               <input
@@ -1086,8 +1052,7 @@ export function DailyBrickBarChart({
       {/* ── Canvas Wrap with Mouse Wheel Zoom & Pan ── */}
       <div
         ref={containerRef}
-        className="relative flex-1 min-h-0 min-w-0 w-full touch-none"
-        style={{ touchAction: "none", overscrollBehavior: "contain" }}
+        className="relative flex-1 min-h-0 min-w-0 w-full"
       >
         <canvas
           ref={canvasRef}
@@ -1100,9 +1065,8 @@ export function DailyBrickBarChart({
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
           onDoubleClick={handleDoubleClick}
-          className="absolute inset-0 block w-full h-full cursor-crosshair touch-none"
-          style={{ touchAction: "none", overscrollBehavior: "contain" }}
-          title="Mouse wheel to zoom in/out • Click and drag to pan • Double-click to reset"
+          className="absolute inset-0 block w-full h-full cursor-crosshair"
+          title="Scroll to zoom in/out • Click and drag to pan • Double-click to reset"
         />
 
         {/* Floating Tooltip */}

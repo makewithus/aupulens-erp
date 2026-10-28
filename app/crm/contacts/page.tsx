@@ -54,7 +54,6 @@ export default function ContactsPage() {
   });
 
   const fetchContacts = async (currentPage = page, currentSearch = debouncedSearch) => {
-    setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (currentSearch) params.set("search", currentSearch);

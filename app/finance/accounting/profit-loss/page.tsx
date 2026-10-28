@@ -26,7 +26,6 @@ export default function ProfitLossPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       let url = "/api/finance/reports/p-l";
       if (dateRange?.from && dateRange?.to) {
         url += `?startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`;

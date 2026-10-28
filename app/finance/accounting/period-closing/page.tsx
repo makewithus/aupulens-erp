@@ -167,7 +167,6 @@ export default function PeriodClosingPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await cachedFetch("/api/finance/period-closing");
       const json = await res.json();
       setItems(json.items || []);
@@ -323,21 +322,25 @@ export default function PeriodClosingPage() {
             <StatCard
               title="Total Closed Records"
               value={kpis.total}
+              isLoading={loading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Open Fiscal Periods"
               value={kpis.open}
+              isLoading={loading}
               visual={<ActivePulse />}
             />
             <StatCard
               title="Reconciled Periods"
               value={kpis.reconciled}
+              isLoading={loading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Fully Closed Periods"
               value={kpis.closed}
+              isLoading={loading}
               visual={<ActivePulse />}
             />
           </div>

@@ -62,6 +62,7 @@ export type PostedJournalReport = Record<ReportGroup, AccountGroupReport> & {
   activity: {
     latestPostedDate: Date | null;
     postedEntryCount: number;
+    unclassifiedLineCount: number;
   };
   totals: {
     debit: number;
@@ -330,7 +331,7 @@ export async function buildPostedJournalReport({
     expense: { total: 0, accounts: {} },
     off_balance: { total: 0, accounts: {} },
     totals: { debit: 0, credit: 0, balanced: true },
-    activity: { latestPostedDate: null, postedEntryCount: 0 },
+    activity: { latestPostedDate: null, postedEntryCount: 0, unclassifiedLineCount: 0 },
   };
 
   let accountTypeMap = new Map<string, any>();
@@ -370,7 +371,10 @@ export async function buildPostedJournalReport({
       // line in the control total, then skip only its account classification.
       report.totals.debit += debit;
       report.totals.credit += credit;
-      if (!account) continue;
+      if (!account || (account.tenantId && String(account.tenantId) !== tenantId)) {
+        report.activity.unclassifiedLineCount += 1;
+        continue;
+      }
 
       const { internalGroup, accountType } = resolveAccountGroupAndType(
         account,
@@ -378,7 +382,12 @@ export async function buildPostedJournalReport({
       );
       const group = report[internalGroup] || report.off_balance;
       const id = account._id?.toString() || String(line.accountId);
-      const key = account.code || account.accountCode || id;
+      const codeKey = account.code || account.accountCode || id;
+      // Account codes are expected to be unique, but imported/legacy account
+      // records can violate that assumption. Keep distinct ledgers visible.
+      const key = group.accounts[codeKey] && group.accounts[codeKey].id !== id
+        ? `${codeKey}#${id}`
+        : codeKey;
       const name = account.name || account.accountName || "Unknown Account";
 
       if (!group.accounts[key]) {

@@ -208,7 +208,6 @@ export default function TasksPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const fetchTasks = () => {
-    setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     params.set('view', view);
     if (statusFilter) params.set('status', statusFilter);

@@ -4,22 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
 
-const DEMO_CHURN_COHORTS = [
-  { name: "Low Risk", value: 142, color: "#8AE06C" },
-  { name: "Medium Risk", value: 58, color: "#F1DF38" },
-  { name: "High Risk", value: 24, color: "#6CADF5" },
-  { name: "Critical Risk", value: 9, color: "#F56868" },
-];
-
 export function ChurnRiskChart() {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme !== "light";
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [loading, setLoading] = useState(false);
-  const [cohorts, setCohorts] = useState<{ name: string; value: number; color: string }[]>(DEMO_CHURN_COHORTS);
-  const [centerVal, setCenterVal] = useState("233");
-  const [defaultCenterVal, setDefaultCenterVal] = useState("233");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [cohorts, setCohorts] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [centerVal, setCenterVal] = useState("0");
+  const [defaultCenterVal, setDefaultCenterVal] = useState("0");
   const [hoveredIdx, setHoveredIdx] = useState(-1);
 
   useEffect(() => {
@@ -35,15 +29,18 @@ export function ChurnRiskChart() {
             { name: "Critical Risk", value: s.critical || 0, color: "#F56868" },
           ];
           const totalAccounts = built.reduce((sum, c) => sum + c.value, 0);
-          if (totalAccounts > 0) {
-            setCohorts(built);
-            setCenterVal(String(totalAccounts));
-            setDefaultCenterVal(String(totalAccounts));
-          }
+          setCohorts(built);
+          setCenterVal(String(totalAccounts));
+          setDefaultCenterVal(String(totalAccounts));
+        } else {
+          setLoadError(true);
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setLoadError(true);
+        setLoading(false);
+      });
   }, []);
 
   const total = cohorts.reduce((s, c) => s + c.value, 0) || 1;
@@ -208,6 +205,8 @@ export function ChurnRiskChart() {
 
       {loading ? (
         <div className="flex items-center justify-center flex-1 min-h-[340px] gap-2 text-[#757575] text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading churn data…</div>
+      ) : loadError ? (
+        <div className="flex items-center justify-center flex-1 min-h-[340px] text-sm text-[#757575]">Churn data could not be loaded.</div>
       ) : total <= 1 && cohorts.every((c) => c.value === 0) ? (
         <div className="flex items-center justify-center flex-1 min-h-[340px] text-sm text-[#757575]">No accounts scored for churn risk yet.</div>
       ) : (

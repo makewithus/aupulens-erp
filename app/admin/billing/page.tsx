@@ -132,7 +132,6 @@ export default function CustomerBillingPortal() {
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRow | null>(null);
 
   const loadBillingData = async () => {
-    setLoading(true);
     try {
       const [subRes, plansRes, invRes, creditRes] = await Promise.all([
         fetch("/api/billing/subscription"),
@@ -708,9 +707,9 @@ export default function CustomerBillingPortal() {
                     }`}
                   >
                     <CardHeader className="p-4 pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base font-bold uppercase">{p.name}</CardTitle>
-                        {isCurrent && <Badge className="text-[10px] bg-primary text-primary-foreground font-semibold">Current</Badge>}
+                      <div className="flex min-w-0 flex-col items-start gap-2">
+                        <CardTitle className="min-w-0 break-words text-base font-bold uppercase leading-tight">{p.name}</CardTitle>
+                        {isCurrent && <Badge className="shrink-0 whitespace-nowrap text-[10px] bg-primary text-primary-foreground font-semibold">Current</Badge>}
                       </div>
                       <div className="mt-2">
                         <span className="text-2xl font-bold">₹{price.toLocaleString()}</span>

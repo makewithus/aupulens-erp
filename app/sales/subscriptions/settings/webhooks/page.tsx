@@ -29,7 +29,6 @@ export default function WebhooksSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch("/api/sales/subscription-webhooks");
       const data = await res.json();

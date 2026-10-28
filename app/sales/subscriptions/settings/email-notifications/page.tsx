@@ -18,7 +18,6 @@ export default function EmailNotificationsSettingsPage() {
   const [editing, setEditing] = useState<any>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch("/api/sales/subscription-notifications");
       const data = await res.json();

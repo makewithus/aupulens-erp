@@ -64,24 +64,19 @@ interface DashboardSummary {
   }>;
 }
 
+interface AdminDashboardPayload {
+  summary: DashboardSummary;
+  businessHealth?: any;
+}
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [summary, setSummary] = useState<DashboardSummary | null>(() => {
-    if (typeof window !== "undefined") {
-      const cached = getInstantCachedData<{ summary: DashboardSummary }>("/api/admin/dashboard", { allowPreHydration: true });
-      return cached?.summary || null;
-    }
-    return null;
-  });
-  const [healthRefreshKey, setHealthRefreshKey] = useState(0);
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const cached = getInstantCachedData<{ summary: DashboardSummary }>("/api/admin/dashboard", { allowPreHydration: true });
-      return !cached?.summary;
-    }
-    return true;
-  });
+  // Keep server output and the browser's first render identical. Cached data is
+  // applied in the hydration effect below, before the network request settles.
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [businessHealth, setBusinessHealth] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(session?.user?.role === "admin");
   const visibleModules = enabledModulesLoaded
     ? Array.from(new Set([...(enabledModules ?? []), "admin", "manufacturing", "crm", "sales", "inventory", "finance", "hr"]))
@@ -114,7 +109,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         if (data.summary) {
           setSummary(data.summary);
-          setHealthRefreshKey((key) => key + 1);
+          setBusinessHealth(data.businessHealth ?? null);
         }
       }
     } catch (error) {
@@ -127,9 +122,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     markHydrated();
     if (!summary) {
-      const cached = getInstantCachedData<{ summary: DashboardSummary }>("/api/admin/dashboard", { allowPreHydration: true });
-      if (cached?.summary) {
+      const cached = getInstantCachedData<AdminDashboardPayload>("/api/admin/dashboard", { allowPreHydration: true });
+      if (cached?.summary && Object.prototype.hasOwnProperty.call(cached, "businessHealth")) {
         setSummary(cached.summary);
+        setBusinessHealth(cached.businessHealth ?? null);
         setIsLoading(false);
       }
     }
@@ -317,7 +313,7 @@ export default function AdminDashboard() {
           </h1>
         </div>
 
-        <BusinessHealthCard refreshKey={healthRefreshKey} />
+        {businessHealth && <BusinessHealthCard data={businessHealth} />}
 
         <DashboardStats
           summary={summary}

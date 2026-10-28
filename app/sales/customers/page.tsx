@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback, useRef } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -88,7 +88,6 @@ export default function CustomersPage() {
 function CustomersPageInner() {
   const { data: session } = useSession();
   const router = useRouter();
-  const initialLoadRef = useRef(true);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [views, setViews] = useState<any[]>([]);
@@ -150,9 +149,6 @@ function CustomersPageInner() {
 
   const load = useCallback(async () => {
     try {
-      if (initialLoadRef.current) {
-        setLoading(true);
-      }
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       params.set("excludeSupplierPartners", "true");
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
@@ -172,7 +168,6 @@ function CustomersPageInner() {
       toast.error("Failed to load customers");
     } finally {
       setLoading(false);
-      initialLoadRef.current = false;
     }
   }, [activeViewId, sortField, page, debouncedQuery, dateFrom, dateTo, amountMin, amountMax]);
 

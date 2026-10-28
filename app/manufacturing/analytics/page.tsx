@@ -15,7 +15,6 @@ import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
 import {
   CanvasBarChart,
   CanvasPieChart,
-  CanvasComposedChart,
 } from "@/components/inventory/CanvasCharts";
 import { AnalyticsPageSkeleton } from "@/components/ui/loading-skeletons";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
@@ -49,7 +48,6 @@ export default function ManufacturingAnalyticsPage() {
   const loadData = useCallback(async (fresh: boolean = false) => {
     try {
       setLoadError(false);
-      setIsLoading(true);
       if (fresh) setIsRefreshing(true);
       const url = `/api/manufacturing/analytics?range=${timeRange}${fresh ? "&fresh=true" : ""}`;
       const res = await cachedFetch(url, {
@@ -159,7 +157,7 @@ export default function ManufacturingAnalyticsPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between pb-6 border-b border-border/40">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/25 rounded-md flex items-center gap-1.5">
+              <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-primary/10 text-primary border border-border/50 rounded-md flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3" /> Industrial Telemetry
               </span>
               <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-md">
@@ -235,7 +233,7 @@ export default function ManufacturingAnalyticsPage() {
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="Overall OEE"
-              value={kpis.overallOee == null ? "N/A" : `${kpis.overallOee}%`}
+              value={kpis.overallOee == null ? "Unavailable" : `${kpis.overallOee}%`}
               visual={<ActivePulse />}
               subtitle="Requires machine runtime and cycle-time readings"
             />
@@ -251,7 +249,7 @@ export default function ManufacturingAnalyticsPage() {
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="First-Pass QC Yield"
-              value={kpis.qcFirstPassYield == null ? "N/A" : `${kpis.qcFirstPassYield}%`}
+              value={kpis.qcFirstPassYield == null ? "Unavailable" : `${kpis.qcFirstPassYield}%`}
               visual={<InactiveOrbit />}
               subtitle="Based on recorded QC results"
             />
@@ -259,7 +257,7 @@ export default function ManufacturingAnalyticsPage() {
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="Work Center Capacity"
-              value="N/A"
+              value="Not configured"
               visual={<UsersGraph />}
               subtitle="No work center capacity records are configured"
             />
@@ -267,7 +265,7 @@ export default function ManufacturingAnalyticsPage() {
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="On-Time Dispatch"
-              value={kpis.onTimeDispatchRate == null ? "N/A" : `${kpis.onTimeDispatchRate}%`}
+              value={kpis.onTimeDispatchRate == null ? "Unavailable" : `${kpis.onTimeDispatchRate}%`}
               visual={<ActivePulse />}
               subtitle={`${kpis.totalShipments || 0} shipments recorded`}
             />
@@ -282,7 +280,7 @@ export default function ManufacturingAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-purple-400" />
+                    <Cpu className="w-4 h-4 text-primary" />
                     OEE Performance Breakdown
                   </CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -299,7 +297,7 @@ export default function ManufacturingAnalyticsPage() {
               <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-foreground">Machine Availability</span>
-                  <span className="text-emerald-400 font-bold">{kpis.availability == null ? "N/A" : `${kpis.availability}%`}</span>
+                  <span className="text-emerald-400 font-bold">{kpis.availability == null ? "Unavailable" : `${kpis.availability}%`}</span>
                 </div>
                 <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${kpis.availability || 0}%` }} />
@@ -313,10 +311,10 @@ export default function ManufacturingAnalyticsPage() {
               <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-foreground">Line Performance Rate</span>
-                  <span className="text-blue-400 font-bold">{kpis.performance == null ? "N/A" : `${kpis.performance}%`}</span>
+                  <span className="text-primary font-bold">{kpis.performance == null ? "Unavailable" : `${kpis.performance}%`}</span>
                 </div>
                 <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${kpis.performance || 0}%` }} />
+                  <div className="h-full bg-primary rounded-full" style={{ width: `${kpis.performance || 0}%` }} />
                 </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground">
                   <span>Requires ideal cycle-time data</span>
@@ -327,10 +325,10 @@ export default function ManufacturingAnalyticsPage() {
               <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-foreground">Output Quality Factor</span>
-                  <span className="text-purple-400 font-bold">{kpis.qualityRate == null ? "N/A" : `${kpis.qualityRate}%`}</span>
+                  <span className="text-primary font-bold">{kpis.qualityRate == null ? "Unavailable" : `${kpis.qualityRate}%`}</span>
                 </div>
                 <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500 rounded-full" style={{ width: `${kpis.qualityRate || 0}%` }} />
+                  <div className="h-full bg-primary rounded-full" style={{ width: `${kpis.qualityRate || 0}%` }} />
                 </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground">
                   <span>Based on recorded QC inspection outcomes</span>
@@ -353,11 +351,11 @@ export default function ManufacturingAnalyticsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-xs font-mono">
-                  <span className="flex items-center gap-1.5 text-blue-400">
-                    <span className="w-2.5 h-2.5 rounded-xs bg-blue-500" /> Actual Output
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500" /> Actual Output
                   </span>
-                  <span className="flex items-center gap-1.5 text-amber-400">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" /> Target Line
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="w-2.5 h-2.5 rounded-xs bg-slate-400" /> Planned Output
                   </span>
                 </div>
               </div>
@@ -366,11 +364,13 @@ export default function ManufacturingAnalyticsPage() {
               <div className="h-[280px] w-full">
                 {outputChartData.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No production orders in this period.</div>
-                ) : <CanvasComposedChart
+                ) : <CanvasBarChart
                   data={outputChartData}
                   xAxisKey="name"
-                  barSeries={[{ key: "Actual Output", color: "#3b82f6", name: "Actual Units" }]}
-                  lineSeries={{ key: "Target Output", color: "#f59e0b", name: "Target Line" }}
+                  series={[
+                    { key: "Actual Output", color: "#1e3a8a", name: "Actual Units" },
+                    { key: "Target Output", color: "#94a3b8", name: "Planned Units" },
+                  ]}
                 />}
               </div>
             </CardContent>
@@ -423,7 +423,7 @@ export default function ManufacturingAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <Factory className="w-4 h-4 text-blue-400" />
+                    <Factory className="w-4 h-4 text-primary" />
                     Work Center Load & Machine Capacity
                   </CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -462,7 +462,7 @@ export default function ManufacturingAnalyticsPage() {
                     <div className="w-full h-1.5 bg-muted/40 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${
-                          isHeavy ? "bg-amber-500" : "bg-blue-500"
+                          isHeavy ? "bg-amber-500" : "bg-primary"
                         }`}
                         style={{ width: `${wc.load}%` }}
                       />

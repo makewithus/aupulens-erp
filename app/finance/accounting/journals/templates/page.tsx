@@ -20,7 +20,6 @@ export default function JournalTemplatesPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchTemplates = async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch("/api/finance/accounting/journal-templates");
       const data = await res.json();

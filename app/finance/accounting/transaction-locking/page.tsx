@@ -35,7 +35,6 @@ export default function TransactionLockingPage() {
   const [saving, setSaving] = useState(false);
 
   const fetchLocks = async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch("/api/finance/accounting/transaction-locks");
       const data = await res.json();

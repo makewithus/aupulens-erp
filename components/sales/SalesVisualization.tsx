@@ -60,7 +60,6 @@ export function SalesVisualization({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const tooltipDateRef = useRef<HTMLDivElement>(null);
   const tooltipValueRef = useRef<HTMLDivElement>(null);
   const hasAnimatedRef = useRef<boolean>(false);
@@ -71,8 +70,6 @@ export function SalesVisualization({
     if (!selectedDataType) return;
     const sequence = ++fetchSequenceRef.current;
     try {
-      setIsLoadingViz(true);
-      setVisualizationData([]);
       setLoadError(false);
       const res = await cachedFetch(
         `/api/sales/visualization?type=${selectedDataType}&dateRange=${dateRange}&groupBy=${groupBy}`,
@@ -130,12 +127,6 @@ export function SalesVisualization({
     return "0";
   }, [visualizationData, isRevenue, isOrders, isConversion, isStatus, isLoadingViz, loadError]);
 
-  // Start the slider at the most recent data whenever the series changes.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollLeft = el.scrollWidth;
-  }, [visualizationData]);
-
   // ── Canvas draw effect loop ──
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -187,6 +178,8 @@ export function SalesVisualization({
       const bv = parseInt(full.substring(4, 6), 16);
       return `rgba(${rv},${gv},${bv},${a})`;
     };
+    const pointX = (index: number, left: number, width: number) =>
+      left + (index / Math.max(1, visualizationData.length - 1)) * width;
 
     function drawSingleLine(colorStr: string, field: string, animProgress: number = 1) {
       if (!ctx || !canvas) return;
@@ -199,10 +192,9 @@ export function SalesVisualization({
         cB = H - PAD.bottom;
       const cW = cR - cL,
         cH = cB - cT;
-
       ctx.beginPath();
       for (let i = 0; i < visualizationData.length; i++) {
-        const x = cL + (i / (visualizationData.length - 1)) * cW;
+        const x = pointX(i, cL, cW);
         const val = (visualizationData[i][field] || 0) * progress;
         const y = cB - (val / yMax) * cH;
         if (i === 0) ctx.moveTo(x, y);
@@ -257,9 +249,9 @@ export function SalesVisualization({
       // Draw X Axis Labels
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      const xStep = Math.max(1, Math.floor(visualizationData.length / 8));
+      const xStep = Math.max(1, Math.ceil(visualizationData.length / 8));
       for (let i = 0; i < visualizationData.length; i += xStep) {
-        const x = cL + (i / (visualizationData.length - 1)) * cW;
+        const x = pointX(i, cL, cW);
         ctx.fillStyle = "#757575";
         const labelText = isStatus
           ? visualizationData[i].name
@@ -271,15 +263,15 @@ export function SalesVisualization({
 
       // Draw Line paths with animation
       if (isConversion) {
-        drawSingleLine("#6CADF5", "orders", progress);
+        drawSingleLine("#10b981", "orders", progress);
         drawSingleLine("#f59e0b", "quotations", progress);
       } else if (isRevenue) {
         drawSingleLine("#8AE06C", "revenue", progress);
       } else if (isOrders) {
-        drawSingleLine("#6CADF5", "orders", progress);
+        drawSingleLine("#10b981", "orders", progress);
       } else {
         // Status breakdown count
-        drawSingleLine("#A77DFF", "value", progress);
+        drawSingleLine("#10b981", "value", progress);
       }
 
       // Leading beacon effect during animation
@@ -290,12 +282,12 @@ export function SalesVisualization({
         );
         const d = visualizationData[frontierIdx];
         const val = isRevenue ? d.revenue : isOrders ? d.orders : isConversion ? Math.max(d.orders || 0, d.quotations || 0) : d.value;
-        const fx = cL + (frontierIdx / (visualizationData.length - 1)) * cW;
+        const fx = pointX(frontierIdx, cL, cW);
         const fy = cB - (((val || 0) * progress) / yMax) * cH;
         ctx.save();
         ctx.beginPath();
         ctx.arc(fx, fy, 9, 0, Math.PI * 2);
-        ctx.fillStyle = isRevenue ? "rgba(138, 224, 108, 0.4)" : "rgba(108, 173, 245, 0.4)";
+        ctx.fillStyle = isRevenue ? "rgba(138, 224, 108, 0.4)" : "rgba(16, 185, 129, 0.4)";
         ctx.fill();
         ctx.beginPath();
         ctx.arc(fx, fy, 4, 0, Math.PI * 2);
@@ -310,7 +302,7 @@ export function SalesVisualization({
         highlightIdx >= 0 &&
         highlightIdx < visualizationData.length
       ) {
-        const hx = cL + (highlightIdx / (visualizationData.length - 1)) * cW;
+        const hx = pointX(highlightIdx, cL, cW);
 
         // Vertical guide line
         ctx.strokeStyle = crosshairColor;
@@ -335,14 +327,14 @@ export function SalesVisualization({
         };
 
         if (isConversion) {
-          drawDot(visualizationData[highlightIdx].orders || 0, "#6CADF5");
+          drawDot(visualizationData[highlightIdx].orders || 0, "#10b981");
           drawDot(visualizationData[highlightIdx].quotations || 0, "#f59e0b");
         } else if (isRevenue) {
           drawDot(visualizationData[highlightIdx].revenue || 0, "#8AE06C");
         } else if (isOrders) {
-          drawDot(visualizationData[highlightIdx].orders || 0, "#6CADF5");
+          drawDot(visualizationData[highlightIdx].orders || 0, "#10b981");
         } else {
-          drawDot(visualizationData[highlightIdx].value || 0, "#A77DFF");
+          drawDot(visualizationData[highlightIdx].value || 0, "#10b981");
         }
       }
     }
@@ -405,7 +397,7 @@ export function SalesVisualization({
       }
 
       const ratio = (mx - cL) / cW;
-      const idx = Math.round(ratio * (visualizationData.length - 1));
+      const idx = Math.round(ratio * Math.max(0, visualizationData.length - 1));
       if (idx < 0 || idx >= visualizationData.length) {
         tooltip.style.display = "none";
         draw(undefined, 1);
@@ -426,7 +418,7 @@ export function SalesVisualization({
       if (isConversion) {
         tooltipValue.innerHTML = `
           <div class="flex items-center gap-1.5 text-[11px] mb-1">
-            <span style="width:8px; height:8px; border-radius:1px; display:inline-block; background:#6CADF5"></span>
+            <span style="width:8px; height:8px; border-radius:1px; display:inline-block; background:#10b981"></span>
             <span class="text-muted-foreground/80">Orders</span>
             <b class="ml-4 font-bold text-foreground">${(d.orders || 0).toLocaleString()}</b>
           </div>
@@ -444,13 +436,13 @@ export function SalesVisualization({
         `;
       } else if (isOrders) {
         tooltipValue.innerHTML = `
-          <span style="width:8px; height:8px; border-radius:1px; display:inline-block; background:#6CADF5"></span>
+          <span style="width:8px; height:8px; border-radius:1px; display:inline-block; background:#10b981"></span>
           <span class="ml-1 text-muted-foreground/80">Orders</span>
           <b class="ml-4 font-bold text-foreground">${(d.orders || 0).toLocaleString()}</b>
         `;
       } else {
         tooltipValue.innerHTML = `
-          <span style="width:8px; height:8px; border-radius:1px; display:inline-block; background:#A77DFF"></span>
+          <span style="width:8px; height:8px; border-radius:1px; display:inline-block; background:#10b981"></span>
           <span class="ml-1 text-muted-foreground/80">Count</span>
           <b class="ml-4 font-bold text-foreground">${(d.value || 0).toLocaleString()}</b>
         `;
@@ -595,15 +587,11 @@ export function SalesVisualization({
         </span>
       </div>
 
-      {/* Chart Canvas Container */}
-      {/* Horizontal slider: with many points (e.g. 30 daily buckets) the chart
-          gets a fixed width per point and scrolls sideways instead of
-          squeezing every label onto one line. */}
-      <div ref={scrollRef} className="mt-2 w-full overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border">
+      {/* Keep the complete timeline fitted to the available page width. */}
+      <div className="mt-2 w-full min-w-0 overflow-hidden">
       <div
         ref={containerRef}
-        className="relative h-[320px] w-full"
-        style={visualizationData.length > 12 ? { minWidth: visualizationData.length * 56 } : undefined}
+        className="relative h-[320px] w-full min-w-0"
       >
         {isLoadingViz ? (
           <div className="flex justify-center items-center h-full">

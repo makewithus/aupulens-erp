@@ -56,7 +56,6 @@ export default function PricelistPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await cachedFetch("/api/sales/pricelists");
       const json = await res.json();
       setData(json.items || []);

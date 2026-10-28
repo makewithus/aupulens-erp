@@ -54,7 +54,6 @@ export default function OnboardingPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await cachedFetch("/api/hr/employees?lifecycle=onboarding,candidate");
       const json = await res.json();
       setEmployees(json.items || []);

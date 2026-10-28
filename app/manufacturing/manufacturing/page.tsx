@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { manufacturingSidebarConfig } from "@/config/sidebar/manufacturing";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import {
   PRODUCTION_STATUS,
   PRODUCTION_STATUS_LABELS,
@@ -232,9 +233,12 @@ const LIMIT = 10;
 export default function ManufacturingPage() {
   const { data: session, status } = useSession();
   const [orders, setOrders] = useState<any[]>([]);
-  // Separate, unpaginated fetch used only for the status-pill counts — those
-  // need totals across every order, not just the current page.
-  const [allOrders, setAllOrders] = useState<any[]>([]);
+  // Lightweight aggregate for status pills; don't fetch/populate the full
+  // manufacturing order history just to calculate counts.
+  const [orderSummary, setOrderSummary] = useState<{ total: number; statusCounts: Record<string, number> }>({
+    total: 0,
+    statusCounts: {},
+  });
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -315,13 +319,12 @@ export default function ManufacturingPage() {
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (filterStatus !== "all") params.set("productionStatus", filterStatus);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
-      const res = await fetch(`/api/inventory/operations/manufacturing?${params.toString()}`);
+      const res = await cachedFetch(`/api/inventory/operations/manufacturing?${params.toString()}`);
       const data = await res.json();
       setOrders(data.orders || []);
       setTotal(data.total ?? 0);
@@ -335,9 +338,9 @@ export default function ManufacturingPage() {
 
   const fetchAllOrdersForCounts = async () => {
     try {
-      const res = await fetch("/api/inventory/operations/manufacturing");
+      const res = await cachedFetch("/api/inventory/operations/manufacturing?summary=true");
       const data = await res.json();
-      setAllOrders(data.orders || []);
+      setOrderSummary({ total: data.total || 0, statusCounts: data.statusCounts || {} });
     } catch (e) {
       console.error("Failed to fetch order counts", e);
     }
@@ -407,14 +410,7 @@ export default function ManufacturingPage() {
   const filteredOrders = orders;
 
   /* ---- filter counts (computed off the full, unpaginated order set) ---- */
-  const statusCounts = allOrders.reduce(
-    (acc: Record<string, number>, o: any) => {
-      const s = o.productionStatus || PRODUCTION_STATUS.DEMAND_FORECAST;
-      acc[s] = (acc[s] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
+  const statusCounts = orderSummary.statusCounts;
 
   return (
     <DashboardLayout
@@ -474,7 +470,7 @@ export default function ManufacturingPage() {
             variant={filterStatus === "all" ? "default" : "outline"}
             onClick={() => setFilterStatus("all")}
           >
-            All ({allOrders.length})
+            All ({orderSummary.total})
           </Button>
           {Object.values(PRODUCTION_STATUS).map((ps) => {
             const count = statusCounts[ps] || 0;

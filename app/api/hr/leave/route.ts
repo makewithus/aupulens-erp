@@ -68,15 +68,19 @@ export async function GET(req: NextRequest) {
     // unaffected by the current status/search filters, matching the original
     // page's behavior of computing KPIs from the full unfiltered set rather
     // than just the current page.
-    const [statsTotal, statsPending, statsApproved, statsRejected] = await Promise.all([
-      LeaveRequest.countDocuments({ tenantId }),
-      LeaveRequest.countDocuments({ tenantId, status: "pending" }),
-      LeaveRequest.countDocuments({ tenantId, status: "approved" }),
-      LeaveRequest.countDocuments({ tenantId, status: "rejected" }),
-    ]);
-    const stats = { total: statsTotal, pending: statsPending, approved: statsApproved, rejected: statsRejected };
-
-    const [total, leaves] = await Promise.all([
+    const [statsRows, total, leaves] = await Promise.all([
+      LeaveRequest.aggregate([
+        { $match: { tenantId } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+            approved: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] } },
+            rejected: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
+          },
+        },
+      ]),
       LeaveRequest.countDocuments(query),
       LeaveRequest.find(query)
         .populate({
@@ -91,6 +95,12 @@ export async function GET(req: NextRequest) {
         .limit(limit)
         .lean(),
     ]);
+    const stats = {
+      total: statsRows[0]?.total || 0,
+      pending: statsRows[0]?.pending || 0,
+      approved: statsRows[0]?.approved || 0,
+      rejected: statsRows[0]?.rejected || 0,
+    };
 
     return NextResponse.json({
       items: leaves,

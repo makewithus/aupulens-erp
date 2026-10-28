@@ -31,18 +31,18 @@ export async function GET() {
 
     await connectDB();
 
-    // 1. Fetch all tracked products for the tenant (excluding service and archived)
-    const trackedProducts = await Product.find({
-      tenantId,
-      "tab_general_information.type": { $ne: "service" },
-      status: { $ne: "archived" },
-    })
-      .select("_id header.name tab_general_information.default_code tab_general_information.standard_price")
-      .lean();
-
-    // 2. Fetch operational counts and stock ledger aggregates concurrently
-    const [receiptsToProcess, deliveriesToProcess, manufacturingToProcess, stockAgg] =
+    // Run independent product, operations, and stock reads concurrently so
+    // summary latency is bounded by the slowest query rather than their sum.
+    const [trackedProducts, receiptsToProcess, deliveriesToProcess, manufacturingToProcess, stockAgg] =
       await Promise.all([
+        Product.find({
+          tenantId,
+          "tab_general_information.type": { $ne: "service" },
+          status: { $ne: "archived" },
+        })
+          .select("_id header.name tab_general_information.default_code tab_general_information.standard_price")
+          .lean(),
+
         StockTransfer.countDocuments({
           tenantId,
           "header.operationType": "incoming",

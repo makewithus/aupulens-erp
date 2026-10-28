@@ -54,8 +54,20 @@ export async function tryAiCreateFlow(input: {
   const tf = await runTaskFlow(input.text, { hasAttachments: !!input.attachments?.length });
   if (tf.outcome) return tf.outcome;
   const q = (tf.english && tf.english.trim() ? tf.english : input.text).trim();
-  if (!q || !CREATE_VERB_RX.test(q)) return { handled: false };
-  const targetDef = findCreateTarget(q);
+  if (!q) return { handled: false };
+  const pendingEmployeeCreate = (input.history || []).some((turn) =>
+    turn.role === "assistant" &&
+    /prepared the employee form|prepared an employee form|new employee form|employee’s first name|prepare the employee record/i.test(turn.content || "")
+  );
+  // Keep a multi-turn create request attached to its original entity. Without
+  // this, a details-only follow-up like "name: Krish, phone: ..." can fall
+  // through to general chat and be misread as a customer request.
+  const employeeDetailsFollowUp = !CREATE_VERB_RX.test(q) && /\b(name|email|phone|mobile|designation|department)\b|@/i.test(q);
+  const targetDef = pendingEmployeeCreate && employeeDetailsFollowUp
+    ? findCreateTarget("create employee")
+    : CREATE_VERB_RX.test(q)
+    ? findCreateTarget(q)
+    : undefined;
   if (!targetDef) return { handled: false };
 
   try {

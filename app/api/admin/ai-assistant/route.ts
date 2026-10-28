@@ -436,7 +436,7 @@ Decide what kind of question this is and answer accordingly:
 
 • If it's a DATA / ANALYTICS question ("how many…", "what's my revenue…",
   "show me…", "what is my organization name…"): answer using the figures and details above. Never invent
-  numbers. Format money with ₹. If the organization name or workspace is present, provide it clearly.
+  numbers. Format money with ₹. Give the organization name only when the user explicitly asks for it.
 
 • If it's a HOW-TO / HELP question ("how do I create a lead", "where do I…"):
   give clear, numbered, step-by-step guidance for using the Aupulens ERP app —
@@ -448,7 +448,8 @@ Rules for EVERY answer:
    refer to things by their human name/number instead.
 3. Be well-organised: a one-line summary, then tight bullet points or numbered
    steps. No rambling, no raw JSON.
-4. If the requested information is not available in the ERP records, say so naturally in plain English. NEVER use internal technical terms like "snapshot", "data snapshot", or "context payload". State what is missing and suggest where in the ERP to find or configure it.`;
+4. If the requested information is not available in the ERP records, say so naturally in plain English. NEVER use internal technical terms like "snapshot", "data snapshot", or "context payload". State what is missing and suggest where in the ERP to find or configure it.
+5. If the current message is unclear or appears to be random text, ask what the user wants to do. Do not infer an unrelated request from old conversation turns.`;
 
   return {
     prompt,

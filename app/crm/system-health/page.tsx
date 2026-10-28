@@ -1,57 +1,21 @@
 'use client';
 
 import { Activity } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 export default function SystemHealthCenter() {
-  const subsystems = [
-    { name: "CRON Engine", status: "Healthy", lastChecked: "1m ago", failures: 0 },
-    { name: "Automation Workflows", status: "Healthy", lastChecked: "5m ago", failures: 0 },
-    { name: "ERP Integrations", status: "Degraded", lastChecked: "12m ago", failures: 3 },
-    { name: "Email Delivery", status: "Healthy", lastChecked: "Just now", failures: 0 },
-    { name: "AI Insight Engine", status: "Healthy", lastChecked: "1h ago", failures: 0 },
-  ];
-
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Activity className="w-8 h-8 text-green-500" /> System Health Center
-          </h1>
-          <p className="text-muted-foreground mt-1">Real-time status of backend operations and integrations.</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Activity className="w-8 h-8 text-muted-foreground" /> System Health Center
+        </h1>
+        <p className="text-muted-foreground mt-1">Backend operations and integration status.</p>
       </div>
-
-      <div className="bg-card border border-border rounded-lg overflow-x-auto mt-6">
-        <table className="w-full text-sm text-left min-w-[500px] whitespace-nowrap">
-          <thead className="bg-background text-muted-foreground whitespace-nowrap">
-            <tr>
-              <th className="px-4 py-3">Subsystem</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Failures (24h)</th>
-              <th className="px-4 py-3 text-right">Last Checked</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subsystems.map(sys => (
-              <tr key={sys.name} className="border-b border-border last:border-0 hover:bg-accent/50">
-                <td className="px-4 py-3 font-medium text-foreground">{sys.name}</td>
-                <td className="px-4 py-3">
-                  <Badge variant="outline" className={`text-xs ${
-                    sys.status === 'Healthy'
-                      ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-                      : 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10'
-                  }`}>{sys.status}</Badge>
-                </td>
-                <td className="px-4 py-3">
-                  {sys.failures > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">{sys.failures}</span> : <span className="text-muted-foreground">0</span>}
-                </td>
-                <td className="px-4 py-3 text-right text-xs text-muted-foreground">{sys.lastChecked}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="rounded-lg border border-border bg-card p-6">
+        <h2 className="font-semibold">Live health monitoring is not connected</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          No health-check source is configured for this page, so subsystem status, failure counts, and check times cannot be verified.
+        </p>
       </div>
     </div>
   );

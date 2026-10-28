@@ -29,6 +29,12 @@ const TENANT_ID = "default-tenant";
 
 const CREDENTIALS_TO_SEED = [
   {
+    name: "Krrish Global Admin",
+    email: "krrish@dev.com",
+    passwordPlain: "12345678abcd",
+    phone: "+919876543200",
+  },
+  {
     name: "Global Admin",
     email: "global@admin.com",
     passwordPlain: "12345678abcd",

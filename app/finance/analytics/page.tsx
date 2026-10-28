@@ -34,7 +34,6 @@ export default function FinanceAnalyticsPage() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await cachedFetch("/api/finance/summary");
       if (res.ok) {
         const json = await res.json();
@@ -162,7 +161,7 @@ export default function FinanceAnalyticsPage() {
                 title="CONSOLIDATED FINANCIAL RUN-RATE & CASH VELOCITY (2-YEAR TIMELINE)"
                 metricLabel="Financial Inflow"
                 currencyPrefix="₹"
-                colorTheme="emerald"
+                colorTheme="violet"
                 isDark={isDark}
                 height={420}
                 data={data?.revenueTimeline}
@@ -176,7 +175,7 @@ export default function FinanceAnalyticsPage() {
         {/* 2. Monthly Revenue Velocity & Operating Expense Allocation */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Monthly Velocity (Discrete Segmented Bricks) */}
-          <div className="lg:col-span-7 xl:col-span-8">
+          <div className="order-2 lg:col-span-7 xl:col-span-8">
             <Card
               className={cn(
                 "chart-animate-in chart-delay-2 chart-shimmer-border rounded-none border shadow-sm transition-colors h-full flex flex-col",
@@ -206,7 +205,7 @@ export default function FinanceAnalyticsPage() {
                   metricLabel="Monthly Net Revenue"
                   valueKey="value"
                   dateKey="date"
-                  colorTheme="emerald"
+                  colorTheme="violet"
                   isDark={isDark}
                   height={320}
                   data={data?.monthlyPerformance}
@@ -218,7 +217,7 @@ export default function FinanceAnalyticsPage() {
           </div>
 
           {/* Operating Expense Breakdown (Donut Chart) */}
-          <div className="lg:col-span-5 xl:col-span-4">
+          <div className="order-1 lg:col-span-5 xl:col-span-4">
             <Card
               className={cn(
                 "chart-animate-in chart-delay-3 chart-shimmer-border rounded-none border shadow-sm transition-colors flex flex-col h-full",

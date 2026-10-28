@@ -236,7 +236,6 @@ function ContractsPageInner() {
   const [stats, setStats] = useState({ totalValue: 0, activeCount: 0, expiringCount: 0 });
 
   const fetchContracts = useCallback(async () => {
-    setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (statusFilter) params.set("status", statusFilter);

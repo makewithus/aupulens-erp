@@ -114,7 +114,6 @@ function OpportunitiesPageInner() {
   const [accounts, setAccounts] = useState<any[]>([]);
 
   const fetchOpportunities = async (currentPage = page) => {
-    setLoading(true);
     const params = new URLSearchParams();
     params.set('page', String(currentPage));
     params.set('limit', String(LIMIT));
@@ -293,24 +292,28 @@ function OpportunitiesPageInner() {
         <StatCard
           title="Total Pipeline Value"
           value={formatCurrency(kpis?.totalPipelineValue)}
+          isLoading={loading}
           subtitle={`${kpis?.openOpportunities || 0} Open Deals`}
           className="border border-border/40 bg-background"
         />
         <StatCard
           title="Weighted Pipeline"
           value={formatCurrency(kpis?.weightedPipelineValue)}
+          isLoading={loading}
           subtitle="Expected Revenue"
           className="border border-border/40 bg-background"
         />
         <StatCard
           title="Closing This Month"
           value={`${kpis?.closingThisMonth || 0}`}
+          isLoading={loading}
           subtitle="Deals"
           className="border border-border/40 bg-background"
         />
         <StatCard
           title="Deals At Risk"
           value={`${kpis?.dealsAtRisk || 0}`}
+          isLoading={loading}
           subtitle="Requires attention"
           className="border border-border/40 bg-background"
         />

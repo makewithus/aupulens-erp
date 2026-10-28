@@ -126,7 +126,6 @@ function ReturnsPageInner() {
 
   const fetchReturns = async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedQuery) params.set("search", debouncedQuery);
       if (statusFilter) params.set("status", statusFilter);

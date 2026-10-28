@@ -222,10 +222,10 @@ export function DashboardLayout({
       />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        {(sections.length > 0 || (shouldFilterModules && !enabledModulesLoaded)) && (
+        {sections.length > 0 && (
           <DashboardSidebar
             sections={sections}
-            isLoading={shouldFilterModules && !enabledModulesLoaded}
+            isLoading={false}
             isCollapsed={!isSidebarOpen}
             onToggleCollapse={() => setIsSidebarOpen(!isSidebarOpen)}
             onClose={() => setIsSidebarOpen(false)}

@@ -1,6 +1,8 @@
 'use client';
 
 import { Activity, AlertTriangle, TrendingUp, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 function KPI({ title, value, sub, icon: Icon }: any) {
   return (
@@ -16,6 +18,10 @@ function KPI({ title, value, sub, icon: Icon }: any) {
 }
 
 export default function SalesDashboard() {
+  const [data, setData] = useState<any>(null);
+  useEffect(() => { cachedFetch("/api/crm/dashboard/summary", undefined, { force: true }).then((r) => r.json()).then((r) => r.success && setData(r.data.sales)).catch(() => {}); }, []);
+  const n = (value: number | undefined) => value == null ? "—" : value.toLocaleString("en-IN");
+  const money = (value: number | undefined) => value == null ? "—" : `₹${value.toLocaleString("en-IN")}`;
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div>
@@ -24,10 +30,10 @@ export default function SalesDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI title="Today's Tasks" value="12" sub="4 High Priority" icon={Activity} />
-        <KPI title="Overdue Follow-ups" value="3" sub="Action required" icon={AlertTriangle} />
-        <KPI title="Pipeline Value" value="₹145,000" sub="8 Open Opportunities" icon={TrendingUp} />
-        <KPI title="New Leads" value="7" sub="Assigned this week" icon={Users} />
+        <KPI title="Today's Tasks" value={n(data?.tasksToday)} sub={`${n(data?.highPriorityTasks)} high priority open tasks`} icon={Activity} />
+        <KPI title="Overdue Follow-ups" value={n(data?.overdueTasks)} sub="Action required" icon={AlertTriangle} />
+        <KPI title="Pipeline Value" value={money(data?.pipelineValue)} sub={`${n(data?.openOpportunities)} open opportunities`} icon={TrendingUp} />
+        <KPI title="New Leads" value={n(data?.weeklyLeads)} sub="Assigned to you this week" icon={Users} />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -1,6 +1,8 @@
 'use client';
 
 import { AlertCircle, CheckCircle, Clock, HeartHandshake } from "lucide-react";
+import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 function KPI({ title, value, sub, icon: Icon }: any) {
   return (
@@ -16,6 +18,9 @@ function KPI({ title, value, sub, icon: Icon }: any) {
 }
 
 export default function SupportDashboard() {
+  const [data, setData] = useState<any>(null);
+  useEffect(() => { cachedFetch("/api/crm/dashboard/summary", undefined, { force: true }).then((r) => r.json()).then((r) => r.success && setData(r.data.support)).catch(() => {}); }, []);
+  const n = (value: number | undefined) => value == null ? "—" : value.toLocaleString("en-IN");
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div>
@@ -24,10 +29,10 @@ export default function SupportDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI title="Open Cases" value="34" sub="12 High Priority" icon={AlertCircle} />
-        <KPI title="Avg Resolution Time" value="4.2 Hrs" sub="-10% from last month" icon={Clock} />
-        <KPI title="SLA Compliance" value="98%" sub="2 Breaches" icon={CheckCircle} />
-        <KPI title="Customer Satisfaction" value="4.8/5" sub="Based on 120 reviews" icon={HeartHandshake} />
+        <KPI title="Open Cases" value={n(data?.openCases)} sub={`${n(data?.highPriorityCases)} high priority`} icon={AlertCircle} />
+        <KPI title="Average Resolution Time" value="—" sub="Resolution timestamps are not recorded" icon={Clock} />
+        <KPI title="SLA Breaches" value={n(data?.slaBreaches)} sub="Open cases past SLA target" icon={CheckCircle} />
+        <KPI title="Customer Satisfaction" value={data?.averageSatisfaction == null ? "—" : `${data.averageSatisfaction}/5`} sub={`Based on ${n(data?.satisfactionResponses)} responses`} icon={HeartHandshake} />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

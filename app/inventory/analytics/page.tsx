@@ -171,18 +171,22 @@ export default function InventoryAnalyticsPage() {
 
   // Warehouse Utilization Radar Chart Data -> Plotted as Canvas Bar
   const warehouseUtilizationData = useMemo(() => {
-    return (warehouses || []).map(wh => ({
+    return (warehouses || [])
+      .filter(wh => selectedWarehouse === 'all' || wh.name === selectedWarehouse)
+      .map(wh => ({
       warehouse: wh.name,
       utilization: wh.capacity ? Math.round((wh.currentUtilization / wh.capacity) * 100) : 0,
       capacity: wh.capacity || 0,
       used: wh.currentUtilization || 0,
       available: (wh.capacity || 0) - (wh.currentUtilization || 0),
     }));
-  }, [warehouses]);
+  }, [warehouses, selectedWarehouse]);
 
   // Stock Levels by Warehouse (Composed Chart)
   const stockByWarehouseData = useMemo(() => {
-    return (warehouses || []).map(wh => {
+    return (warehouses || [])
+      .filter(wh => selectedWarehouse === 'all' || wh.name === selectedWarehouse)
+      .map(wh => {
       const whStock = (stockItems || []).filter(item => item?.warehouse === wh.name);
       return {
         warehouse: wh.name,
@@ -191,7 +195,7 @@ export default function InventoryAnalyticsPage() {
         totalValue: Math.round(whStock.reduce((sum, item) => sum + (item.totalValue || 0), 0) / 1000), // In thousands
       };
     });
-  }, [warehouses, stockItems]);
+  }, [warehouses, stockItems, selectedWarehouse]);
 
   // Stock by Category (Pie Chart)
   const categoryData = useMemo(() => {
@@ -278,22 +282,17 @@ export default function InventoryAnalyticsPage() {
         map.set(d, (map.get(d) || 0) + linesCount);
       }
     });
-    filteredOrders.forEach((o) => {
-      const d = toLocalDateString(o.orderDate || (o as any).createdAt);
-      if (d) {
-        map.set(d, (map.get(d) || 0) + (o.totalQuantity || 1));
-      }
-    });
     const today = new Date();
     const start = new Date(today);
-    start.setDate(today.getDate() - 364);
-    return Array.from({ length: 365 }, (_, index) => {
+    const selectedDays = Number(dateRange) || 30;
+    start.setDate(today.getDate() - (selectedDays - 1));
+    return Array.from({ length: selectedDays }, (_, index) => {
       const date = new Date(start);
       date.setDate(start.getDate() + index);
       const dateKey = toLocalDateString(date);
       return { date: dateKey, count: map.get(dateKey) || 0 };
     });
-  }, [stockMoves, filteredOrders]);
+  }, [stockMoves, dateRange]);
 
   // Top Items by Quantity (Bar Chart)
   const topItemsData = useMemo(() => {
@@ -309,9 +308,11 @@ export default function InventoryAnalyticsPage() {
 
   // Warehouse Performance (Composed Chart)
   const warehousePerformanceData = useMemo(() => {
-    return (warehouses || []).map(wh => {
-      const whOrders = (orders || []).filter(o => o?.warehouse === wh.name);
-      const whBatches = (batches || []).filter(b => b?.warehouse === wh.name);
+    return (warehouses || [])
+      .filter(wh => selectedWarehouse === 'all' || wh.name === selectedWarehouse)
+      .map(wh => {
+      const whOrders = filteredOrders.filter(o => o?.warehouse === wh.name);
+      const whBatches = filteredBatches.filter(b => b?.warehouse === wh.name);
       
       return {
         warehouse: wh.name,
@@ -320,7 +321,7 @@ export default function InventoryAnalyticsPage() {
         utilization: wh.capacity ? Math.round((wh.currentUtilization / wh.capacity) * 100) : 0,
       };
     });
-  }, [warehouses, orders, batches]);
+  }, [warehouses, filteredOrders, filteredBatches, selectedWarehouse]);
 
   if (status === 'loading' || (isLoading && !warehouses.length && !stockItems.length)) {
     return (
@@ -361,9 +362,9 @@ export default function InventoryAnalyticsPage() {
       onRefresh={fetchAllData}
       profilePath="/inventory/profile"
     >
-      <div className="space-y-6 min-w-0 w-full max-w-full">
+      <div className="flex min-w-0 w-full max-w-full flex-col gap-6">
         {/* Header */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+        <div className="order-0 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white break-words">Inventory Analytics</h1>
           </div>
@@ -395,61 +396,66 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="order-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatCard
             title="Total Warehouses"
-            value={warehouses.length}
+            isLoading={isLoading}
+            value={isLoading ? null : warehouses.length}
             subtitle={`${warehouses.filter(w => w.status === 'active').length} active`}
             visual={<ActivePulse />}
           />
 
           <StatCard
             title="Total Stock Items"
-            value={filteredStockItems.length}
+            isLoading={isLoading}
+            value={isLoading ? null : filteredStockItems.length}
             subtitle={`${filteredStockItems.reduce((sum, item) => sum + (item.quantity || 0), 0).toLocaleString()} units`}
             visual={<UsersGraph />}
           />
 
           <StatCard
             title="Total Orders"
-            value={filteredOrders.length}
+            isLoading={isLoading}
+            value={isLoading ? null : filteredOrders.length}
             subtitle={`${filteredOrders.filter(o => o.status === 'pending').length} pending`}
             visual={<ActivePulse />}
           />
 
           <StatCard
             title="Inventory Value"
-            value={`₹${(filteredStockItems.reduce((sum, item) => sum + (item.totalValue || 0), 0) / 1000).toFixed(1)}K`}
+            isLoading={isLoading}
+            value={isLoading ? null : `₹${(filteredStockItems.reduce((sum, item) => sum + (item.totalValue || 0), 0) / 1000).toFixed(1)}K`}
             subtitle={`Across ${filteredStockItems.length} items`}
             visual={<UsersGraph />}
           />
         </div>
 
         {/* Daily Inventory & Throughput Timeline (365 Days) */}
-        <Card className="chart-animate-in chart-delay-1 relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="order-4 chart-animate-in chart-delay-1 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
             <div>
               <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">
-                Daily Throughput & Inventory Flow (365 Days)
+                Daily Throughput & Inventory Flow (Last {dateRange} Days)
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Full 365-day timeline tracking each day with solid bars
+              Daily stock movement quantity from recorded inventory operations
               </p>
             </div>
           </CardHeader>
           <CardContent className="h-[320px] sm:h-[280px] px-3 sm:px-6">
-            <DailyBrickBarChart
+            {isLoading ? <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading inventory movements…</div> : dailyThroughputData.every(point => point.count === 0) ? <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No inventory movements recorded in this period.</div> : <DailyBrickBarChart
               data={dailyThroughputData}
               metricLabel="Movements"
               valueKey="count"
               unit="number"
               height="100%"
-            />
+              initialDays={Number(dateRange)}
+            />}
           </CardContent>
         </Card>
 
         {/* Warehouse Utilization Canvas Bar Chart */}
-        <Card className="chart-animate-in chart-delay-2 relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="order-6 chart-animate-in chart-delay-2 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Warehouse Utilization Overview</CardTitle>
           </CardHeader>
@@ -468,7 +474,7 @@ export default function InventoryAnalyticsPage() {
         </Card>
 
         {/* Stock Levels by Warehouse - Composed Canvas Chart */}
-        <Card className="chart-animate-in chart-delay-3 relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="order-5 chart-animate-in chart-delay-3 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Stock Levels by Warehouse</CardTitle>
           </CardHeader>
@@ -489,7 +495,7 @@ export default function InventoryAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="order-3 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Stock by Category - Canvas Pie Chart */}
           <Card className="chart-animate-in chart-delay-4 relative min-w-0 rounded-none shadow-none border-border/60">
             <CardHeader>
@@ -530,12 +536,12 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Order Trends - Trading Line Chart with Zoom & Pan */}
-        <Card className="chart-animate-in chart-delay-2 relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="order-2 chart-animate-in chart-delay-2 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Order Trends & Throughput Timeline</CardTitle>
           </CardHeader>
           <CardContent className="h-[480px] sm:h-[440px] min-h-0 min-w-0 p-0">
-            <TradingLineChart
+            {isLoading ? <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading order trends…</div> : orderTrendsData.every(point => point.quantity === 0) ? <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No order history recorded in this period.</div> : <TradingLineChart
               key={dateRange}
               initialDays={Number(dateRange)}
               data={orderTrendsData}
@@ -545,12 +551,12 @@ export default function InventoryAnalyticsPage() {
               title="ORDER VOLUME TREND"
               currencyPrefix=""
               height="100%"
-            />
+            />}
           </CardContent>
         </Card>
 
         {/* Top Items by Quantity - Horizontal Canvas Bar Chart */}
-        <Card className="chart-animate-in chart-delay-3 relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="order-7 chart-animate-in chart-delay-3 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Top 10 Items by Quantity</CardTitle>
           </CardHeader>
@@ -570,7 +576,7 @@ export default function InventoryAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="order-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Order Status Distribution - Canvas Bar Chart */}
           <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
             <CardHeader>
@@ -611,7 +617,7 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Warehouse Performance - Composed Canvas Chart */}
-        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+        <Card className="order-9 relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
             <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Warehouse Performance Overview</CardTitle>
           </CardHeader>

@@ -94,7 +94,6 @@ export default function JournalEntriesPage() {
 
   const load = useCallback(async (currentPage = 1, search = "", voucherType = "", voucherStatus = "", from = "", to = "") => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("search", search);
       if (voucherType) params.set("voucherType", voucherType);

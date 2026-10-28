@@ -13,21 +13,13 @@ interface RenewalSummary {
   renewalPipelineValue90Days: number;
 }
 
-const DEMO_RENEWAL_SUMMARY: RenewalSummary = {
-  expiring7: 14,
-  expiring30: 48,
-  expiring60: 72,
-  expiring90: 115,
-  expiredActive: 23,
-  renewalPipelineValue90Days: 18450000,
-};
-
 export function UpcomingRenewalsChart() {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme !== "light";
 
-  const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState<RenewalSummary>(DEMO_RENEWAL_SUMMARY);
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<RenewalSummary | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,22 +31,32 @@ export function UpcomingRenewalsChart() {
     fetch("/api/crm/renewals")
       .then((res) => res.json())
       .then((d) => {
-        if (d.success && d.data && (d.data.expiring7 || d.data.expiring30 || d.data.expiring60 || d.data.expiring90)) {
-          setSummary(d.data);
+        if (d.success && d.data) {
+          setSummary({
+            expiring7: Number(d.data.expiring7) || 0,
+            expiring30: Number(d.data.expiring30) || 0,
+            expiring60: Number(d.data.expiring60) || 0,
+            expiring90: Number(d.data.expiring90) || 0,
+            expiredActive: Number(d.data.expiredActive) || 0,
+            renewalPipelineValue90Days: Number(d.data.renewalPipelineValue90Days) || 0,
+          });
+        } else {
+          setLoadError(true);
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setLoadError(true);
+        setLoading(false);
+      });
   }, []);
 
-  const activeSummary = summary || DEMO_RENEWAL_SUMMARY;
-
   const bars = [
-    { label: "Within 7 days", value: activeSummary.expiring7, color: isDark ? "#F56868" : "#DC2626" },
-    { label: "Within 30 days", value: activeSummary.expiring30, color: isDark ? "#F1DF38" : "#D97706" },
-    { label: "Within 60 days", value: activeSummary.expiring60, color: isDark ? "#A77DFF" : "#7C3AED" },
-    { label: "Within 90 days", value: activeSummary.expiring90, color: isDark ? "#6CADF5" : "#2563EB" },
-    { label: "Expired", value: activeSummary.expiredActive, color: isDark ? "#757575" : "#4B5563" },
+    { label: "Within 7 days", value: summary?.expiring7 ?? 0, color: isDark ? "#F56868" : "#DC2626" },
+    { label: "Within 30 days", value: summary?.expiring30 ?? 0, color: isDark ? "#F1DF38" : "#D97706" },
+    { label: "Within 60 days", value: summary?.expiring60 ?? 0, color: isDark ? "#A77DFF" : "#7C3AED" },
+    { label: "Within 90 days", value: summary?.expiring90 ?? 0, color: isDark ? "#6CADF5" : "#2563EB" },
+    { label: "Expired", value: summary?.expiredActive ?? 0, color: isDark ? "#757575" : "#4B5563" },
   ];
 
   const hasData = bars.some((b) => b.value > 0);
@@ -257,13 +259,15 @@ export function UpcomingRenewalsChart() {
         </div>
         <div className="text-right">
           <span className="text-[10px] text-[#757575] uppercase tracking-wider block">Renewal Pipeline (90d)</span>
-          <span className={`text-sm font-semibold ${isDark ? "text-[#A77DFF]" : "text-[#7C3AED]"}`}>{summary ? fmtHeader(summary.renewalPipelineValue90Days || 0) : "—"}</span>
+          <span className={`text-sm font-semibold ${isDark ? "text-[#A77DFF]" : "text-[#7C3AED]"}`}>{summary ? fmtHeader(summary.renewalPipelineValue90Days) : "—"}</span>
         </div>
       </div>
 
       <div ref={containerRef} className="relative w-full h-[320px]">
         {loading ? (
           <div className="flex items-center justify-center h-full gap-2 text-[#757575] text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading renewals data…</div>
+        ) : loadError ? (
+          <div className="flex h-full items-center justify-center text-sm text-[#757575]">Renewals data could not be loaded.</div>
         ) : !hasData ? (
           <div className="flex items-center justify-center h-full text-sm text-[#757575]">No contracts due for renewal in the next 90 days.</div>
         ) : (
@@ -279,7 +283,7 @@ export function UpcomingRenewalsChart() {
 
       {/* Visual Legend */}
       <div className="mt-4 pt-3 border-t border-dashed border-[#272727]/50 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-        {bars.map((b) => (
+        {summary && bars.map((b) => (
           <div key={b.label} className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: b.color }} />
             <span className="text-[#757575]">{b.label}:</span>

@@ -74,7 +74,6 @@ export default function EInvoicingPage() {
   }, [debouncedSearch, activeTab, range, dateFrom, dateTo]);
 
   const fetchRecords = useCallback(async () => {
-    setLoading(true);
     try {
       const params = new URLSearchParams({ status: activeTab, search: debouncedSearch, range, page: String(page), limit: String(LIMIT) });
       if (dateFrom) params.set("dateFrom", dateFrom);

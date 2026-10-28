@@ -132,7 +132,6 @@ export default function PayrollPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams();
       if (filterStatus) params.set("status", filterStatus);
       if (filterMonth) {

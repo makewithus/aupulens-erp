@@ -123,7 +123,6 @@ function StockMovesPageInner() {
   // Fetch stock moves
   const fetchMoves = useCallback(async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.set("moveStatus", statusFilter);
       if (typeFilter !== "all") params.set("moveType", typeFilter);

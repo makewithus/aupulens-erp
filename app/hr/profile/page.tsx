@@ -32,7 +32,6 @@ export default function HRProfilePage() {
 
   const loadProfile = async () => {
     try {
-      setLoading(true);
       const res = await fetch("/api/profile");
       if (res.ok) {
         const data = await res.json();

@@ -4,7 +4,9 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
+import Asset from "@/models/finance/Asset";
 import { buildPostedJournalReport } from "@/lib/accounting/reports";
+import { syncAssetCapitalizationEntry } from "@/lib/accounting/assetPosting";
 import { getBalanceSheetReviewItems } from "@/lib/accounting/balanceSheetReview";
 import { dateInTimeZone, isValidDateOnly } from "@/lib/accounting/reportDate";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
@@ -32,6 +34,13 @@ export async function GET(req: NextRequest) {
     }
 
     await connectDB();
+    // Backfill capitalization journals for running assets created before the
+    // asset workflow began posting them. The ref is asset-specific, so this is
+    // safe to repeat and existing entries are updated rather than duplicated.
+    const runningAssets = await Asset.find({ tenantId, status: "running" }).lean();
+    for (const asset of runningAssets) {
+      await syncAssetCapitalizationEntry({ tenantId, asset });
+    }
     const organization = await Organization.findOne({ subdomain: tenantId }).select("settings.timezone").lean();
     const configuredTimeZone = (organization as any)?.settings?.timezone || "UTC";
     let timeZone = configuredTimeZone;
@@ -96,10 +105,12 @@ export async function GET(req: NextRequest) {
         totalDebits: report.totals.debit,
         totalCredits: report.totals.credit,
         trialBalanceBalanced: report.totals.balanced,
+        accountReferencesComplete: report.activity.unclassifiedLineCount === 0,
         accountingEquationBalanced:
           Math.abs(report.asset.total - (report.liability.total + equityTotal)) <=
           0.01,
       },
+      unclassifiedPostedLineCount: report.activity.unclassifiedLineCount,
     };
 
     setCachedData(cacheKey, payload, 20_000);

@@ -20,7 +20,6 @@ export default function BankingRulesPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchRules = async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch("/api/finance/accounting/banking-rules");
       const data = await res.json();

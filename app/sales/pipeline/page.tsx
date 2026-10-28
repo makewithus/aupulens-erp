@@ -30,7 +30,6 @@ export default function Q2CPipelinePage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await cachedFetch("/api/sales/pipeline");
       const json = await res.json();
       if (!res.ok || json.success === false) throw new Error(json.error || "load failed");

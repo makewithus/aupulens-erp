@@ -53,7 +53,6 @@ export default function FreightProvidersPage() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await fetch('/api/manufacturing/freight-providers');
       const data = await res.json();
       setProviders(data.providers || []);
@@ -161,8 +160,8 @@ export default function FreightProvidersPage() {
 
   const getStatusColor = (status: string) => {
     return status.toLowerCase() === 'active'
-      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      ? 'bg-primary/10 text-primary'
+      : 'bg-muted text-muted-foreground';
   };
 
   if (status === 'loading') {
@@ -198,7 +197,7 @@ export default function FreightProvidersPage() {
             <Button
               onClick={loadVisualizationData}
               variant="outline"
-              className="w-full sm:w-auto border-blue-800 text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950"
+              className="w-full sm:w-auto border-border text-foreground hover:bg-muted"
             >
               <BarChart3 className="mr-2 h-4 w-4" />
               View Analytics
@@ -359,7 +358,7 @@ export default function FreightProvidersPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-blue-800 hover:text-blue-700 hover:bg-blue-50"
+                              className="text-muted-foreground hover:text-foreground hover:bg-muted"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>

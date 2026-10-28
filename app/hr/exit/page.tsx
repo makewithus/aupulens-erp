@@ -59,7 +59,6 @@ export default function ExitPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await cachedFetch("/api/hr/employees?lifecycle=on_notice,exit_initiated,clearance");
       const json = await res.json();
       setEmployees(json.items || []);

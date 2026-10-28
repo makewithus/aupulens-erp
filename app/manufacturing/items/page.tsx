@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 // ─── Type definitions ───────────────────────────────────────────────────────
@@ -181,7 +182,7 @@ export default function ItemsPage() {
       if (search) params.set("query", search);
       if (itemDateFrom) params.set("dateFrom", itemDateFrom);
       if (itemDateTo) params.set("dateTo", itemDateTo);
-      const res = await fetch(`/api/manufacturing/items?${params.toString()}`);
+      const res = await cachedFetch(`/api/manufacturing/items?${params.toString()}`);
       const json = await res.json();
       if (json.success) {
         setItems(json.data?.items || []);
@@ -197,7 +198,7 @@ export default function ItemsPage() {
 
   const fetchAllItemsForPicker = useCallback(async () => {
     try {
-      const res = await fetch("/api/manufacturing/items");
+      const res = await cachedFetch("/api/manufacturing/items");
       const json = await res.json();
       if (json.success) setAllItemsForPicker(json.data?.items || []);
     } catch {
@@ -210,7 +211,7 @@ export default function ItemsPage() {
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("query", search);
-      const res = await fetch(`/api/manufacturing/item-bom?${params.toString()}`);
+      const res = await cachedFetch(`/api/manufacturing/item-bom?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.message || `Request failed (${res.status})`);
@@ -231,7 +232,7 @@ export default function ItemsPage() {
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("query", search);
-      const res = await fetch(`/api/manufacturing/coupons?${params.toString()}`);
+      const res = await cachedFetch(`/api/manufacturing/coupons?${params.toString()}`);
       const json = await res.json();
       if (json.success) {
         setCoupons(json.data || []);
@@ -247,7 +248,7 @@ export default function ItemsPage() {
 
   const fetchAccounts = useCallback(async () => {
     try {
-      const res = await fetch("/api/accounting/accounts");
+      const res = await cachedFetch("/api/accounting/accounts");
       const json = await res.json();
       setAccounts(json.items || []);
     } catch {}
@@ -255,7 +256,7 @@ export default function ItemsPage() {
 
   const fetchVendors = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/vendors");
+      const res = await cachedFetch("/api/admin/vendors");
       const json = await res.json();
       setVendors(json.vendors || json.data || []);
     } catch {}
@@ -264,16 +265,25 @@ export default function ItemsPage() {
   useEffect(() => {
     if (status === "authenticated") {
       fetchItems();
-      fetchBoms();
-      fetchCoupons();
       fetchAccounts();
       fetchVendors();
     }
-  }, [status, fetchItems, fetchBoms, fetchCoupons, fetchAccounts, fetchVendors]);
+  }, [status, fetchItems, fetchAccounts, fetchVendors]);
 
   useEffect(() => {
-    if (status === "authenticated") fetchAllItemsForPicker();
-  }, [status, fetchAllItemsForPicker]);
+    if (status !== "authenticated") return;
+    if (activeTab === "bom") fetchBoms();
+    if (activeTab === "coupons") fetchCoupons();
+  }, [status, activeTab, fetchBoms, fetchCoupons]);
+
+  // The unbounded component catalog is only needed when the BOM editor opens.
+  // Loading it on the Items tab duplicated the paginated item request and
+  // delayed the page with a full-catalog query users may never need.
+  useEffect(() => {
+    if (status === "authenticated" && bomModalOpen && allItemsForPicker.length === 0) {
+      fetchAllItemsForPicker();
+    }
+  }, [status, bomModalOpen, allItemsForPicker.length, fetchAllItemsForPicker]);
 
   // ─── Item CRUD ──────────────────────────────────────────────────────────
 
@@ -328,7 +338,7 @@ export default function ItemsPage() {
     try {
       const url = selectedItem ? `/api/manufacturing/items/${selectedItem._id}` : "/api/manufacturing/items";
       const method = selectedItem ? "PATCH" : "POST";
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(itemFormData),
@@ -338,7 +348,7 @@ export default function ItemsPage() {
       toast.success(selectedItem ? "Item updated" : "Item created");
       setItemModalOpen(false);
       fetchItems();
-      fetchAllItemsForPicker();
+      if (allItemsForPicker.length > 0) fetchAllItemsForPicker();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     } finally {
@@ -349,12 +359,12 @@ export default function ItemsPage() {
   const handleDeleteItem = async (id: string) => {
     if (!await confirmDialog({ title: "Delete this item?" })) return;
     try {
-      const res = await fetch(`/api/manufacturing/items/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/manufacturing/items/${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       toast.success("Item deleted");
       fetchItems();
-      fetchAllItemsForPicker();
+      if (allItemsForPicker.length > 0) fetchAllItemsForPicker();
     } catch (err: any) {
       toast.error(err.message || "Delete failed");
     }
@@ -408,7 +418,7 @@ export default function ItemsPage() {
           })),
       };
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -428,7 +438,7 @@ export default function ItemsPage() {
   const handleDeleteBom = async (id: string) => {
     if (!await confirmDialog({ title: "Delete this BOM?" })) return;
     try {
-      const res = await fetch(`/api/manufacturing/item-bom/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/manufacturing/item-bom/${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       toast.success("BOM deleted");
@@ -472,7 +482,7 @@ export default function ItemsPage() {
     try {
       const url = selectedCoupon ? `/api/manufacturing/coupons/${selectedCoupon._id}` : "/api/manufacturing/coupons";
       const method = selectedCoupon ? "PATCH" : "POST";
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(couponFormData),
@@ -492,7 +502,7 @@ export default function ItemsPage() {
   const handleDeleteCoupon = async (id: string) => {
     if (!await confirmDialog({ title: "Delete this coupon?" })) return;
     try {
-      const res = await fetch(`/api/manufacturing/coupons/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/manufacturing/coupons/${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       toast.success("Coupon deleted");

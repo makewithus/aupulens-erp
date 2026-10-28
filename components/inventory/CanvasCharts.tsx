@@ -1212,12 +1212,17 @@ export function CanvasComposedChart({
   xAxisKey,
   barSeries,
   lineSeries,
+  tooltipLabelKey,
+  sharedScale = false,
   isDark: propIsDark,
 }: {
   data: any[];
   xAxisKey: string;
   barSeries: SeriesConfig[];
   lineSeries: SeriesConfig;
+  tooltipLabelKey?: string;
+  /** Use one value axis when bar and line series share the same unit. */
+  sharedScale?: boolean;
   isDark?: boolean;
 }) {
   const storeTheme = useThemeStore((state) => state.theme);
@@ -1238,10 +1243,11 @@ export function CanvasComposedChart({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const PAD = { top: 28, right: 48, bottom: 35, left: 48 };
+    const PAD = { top: 28, right: sharedScale ? 20 : 48, bottom: 35, left: 48 };
 
     const maxBarVal = Math.max(
       ...data.flatMap((d) => barSeries.map((s) => Number(d[s.key]) || 0)),
+      ...(sharedScale ? data.map((d) => Number(d[lineSeries.key]) || 0) : []),
       10
     );
     const maxLineVal = Math.max(...data.map((d) => Number(d[lineSeries.key]) || 0), 10);
@@ -1250,7 +1256,7 @@ export function CanvasComposedChart({
     const yBarMax = Math.ceil(maxBarVal / stepBar) * stepBar;
 
     const stepLine = Math.pow(10, Math.floor(Math.log10(maxLineVal)) - 1) * 2 || 2;
-    const yLineMax = Math.ceil(maxLineVal / stepLine) * stepLine;
+    const yLineMax = sharedScale ? yBarMax : Math.ceil(maxLineVal / stepLine) * stepLine;
 
     const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
@@ -1299,10 +1305,12 @@ export function CanvasComposedChart({
         ctx.fillStyle = isDark ? "#94a3b8" : "#475569";
         ctx.fillText(formatShortVal(ratio * yBarMax), cL - 10, y);
 
-        // Right ticks (line)
-        ctx.textAlign = "left";
-        ctx.fillStyle = lineSeries.color || "#f59e0b";
-        ctx.fillText(formatShortVal(ratio * yLineMax), cR + 10, y);
+        // A second axis is only meaningful when the line uses a different unit.
+        if (!sharedScale) {
+          ctx.textAlign = "left";
+          ctx.fillStyle = lineSeries.color || "#f59e0b";
+          ctx.fillText(formatShortVal(ratio * yLineMax), cR + 10, y);
+        }
       });
 
       // Draw X axis values
@@ -1340,7 +1348,10 @@ export function CanvasComposedChart({
           ctx.fillRect(Math.round(bx), Math.round(barTopY), Math.max(1, Math.round(singleBarW - 1)), Math.max(1, Math.round(barH)));
 
           // Numeric value directly above each bar so user can read directly
-          if (progress >= 0.85 || isSelected) {
+          const lineValue = Number(d[lineSeries.key]) || 0;
+          const lineY = cB - (((lineValue * progress) / yLineMax) * cH);
+          const labelOverlapsLine = Math.abs(lineY - barTopY) < 14;
+          if ((progress >= 0.85 || isSelected) && !labelOverlapsLine) {
             ctx.save();
             ctx.font = 'bold 9px "Roboto Mono", monospace';
             ctx.textAlign = "center";
@@ -1405,7 +1416,8 @@ export function CanvasComposedChart({
       }
 
       const d = data[idx];
-      let tooltipContent = `<div class="font-bold text-xs pb-1 mb-1 border-b border-border/40">${d[xAxisKey]}</div>`;
+      const tooltipLabel = d[tooltipLabelKey || xAxisKey] ?? d[xAxisKey];
+      let tooltipContent = `<div class="font-bold text-xs pb-1 mb-1 border-b border-border/40">${tooltipLabel}</div>`;
 
       barSeries.forEach((s) => {
         const val = d[s.key] || 0;
@@ -1462,7 +1474,8 @@ export function CanvasComposedChart({
       }
 
       const d = data[idx];
-      let tooltipContent = `<div class="font-bold text-xs pb-1 mb-1 border-b border-border/40">${d[xAxisKey]}</div>`;
+      const tooltipLabel = d[tooltipLabelKey || xAxisKey] ?? d[xAxisKey];
+      let tooltipContent = `<div class="font-bold text-xs pb-1 mb-1 border-b border-border/40">${tooltipLabel}</div>`;
 
       barSeries.forEach((s) => {
         const val = d[s.key] || 0;
@@ -1549,7 +1562,7 @@ export function CanvasComposedChart({
       window.removeEventListener("resize", resize);
       ro.disconnect();
     };
-  }, [data, barSeries, lineSeries, xAxisKey, isDark]);
+  }, [data, barSeries, lineSeries, xAxisKey, tooltipLabelKey, isDark, sharedScale]);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-3 chart-animate-in">

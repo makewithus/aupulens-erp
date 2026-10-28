@@ -101,7 +101,6 @@ export default function EmployeesPage() {
   const [stats, setStats] = useState({ total: 0, active: 0, linked: 0, unlinked: 0 });
 
   const load = useCallback(async (currentPage = page, search = debouncedSearch, lifecycle = lifecycleFilter, account = accountFilter) => {
-    setIsLoading(true);
     try {
       const empParams = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) empParams.set("search", search);
@@ -367,24 +366,28 @@ export default function EmployeesPage() {
             <StatCard
               title="Total Employees"
               value={stats.total}
+              isLoading={isLoading}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="Active Employees"
               value={stats.active}
+              isLoading={isLoading}
               visual={<ActivePulse/>}
             />
 
             <StatCard
               title="Linked to User"
               value={stats.linked}
+              isLoading={isLoading}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="No User Account"
               value={stats.unlinked}
+              isLoading={isLoading}
               visual={<UsersGraph/>}
             />
           </div>

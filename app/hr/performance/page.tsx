@@ -53,7 +53,6 @@ export default function PerformancePage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const [empRes, reviewRes] = await Promise.all([
         cachedFetch("/api/hr/employees?lifecycle=active"),
         cachedFetch("/api/hr/performance"),
@@ -176,24 +175,28 @@ export default function PerformancePage() {
             <StatCard
               title="Active Employees"
               value={employees.length}
+              isLoading={loading}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="Reviews Completed"
               value={reviews.length}
+              isLoading={loading}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="Average Rating"
               value={reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : " "}
+              isLoading={loading}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="Pending Reviews"
               value={employees.length - reviews.length}
+              isLoading={loading}
               visual={<UsersGraph/>}
             />
           </div>

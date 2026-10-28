@@ -41,7 +41,6 @@ export default function RemindersSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch(`/api/sales/reminders?scope=${tab}`);
       const data = await res.json();

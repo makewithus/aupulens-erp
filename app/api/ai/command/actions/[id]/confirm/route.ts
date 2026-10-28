@@ -16,7 +16,10 @@ function redirectForCommandAction(actionType: string, resultRef?: string | null)
     case "create_invoice":
       return id ? `/sales/invoices/${id}` : "/sales/invoices";
     case "create_customer":
+    case "update_customer":
       return id ? `/sales/customers/${id}` : "/sales/customers";
+    case "delete_customer":
+      return "/sales/customers";
     case "create_lead":
     case "update_lead_status":
       return id ? `/crm/leads/${id}` : "/crm/leads";

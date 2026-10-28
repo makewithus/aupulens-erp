@@ -32,9 +32,8 @@ export default function SuppliersPage() {
   });
 
   const loadSuppliers = async () => {
-    setLoading(true);
     try {
-      const res = await cachedFetch(`/api/purchasing/suppliers?search=${encodeURIComponent(search)}`, undefined, { force: true });
+      const res = await cachedFetch(`/api/purchasing/suppliers?search=${encodeURIComponent(search)}`);
       const data = await res.json();
       setSuppliers(data.items || []);
     } catch (e) {

@@ -38,7 +38,6 @@ export default function OnlinePaymentSettingsPage() {
   const [disconnecting, setDisconnecting] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch("/api/sales/online-payment-gateways");
       const data = await res.json();

@@ -55,7 +55,6 @@ export default function InventorySummaryPage() {
 
   const fetchSummary = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await cachedFetch("/api/inventory/summary");
       if (!res.ok) throw new Error("Failed to fetch summary");
       const data = await res.json();

@@ -243,7 +243,6 @@ function ProductsPageInner() {
 
   const load = useCallback(async (currentPage = page, search = debouncedQuery, from = dateFrom, to = dateTo, statusF = statusFilter) => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("query", search);
       if (from) params.set("dateFrom", from);
@@ -253,7 +252,7 @@ function ProductsPageInner() {
       if (gstRateFilter) params.set("gstRate", gstRateFilter);
       if (gstTreatmentFilter) params.set("gstTreatment", gstTreatmentFilter);
       if (missingHsnFilter) params.set("missingHsn", "true");
-      const res = await cachedFetch(`/api/sales/products?${params.toString()}`, undefined, { force: true });
+      const res = await cachedFetch(`/api/sales/products?${params.toString()}`);
       const json = await res.json();
       setData(json.items || []);
       setTotal(json.pagination?.total ?? 0);

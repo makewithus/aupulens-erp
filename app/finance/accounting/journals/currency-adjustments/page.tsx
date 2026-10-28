@@ -47,7 +47,6 @@ export default function CurrencyAdjustmentsPage() {
   const [saving, setSaving] = useState(false);
 
   const fetchAdjustments = async (f: string, from = "", to = "") => {
-    setLoading(true);
     try {
       const params = new URLSearchParams({ filter: f });
       if (from) params.set("dateFrom", from);

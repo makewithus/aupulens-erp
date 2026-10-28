@@ -30,7 +30,6 @@ export default function HRReportsPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await cachedFetch("/api/hr/summary");
       const json = await res.json();
       setData(json);

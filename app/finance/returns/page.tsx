@@ -90,7 +90,6 @@ export default function FinanceReturnsPage() {
 
   const fetchReturns = async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedQuery) params.set("search", debouncedQuery);
       if (dateFrom) params.set("dateFrom", dateFrom);

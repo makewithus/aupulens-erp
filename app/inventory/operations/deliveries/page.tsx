@@ -198,7 +198,6 @@ function DeliveriesPageInner() {
 
   const fetchTransfers = async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ type: "outgoing", page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (statusFilter !== "all") params.set("status", statusFilter);
@@ -466,21 +465,25 @@ function DeliveriesPageInner() {
             <StatCard
               title="Total Deliveries"
               value={kpis.total}
+              isLoading={loading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Draft Deliveries"
               value={kpis.drafts}
+              isLoading={loading}
               visual={<ActivePulse />}
             />
             <StatCard
               title="Pending Picking/Packing"
               value={kpis.pending}
+              isLoading={loading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Closed Deliveries"
               value={kpis.completed}
+              isLoading={loading}
               visual={<ActivePulse />}
             />
           </div>

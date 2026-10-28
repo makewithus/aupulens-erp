@@ -67,7 +67,6 @@ export default function AirFreightPage() {
 
   const fetchAirFreights = useCallback(async () => {
     try {
-      setIsLoading(true);
       const params = new URLSearchParams();
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);

@@ -33,7 +33,6 @@ export default function AgedPartnerReportPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await cachedFetch(`/api/finance/reports/aged?type=${type}`);
       const json = await res.json();
       setItems(json.items || []);

@@ -39,7 +39,6 @@ export default function DocumentNotesPage() {
   const [saving, setSaving] = useState(false);
 
   const fetchRows = () => {
-    setLoading(true);
     cachedFetch(`/api/sales/document-notes?kind=${kind}&documentType=${docType}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setRows(d.data); })

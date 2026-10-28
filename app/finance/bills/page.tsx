@@ -72,7 +72,6 @@ function VendorBillsPageInner() {
   const [isSubmittingInvoice, setIsSubmittingInvoice] = useState(false);
 
   const load = async (currentPage = 1, force = false) => {
-    setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (dateFrom) params.set("dateFrom", dateFrom);

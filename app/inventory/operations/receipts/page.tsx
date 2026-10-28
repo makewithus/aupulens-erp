@@ -204,7 +204,6 @@ function ReceiptsPageInner() {
 
   const fetchTransfers = async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ type: "incoming", page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (statusFilter !== "all") params.set("status", statusFilter);
@@ -487,21 +486,25 @@ function ReceiptsPageInner() {
             <StatCard
               title="Total Receipts"
               value={kpis.total}
+              isLoading={loading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Draft Receipts"
               value={kpis.drafts}
+              isLoading={loading}
               visual={<ActivePulse />}
             />
             <StatCard
               title="Pending Processing"
               value={kpis.pending}
+              isLoading={loading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Closed Receipts"
               value={kpis.completed}
+              isLoading={loading}
               visual={<ActivePulse />}
             />
           </div>

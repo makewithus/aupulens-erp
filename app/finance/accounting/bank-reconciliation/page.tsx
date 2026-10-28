@@ -40,7 +40,6 @@ export default function BankReconciliationPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       // Fetch open bank statements and open journal items
       const [stmtRes, ledgerRes] = await Promise.all([
         cachedFetch("/api/finance/bank/statements?status=open"),

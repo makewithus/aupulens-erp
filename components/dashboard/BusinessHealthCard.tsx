@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { hasBusinessHealthActivity } from "@/lib/admin/businessHealthActivity";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,40 +54,12 @@ export function BusinessHealthCardSkeleton() {
   );
 }
 
-import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
-
 /**
- * Displays the latest AI-generated business-health summary (Phase 4).
- * Renders nothing until a summary exists (the scheduled cron populates it) —
- * so it never shows an empty/placeholder card.
+ * Displays the latest AI-generated summary bundled with the admin overview
+ * response. Keeping this presentational avoids a second request and late layout
+ * shifts on the system overview.
  */
-export function BusinessHealthCard({ refreshKey = 0 }: { refreshKey?: number }) {
-  const [data, setData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    const cached = getInstantCachedData<any>("/api/admin/business-health", { allowPreHydration: true });
-    if (cached?.data) {
-      setData(cached.data);
-      setIsLoading(false);
-    } else if (!data) {
-      setIsLoading(true);
-    }
-
-    cachedFetch("/api/admin/business-health", undefined, { force: refreshKey > 0 })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((d) => {
-        if (d?.success && d.data) {
-          setData(d.data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, [refreshKey]);
-
-  if (isLoading && !data) return <BusinessHealthCardSkeleton />;
+export function BusinessHealthCard({ data }: { data: any }) {
   if (!data) return null;
 
   const insufficientSnapshot = data.metrics && !hasBusinessHealthActivity(data.metrics);

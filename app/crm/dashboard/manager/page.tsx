@@ -1,6 +1,8 @@
 'use client';
 
 import { BarChart, Users, Target, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 function KPI({ title, value, sub, icon: Icon }: any) {
   return (
@@ -16,6 +18,10 @@ function KPI({ title, value, sub, icon: Icon }: any) {
 }
 
 export default function ManagerDashboard() {
+  const [data, setData] = useState<any>(null);
+  useEffect(() => { cachedFetch("/api/crm/dashboard/summary", undefined, { force: true }).then((r) => r.json()).then((r) => r.success && setData(r.data.manager)).catch(() => {}); }, []);
+  const n = (value: number | null | undefined) => value == null ? "—" : value.toLocaleString("en-IN");
+  const money = (value: number | undefined) => value == null ? "—" : `₹${(value / 100000).toFixed(2)} L`;
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div>
@@ -24,10 +30,10 @@ export default function ManagerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI title="Team Pipeline" value="₹1.2M" sub="24 Open Opportunities" icon={BarChart} />
-        <KPI title="Avg Conversion Rate" value="28%" sub="Lead to Won" icon={Target} />
-        <KPI title="Total Activity Volume" value="450" sub="Calls/Emails this week" icon={Users} />
-        <KPI title="Avg Lead Aging" value="14 Days" sub="Time in pipeline" icon={Clock} />
+        <KPI title="Team Pipeline" value={money(data?.pipelineValue)} sub={`${n(data?.openOpportunities)} open opportunities`} icon={BarChart} />
+        <KPI title="Win Rate" value={data?.winRate == null ? "—" : `${data.winRate}%`} sub="Closed won / lost opportunities" icon={Target} />
+        <KPI title="Open Tasks" value={n(data?.openTasks)} sub="Across the workspace" icon={Users} />
+        <KPI title="Weighted Pipeline" value={money(data?.weightedPipeline)} sub="Amount × deal probability" icon={Clock} />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

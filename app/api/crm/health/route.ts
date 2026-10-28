@@ -6,7 +6,7 @@ import {
   refreshAllAccountHealth,
 } from "@/lib/crm/accountHealth";
 import CrmAccount from "@/models/crm/Account";
-import { getCachedData, setCachedData } from "@/lib/api/serverCache";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 // ─── GET /api/crm/health?account_id=<id> ─────────────────────────────────────
 // Returns health score for a single account or distribution for entire tenant
@@ -29,16 +29,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, data: result });
   }
 
-  const cacheKey = `crm-health:${tenantId}`;
-  const cached = getCachedData<any>(cacheKey);
-  if (cached) return NextResponse.json(cached);
-
   await dbConnect();
+  const scopedMatch = applyDemoScope(session, { tenantId });
 
   // Tenant-wide distribution
   const [distribution, accounts] = await Promise.all([
     CrmAccount.aggregate([
-      { $match: { tenantId } },
+      { $match: scopedMatch },
       {
         $bucket: {
           groupBy: "$account_health_score",
@@ -48,7 +45,7 @@ export async function GET(req: NextRequest) {
         },
       },
     ]),
-    CrmAccount.find({ tenantId })
+    CrmAccount.find(scopedMatch)
       .select("company_name account_health_score status")
       .sort({ account_health_score: 1 })
       .lean()
@@ -56,10 +53,8 @@ export async function GET(req: NextRequest) {
 
   const responsePayload = {
     success: true,
-    data: { distribution, accounts },
+    data: { distribution, accounts, totalAccounts: accounts.length },
   };
-
-  setCachedData(cacheKey, responsePayload, 30_000);
 
   return NextResponse.json(responsePayload);
 }

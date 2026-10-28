@@ -99,7 +99,6 @@ function UsersPageInner() {
   const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0 });
 
   const fetchUsers = async (currentPage = page, search = debouncedSearch, role = roleFilter, statusF = statusFilter) => {
-    setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("search", search);
@@ -244,6 +243,7 @@ function UsersPageInner() {
           <StatCard
             title="Total Users"
             value={stats.total}
+            isLoading={isLoading}
             visual={<UsersGraph/>}
             subtitle="Registered users"
           />
@@ -251,6 +251,7 @@ function UsersPageInner() {
           <StatCard
             title="Active Users"
             value={stats.active}
+            isLoading={isLoading}
             visual={<ActivePulse/>}
             subtitle="Currently active"
           />
@@ -258,6 +259,7 @@ function UsersPageInner() {
           <StatCard
             title="Inactive Users"
             value={stats.inactive}
+            isLoading={isLoading}
             visual={<InactiveOrbit/>}
             subtitle="Currently inactive"
           />

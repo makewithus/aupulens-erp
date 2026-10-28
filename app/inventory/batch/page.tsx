@@ -197,7 +197,6 @@ function BatchLotPageInner() {
 
   const fetchBatches = useCallback(async () => {
     try {
-      setIsLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       if (debouncedSearch) params.append('search', debouncedSearch);
@@ -587,21 +586,25 @@ function BatchLotPageInner() {
             <StatCard
               title="Total Batches"
               value={kpis.total}
+              isLoading={isLoading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Active Batches"
               value={kpis.active}
+              isLoading={isLoading}
               visual={<ActivePulse />}
             />
             <StatCard
               title="Quarantined Batches"
               value={kpis.quarantine}
+              isLoading={isLoading}
               visual={<UsersGraph />}
             />
             <StatCard
               title="Expired Batches"
               value={kpis.expired}
+              isLoading={isLoading}
               visual={<ActivePulse />}
             />
           </div>

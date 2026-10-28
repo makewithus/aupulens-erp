@@ -60,6 +60,10 @@ function CrmDashboardSkeleton() {
   );
 }
 
+function retentionRateLabel(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? `${value}%` : "—";
+}
+
 export default function CRMDashboardPage() {
   const [pipelineData, setPipelineData] = useState<any>(() => {
     if (typeof window !== "undefined") {
@@ -102,8 +106,8 @@ export default function CRMDashboardPage() {
     try {
       if (fresh) setIsRefreshing(true);
       const [pipe, health, churn, renewal, exp, opps] = await Promise.all([
-        fetchJson("/api/crm/pipeline/analytics", fresh),
-        fetchJson("/api/crm/health", fresh),
+        fetchJson("/api/crm/pipeline/analytics", true),
+        fetchJson("/api/crm/health", true),
         fetchJson("/api/crm/churn", fresh),
         fetchJson("/api/crm/renewals", fresh),
         fetchJson("/api/crm/expansion", fresh),
@@ -168,13 +172,13 @@ export default function CRMDashboardPage() {
   }
 
   const totalPipelineValue = pipelineData?.totalPipelineValue || 0;
-  const activeDeals = pipelineData?.activeDeals || pipelineData?.totalOpportunities || 0;
+  const activeDeals = pipelineData?.activeDeals ?? 0;
   const wonDeals = pipelineData?.wonDeals || 0;
   const lostDeals = pipelineData?.lostDeals || 0;
 
   const totalRenewalValue = renewalData?.renewalPipelineValue90Days || 0;
   const totalExpansionValue = expansionData?.summary?.totalExpansionPipeline || 0;
-  const retentionRate = expansionData?.summary?.renewalSuccessRate || 0;
+  const retentionRate = expansionData?.summary?.renewalSuccessRate;
   const totalChurnRisk = (churnData?.high || 0) + (churnData?.critical || 0);
 
   return (
@@ -187,7 +191,7 @@ export default function CRMDashboardPage() {
               Customer Intelligence
             </span>
             <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-md">
-              Retention {retentionRate > 0 ? `${retentionRate}%` : "100%"}
+              Retention {retentionRateLabel(retentionRate)}
             </span>
           </div>
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground break-words leading-none">
@@ -313,7 +317,9 @@ export default function CRMDashboardPage() {
                         ? "High Risk"
                         : bucket._id === 50
                         ? "Warning"
-                        : "Healthy";
+                        : bucket._id === 75
+                        ? "Healthy"
+                        : "Unscored";
                     const color =
                       bucket._id === 0
                         ? "bg-red-500"
@@ -321,7 +327,9 @@ export default function CRMDashboardPage() {
                         ? "bg-amber-500"
                         : bucket._id === 50
                         ? "bg-blue-500"
-                        : "bg-emerald-500";
+                        : bucket._id === 75
+                        ? "bg-emerald-500"
+                        : "bg-muted-foreground/40";
                     return (
                       <div key={bucket._id} className="space-y-1.5">
                         <div className="flex justify-between text-muted-foreground">
@@ -334,7 +342,7 @@ export default function CRMDashboardPage() {
                             style={{
                               width: `${Math.min(
                                 100,
-                                Math.max(10, (bucket.count / (healthData.totalAccounts || 1)) * 100)
+                                Math.max(0, (bucket.count / (healthData.totalAccounts || healthData.accounts?.length || 1)) * 100)
                               )}%`,
                             }}
                           />
@@ -418,7 +426,7 @@ export default function CRMDashboardPage() {
                   <div>
                     <span className="text-muted-foreground text-[10px] uppercase font-semibold">Renewal Rate</span>
                     <div className="text-lg font-bold text-emerald-400 mt-0.5">
-                      {retentionRate}%
+                      {retentionRateLabel(retentionRate)}
                     </div>
                   </div>
                   <div>

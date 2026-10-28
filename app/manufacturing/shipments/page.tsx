@@ -118,7 +118,6 @@ export default function ShipmentsPage() {
 
   const load = useCallback(async (currentPage = page, search = debouncedQuery, currentStatus = statusFilter) => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set('query', search);
       if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);

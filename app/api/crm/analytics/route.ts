@@ -239,7 +239,8 @@ export async function GET(req: NextRequest) {
     const monthlyVelocity = monthlyOppsRaw.map((m: any) => {
       const parts = String(m._id || "").split("-");
       const monthIdx = parts[1] ? parseInt(parts[1], 10) - 1 : 0;
-      const monthLabel = monthNames[monthIdx] || parts[1] || m._id;
+      const monthName = monthNames[monthIdx] || parts[1] || m._id;
+      const monthLabel = parts[0] ? `${monthName} '${parts[0].slice(-2)}` : monthName;
       return {
         month: monthLabel,
         newPipeline: m.newPipeline || 0,

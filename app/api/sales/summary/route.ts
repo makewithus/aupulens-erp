@@ -8,31 +8,13 @@ import SalesQuotation from "@/models/sales/SalesQuotation";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import DeliveryChallan from "@/models/sales/DeliveryChallan";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { REAL_ORDER_MATCH } from "@/lib/sales/orderEligibility";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
 function calculateTrend(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? 100 : 0;
   return Math.round(((current - previous) / previous) * 100);
 }
-
-// A SaleOrder row is a real, confirmed order regardless of which UI created
-// it: the modern Zoho-style /sales/sales-orders flow tags `salesOrderStatus`
-// (never sets the legacy `status` field), while the legacy Odoo-style
-// /sales/orders flow confirms via `status`. Every row created through the
-// modern flow otherwise sits at the untouched `status: "draft"` schema
-// default forever, which previously made real orders invisible here.
-const REAL_ORDER_MATCH = {
-  $or: [
-    { salesOrderStatus: { $ne: null } },
-    { status: { $in: [DOCUMENT_STATUS.APPROVED, DOCUMENT_STATUS.POSTED, DOCUMENT_STATUS.CLOSED] } },
-    // A handful of older rows in this collection still carry the classic
-    // Odoo sale.order state values ("sale"/"done") from before the
-    // DOCUMENT_STATUS enum migration — the schema enum now rejects writing
-    // these, but Mongoose doesn't re-validate on read, so they still exist
-    // and would otherwise be silently excluded here.
-    { status: { $in: ["sale", "done"] } },
-  ],
-};
 
 export async function GET() {
   try {

@@ -205,7 +205,6 @@ function CampaignsPageInner() {
   });
 
   const fetchCampaigns = useCallback(async () => {
-    setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (statusFilter) params.set("status", statusFilter);

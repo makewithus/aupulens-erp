@@ -64,7 +64,6 @@ export default function CustomsClearancePage() {
 
   const fetchClearances = useCallback(async () => {
     try {
-      setIsLoading(true);
       const params = new URLSearchParams();
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);

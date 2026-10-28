@@ -96,7 +96,6 @@ export default function LeavePage() {
 
   const load = useCallback(async (currentPage = page, search = debouncedSearch, statusF = filterStatus) => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (statusF) params.set("status", statusF);
       if (search) params.set("search", search);

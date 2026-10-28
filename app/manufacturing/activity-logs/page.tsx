@@ -35,7 +35,6 @@ export default function ActivityLogsPage() {
   // own timestamps), not a hardcoded placeholder list.
   const fetchActivities = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await fetch('/api/manufacturing/activity-logs');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();

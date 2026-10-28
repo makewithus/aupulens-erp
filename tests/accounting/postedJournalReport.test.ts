@@ -55,4 +55,26 @@ describe("buildPostedJournalReport as-of filters", () => {
     expect(findMock.mock.calls[1][0]["header.date"].$lte.toISOString())
       .toBe("2026-10-15T18:29:59.999Z");
   });
+
+  it("keeps duplicate display codes separate and excludes cross-tenant account references", async () => {
+    const sameCodeA = { _id: "cash-a", tenantId: "northstar", code: "1000", name: "Cash A", internal_group: "asset", account_type: "asset_cash" };
+    const sameCodeB = { _id: "cash-b", tenantId: "northstar", accountCode: "1000", accountName: "Cash B", internal_group: "asset", account_type: "asset_cash" };
+    const foreign = { _id: "foreign", tenantId: "another-tenant", code: "1001", name: "Foreign Cash", internal_group: "asset", account_type: "asset_cash" };
+    entries = [{
+      tenantId: "northstar",
+      status: "posted",
+      header: { date: new Date("2026-10-15T12:00:00.000Z") },
+      lineIds: [
+        { accountId: sameCodeA, debit: 40, credit: 0 },
+        { accountId: sameCodeB, debit: 60, credit: 0 },
+        { accountId: foreign, debit: 900, credit: 0 },
+      ],
+    }];
+
+    const report = await buildPostedJournalReport({ tenantId: "northstar" });
+    expect(Object.values(report.asset.accounts).map((account) => account.amount)).toEqual([40, 60]);
+    expect(report.asset.total).toBe(100);
+    expect(report.activity.unclassifiedLineCount).toBe(1);
+    expect(report.totals.debit).toBe(1000);
+  });
 });

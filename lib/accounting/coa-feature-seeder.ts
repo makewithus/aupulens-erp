@@ -352,8 +352,15 @@ export async function seedNewChartOfAccounts(tenantId: string, createdByUserId: 
         watchlist: false,
         createdBy: userId,
       };
-      if (session) await Account.create([data], { session });
-      else await Account.create(data);
+      try {
+        if (session) await Account.create([data], { session });
+        else await Account.create(data);
+      } catch (error: any) {
+        // Multiple first page requests can initialize the same tenant at once.
+        // The unique tenant/code index is the authority; let the competing
+        // initializer win and continue seeding the remaining catalog rows.
+        if (error?.code !== 11000) throw error;
+      }
     }
   }
 

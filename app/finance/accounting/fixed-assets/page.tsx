@@ -47,7 +47,6 @@ export default function FixedAssetsPage() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams();
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);

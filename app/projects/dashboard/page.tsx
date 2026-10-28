@@ -47,21 +47,22 @@ function computeProjectDashboardData(projects: any[]) {
   const onHold = projects.filter((p: any) => p.status === "on_hold").length;
   const completed = projects.filter((p: any) => p.status === "completed").length;
   const avgProg = total > 0 ? Math.round(projects.reduce((acc: number, p: any) => acc + (p.progress || 0), 0) / total) : 0;
-  const onTimeRate = total > 0 ? (completed > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 100) : 0;
+  // Project records do not contain milestone dates, budgets, or task data.
+  // Keep those measures unavailable instead of deriving plausible-looking values.
 
   const stats = {
     totalProjects: total,
     activeProjects: active,
     planningProjects: planning,
     onHoldProjects: onHold,
-    milestoneOnTimeRate: onTimeRate,
+    milestoneOnTimeRate: null,
     avgProgress: avgProg,
-    totalBudgetAllocated: 0,
-    totalBudgetConsumed: 0,
-    budgetUtilization: 0,
-    overdueTasksCount: 0,
-    criticalPathBlockers: 0,
-    sprintVelocityPoints: completed * 10,
+    totalBudgetAllocated: null,
+    totalBudgetConsumed: null,
+    budgetUtilization: null,
+    overdueTasksCount: null,
+    criticalPathBlockers: null,
+    sprintVelocityPoints: null,
   };
 
   const projectPhaseDistribution = [
@@ -74,10 +75,10 @@ function computeProjectDashboardData(projects: any[]) {
   const criticalProjectsList = projects.slice(0, 5).map((p: any) => ({
     id: p._id?.slice(-8).toUpperCase() || "PRJ",
     name: p.name,
-    lead: p.ownerId?.name || "Project Lead",
+    lead: p.ownerId?.name || "Unassigned",
     progress: p.progress || 0,
-    budgetConsumed: "Configured",
-    milestone: p.status || "Active",
+    budgetConsumed: "Not tracked",
+    milestone: p.status || "Unknown",
     dueDate: p.dueDate ? new Date(p.dueDate).toLocaleDateString() : "Ongoing",
     status: projectStatusLabels[p.status] || "In Review",
     color: p.status === "completed" ? BRAND_COLORS.accent.green : p.status === "cancelled" ? BRAND_COLORS.accent.red : BRAND_COLORS.accent.blue,
@@ -111,7 +112,7 @@ function computeProjectDashboardData(projects: any[]) {
     stats,
     projectPhaseDistribution,
     criticalProjectsList,
-    criticalSprintTasks: [] as any[],
+    criticalSprintTasks: null as any[] | null,
     dailyDeliverables,
   };
 }
@@ -126,7 +127,7 @@ export default function ProjectsDashboardPage() {
   const [stats, setStats] = useState(emptyData.stats);
   const [projectPhaseDistribution, setProjectPhaseDistribution] = useState<any[]>(emptyData.projectPhaseDistribution);
   const [criticalProjectsList, setCriticalProjectsList] = useState<any[]>(emptyData.criticalProjectsList);
-  const [criticalSprintTasks, setCriticalSprintTasks] = useState<any[]>(emptyData.criticalSprintTasks);
+  const [criticalSprintTasks, setCriticalSprintTasks] = useState<any[] | null>(emptyData.criticalSprintTasks);
   const [dailyDeliverables, setDailyDeliverables] = useState<any[]>(emptyData.dailyDeliverables);
 
   const loadProjects = async (force = false) => {
@@ -205,7 +206,7 @@ export default function ProjectsDashboardPage() {
                 Portfolio Governance
               </span>
               <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                On-Time {stats.milestoneOnTimeRate}%
+                Milestone timing: Not tracked
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
@@ -298,7 +299,7 @@ export default function ProjectsDashboardPage() {
                 {isLoading ? (
                   <Skeleton className="h-8 w-20 rounded-none bg-muted-foreground/15 my-1" />
                 ) : (
-                  `${stats.milestoneOnTimeRate}%`
+                  "Not tracked"
                 )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-400 font-semibold">
@@ -329,7 +330,7 @@ export default function ProjectsDashboardPage() {
                 {isLoading ? (
                   <Skeleton className="h-8 w-24 rounded-none bg-muted-foreground/15 my-1" />
                 ) : (
-                  `${stats.sprintVelocityPoints} pts`
+                  "Not tracked"
                 )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
@@ -360,14 +361,14 @@ export default function ProjectsDashboardPage() {
                 {isLoading ? (
                   <Skeleton className="h-8 w-28 rounded-none bg-muted-foreground/15 my-1" />
                 ) : (
-                  `${stats.criticalPathBlockers} Blockers`
+                  "Not tracked"
                 )}
               </div>
               <div className="flex items-center gap-1.5 mt-2 text-[11px] text-red-400 font-semibold">
                 {isLoading ? (
                   <Skeleton className="h-3.5 w-44 rounded-none bg-muted-foreground/10" />
                 ) : (
-                  <span>{stats.overdueTasksCount} overdue sprint deliverables</span>
+                  <span>Task and blocker data is not connected</span>
                 )}
               </div>
             </CardContent>
@@ -487,7 +488,7 @@ export default function ProjectsDashboardPage() {
                     <thead className="border-b border-border/60 text-muted-foreground bg-muted/20 whitespace-nowrap">
                       <tr>
                         <th className="p-3 pl-5">Project / Lead</th>
-                        <th className="p-3">Current Milestone</th>
+                        <th className="p-3">Project Status / Due Date</th>
                         <th className="p-3">Budget</th>
                         <th className="p-3">Progress</th>
                         <th className="p-3 pr-5 text-right">Status</th>
@@ -508,8 +509,8 @@ export default function ProjectsDashboardPage() {
                               <div className="text-[10px] text-muted-foreground">{prj.id} • Lead: {prj.lead}</div>
                             </td>
                             <td className="p-3 text-muted-foreground">
-                              <div>{prj.milestone}</div>
-                              <div className="text-[10px] text-muted-foreground/80">Target: {prj.dueDate}</div>
+                              <div>{prj.status}</div>
+                              <div className="text-[10px] text-muted-foreground/80">Due: {prj.dueDate}</div>
                             </td>
                             <td className="p-3 font-semibold text-foreground">{prj.budgetConsumed}</td>
                             <td className="p-3">
@@ -563,9 +564,13 @@ export default function ProjectsDashboardPage() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-border/40">
-                  {criticalSprintTasks.length === 0 ? (
+                  {!criticalSprintTasks ? (
                     <div className="p-8 text-center text-xs text-muted-foreground font-mono">
-                      Zero critical sprint blockers detected.
+                      Task and blocker data is not available from the project records.
+                    </div>
+                  ) : criticalSprintTasks.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-muted-foreground font-mono">
+                      No blocker records found.
                     </div>
                   ) : (
                     criticalSprintTasks.map((t, idx) => (

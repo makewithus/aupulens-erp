@@ -1,5 +1,4 @@
-import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
-
 export default function HrLoading() {
-  return <FullPageLoadingSkeleton />;
+  // Keep the persistent HR shell and sidebar visible during route transitions.
+  return null;
 }

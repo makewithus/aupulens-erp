@@ -19,7 +19,6 @@ export default function DunningRulesPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await cachedFetch("/api/sales/dunning-rules");
       const data = await res.json();

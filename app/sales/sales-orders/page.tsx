@@ -177,7 +177,6 @@ function SalesOrdersPageInner() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams();
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);

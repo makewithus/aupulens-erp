@@ -56,6 +56,23 @@ export async function GET(req: NextRequest) {
       if (Object.keys(query["header.quantity"]).length === 0) delete query["header.quantity"];
     }
 
+    if (searchParams.get("summary") === "true") {
+      const [total, grouped] = await Promise.all([
+        ManufacturingOrder.countDocuments({ tenantId }),
+        ManufacturingOrder.aggregate([
+          { $match: { tenantId } },
+          {
+            $group: {
+              _id: { $ifNull: ["$productionStatus", PRODUCTION_STATUS.DEMAND_FORECAST] },
+              count: { $sum: 1 },
+            },
+          },
+        ]),
+      ]);
+      const statusCounts = Object.fromEntries(grouped.map((row: any) => [row._id, row.count]));
+      return NextResponse.json({ total, statusCounts });
+    }
+
     const baseQuery = ManufacturingOrder.find(query)
       .populate(
         "header.productId",

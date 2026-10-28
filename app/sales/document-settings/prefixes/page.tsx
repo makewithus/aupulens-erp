@@ -36,7 +36,6 @@ export default function PrefixesSuffixesPage() {
   const [editValue, setEditValue] = useState("");
 
   const fetchRows = () => {
-    setLoading(true);
     cachedFetch(`/api/sales/document-prefixes?documentType=${docType}&kind=${kind}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setRows(d.data); })

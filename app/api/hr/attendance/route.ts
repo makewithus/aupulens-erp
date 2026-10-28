@@ -98,20 +98,31 @@ export async function GET(req: NextRequest) {
     // Stats (summary cards) reflect every record within the applied
     // date/month/employee filter — unaffected by pagination, so they don't
     // undercount once the table itself is paginated.
-    const [statsPresent, statsAbsent, statsOnLeave, statsLocked] = await Promise.all([
-      Attendance.countDocuments({ ...query, status: "present" }),
-      Attendance.countDocuments({ ...query, status: "absent" }),
-      Attendance.countDocuments({ ...query, status: "on-leave" }),
-      Attendance.countDocuments({ ...query, isLocked: true }),
+    const statsPromise = Attendance.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          present: { $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] } },
+          absent: { $sum: { $cond: [{ $eq: ["$status", "absent"] }, 1, 0] } },
+          onLeave: { $sum: { $cond: [{ $eq: ["$status", "on-leave"] }, 1, 0] } },
+          locked: { $sum: { $cond: [{ $eq: ["$isLocked", true] }, 1, 0] } },
+        },
+      },
     ]);
-    const stats = { present: statsPresent, absent: statsAbsent, onLeave: statsOnLeave, locked: statsLocked };
 
     // Pagination is opt-in via `page` — no other consumer of this route
     // exists today, but omitting `page` still returns everything to stay
     // consistent with every other list API in this codebase.
     const pageParam = searchParams.get("page");
     if (!pageParam) {
-      const attendance = await baseQuery.lean();
+      const [statsRows, attendance] = await Promise.all([statsPromise, baseQuery.lean()]);
+      const stats = {
+        present: statsRows[0]?.present || 0,
+        absent: statsRows[0]?.absent || 0,
+        onLeave: statsRows[0]?.onLeave || 0,
+        locked: statsRows[0]?.locked || 0,
+      };
       return NextResponse.json({ items: attendance, total: attendance.length, page: 1, totalPages: 1, stats });
     }
 
@@ -119,10 +130,17 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
     const skip = (page - 1) * limit;
 
-    const [total, attendance] = await Promise.all([
+    const [statsRows, total, attendance] = await Promise.all([
+      statsPromise,
       Attendance.countDocuments(query),
       baseQuery.skip(skip).limit(limit).lean(),
     ]);
+    const stats = {
+      present: statsRows[0]?.present || 0,
+      absent: statsRows[0]?.absent || 0,
+      onLeave: statsRows[0]?.onLeave || 0,
+      locked: statsRows[0]?.locked || 0,
+    };
 
     return NextResponse.json({ items: attendance, total, page, totalPages: Math.max(1, Math.ceil(total / limit)), stats });
   } catch (error: any) {

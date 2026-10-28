@@ -89,6 +89,8 @@ Intents:
     • delete_lead → {"leadName":"..."}
     • create_lead → {"lead_name":"...","company_name":"...","email":"...","phone":"...","source":"Referral"}
     • create_customer → {"name":"...","is_company":true,"email":"...","phone":"...","gstin":"...","currency":"INR"}
+    • update_customer → {"customerName":"existing exact name","newName":"..."}
+    • delete_customer → {"customerName":"existing exact name"} (destructive; requires explicit confirmation and is blocked when financial records are linked)
     • create_employee → {"firstName":"...","lastName":"...","email":"...","phone":"...","designation":"...","employmentType":"full-time"}
     • create_ledger → {"name":"...","type":"expense|income|asset|liability|equity|bank|cash|receivable|payable"}
     • delete_ledger → {"name":"..."}

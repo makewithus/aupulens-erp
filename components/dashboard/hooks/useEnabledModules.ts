@@ -50,21 +50,18 @@ async function fetchEnabledModules(tenantId: string): Promise<TenantModuleKey[]>
   if (pending) return pending;
 
   const request = (async () => {
-    const settingsRes = await cachedFetch("/api/admin/org-settings");
-    if (settingsRes.ok) {
-      const payload = await settingsRes.json();
-      const modules = normalizeModuleList(payload?.data?.settings?.enabledModules ?? payload?.data?.entitlements?.modules);
-      if (modules.length) return modules;
-    }
-
-    const entitlementRes = await cachedFetch("/api/admin/entitlements");
-    if (entitlementRes.ok) {
-      const payload = await entitlementRes.json();
-      const modules = normalizeModuleList(payload?.data?.modules ?? payload?.modules);
-      if (modules.length) return modules;
-    }
-
-    return [];
+    // Organization settings include the effective module list for legacy
+    // tenants. Use it as the common path; ask for central entitlements only
+    // when that response has no usable list.
+    const settingsResponse = await cachedFetch("/api/admin/org-settings").catch(() => null);
+    const settings = settingsResponse?.ok ? await settingsResponse.json().catch(() => null) : null;
+    const settingsModules = normalizeModuleList(
+      settings?.data?.settings?.enabledModules ?? settings?.data?.entitlements?.modules,
+    );
+    if (settingsModules.length) return settingsModules;
+    const entitlementResponse = await cachedFetch("/api/admin/entitlements").catch(() => null);
+    const entitlements = entitlementResponse?.ok ? await entitlementResponse.json().catch(() => null) : null;
+    return normalizeModuleList(entitlements?.data?.modules ?? entitlements?.modules);
   })()
     .then((modules) => {
       cacheModules(tenantId, modules);
@@ -85,7 +82,9 @@ export function useEnabledModules(shouldLoad: boolean) {
   // sessionStorage here made cached tenants render a different sidebar during
   // hydration in production.
   const [modules, setModules] = useState<TenantModuleKey[] | null>(null);
-  const [loaded, setLoaded] = useState(!shouldLoad);
+  // Navigation can render from the static module config immediately. The
+  // entitlement request only removes unavailable links after the shell paints.
+  const [loaded, setLoaded] = useState(true);
 
   useEffect(() => {
     if (!shouldLoad) {
@@ -102,7 +101,9 @@ export function useEnabledModules(shouldLoad: boolean) {
       setModules(priorModules);
       setLoaded(true);
     } else {
-      setLoaded(false);
+      // Module entitlements only control navigation visibility. Render the
+      // configured sidebar immediately and reconcile it when the request ends.
+      setLoaded(true);
     }
 
     const refresh = () => fetchEnabledModules(tenantId)

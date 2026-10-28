@@ -57,7 +57,6 @@ export default function DocumentationPage() {
 
   const fetchDocuments = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await fetch('/api/manufacturing/documents');
       if (!res.ok) throw new Error('Failed to fetch documents');
       const data = await res.json();

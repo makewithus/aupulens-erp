@@ -39,17 +39,26 @@ export default function PipelinePage() {
   };
 
   const fetchPipeline = async () => {
-    setLoading(true);
     const res = await fetch('/api/crm/pipeline');
     const data = await res.json();
     if (data.success) {
       const cols: any = {};
       STAGES.forEach(s => cols[s] = { items: [], total: 0, count: 0 });
+      const unmappedGroups: any[] = [];
       data.data.forEach((group: any) => {
         if (cols[group._id]) {
           cols[group._id] = { items: group.deals, total: group.totalValue, count: group.count };
+        } else {
+          unmappedGroups.push(group);
         }
       });
+      if (unmappedGroups.length) {
+        cols["Other / Unmapped"] = {
+          items: unmappedGroups.flatMap((group) => group.deals || []),
+          total: unmappedGroups.reduce((sum, group) => sum + (Number(group.totalValue) || 0), 0),
+          count: unmappedGroups.reduce((sum, group) => sum + (Number(group.count) || 0), 0),
+        };
+      }
       setColumns(cols);
     }
     
@@ -155,7 +164,7 @@ export default function PipelinePage() {
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex items-start gap-4 overflow-x-auto pb-4 w-full min-w-0">
-          {STAGES.map((stage) => (
+          {Object.keys(columns).map((stage) => (
             <div key={stage} className="flex w-72 min-w-72 sm:w-80 sm:min-w-80 shrink-0 flex-col border border-border/40 bg-background">
               <div className="flex items-center justify-between border-b border-border/40 px-4 py-3.5">
                 <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em]">{stage}</span>
@@ -163,7 +172,7 @@ export default function PipelinePage() {
                   {columns[stage]?.count || 0}
                 </Badge>
               </div>
-              <Droppable droppableId={stage}>
+              <Droppable droppableId={stage} isDropDisabled={stage === "Other / Unmapped"}>
                 {(provided, snapshot) => {
                   const allItems = columns[stage]?.items || [];
                   const visibleCount = visibleCounts[stage] || PAGE_SIZE;

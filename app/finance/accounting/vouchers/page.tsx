@@ -270,7 +270,6 @@ export default function VouchersPage() {
 
   const load = useCallback(async (currentPage = page) => {
     try {
-      setLoading(true);
       const params = new URLSearchParams({
         page: String(currentPage),
         limit: String(LIMIT),

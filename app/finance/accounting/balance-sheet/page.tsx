@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -20,26 +20,33 @@ export default function BalanceSheetPage() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const requestVersion = useRef(0);
   // The API chooses today's calendar date in the organization timezone on the
   // initial load; browser UTC/local dates can differ near midnight.
   const [date, setDate] = useState<string>("");
 
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
+    setLoading(true);
     try {
-      setLoading(true);
       const query = date ? `?date=${encodeURIComponent(date)}` : "";
       const res = await cachedFetch(
         `/api/finance/reports/balance-sheet${query}`,
+        undefined,
+        // Avoid the shared cache's queryless fallback, which can mix dates.
+        { noCache: true },
       );
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || "load failed");
+      if (version !== requestVersion.current) return;
       setData(json);
       if (!date && json.asOfDate) setDate(json.asOfDate);
     } catch (error) {
+      if (version !== requestVersion.current) return;
       setData(null);
       toast.error("We couldn't load the Balance Sheet. Please try again.");
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [date]);
 
@@ -62,6 +69,11 @@ export default function BalanceSheetPage() {
 
     const reportDate = data.asOfDate || date;
     const timeZone = data.timeZone || "UTC";
+    const htmlEscapes: Record<string, string> = {
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    };
+    const escapeHtml = (value: unknown) =>
+      String(value ?? "").replace(/[&<>"']/g, (character) => htmlEscapes[character]);
 
     const assetAccounts = Object.values(data.asset?.accounts || {}).sort((a: any, b: any) =>
       String(a.code || "").localeCompare(String(b.code || ""))
@@ -108,8 +120,8 @@ export default function BalanceSheetPage() {
           (acc: any) => `
           <tr class="border-b border-gray-200">
             <td class="py-2.5 px-4 text-sm text-gray-900">
-              <span class="font-medium">${acc.name}</span>
-              ${acc.code ? `<span class="ml-2 font-mono text-xs text-gray-500">(${acc.code})</span>` : ""}
+              <span class="font-medium">${escapeHtml(acc.name)}</span>
+              ${acc.code ? `<span class="ml-2 font-mono text-xs text-gray-500">(${escapeHtml(acc.code)})</span>` : ""}
             </td>
             <td class="py-2.5 px-4 text-right text-sm font-semibold tabular-nums text-gray-900">
               ${formatInr(acc.amount)}
@@ -124,7 +136,7 @@ export default function BalanceSheetPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Balance Sheet - ${reportDate}</title>
+        <title>Balance Sheet - ${escapeHtml(reportDate)}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @media print {
@@ -143,11 +155,11 @@ export default function BalanceSheetPage() {
               <div>
                 <p class="text-sm font-semibold text-gray-800">Organization: Aupulens</p>
                 <p class="text-xs text-gray-500">Generated: ${new Date().toLocaleString()}</p>
-                ${data.latestIncludedPostingDate ? `<p class="text-xs text-gray-500">Latest Posted Entry: ${data.latestIncludedPostingDate}</p>` : ""}
+                ${data.latestIncludedPostingDate ? `<p class="text-xs text-gray-500">Latest Posted Entry: ${escapeHtml(data.latestIncludedPostingDate)}</p>` : ""}
               </div>
               <div class="text-right">
-                <p class="text-lg font-bold">As of: ${reportDate}</p>
-                <p class="text-xs text-gray-500">Timezone: ${timeZone}</p>
+                <p class="text-lg font-bold">As of: ${escapeHtml(reportDate)}</p>
+                <p class="text-xs text-gray-500">Timezone: ${escapeHtml(timeZone)}</p>
               </div>
             </div>
           </div>
@@ -465,6 +477,27 @@ export default function BalanceSheetPage() {
                 </Card>
               </div>
             </div>
+
+            {(!data.validation?.trialBalanceBalanced || data.validation?.accountReferencesComplete === false) && (
+              <Card className="rounded-none border-red-500/50 bg-red-500/5 shadow-none" role="alert">
+                <CardContent className="flex gap-3 p-5 text-sm">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-red-500">Ledger validation needs review</p>
+                    {!data.validation?.trialBalanceBalanced && (
+                      <p className="text-muted-foreground">
+                        Posted journal debits ({formatInr(data.validation?.totalDebits)}) do not equal credits ({formatInr(data.validation?.totalCredits)}).
+                      </p>
+                    )}
+                    {data.validation?.accountReferencesComplete === false && (
+                      <p className="text-muted-foreground">
+                        {data.unclassifiedPostedLineCount} posted journal line(s) reference a missing or cross-organization account and are excluded from account balances.
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Accounting-equation check: Assets = Liabilities + Equity */}
             <div

@@ -104,7 +104,6 @@ function PurchaseOrdersPageInner() {
   }, [debouncedQuery, dateFrom, dateTo, statusFilter, partnerId]);
 
   const load = async (currentPage = page, search = debouncedQuery, force = false) => {
-    setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("search", search);

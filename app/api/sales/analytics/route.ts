@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import SaleOrder from '@/models/sales/SaleOrder';
 import SalesInvoice from '@/models/sales/SalesInvoice';
-import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { REAL_ORDER_MATCH } from "@/lib/sales/orderEligibility";
 import { issuedInvoiceFilter, invoiceRevenueExpression } from "@/lib/sales/invoiceEligibility";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
@@ -34,12 +34,13 @@ export async function GET() {
 
     // These aggregations are independent of each other, so run them concurrently
     const [ordersData, revenueData, topProducts, dailyOrdersData] = await Promise.all([
-      // Aggregate orders count by month
+      // Match the confirmed-order definition used by Sales Summary.
       SaleOrder.aggregate([
         {
           $match: {
             tenantId,
-            createdAt: { $gte: sixMonthsAgo }
+            createdAt: { $gte: sixMonthsAgo },
+            ...REAL_ORDER_MATCH,
           }
         },
         {
@@ -81,7 +82,8 @@ export async function GET() {
         {
           $match: {
             tenantId,
-            createdAt: { $gte: sixMonthsAgo }
+            createdAt: { $gte: sixMonthsAgo },
+            ...REAL_ORDER_MATCH,
           }
         },
         { $unwind: '$orderLines' },
@@ -107,7 +109,8 @@ export async function GET() {
         {
           $match: {
             tenantId,
-            createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }
+            createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
+            ...REAL_ORDER_MATCH,
           }
         },
         {

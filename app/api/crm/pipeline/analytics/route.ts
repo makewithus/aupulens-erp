@@ -2,21 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmOpportunity from "@/models/crm/Opportunity";
-import { getCachedData, setCachedData } from "@/lib/api/serverCache";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   const tenantId = session.user.tenantId;
 
-  const cacheKey = `crm-pipe-analytics:v2:${tenantId}`;
-  const cached = getCachedData<any>(cacheKey);
-  if (cached) return NextResponse.json(cached);
-
   await dbConnect();
+  const scopedMatch = applyDemoScope(session, { tenantId });
   
   const pipeline = await CrmOpportunity.aggregate([
-    { $match: { tenantId } },
+    { $match: scopedMatch },
     { $group: {
         _id: null,
         total_opportunities: { $sum: 1 },
@@ -46,8 +43,6 @@ export async function GET(req: NextRequest) {
       lossRate: stats.total_closed > 0 ? (stats.closed_lost_count / stats.total_closed) * 100 : 0
     }
   };
-
-  setCachedData(cacheKey, responsePayload, 30_000);
 
   return NextResponse.json(responsePayload);
 }
