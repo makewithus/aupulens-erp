@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-const { authMock, findMock, countMock, paymentCount, stockCount } = vi.hoisted(() => ({
-  authMock: vi.fn(), findMock: vi.fn(), countMock: vi.fn(), paymentCount: vi.fn(), stockCount: vi.fn(),
+const { authMock, findMock, countMock, paymentCount, stockCount, businessHealthLean } = vi.hoisted(() => ({
+  authMock: vi.fn(), findMock: vi.fn(), countMock: vi.fn(), paymentCount: vi.fn(), stockCount: vi.fn(), businessHealthLean: vi.fn(),
 }));
 vi.mock("@/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
@@ -18,6 +18,9 @@ vi.mock("@/models/inventory/StockMove", () => ({ default: { countDocuments: coun
 vi.mock("@/models/inventory/Stock", () => ({ default: { countDocuments: stockCount } }));
 vi.mock("@/models/manufacturing/ManufacturingOrder", () => ({ default: { countDocuments: countMock } }));
 vi.mock("@/models/auth/User", () => ({ default: { countDocuments: countMock } }));
+vi.mock("@/models/admin/BusinessHealthSummary", () => ({ default: {
+  findOne: () => ({ sort: () => ({ lean: businessHealthLean }) }),
+} }));
 
 import { GET } from "@/app/api/admin/dashboard/route";
 import { invalidateServerCache } from "@/lib/api/serverCache";
@@ -44,6 +47,7 @@ beforeEach(() => {
   countMock.mockResolvedValue(0);
   paymentCount.mockResolvedValue(2);
   stockCount.mockResolvedValue(3);
+  businessHealthLean.mockResolvedValue(null);
   findMock.mockImplementation((query: any) => {
     const chain = {
       sort: () => chain,
