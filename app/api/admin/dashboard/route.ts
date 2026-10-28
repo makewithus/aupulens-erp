@@ -97,10 +97,7 @@ export async function GET(req?: Request) {
     const hasExpenseActivity = Object.values(ledger.expense.accounts).some(
       (account) => account.debit !== 0 || account.credit !== 0,
     );
-    // Match Finance: a revenue-only ledger cannot prove profit until related
-    // product costs or operating expenses have been posted. Empty or balanced
-    // ledgers remain valid zero results.
-    const profitAvailable = ledger.totals.balanced && !(totalRevenue > 0 && !hasExpenseActivity);
+    const profitAvailable = ledger.totals.balanced;
 
     // Sales: Orders & Direct Invoices
     const [

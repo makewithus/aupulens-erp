@@ -698,6 +698,47 @@ describe("Aupulens SaaS Subscription & Billing System — Master End-to-End Audi
         await BillingPayment.deleteOne({ _id: payment._id });
       }
     });
+
+    it("keeps a second refund blocked and auditable while the first provider outcome is unresolved", async () => {
+      const payment = await BillingPayment.create({
+        tenantId: TENANT_B,
+        type: BILLING_PAYMENT_TYPE.NEW,
+        amount: 1000,
+        currency: "INR",
+        status: BILLING_PAYMENT_STATUS.SUCCESSFUL,
+        billingCycle: "monthly",
+        razorpayPaymentId: `pay_refund_pending_${Date.now()}`,
+        taxBreakup: { taxableAmount: 847.46, cgst: 76.27, sgst: 76.27, igst: 0, totalTax: 152.54, isInterState: false },
+        idempotencyKey: `payment_refund_pending_${Date.now()}`,
+      });
+      const firstKey = `pending-refund-a-${Date.now()}`;
+      const secondKey = `pending-refund-b-${Date.now()}`;
+      try {
+        const first = await reserveRefund({
+          payment,
+          amountPaise: 30000,
+          reason: "Unresolved provider outcome fixture",
+          idempotencyKey: firstKey,
+        });
+
+        await expect(reserveRefund({
+          payment,
+          amountPaise: 30000,
+          reason: "Unresolved provider outcome fixture",
+          idempotencyKey: secondKey,
+        })).rejects.toThrow(/provider reconciliation/i);
+
+        const storedPayment = await BillingPayment.findById(payment._id);
+        expect(storedPayment?.refundReservedAmountPaise).toBe(30000);
+        expect((await BillingRefund.findById(first.refund._id))?.status).toBe("pending");
+        const rejectedAttempt = await BillingRefund.findOne({ idempotencyKey: secondKey });
+        expect(rejectedAttempt).toMatchObject({ status: "failed" });
+        expect(rejectedAttempt?.lastError).toMatch(/no provider request was sent/i);
+      } finally {
+        await BillingRefund.deleteMany({ paymentRecordId: payment._id });
+        await BillingPayment.deleteOne({ _id: payment._id });
+      }
+    });
   });
 
   describe("10. ADM-01 to ADM-03 & E2E-07: Global Admin Analytics Reconciliation", () => {

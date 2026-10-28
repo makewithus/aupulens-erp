@@ -42,10 +42,7 @@ export async function GET() {
       .lean();
     const orgBySubdomain = new Map(orgs.map((o) => [o.subdomain, o]));
 
-    // The workspace switcher is for organization workspaces. Platform-level
-    // master-admin access has its own entry point and should not appear as a
-    // selectable tenant in this list.
-    const workspaces = memberships.filter((m) => m.role !== "master-admin").map((m) => ({
+    const workspaces = memberships.map((m) => ({
       tenantId: m.tenantId,
       role: m.role,
       name: orgBySubdomain.get(m.tenantId)?.name

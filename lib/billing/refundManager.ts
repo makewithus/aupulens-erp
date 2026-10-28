@@ -72,6 +72,15 @@ export async function reserveRefund(params: {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
+      const unresolvedRefund = await BillingRefund.findOne({
+        paymentRecordId: params.payment._id,
+        _id: { $ne: refund._id },
+        status: { $in: ["reserving", "pending"] },
+      }).select("_id").session(session).lean();
+      if (unresolvedRefund) {
+        throw new Error("A prior refund is still awaiting provider reconciliation.");
+      }
+
       const reserved = await BillingPayment.findOneAndUpdate(
         {
           _id: params.payment._id,
@@ -101,7 +110,10 @@ export async function reserveRefund(params: {
       await BillingRefund.updateOne({ _id: refund._id, status: "reserving" }, { $set: { status: "pending" } }, { session });
     });
   } catch (error) {
-    await BillingRefund.deleteOne({ _id: refund._id, status: "reserving" }).catch(() => undefined);
+    await BillingRefund.updateOne(
+      { _id: refund._id, status: "reserving" },
+      { $set: { status: "failed", lastError: "Refund reservation could not be committed; no provider request was sent." } },
+    ).catch(() => undefined);
     throw error;
   } finally {
     await session.endSession();
@@ -188,8 +200,9 @@ export async function settleRefundOperation(
   return settled;
 }
 
-export async function reconcilePendingRefunds(limit = 100) {
+export async function reconcilePendingRefunds(limit = 100, paymentRecordId?: mongoose.Types.ObjectId) {
   const pending = await BillingRefund.find({
+    ...(paymentRecordId ? { paymentRecordId } : {}),
     $or: [
       { status: "pending" },
       { status: "processed", creditNoteId: { $exists: false } },

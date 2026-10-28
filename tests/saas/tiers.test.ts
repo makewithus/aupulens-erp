@@ -175,7 +175,7 @@ describe("SubscriptionEvent schema — valid documents", () => {
 
 describe("SubscriptionEvent schema — enum validation", () => {
   it("rejects an invalid event type", () => {
-    const ev = makeMinimalEvent({ type: "refunded" });
+    const ev = makeMinimalEvent({ type: "not-a-real-event" });
     expect(ev.validateSync()?.errors?.type).toBeDefined();
   });
 

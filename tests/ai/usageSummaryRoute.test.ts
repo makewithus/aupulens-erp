@@ -31,6 +31,8 @@ describe("authenticated toolbar usage", () => {
         isActive: 1,
         subscriptionStatus: 1,
         trialEndDate: 1,
+        aiCreditBalance: 1,
+        aiCreditsIncluded: 1,
         "settings.ai.usagePolicy": 1,
       },
     );

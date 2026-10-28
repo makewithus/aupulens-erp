@@ -6,7 +6,7 @@ import BillingRefund from "@/models/billing/BillingRefund";
 import BillingCreditNote from "@/models/billing/BillingCreditNote";
 import { verifyGlobalAdmin } from "@/lib/billing/adminAuth";
 import { razorpayService } from "@/lib/billing/razorpayClient";
-import { reserveRefund, settleRefundOperation } from "@/lib/billing/refundManager";
+import { reconcilePendingRefunds, reserveRefund, settleRefundOperation } from "@/lib/billing/refundManager";
 
 function responseFor(refund: any, creditNote?: any) {
   const complete = refund.status === "processed";
@@ -61,12 +61,16 @@ export async function POST(req: NextRequest) {
     }
     if (!payment) return NextResponse.json({ success: false, error: "Payment record not found." }, { status: 404 });
 
-    const priorRefund = await BillingRefund.findOne({ idempotencyKey });
+    let priorRefund = await BillingRefund.findOne({ idempotencyKey });
     if (priorRefund) {
       const sameRequest = String(priorRefund.paymentRecordId) === String(payment._id) &&
         priorRefund.amountPaise === Math.round((amount === undefined ? payment.amount : amount) * 100) &&
         priorRefund.reason === reason.trim().slice(0, 256);
       if (!sameRequest) return NextResponse.json({ success: false, error: "Idempotency key was used for a different refund request." }, { status: 409 });
+      if (priorRefund.status === "pending") {
+        await reconcilePendingRefunds(100, payment._id);
+        priorRefund = await BillingRefund.findById(priorRefund._id) || priorRefund;
+      }
       const creditNote = priorRefund.creditNoteId ? await BillingCreditNote.findById(priorRefund.creditNoteId) : undefined;
       return responseFor(priorRefund, creditNote);
     }
@@ -81,6 +85,23 @@ export async function POST(req: NextRequest) {
     }
     if (!razorpayService.isConfigured()) {
       return NextResponse.json({ success: false, error: "Razorpay is not configured; no refund was submitted." }, { status: 503 });
+    }
+
+    const unresolvedRefund = await BillingRefund.findOne({
+      paymentRecordId: payment._id,
+      status: { $in: ["reserving", "pending"] },
+    }).sort({ createdAt: 1 });
+    if (unresolvedRefund?.status === "pending") {
+      await reconcilePendingRefunds(100, payment._id);
+    }
+    const stillUnresolved = unresolvedRefund
+      ? await BillingRefund.findOne({ _id: unresolvedRefund._id, status: { $in: ["reserving", "pending"] } })
+      : null;
+    if (stillUnresolved) {
+      const creditNote = stillUnresolved.creditNoteId
+        ? await BillingCreditNote.findById(stillUnresolved.creditNoteId)
+        : undefined;
+      return responseFor(stillUnresolved, creditNote);
     }
 
     let reservation;

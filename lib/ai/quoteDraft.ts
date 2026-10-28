@@ -12,6 +12,15 @@ import { createSalesQuote } from "@/lib/sales/createQuote";
 import { AI_ACTION_STATUS as A } from "@/lib/constants/statuses";
 
 type Scope = { tenantId: string; userId: string; role: string; conversationId: string };
+export function mergeQuoteProductCandidates<T extends { _id: unknown }>(
+  phraseMatches: T[],
+  allWordMatches: T[],
+): T[] {
+  return [...new Map(
+    [...phraseMatches, ...allWordMatches].map((product) => [String(product._id), product]),
+  ).values()];
+}
+
 function productLine(product: any, qty: number) {
   const g = (product.tab_general_information || {}) as {
     unit?: string;
@@ -128,14 +137,12 @@ export async function prepareQuoteDraft(scope: Scope, text: string, requestId: s
       { "tab_general_information.default_code": flexibleNameRegex(productText) },
     ],
   }).select("header tab_general_information").limit(6).maxTimeMS(5000).lean();
-  // A user may give the identifying words without every catalog word, such
-  // as “ergonomic chair” for “Ergonomic Office Chair”. Fetch a small,
-  // tenant-scoped candidate set containing every query word, then let the
-  // deterministic scorer below resolve ambiguity.
-  if (!products.length) {
-    const words = productText.split(/\s+/).filter(Boolean);
-    if (words.length > 1) {
-      products = await Product.find({
+  // The flexible phrase regex is unanchored, so “ergonomic chair” also finds
+  // “Office Ergonomic Chair” and can hide “Ergonomic Office Chair”. Always
+  // merge the all-words candidate set before ranking multiword searches.
+  const words = productText.split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    const broadMatches = await Product.find({
         tenantId: tenantFilter,
         "header.sale_ok": { $ne: false },
         $and: words.map((word) => ({
@@ -144,8 +151,8 @@ export async function prepareQuoteDraft(scope: Scope, text: string, requestId: s
             { "tab_general_information.default_code": { $regex: escapeRegex(word), $options: "i" } },
           ],
         })),
-      }).select("header tab_general_information").limit(6).maxTimeMS(5000).lean();
-    }
+    }).select("header tab_general_information").limit(6).maxTimeMS(5000).lean();
+    products = mergeQuoteProductCandidates(products, broadMatches);
   }
   const exact = products.filter(p =>
     p.header.name.toLowerCase() === productText.toLowerCase() ||
