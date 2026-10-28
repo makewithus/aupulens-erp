@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   const tenantId = session.user.tenantId;
 
-  const cacheKey = `crm-pipe-analytics:${tenantId}`;
+  const cacheKey = `crm-pipe-analytics:v2:${tenantId}`;
   const cached = getCachedData<any>(cacheKey);
   if (cached) return NextResponse.json(cached);
 

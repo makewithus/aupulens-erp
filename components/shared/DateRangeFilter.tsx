@@ -37,7 +37,9 @@ export function DateRangeFilter({
 }) {
   const hasFilter = !!(dateFrom || dateTo);
   const dateInputClass = cn(
-    "h-11 w-full min-w-0 sm:w-[140px] md:w-[152px] rounded-none border border-input bg-background px-2.5 sm:px-3 text-[12px] sm:text-[13px] font-medium leading-none tracking-tight text-foreground shadow-none",
+    // Native date controls collapse to a calendar icon when flex ancestors
+    // are narrow. Keep enough width for the date text at every breakpoint.
+    "h-11 w-full min-w-[140px] sm:w-[140px] md:w-[152px] shrink-0 rounded-none border border-input bg-background px-2.5 sm:px-3 text-[12px] sm:text-[13px] font-medium leading-none tracking-tight text-foreground shadow-none",
     "[color-scheme:light] dark:[color-scheme:dark]",
     "hover:border-foreground/40 focus-visible:border-foreground focus-visible:ring-0",
     inputClassName,

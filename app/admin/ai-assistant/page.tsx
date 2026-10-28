@@ -10,7 +10,7 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import {
@@ -92,6 +92,7 @@ const SUGGESTED_QUERIES = [
 export default function AIAssistant() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -200,6 +201,11 @@ export default function AIAssistant() {
         );
         setChatHistory(active);
         setArchivedChats(archived);
+        const requestedConversationId = searchParams.get("conversationId");
+        if (requestedConversationId) {
+          const chat = active.find((item: ChatHistoryItem) => item.conversationId === requestedConversationId);
+          if (chat) loadChat(chat);
+        }
       }
     } catch (error) {
       console.error("Error fetching chat history:", error);

@@ -29,6 +29,18 @@ const TENANT_ID = "default-tenant";
 
 const CREDENTIALS_TO_SEED = [
   {
+    name: "Global Admin",
+    email: "global@admin.com",
+    passwordPlain: "12345678abcd",
+    phone: "+919876543201",
+  },
+  {
+    name: "MWUS Admin",
+    email: "mwus@test.com",
+    passwordPlain: "12345678abcd",
+    phone: "+919876543202",
+  },
+  {
     name: "MWU Dev",
     email: "mwudev2@gmail.com",
     passwordPlain: "Ghs5#%Shuwm",
@@ -136,7 +148,27 @@ async function seedCredentials() {
     const isValid = await bcrypt.compare(cred.passwordPlain, user.password);
     console.log(`  -> Password verification for ${normalizedEmail}: ${isValid ? "PASSED" : "FAILED"}`);
 
-    // 4. Also upsert in AdminUser collection (global admin platform login)
+    // 4. Also upsert in User collection for master-admin portal
+    await User.findOneAndUpdate(
+      { email: normalizedEmail, tenantId: "master" },
+      {
+        $set: {
+          name: cred.name,
+          email: normalizedEmail,
+          password: hashedPassword,
+          role: "master-admin",
+          userRole: "admin",
+          status: ENTITY_STATUS.ACTIVE,
+          tenantId: "master",
+          phone: cred.phone,
+          permissions: [],
+        },
+      },
+      { upsert: true, new: true }
+    );
+    console.log(`[User] Upserted master-admin: ${normalizedEmail}`);
+
+    // 5. Also upsert in AdminUser collection (global admin platform login)
     await AdminUser.findOneAndUpdate(
       { email: normalizedEmail },
       {

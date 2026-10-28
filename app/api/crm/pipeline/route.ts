@@ -8,10 +8,10 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   
   await dbConnect();
-  const stages = ['Prospecting','Discovery','Requirement Gathering','Solution Fit','Proposal Sent','Negotiation','Approval'];
-  
   const pipeline = await CrmOpportunity.aggregate([
-    { $match: { tenantId: session.user.tenantId, stage: { $in: stages } } },
+    // Return all stages, including closed deals, so board counts reconcile
+    // with the analytics Total Deals KPI.
+    { $match: { tenantId: session.user.tenantId } },
     { $group: { 
         _id: '$stage', 
         deals: { $push: '$$ROOT' }, 

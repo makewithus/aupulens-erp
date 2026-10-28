@@ -12,6 +12,7 @@ const CONTRA_ASSET_NAME = /(?:accumulated\s+(?:depreciation|amortization)|allowa
 const CASH_OR_BANK_NAME = /\b(?:cash|bank)\b/i;
 const TAX_NAME = /\b(?:gst|vat|sales tax)\b/i;
 const RETAINED_EARNINGS_NAME = /retained\s+earnings?/i;
+const INVENTORY_NAME = /\b(?:inventory|stock)\b/i;
 
 function expectedNormalBalance(account: ReportAccount): "debit" | "credit" | null {
   if (account.normalBalance) return account.normalBalance;
@@ -93,7 +94,9 @@ export function getBalanceSheetReviewItems({
       items.push({
         severity: "warning",
         code: account.code,
-        message: cashOrBank
+        message: account.internalGroup === "asset" && INVENTORY_NAME.test(account.name)
+          ? `${name} has a credit balance while classified as an asset. Review stock movements, opening balances, and inventory journal postings; the report is showing the posted ledger balance without changing it.`
+          : cashOrBank
           ? `${name} has an unusual credit balance while classified as an asset. Inspect the ledger and bank reconciliation; verify whether this is an overdraft or a data/classification issue.`
           : `${name} has an unusual credit balance while classified as an asset. Review its ledger and account classification.`,
       });

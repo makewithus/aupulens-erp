@@ -89,7 +89,9 @@ export async function GET(req: NextRequest) {
 
       // Group leads by source
       Lead.aggregate([
-        { $match: { tenantId, createdAt: { $gte: rangeStart } } },
+        // Lead attribution is an all-time breakdown, matching the all-time
+        // totalLeads KPI and CRM lead list count.
+        { $match: { tenantId } },
         { $group: { _id: "$source", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),

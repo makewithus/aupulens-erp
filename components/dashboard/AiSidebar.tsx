@@ -1025,7 +1025,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           <button
             onClick={() => {
               onClose();
-              router.push("/admin/ai-assistant");
+              const activeConversation = useAiChatStore.getState().conversationId;
+              router.push(activeConversation
+                ? `/admin/ai-assistant?conversationId=${encodeURIComponent(activeConversation)}`
+                : "/admin/ai-assistant");
             }}
             className={cn(
               "p-1.5 rounded transition-colors cursor-pointer",
