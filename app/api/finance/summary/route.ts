@@ -217,13 +217,13 @@ export async function GET() {
         ? Number((totalCurrentAssets / totalCurrentLiabilities).toFixed(2))
         : payables.total > 0
           ? Number((receivables.total / payables.total).toFixed(2))
-          : 1.0;
+          : null;
     const quickRatio =
       totalCurrentLiabilities > 0
         ? Number(((effectiveCash + receivables.total) / totalCurrentLiabilities).toFixed(2))
         : payables.total > 0
           ? Number(((effectiveCash + receivables.total) / payables.total).toFixed(2))
-          : 1.0;
+          : null;
     const hasRecordedCosts = allTimeExpenses > 0;
     const profitAvailable = allTimeRevenue > 0 && hasRecordedCosts;
     const profitMargin = profitAvailable

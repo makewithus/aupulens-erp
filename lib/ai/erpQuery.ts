@@ -56,6 +56,9 @@ export async function executeErpQuery(scope: { tenantId: string; role: string },
   if (q.amountMin !== undefined && q.amountMax !== undefined && q.amountMin > q.amountMax) throw new ErpToolError("INVALID_INPUT", "The amount range is reversed.");
   const c = config[q.entity];
   const filter: any = { tenantId: scope.tenantId };
+  // Supplier-only partners share the Customer collection; Sales customer
+  // counts must match the customer list and exclude those records.
+  if (q.entity === "customer") filter.isCustomer = { $ne: false };
   if (q.status && q.entity !== "invoice") throw new ErpToolError("UNSUPPORTED_OPERATION", "This status filter is supported for invoices only.");
   if (q.status === "issued") Object.assign(filter, issuedInvoiceFilter());
   else if (q.status === "unpaid" || q.status === "overdue") Object.assign(filter, unpaidInvoiceFilter(q.status === "overdue" ? now : undefined));

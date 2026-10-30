@@ -26,6 +26,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   planning: "border-blue-900/50 text-blue-400",
   active: "border-emerald-900/50 text-emerald-400",
+  in_progress: "border-emerald-900/50 text-emerald-400",
   on_hold: "border-yellow-900/50 text-yellow-400",
   completed: "border-border text-muted-foreground",
   cancelled: "border-red-900/50 text-red-400",

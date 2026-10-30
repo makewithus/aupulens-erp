@@ -10,6 +10,7 @@ import { auth } from "@/auth";
 import Product from "@/models/inventory/Product";
 import Stock from "@/models/inventory/Stock";
 import StockTransfer from "@/models/inventory/StockTransfer";
+import StockMove from "@/models/inventory/StockMove";
 import PurchaseOrder from "@/models/finance/PurchaseOrder";
 import Customer from "@/models/sales/Customer";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
@@ -39,6 +40,7 @@ describe("SYS-14: Purchase Order Receiving & Stock Movement", () => {
     await Product.init();
     await Stock.init();
     await StockTransfer.init();
+    await StockMove.init();
     await PurchaseOrder.init();
     await Customer.init();
 
@@ -55,6 +57,7 @@ describe("SYS-14: Purchase Order Receiving & Stock Movement", () => {
     await Product.deleteMany({});
     await Stock.deleteMany({});
     await StockTransfer.deleteMany({});
+    await StockMove.deleteMany({});
     await PurchaseOrder.deleteMany({});
     await Customer.deleteMany({});
     vi.mocked(auth).mockReset();
@@ -138,6 +141,10 @@ describe("SYS-14: Purchase Order Receiving & Stock Movement", () => {
     expect(data.stockTransfer).toBeDefined();
     expect(data.stockTransfer.header.operationType).toBe("incoming");
     expect(data.stockTransfer.status).toBe(DOCUMENT_STATUS.POSTED);
+    const operationalMove = await StockMove.findOne({ tenantId: TENANT, sourceDocument: po.name }).lean();
+    expect(operationalMove?.moveType).toBe("incoming");
+    expect(operationalMove?.lines[0]?.done).toBe(10);
+    expect(operationalMove?.lines[0]?.productName).toBe("CLOUD-TEST-PRODUCT-001");
 
     // 5. Verify stock on hand is now 10
     const newStock = await getOnHandQuantity(TENANT, String(product._id));

@@ -169,10 +169,11 @@ export async function GET(req: any) {
       const invItem = code ? invByCode.get(code) : undefined;
       const hasLedger = movementProductIds.has(String(product._id));
       const inventoryQty = hasLedger ? stockByProduct.get(String(product._id)) || 0 : invItem?.quantity || 0;
+      const isService = product.tab_general_information?.type === "service";
       return {
         ...product,
         inventoryQty,
-        inventoryStatus: inventoryQty <= 0 ? STOCK_LEVEL_STATUS.OUT_OF_STOCK :
+        inventoryStatus: isService ? "not-tracked" : inventoryQty <= 0 ? STOCK_LEVEL_STATUS.OUT_OF_STOCK :
           inventoryQty <= (invItem?.reorderLevel ?? 10) ? STOCK_LEVEL_STATUS.LOW_STOCK : STOCK_LEVEL_STATUS.IN_STOCK,
       };
     });

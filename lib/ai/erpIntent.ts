@@ -6,6 +6,9 @@ export function normalizeErpText(text: string) {
   return text
     .replace(/\b(invocies|invoce|invioce)\b/gi, "invoices")
     .replace(/\bwat\b/gi, "what")
+    .replace(/\bwats\b/gi, "what's")
+    .replace(/\btotel\b/gi, "total")
+    .replace(/\bcustmers\b/gi, "customers")
     .replace(/\babt\b/gi, "about")
     .replace(/\bshiped\b/gi, "shipped")
     .replace(/\bhw\b/gi, "how")
@@ -54,8 +57,12 @@ export type ErpIntent =
   | { type: "customer_mobile_update"; customerQuery: string; newMobile: string }
   | { type: "product_draft" }
   | { type: "customer_receivables"; customer?: string }
+  | { type: "customer_last_invoice"; customer: string }
+  | { type: "top_customer_receivable" }
+  | { type: "overdue_invoice_summary" }
+  | { type: "bill_calculation"; quantity: number; unitPrice: number; gstRate: number; discountRate: number }
   | { type: "vendor_bill_query"; supplier?: string; billReference?: string; status?: string }
-  | { type: "sales_period_summary"; period: "this_month" | "last_month" | "this_year" | "last_30_days" }
+  | { type: "sales_period_summary"; period: "this_month" | "last_month" | "this_year" | "last_30_days"; wantsReceivables?: boolean }
   | { type: "plan"; feature?: string }
   | { type: "organization_info" }
   | {
@@ -334,9 +341,15 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   const q = normalizeErpText(text).trim().replace(/\bquotations?\b/gi, "quote");
 
   // Safety refusals
-  if (/\b(?:delete|remove|erase)\b.*\b(?:invoices?|quotes?|customers?|orders?|ledgers?|users?)\b/i.test(q)) return "refuse";
+  if (/\b(?:delete|remove|erase)\b.*\b(?:invoices?|quotes?|customers?|orders?|ledgers?|users?)\b/i.test(q) ||
+      (/\b(?:ignore|override|bypass)\b/i.test(q) && /\b(?:system\s+prompt|other\s+companies|other\s+tenants|all\s+customers)\b/i.test(q)) ||
+      (/\b(?:show|reveal|print|share)\b/i.test(q) && /\b(?:system\s+prompt|hidden\s+instructions|other\s+companies|other\s+tenants)\b/i.test(q))) return "refuse";
 
   // Financial values validation
+  const calc = q.match(/\b(\d+(?:\.\d+)?)\s+(?:units?|items?)\b.*?\b(?:at|for)\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\b.*?\b(\d+(?:\.\d+)?)\s*%\s*(?:gst|tax)\b.*?\b(\d+(?:\.\d+)?)\s*%\s*discount\b/i);
+  if (calc && /\b(?:calculate|final\s+bill|total\s+bill|how\s+much)\b/i.test(q)) {
+    return { type: "bill_calculation", quantity: Number(calc[1]), unitPrice: Number(calc[2]), gstRate: Number(calc[3]), discountRate: Number(calc[4]) };
+  }
   if (/\b(?:quantity|qty|discount)\b/i.test(q) && !/\b(?:invoice|create|prepare|draft|for)\b/i.test(q)) return "validate_values";
 
   // Quote workflow controls
@@ -442,6 +455,31 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   }
 
   // Customer outstanding balance / Total sales & receivables (SYS-07, SYS-27)
+  const lastInvoiceFollowUp = /\b(?:last|latest|most recent)\s+invoice\b/i.test(q) && /\b(?:when|date|was|is|their|that|customer)\b/i.test(q);
+  const previousCustomerForFollowUp = (context?.lastErpQuery as any)?.type === "customer_receivables"
+    ? (context?.lastErpQuery as any)?.customer
+    : undefined;
+  if (lastInvoiceFollowUp && previousCustomerForFollowUp) {
+    return { type: "customer_last_invoice", customer: previousCustomerForFollowUp };
+  }
+  if (/\b(?:which|who)\s+customers?\b/i.test(q) && /\b(?:owes?|owe|owing|highest|most)\b/i.test(q) && /\b(?:most|highest|maximum|largest)\b/i.test(q)) {
+    return { type: "top_customer_receivable" };
+  }
+  if (
+    /\b(?:sales?|revenue)\b/i.test(q) &&
+    /\b(?:customers?\s+(?:still\s+)?owe|receivables?|amount\s+owed)\b/i.test(q) &&
+    /\b(?:this|current|last|previous)\s+month\b|\b(?:this|current)\s+year\b/i.test(q) &&
+    !/\b(?:customer|for)\s+[A-Z0-9]+-[A-Z0-9_-]+\b/i.test(q)
+  ) {
+    const period = /\b(?:this|current)\s+month\b/i.test(q)
+      ? "this_month"
+      : /\b(?:last|previous)\s+month\b/i.test(q)
+      ? "last_month"
+      : /\b(?:this|current)\s+year\b/i.test(q)
+      ? "this_year"
+      : "last_30_days";
+    return { type: "sales_period_summary", period, wantsReceivables: true };
+  }
   if (
     /\b(?:how\s+much\s+does|how\s+much\s+(?:do\s+)?(?:my\s+)?customers?\s+(?:still\s+)?owe|amount\s+owed|outstanding\s+balance|total\s+sales\s+and\s+(?:outstanding\s+)?receivables|receivables\s+and\s+sales)\b/i.test(q) ||
     (/\b(?:owe|owed|outstanding|receivables?)\b/i.test(q) && /\b(?:customer|sales?|balance)\b/i.test(q))
@@ -768,6 +806,9 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   }
 
   // Revenue queries
+  if (/\b(?:overdue|past due)\b/i.test(q) && /\b(?:invoice|invoices)\b/i.test(q) && /\b(?:total|amount|value|how many|count|number)\b/i.test(q)) {
+    return { type: "overdue_invoice_summary" };
+  }
   if (
     /\b(?:revenue|sales)\b/i.test(q) &&
     /\b(?:payments?\s+received|cash\s+collected|collections?)\b/i.test(q)

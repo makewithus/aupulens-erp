@@ -16,7 +16,7 @@ import Customer from "@/models/sales/Customer";
 import Payment from "@/models/sales/Payment";
 import { COMMAND_ACTIONS } from "./commandActions";
 import { buildPostedJournalReport, toDateStartInTimeZone, toDateEndInTimeZone } from "@/lib/accounting/reports";
-import { issuedInvoiceFilter, invoiceRevenueExpression } from "@/lib/sales/invoiceEligibility";
+import { issuedInvoiceFilter, unpaidInvoiceFilter, invoiceRevenueExpression, invoiceOutstandingExpression } from "@/lib/sales/invoiceEligibility";
 import { AI_ACTION_STATUS as A, DOCUMENT_STATUS, PAYMENT_STATE, PAYMENT_STATUS } from "@/lib/constants/statuses";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "./conversationContext";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
@@ -232,17 +232,22 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   let structured: ErpStructuredResponse | any | undefined;
   if (!cached) {
     if (intent === "refuse") {
+      const asksForProtectedData = /\b(?:system\s+prompt|hidden\s+instructions|other\s+companies|other\s+tenants)\b/i.test(input.text);
       let draftCount = 0;
-      try {
-        const count = await SalesInvoice.countDocuments({
-          tenantId: input.tenantId === "default" || input.tenantId === "default-tenant"
-            ? { $in: ["default", "default-tenant"] }
-            : input.tenantId,
-          status: "draft",
-        });
-        if (typeof count === "number" && count >= 0) draftCount = count;
-      } catch {}
-      message = `Bulk deletion through the assistant is not supported. No deletion was performed; the ${draftCount} drafts stay safe and unchanged.`;
+      if (!asksForProtectedData) {
+        try {
+          const count = await SalesInvoice.countDocuments({
+            tenantId: input.tenantId === "default" || input.tenantId === "default-tenant"
+              ? { $in: ["default", "default-tenant"] }
+              : input.tenantId,
+            status: "draft",
+          });
+          if (typeof count === "number" && count >= 0) draftCount = count;
+        } catch {}
+      }
+      message = asksForProtectedData
+        ? "I can only access records in your current workspace, and I can’t reveal hidden system instructions. I can help with information you’re authorized to see."
+        : `Bulk deletion through the assistant is not supported. No deletion was performed; the ${draftCount} drafts stay safe and unchanged.`;
       structured = {
         type: "safety_refusal",
         title: "Bulk Deletion Not Supported",
@@ -251,6 +256,18 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         entity: "invoice",
         policy: "Bulk record deletions are restricted to manual administrative review to prevent accidental data loss.",
       };
+    }
+    else if (typeof intent === "object" && intent !== null && (intent as any).type === "bill_calculation") {
+      const { quantity, unitPrice, gstRate, discountRate } = intent as any;
+      const subtotal = quantity * unitPrice;
+      const discount = subtotal * discountRate / 100;
+      const taxable = subtotal - discount;
+      const tax = taxable * gstRate / 100;
+      const total = taxable + tax;
+      message = `Calculation only (no invoice created):\n\n` +
+        `- Subtotal: ${currency(subtotal)}\n- Discount (${discountRate}%): −${currency(discount)}\n` +
+        `- Taxable amount: ${currency(taxable)}\n- GST (${gstRate}%): ${currency(tax)}\n- **Final bill: ${currency(total)}**`;
+      structured = { type: "bill_calculation" as any, quantity, unitPrice, subtotal, discountRate, discount, taxable, gstRate, tax, total };
     }
     else if (intent === "validate_values") {
       const chat: any = await ChatHistory.findOne(filter).select("pendingQuoteProposalId").lean();
@@ -1297,7 +1314,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       }
 
       const dateRange = { $gte: startDate, $lt: endDate };
-      const [revenueRows, paymentRows, legacyRows] = await Promise.all([
+      const [revenueRows, paymentRows, legacyRows, receivableRows] = await Promise.all([
         SalesInvoice.aggregate([
           { $match: { tenantId: input.tenantId, ...issuedInvoiceFilter(), invoiceDate: dateRange } },
           { $group: { _id: null, revenue: { $sum: invoiceRevenueExpression }, count: { $sum: 1 } } },
@@ -1312,6 +1329,12 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           { $match: { "payments.date": dateRange, "payments.paymentId": { $exists: false } } },
           { $group: { _id: null, received: { $sum: "$payments.amount" }, count: { $sum: 1 } } },
         ]).option({ maxTimeMS: 10_000 }),
+        (intent as any).wantsReceivables
+          ? SalesInvoice.aggregate([
+              { $match: { tenantId: input.tenantId, ...issuedInvoiceFilter() } },
+              { $group: { _id: null, outstanding: { $sum: invoiceOutstandingExpression } } },
+            ]).option({ maxTimeMS: 10_000 })
+          : Promise.resolve([]),
       ]);
 
       const revenue = Number(revenueRows[0]?.revenue) || 0;
@@ -1320,8 +1343,19 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       const paymentCount = (Number(paymentRows[0]?.count) || 0) + (Number(legacyRows[0]?.count) || 0);
       message = `For ${periodLabel}:\n\n` +
         `- **Recognized revenue (excluding GST):** ${currency(revenue)} across ${invoiceCount} issued invoice(s), by invoice date.\n` +
-        `- **Payments received:** ${currency(paymentsReceived)} across ${paymentCount} recorded payment(s), by payment date.`;
-      structured = { type: "sales_period_summary" as any, period: periodLabel, revenue, invoiceCount, paymentsReceived, paymentCount };
+        `- **Payments received:** ${currency(paymentsReceived)} across ${paymentCount} recorded payment(s), by payment date.` +
+        ((intent as any).wantsReceivables ? `\n- **Current customer receivables:** ${currency(Number(receivableRows[0]?.outstanding) || 0)} across all issued invoices.` : "");
+      structured = { type: "sales_period_summary" as any, period: periodLabel, revenue, invoiceCount, paymentsReceived, paymentCount, ...( (intent as any).wantsReceivables ? { receivables: Number(receivableRows[0]?.outstanding) || 0 } : {}) };
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "overdue_invoice_summary") {
+      const overdueFilter = { tenantId: scope.tenantId, ...unpaidInvoiceFilter(new Date()) };
+      const [summary] = await SalesInvoice.aggregate([
+        { $match: overdueFilter },
+        { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: invoiceOutstandingExpression } } },
+      ]).option({ maxTimeMS: 10_000 });
+      const count = Number(summary?.count) || 0;
+      const amount = Number(summary?.amount) || 0;
+      message = `There ${count === 1 ? "is" : "are"} **${count}** overdue invoice(s) with a total outstanding amount of **${currency(amount)}**.`;
+      structured = { type: "overdue_invoice_summary" as any, count, amount };
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "vendor_bill_query") {
       const q = intent as { type: "vendor_bill_query"; supplier?: string; billReference?: string; status?: string };
       await connectDB();
@@ -1408,6 +1442,44 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           })),
           route: "/finance/bills",
         };
+      }
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "top_customer_receivable") {
+      await connectDB();
+      const [row] = await SalesInvoice.aggregate([
+        { $match: { tenantId: scope.tenantId, ...issuedInvoiceFilter() } },
+        { $group: { _id: "$customerId", outstanding: { $sum: invoiceOutstandingExpression } } },
+        { $sort: { outstanding: -1, _id: 1 } },
+        { $limit: 1 },
+      ]).option({ maxTimeMS: 10_000 });
+      const customer = row?._id
+        ? await Customer.findOne({ _id: row._id, tenantId: scope.tenantId }).select("header").lean()
+        : null;
+      if (!customer || Number(row.outstanding) <= 0) {
+        message = "No customer currently has an outstanding receivable in issued invoices.";
+        structured = { type: "top_customer_receivable" as any, customer: null, outstanding: 0 };
+      } else {
+        const name = customerName(customer);
+        message = `**${name}** has the highest current receivable: **${currency(Number(row.outstanding))}**.`;
+        structured = { type: "top_customer_receivable" as any, customerName: name, customerId: String(customer._id), outstanding: Number(row.outstanding) };
+      }
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "customer_last_invoice") {
+      await connectDB();
+      const customer = await resolveCustomer(scope.tenantId, (intent as any).customer);
+      const invoice = await SalesInvoice.findOne({
+        tenantId: scope.tenantId,
+        customerId: customer._id,
+        ...issuedInvoiceFilter(),
+      }).select("number invoiceDate").sort({ invoiceDate: -1, _id: -1 }).lean();
+      const name = customerName(customer);
+      if (!invoice) {
+        message = `No issued invoices were found for **${name}**.`;
+        structured = { type: "customer_last_invoice" as any, customerName: name, invoice: null };
+      } else {
+        const date = invoice.invoiceDate
+          ? new Date(invoice.invoiceDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" })
+          : "date unavailable";
+        message = `The most recent issued invoice for **${name}** is **${invoice.number}**, dated **${date}**.`;
+        structured = { type: "customer_last_invoice" as any, customerName: name, invoiceNumber: invoice.number, invoiceDate: invoice.invoiceDate };
       }
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "customer_receivables") {
       const q = intent as { type: "customer_receivables"; customer?: string };

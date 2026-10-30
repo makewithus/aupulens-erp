@@ -51,8 +51,23 @@ const ProjectSchema = new Schema<IProject>(
 
 ProjectSchema.index({ tenantId: 1, status: 1 });
 
+// Next.js can re-evaluate this module during development while Mongoose keeps
+// the previous model (and its old enum validators) registered. Reuse it only
+// when its status enum matches the current lifecycle values.
+const registeredProject = mongoose.models.Project as Model<IProject> | undefined;
+const registeredStatuses = registeredProject?.schema.path("status")?.options?.enum as
+  | readonly string[]
+  | undefined;
+const projectModelIsCurrent = PROJECT_STATUS_VALUES.every((status) =>
+  registeredStatuses?.includes(status)
+);
+
+if (registeredProject && !projectModelIsCurrent) {
+  mongoose.deleteModel("Project");
+}
+
 const Project: Model<IProject> =
-  (mongoose.models.Project as Model<IProject>) ||
+  (projectModelIsCurrent ? registeredProject : undefined) ||
   mongoose.model<IProject>("Project", ProjectSchema);
 
 export default Project;

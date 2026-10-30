@@ -74,8 +74,8 @@ interface FinanceSummary {
   };
   matrices?: {
     workingCapital: number;
-    currentRatio: number;
-    quickRatio: number;
+    currentRatio: number | null;
+    quickRatio: number | null;
     profitMargin: number | null;
     operatingMargin: number | null;
     profitStatus?: string;
@@ -575,7 +575,7 @@ export default function FinanceSummaryPage() {
                 />
               </div>
               <div className="text-2xl font-extrabold tracking-tight mt-2 text-blue-400">
-                {(summary?.matrices?.currentRatio || 0).toFixed(2)}x
+                {summary?.matrices?.currentRatio == null ? "Not available" : `${summary.matrices.currentRatio.toFixed(2)}x`}
               </div>
               <div className="flex items-center justify-between mt-2 text-xs">
                 <span className="text-[11px] text-muted-foreground">
@@ -583,11 +583,11 @@ export default function FinanceSummaryPage() {
                 </span>
                 <span className={cn(
                   "text-[10px] px-1.5 py-0.5 border font-semibold",
-                  (summary?.matrices?.currentRatio || 0) >= 1.5
+                  summary?.matrices?.currentRatio != null && summary.matrices.currentRatio >= 1.5
                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                 )}>
-                  {(summary?.matrices?.currentRatio || 0) >= 1.5 ? "Healthy" : "Watch"}
+                  {summary?.matrices?.currentRatio == null ? "Unavailable" : summary.matrices.currentRatio >= 1.5 ? "Healthy" : "Watch"}
                 </span>
               </div>
             </Card>
@@ -640,14 +640,14 @@ export default function FinanceSummaryPage() {
                 />
               </div>
               <div className="text-2xl font-extrabold tracking-tight mt-2 text-amber-400">
-                {(summary?.matrices?.operatingMargin || 0).toFixed(1)}%
+                {summary?.matrices?.operatingMargin == null ? "Not available" : `${summary.matrices.operatingMargin.toFixed(1)}%`}
               </div>
               <div className="flex items-center justify-between mt-2 text-xs">
                 <span className="text-[11px] text-muted-foreground">
                   EBITDA: {formatCompactCurrency(summary?.matrices?.ebitda)}
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
-                  Profitable
+                  {summary?.matrices?.profitStatus === "available" ? (Number(summary.matrices.operatingMargin) >= 0 ? "Profitable" : "Loss-making") : "Insufficient data"}
                 </span>
               </div>
             </Card>

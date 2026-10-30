@@ -129,7 +129,7 @@ export default function ManufacturingDashboard() {
       onRefresh={fetchSummary}
       profilePath="/manufacturing/profile"
     >
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+      <div className="p-1 sm:p-2 space-y-4 sm:space-y-6 min-w-0 max-w-full">
         {/* Page Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between pb-6 border-b border-border/40">
           <div className="space-y-2">
@@ -338,8 +338,8 @@ export default function ManufacturingDashboard() {
 
           {/* Recent Orders Card */}
           <Card className="md:col-span-2 border border-border/40 shadow-none rounded-none bg-background">
-            <CardHeader className="flex flex-row items-center justify-between p-6 border-b border-border/20">
-              <div>
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 p-4 sm:p-6 border-b border-border/20">
+              <div className="min-w-0">
                 <CardTitle className="text-base font-bold">Recent Manufacturing Orders</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Latest work orders queued or running across assembly lines.
@@ -349,7 +349,7 @@ export default function ManufacturingDashboard() {
                 <Link href="/manufacturing/manufacturing">View All Orders</Link>
               </Button>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-3 sm:p-6">
               {!summary || summary.recentOrders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <Factory className="h-10 w-10 mb-2 opacity-20" />
@@ -371,28 +371,28 @@ export default function ManufacturingDashboard() {
                     return (
                       <div
                         key={order._id || order.id}
-                        className="flex items-center justify-between p-3 border border-border/30 hover:bg-muted/20 transition-colors rounded-none"
+                        className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 p-3 border border-border/30 hover:bg-muted/20 transition-colors rounded-none sm:flex-nowrap sm:justify-between"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 bg-muted/40 rounded-none flex items-center justify-center border border-border/30">
+                        <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-initial">
+                          <div className="h-9 w-9 shrink-0 bg-muted/40 rounded-none flex items-center justify-center border border-border/30">
                             <Factory className="h-4 w-4 text-muted-foreground" />
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">
+                          <div className="min-w-0 flex-1">
+                            <p className="break-all text-sm font-semibold text-foreground sm:break-normal">
                               {order.id || order.name}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="break-words text-xs text-muted-foreground">
                               {order.product} · Qty: {order.quantity}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex w-full min-w-0 items-center justify-between gap-2 pl-12 sm:w-auto sm:justify-end sm:gap-4 sm:pl-0">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 text-[11px] font-mono font-medium ${colors.bg} ${colors.text} border border-border/30 rounded-none`}
+                            className={`inline-flex max-w-[65%] items-center whitespace-normal break-words px-2 py-1 text-[11px] font-mono font-medium leading-tight ${colors.bg} ${colors.text} border border-border/30 rounded-none sm:max-w-none sm:whitespace-nowrap sm:py-0.5`}
                           >
                             {PRODUCTION_STATUS_LABELS[ps] || ps}
                           </span>
-                          <div className="text-xs text-muted-foreground font-mono w-20 text-right">
+                          <div className="shrink-0 text-right text-xs text-muted-foreground font-mono sm:w-20">
                             {order.date}
                           </div>
                         </div>

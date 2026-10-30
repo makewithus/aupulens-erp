@@ -504,6 +504,33 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
                           });
                         }}
                       />
+                      <Select
+                        value={li.itemId || ""}
+                        onValueChange={(itemId) => {
+                          const match = products.find((p: any) => p._id === itemId);
+                          if (!match) return;
+                          updateLine(i, {
+                            name: match.header?.name || "",
+                            itemId,
+                            unitPrice: Number(match.tab_general_information?.list_price) || 0,
+                            taxRate: Number(match._taxRate ?? match.tab_general_information?.gstRate) || 0,
+                            hsn: match.tab_general_information?.hsnSacCode || "",
+                            gstTreatment: match.tab_general_information?.gstTreatment || "",
+                            taxReference: match.tab_general_information?.taxReference,
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="w-28 shrink-0" aria-label="Choose a catalog item">
+                          <SelectValue placeholder="Choose item" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {products.map((product: any) => (
+                            <SelectItem key={product._id} value={product._id}>
+                              {product.header?.name || "Unnamed item"} {product.tab_general_information?.type === "service" ? "(Service)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <datalist id={`items-list-${i}`}>
                         {products.map((p: any) => (
                           <option key={p._id} value={p.header?.name} />

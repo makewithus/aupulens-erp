@@ -6,13 +6,15 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import PurchaseOrder from "@/models/finance/PurchaseOrder";
 import StockTransfer from "@/models/inventory/StockTransfer";
 import Stock from "@/models/inventory/Stock";
+import StockMove from "@/models/inventory/StockMove";
 import Product from "@/models/inventory/Product";
-import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS, STOCK_MOVE_STATUS } from "@/lib/constants/statuses";
 import Invoice from "@/models/finance/Invoice";
 import { runPOMatching } from "@/lib/accounting/matching";
 import { validateObjectId } from "@/lib/api/validateId";
 import mongoose from "mongoose";
 import { withAccountingTransaction } from "@/lib/accounting/transaction";
+import { invalidateCache } from "@/lib/api/serverCache";
 
 export async function POST(
   request: NextRequest,
@@ -124,10 +126,13 @@ export async function POST(
     }
 
     const productIds = [...new Set(linesToProcess.map((line) => String(line.productId)))];
-    const ownedProducts = await Product.countDocuments({ _id: { $in: productIds }, tenantId });
-    if (ownedProducts !== productIds.length) {
+    const ownedProducts = await Product.find({ _id: { $in: productIds }, tenantId })
+      .select("_id header.name tab_general_information.unit tab_general_information.uom tab_general_information.standard_price")
+      .lean();
+    if (ownedProducts.length !== productIds.length) {
       return NextResponse.json({ error: "One or more purchase-order products are unavailable for this organization" }, { status: 400 });
     }
+    const productsById = new Map(ownedProducts.map((product: any) => [String(product._id), product]));
 
     // Generate incoming transfer name: WH/IN/00001
     const count = await StockTransfer.countDocuments({
@@ -180,6 +185,42 @@ export async function POST(
       createdBy: session.user.id as any,
     }));
     await Stock.insertMany(stockMoves);
+
+    // Stock is the signed balance ledger; StockMove is the operational
+    // movement register shown in Inventory → Stock Moves. Persist both from
+    // the same receipt transaction so an accepted PO cannot be invisible in
+    // the movement register.
+    const moveLines = linesToProcess.map((line) => {
+      const product: any = productsById.get(String(line.productId));
+      const unitCost = Number(product?.tab_general_information?.standard_price) || 0;
+      return {
+        productId: line.productId,
+        productName: product?.header?.name || line.name,
+        demand: line.qtyToReceive,
+        done: line.qtyToReceive,
+        uom: product?.tab_general_information?.uom || product?.tab_general_information?.unit || "Units",
+        unitCost,
+        totalValue: Number((line.qtyToReceive * unitCost).toFixed(2)),
+      };
+    });
+    const movementValue = moveLines.reduce((sum, line) => sum + line.totalValue, 0);
+    await StockMove.create({
+      tenantId,
+      reference: transferName,
+      moveType: "incoming",
+      sourceLocation: { warehouseName: "Supplier" },
+      destinationLocation: { warehouseName: "Main Warehouse" },
+      scheduledDate: new Date(),
+      effectiveDate: new Date(),
+      lines: moveLines,
+      moveStatus: STOCK_MOVE_STATUS.VALUATION_UPDATED,
+      valuation: { method: "standard", totalValue: movementValue, updatedAt: new Date() },
+      sourceDocument: po.name,
+      responsibleId: session.user.id,
+      notes: `Goods receipt for Purchase Order ${po.name}`,
+      chatter: [{ authorId: session.user.id, body: `Received against ${po.name}`, type: "notification", createdAt: new Date() }],
+    });
+    invalidateCache(`inv-stock-moves:${tenantId}`);
 
     // 3. Update PO line received quantities
     for (const l of linesToProcess) {
