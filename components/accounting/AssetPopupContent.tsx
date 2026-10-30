@@ -33,6 +33,7 @@ export function AssetPopupContent({
   isViewOnly = false,
 }: AssetPopupContentProps) {
   const [accounts, setAccounts] = React.useState<any[]>([]);
+  const [fixedAssetAccounts, setFixedAssetAccounts] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     fetchAccounts();
@@ -40,9 +41,16 @@ export function AssetPopupContent({
 
   const fetchAccounts = async () => {
     try {
-      const res = await fetch("/api/accounting/accounts");
-      const data = await res.json();
-      setAccounts(data.items || []);
+      const [allAccountsRes, fixedAccountsRes] = await Promise.all([
+        fetch("/api/accounting/accounts"),
+        fetch("/api/accounting/accounts?type=fixed-asset"),
+      ]);
+      const [allAccountsData, fixedAccountsData] = await Promise.all([
+        allAccountsRes.json(),
+        fixedAccountsRes.json(),
+      ]);
+      setAccounts(allAccountsData.items || []);
+      setFixedAssetAccounts(fixedAccountsData.items || []);
     } catch (error) {
       console.error("Error fetching accounts:", error);
     }
@@ -212,7 +220,7 @@ export function AssetPopupContent({
               Asset Account
             </Label>
             <SelectSearchAdd
-              items={accounts}
+              items={fixedAssetAccounts}
               value={
                 typeof formData.accounts?.assetAccountId === "object"
                   ? formData.accounts?.assetAccountId?._id
@@ -224,7 +232,7 @@ export function AssetPopupContent({
                   accounts: { ...formData.accounts, assetAccountId: v },
                 })
               }
-              placeholder="Select Asset Account"
+              placeholder="Select fixed asset account"
               onAdd={onAddAccount}
               dialogTitle="Create Asset Account"
               keyField="_id"

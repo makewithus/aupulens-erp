@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
@@ -8,7 +8,7 @@ import { REAL_ORDER_MATCH } from "@/lib/sales/orderEligibility";
 import { issuedInvoiceFilter, invoiceRevenueExpression } from "@/lib/sales/invoiceEligibility";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     
@@ -28,26 +28,40 @@ export async function GET() {
 
     await connectDB();
 
-    // Get last 6 months data
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const requestedDays = Number(req.nextUrl.searchParams.get("days") || "90");
+    const days = Number.isFinite(requestedDays) ? Math.min(Math.max(Math.trunc(requestedDays), 7), 365) : 90;
+    const rangeEnd = new Date();
+    const rangeStart = new Date(rangeEnd);
+    rangeStart.setUTCDate(rangeStart.getUTCDate() - (days - 1));
+    rangeStart.setUTCHours(0, 0, 0, 0);
+    const orderDateRange = {
+      $and: [
+        REAL_ORDER_MATCH,
+        {
+          $or: [
+            { "header.dateOrder": { $gte: rangeStart, $lte: rangeEnd } },
+            { "header.dateOrder": { $exists: false }, createdAt: { $gte: rangeStart, $lte: rangeEnd } },
+            { "header.dateOrder": null, createdAt: { $gte: rangeStart, $lte: rangeEnd } },
+          ],
+        },
+      ],
+    };
 
     // These aggregations are independent of each other, so run them concurrently
     const [ordersData, revenueData, topProducts, dailyOrdersData] = await Promise.all([
-      // Match the confirmed-order definition used by Sales Summary.
       SaleOrder.aggregate([
         {
           $match: {
             tenantId,
-            createdAt: { $gte: sixMonthsAgo },
-            ...REAL_ORDER_MATCH,
+            ...orderDateRange,
           }
         },
+        { $addFields: { orderDate: { $ifNull: ["$header.dateOrder", "$createdAt"] } } },
         {
           $group: {
             _id: {
-              month: { $month: '$createdAt' },
-              year: { $year: '$createdAt' }
+              month: { $month: '$orderDate' },
+              year: { $year: '$orderDate' }
             },
             count: { $sum: 1 }
           }
@@ -60,7 +74,7 @@ export async function GET() {
         {
           $match: {
             tenantId,
-            invoiceDate: { $gte: sixMonthsAgo },
+            invoiceDate: { $gte: rangeStart, $lte: rangeEnd },
             ...issuedInvoiceFilter()
           }
         },
@@ -77,13 +91,11 @@ export async function GET() {
       ]),
 
 
-      // Get top products
       SaleOrder.aggregate([
         {
           $match: {
             tenantId,
-            createdAt: { $gte: sixMonthsAgo },
-            ...REAL_ORDER_MATCH,
+            ...orderDateRange,
           }
         },
         { $unwind: '$orderLines' },
@@ -104,18 +116,17 @@ export async function GET() {
         }
       ]),
 
-      // Daily orders for DailyBrickBarChart (last 90 days)
       SaleOrder.aggregate([
         {
           $match: {
             tenantId,
-            createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
-            ...REAL_ORDER_MATCH,
+            ...orderDateRange,
           }
         },
+        { $addFields: { orderDate: { $ifNull: ["$header.dateOrder", "$createdAt"] } } },
         {
           $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$orderDate", timezone: "UTC" } },
             count: { $sum: 1 },
             value: { $sum: { $ifNull: ["$totals.amountTotal", 1] } }
           }
@@ -128,20 +139,24 @@ export async function GET() {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
     const orders = ordersData.map(item => ({
-      month: monthNames[item._id.month - 1],
+      month: `${monthNames[item._id.month - 1]} '${String(item._id.year).slice(-2)}`,
       count: item.count
     }));
 
     const revenue = revenueData.map(item => ({
-      month: monthNames[item._id.month - 1],
+      month: `${monthNames[item._id.month - 1]} '${String(item._id.year).slice(-2)}`,
+      date: `${item._id.year}-${String(item._id.month).padStart(2, "0")}-01`,
       amount: Math.round(item.amount)
     }));
 
-    const dailyOrders = dailyOrdersData.map(item => ({
-      date: item._id,
-      count: item.count,
-      value: item.value
-    }));
+    const dailyOrderMap = new Map(dailyOrdersData.map((item) => [item._id, item]));
+    const dailyOrders = Array.from({ length: days }, (_, index) => {
+      const date = new Date(rangeStart);
+      date.setUTCDate(date.getUTCDate() + index);
+      const key = date.toISOString().slice(0, 10);
+      const item = dailyOrderMap.get(key);
+      return { date: key, count: item?.count || 0, value: item?.value || 0 };
+    });
 
     const payload = {
       orders,

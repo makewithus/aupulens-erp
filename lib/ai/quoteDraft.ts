@@ -45,7 +45,7 @@ function draftSummary(name: string, line: ReturnType<typeof productLine>) {
 
 export async function prepareQuoteDraft(scope: Scope, text: string, requestId: string) {
   requireSalesAccess(scope.role);
-  let q = normalizeErpText(text).trim().replace(/[.!]$/, "");
+  let q = normalizeErpText(text).trim().replace(/\bquotations?\b/gi, "quote").replace(/[.!]$/, "");
   // Extract explicit percentage clauses before splitting customer/product slots.
   // Retain out-of-range values so shared server validation can reject them.
   const discounts: number[] = [];
@@ -72,6 +72,12 @@ export async function prepareQuoteDraft(scope: Scope, text: string, requestId: s
   q = q.replace(/(?:ke\s+liye|ko)\s+/gi, "for ")
        .replace(/(?:ka\s+)?quote\s+(?:banao|banayein|karo|taiyar|banana)/gi, "quote")
        .replace(/quote\s+(?:banao|banayein|karo|taiyar|banana)(?:\s+for)?/gi, "quote for");
+
+  // Common ERP phrasing: “make quotation for CUSTOMER : 5 qty PRODUCT”.
+  // Canonicalize it before the general patterns so the customer and product
+  // remain tied to the same draft request.
+  const labeledQuantity = q.match(/^(?:make|create|prepare|draft)\s+(?:a\s+)?quote\s+for\s+(.+?)\s*[:,;-]\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:qty|quantity|units?|pcs|pieces?|nos)\s+(.+)$/i);
+  if (labeledQuantity) q = `quote for ${labeledQuantity[1].trim()}, ${labeledQuantity[2]} ${labeledQuantity[3].trim()}`;
 
   // Supported patterns:
   // 1. quote for <customer>, <qty> <product>
@@ -277,24 +283,37 @@ export async function updateQuoteDraft(scope: Scope, proposalId: string, text: s
   if (params.lastEditRequestId === requestId) return { proposalId, message: proposal.summary };
   const quantities = [...text.matchAll(/\b(?:quantity|qty)\s*(?:(?:to|at|is)\s*|[=:]\s*)?([+-]?(?:\d+(?:\.\d+)?|\.\d+))(?![\w+-]|\.\d|\.\.)/gi)].map(m => Number(m[1]));
   const discounts = [...text.matchAll(/(?<![\w.+-])(?:([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*%\s*discount\b|\bdiscount\s*(?:(?:to|at|is|of)\s*|[=:]\s*)?([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*%)/gi)].map(m => Number(m[1] ?? m[2]));
+  const priceMatch = text.match(/\b(?:selling\s+price|unit\s+price|price)\s*(?:(?:to|at|is)\s*|[=:]\s*)₹?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i);
+  const barePriceMatch = text.trim().match(/^₹?\s*([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:rs\.?|inr)?$/i);
+  const enteredPrice = priceMatch?.[1] ?? barePriceMatch?.[1];
+  const prices = enteredPrice === undefined ? [] : [Number(enteredPrice.replace(/,/g, ""))];
   const errors = [
     ...quantities.filter(q => !Number.isFinite(q) || q <= 0).map(q => `Quantity ${q} is invalid; quantity must be greater than zero.`),
     ...discounts.filter(d => !Number.isFinite(d) || d < 0 || d > 100).map(d => `A ${d}% discount is not allowed; the range is 0–100%.`),
+    ...prices.filter(p => !Number.isFinite(p) || p < 0).map(p => `Selling price ${p} is invalid; price must be zero or greater.`),
   ];
   if ((text.match(/\b(?:quantity|qty)\b/gi)?.length ?? 0) !== quantities.length || (text.match(/\bdiscount\b/gi)?.length ?? 0) !== discounts.length) errors.push("Each quantity and discount must have one valid numeric value.");
   if (quantities.length > 1 || discounts.length > 1) errors.push("Please specify one quantity and one discount per edit.");
-  if (!quantities.length && !discounts.length) errors.push("Specify a quantity (for example, quantity 2.5) or a percentage discount (for example, discount 10%).");
+  if (!quantities.length && !discounts.length && !prices.length) errors.push("Specify a quantity (for example, quantity 2.5), a selling price, or a percentage discount (for example, discount 10%).");
   if (/\b(?:quantity|qty)\b/i.test(text) && !quantities.length) errors.push("Quantity must be a finite positive number.");
   if (/\bdiscount\b/i.test(text) && !discounts.length) errors.push("Specify the discount as a percentage from 0–100%.");
   if (errors.length) throw new ErpToolError("BUSINESS_RULE", errors.join(" ") + " No draft values were changed.");
   const product = await Product.findOne({ tenantId: scope.tenantId, _id: params.line.itemId, "header.sale_ok": { $ne: false } }).lean();
   if (!product) throw new ErpToolError("NOT_FOUND", "The product is no longer available.", 404);
+  if (prices.length && prices[0] !== Number(product.tab_general_information?.list_price)) {
+    throw new ErpToolError("BUSINESS_RULE", `The catalog selling price is ${currency(product.tab_general_information?.list_price)}. No draft values were changed.`);
+  }
   const line = { ...params.line, ...(quantities.length ? { qty: quantities[0] } : {}), ...(discounts.length ? { discount: discounts[0], discountMode: "percent" as const } : {}) };
   validateDraftLine(product, line);
   const customer = await Customer.findOne({ tenantId: scope.tenantId, _id: params.customerId }).select("header").lean();
   if (!customer) throw new ErpToolError("NOT_FOUND", "The customer is no longer available.", 404);
   const summary = draftSummary(customerName(customer), line);
   const revision = params.revision;
+  // A price reply that matches the catalog is an acknowledgement, not an edit.
+  // Keep the existing proposal revision and its confirmation token intact.
+  if (!quantities.length && !discounts.length && prices.length) {
+    return { proposalId, message: summary, customerName: customerName(customer), line, totals: computeInvoiceTotals({ lineItems: [line] }) };
+  }
   const updated = await AiCommandProposal.findOneAndUpdate({ ...filter, status: A.PROPOSED, expiresAt: { $gt: new Date() }, "params.executing": { $ne: true }, "params.revision": revision ?? { $exists: false } }, { $set: { "params.line": line, "params.revision": (revision ?? 0) + 1, "params.lastEditRequestId": requestId, summary, preview: { total: computeInvoiceTotals({ lineItems: [line] }).totalAmount } } }, { new: true });
   if (!updated) throw new ErpToolError("DRAFT_CHANGED", "The draft changed or is being confirmed. Please review it and try again.", 409);
   return {

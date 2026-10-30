@@ -15,6 +15,11 @@ const RETAINED_EARNINGS_NAME = /retained\s+earnings?/i;
 const INVENTORY_NAME = /\b(?:inventory|stock)\b/i;
 
 function expectedNormalBalance(account: ReportAccount): "debit" | "credit" | null {
+  // Inventory is a debit-balance asset. Do not let bad/stale account metadata
+  // (for example normal_balance="credit") hide a negative inventory balance.
+  if (account.internalGroup === "asset" && INVENTORY_NAME.test(account.name)) {
+    return "debit";
+  }
   if (account.normalBalance) return account.normalBalance;
   if (account.internalGroup === "asset") {
     return CONTRA_ASSET_NAME.test(account.name) ? "credit" : "debit";

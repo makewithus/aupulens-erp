@@ -5,6 +5,7 @@ import { ENTITY_STATUS, PAYMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/const
 
 import { buildPostedJournalReport, buildPostedIncomeExpenseSeries } from "@/lib/accounting/reports";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
+import { REAL_ORDER_MATCH } from "@/lib/sales/orderEligibility";
 
 const POSTED_SALES_STATUSES = [
   SALES_INVOICE_STATUS.SAVED,
@@ -124,13 +125,14 @@ export async function GET(req?: Request) {
     ] = await Promise.all([
       SaleOrder.countDocuments({
         tenantId,
+        ...REAL_ORDER_MATCH,
       }),
       SaleOrder.countDocuments({
-        createdAt: { $gte: currentMonthStart },
+        $and: [REAL_ORDER_MATCH, { $or: [{ dateOrder: { $gte: currentMonthStart, $lt: nextMonthStart } }, { dateOrder: { $exists: false }, createdAt: { $gte: currentMonthStart, $lt: nextMonthStart } }] }],
         tenantId,
       }),
       SaleOrder.countDocuments({
-        createdAt: { $gte: prevMonthStart, $lt: currentMonthStart },
+        $and: [REAL_ORDER_MATCH, { $or: [{ dateOrder: { $gte: prevMonthStart, $lt: currentMonthStart } }, { dateOrder: { $exists: false }, createdAt: { $gte: prevMonthStart, $lt: currentMonthStart } }] }],
         tenantId,
       }),
       Customer.countDocuments({
@@ -213,7 +215,7 @@ export async function GET(req?: Request) {
       monthRanges.map(({ monthStart, monthEnd }) =>
         totalSaleOrders > 0
           ? SaleOrder.countDocuments({
-              createdAt: { $gte: monthStart, $lt: monthEnd },
+              $and: [REAL_ORDER_MATCH, { $or: [{ dateOrder: { $gte: monthStart, $lt: monthEnd } }, { dateOrder: { $exists: false }, createdAt: { $gte: monthStart, $lt: monthEnd } }] }],
               tenantId,
             })
           : SalesInvoice.countDocuments({
@@ -257,7 +259,9 @@ export async function GET(req?: Request) {
 
       chartData.push({
         month: monthNames[month],
-        revenue: revenueByMonth.get(monthNames[month]) ?? 0,
+        // The accounting series is keyed by YYYY-MM. Month names alone collide
+        // across years and never matched the API's actual keys.
+        revenue: revenueByMonth.get(`${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`) ?? 0,
         orders: ordersByMonth[5 - i],
       });
     }

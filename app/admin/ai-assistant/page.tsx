@@ -105,8 +105,6 @@ export default function AIAssistant() {
     }
     usageRequestWasActive.current = true;
     refreshAiUsage();
-    const timer = window.setInterval(refreshAiUsage, 2500);
-    return () => window.clearInterval(timer);
   }, [isLoading]);
   const { supported: micSupported, listening, transcribing, audioLevels, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),

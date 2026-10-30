@@ -99,6 +99,36 @@ export function resolveAccountGroupAndType(
   internalGroup: ReportGroup;
   accountType: string;
 } {
+  const name = (account.name || account.accountName || "").toLowerCase();
+  const code = String(account.code || account.accountCode || "");
+  const isBankOrCash = /\b(?:bank|cash)\b/.test(name);
+  const isInventory = /\b(?:inventory|stock)\b/.test(name);
+
+  // Legacy COA imports carry a useful `type` field alongside newer metadata.
+  // Prefer that explicit legacy type when newer fields conflict (e.g. a
+  // fixed-asset ledger accidentally tagged as equity by a code collision).
+  if (account.type === "fixed_asset") {
+    return { internalGroup: "asset", accountType: "asset_fixed" };
+  }
+  // Legacy fixed-asset ledgers can carry a conflicting modern AccountType
+  // (for example code 1500 was once also used by the Investments seed). Resolve
+  // these well-known asset codes/names before trusting that stale metadata.
+  if (
+    /^(14|15)/.test(code) &&
+    /\b(?:machinery|equipment|vehicle|truck|furniture|fixed asset)\b/.test(name)
+  ) {
+    return { internalGroup: "asset", accountType: "asset_fixed" };
+  }
+  if (account.type === "bank" || isBankOrCash) {
+    return { internalGroup: "asset", accountType: "asset_cash" };
+  }
+  if (isInventory) {
+    return { internalGroup: "asset", accountType: "asset_current" };
+  }
+  if (/accounts\s+receivable/i.test(name)) {
+    return { internalGroup: "asset", accountType: "asset_receivable" };
+  }
+
   if (account.internal_group && account.account_type) {
     return {
       internalGroup: account.internal_group as ReportGroup,
@@ -111,9 +141,9 @@ export function resolveAccountGroupAndType(
     : null;
   const segment = at?.segment || "";
   const atName = at?.name || "";
-  const name = (account.name || account.accountName || "").toLowerCase();
-  const code = String(account.code || account.accountCode || "");
 
+  // Legacy/imported COAs may store `type` instead of `account_type`; prefer
+  // clear bank and inventory names before applying account-code conventions.
   if (
     segment === "Cash and cash equivalents" ||
     atName === "Bank" ||
@@ -207,7 +237,7 @@ export function resolveAccountGroupAndType(
 
   if (code.startsWith("1")) {
     const isCash = code.startsWith("11");
-    const isAr = code === "1200";
+    const isAr = code === "1200" && !isInventory;
     const isFixed = code.startsWith("14") || code.startsWith("15");
     return {
       internalGroup: "asset",

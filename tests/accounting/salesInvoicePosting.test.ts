@@ -13,6 +13,7 @@ import { postSalesInvoiceJournal } from "@/lib/accounting/salesInvoicePosting";
 vi.mock("@/lib/db", () => ({ default: async () => {} }));
 
 const tenantId = "t-sales-invoice-posting";
+const legacyChartTenantId = "t-sales-invoice-legacy-chart";
 const createdBy = new mongoose.Types.ObjectId().toString();
 
 async function makeCustomer() {
@@ -67,6 +68,10 @@ describe("postSalesInvoiceJournal (Issue #9 — Sales never posted revenue to th
     await (SalesInvoice as any).deleteMany({ tenantId });
     await JournalEntry.deleteMany({ tenantId });
     await Customer.deleteMany({ tenantId });
+    await (SalesInvoice as any).deleteMany({ tenantId: legacyChartTenantId });
+    await JournalEntry.deleteMany({ tenantId: legacyChartTenantId });
+    await Customer.deleteMany({ tenantId: legacyChartTenantId });
+    await Account.deleteMany({ tenantId: legacyChartTenantId });
   });
 
   it("posts Dr Accounts Receivable / Cr Revenue for a plain (no-tax) invoice", async () => {
@@ -93,6 +98,53 @@ describe("postSalesInvoiceJournal (Issue #9 — Sales never posted revenue to th
     const reloaded = await (SalesInvoice as any).findById(invoice._id).lean();
     expect(reloaded!.postedSnapshot).toEqual({ taxableAmount: 1000, totalTax: 0, tcsAmount: 0, tdsAmount: 0 });
     expect(reloaded!.journalEntryIds).toHaveLength(1);
+  });
+
+  it("uses the receivable classification when legacy code 1200 is inventory", async () => {
+    const customer = await Customer.create({
+      tenantId: legacyChartTenantId,
+      header: { name: "Legacy Chart Customer", is_company: true },
+      createdBy: new mongoose.Types.ObjectId(createdBy),
+    });
+    const receivable = await Account.create({
+      tenantId: legacyChartTenantId,
+      code: "1100",
+      name: "Accounts Receivable",
+      account_type: "asset_receivable",
+      internal_group: "asset",
+      createdBy: new mongoose.Types.ObjectId(createdBy),
+    });
+    const inventory = await Account.create({
+      tenantId: legacyChartTenantId,
+      code: "1200",
+      name: "Inventory Asset Stock",
+      account_type: "asset_current",
+      internal_group: "asset",
+      createdBy: new mongoose.Types.ObjectId(createdBy),
+    });
+    const invoice = await (SalesInvoice as any).create({
+      tenantId: legacyChartTenantId,
+      number: "INV-LEGACY-AR-001",
+      customerId: customer._id,
+      invoiceDate: new Date("2026-07-10"),
+      dueDate: new Date("2026-07-20"),
+      lineItems: [{ name: "Widget", qty: 1, unitPrice: 1000, discount: 0, discountMode: "percent", taxRate: 0, lineTotal: 1000 }],
+      taxableAmount: 1000,
+      totalDiscount: 0,
+      totalAmount: 1000,
+      status: "saved",
+    });
+
+    const journalId = await postSalesInvoiceJournal({
+      invoice,
+      tenantId: legacyChartTenantId,
+      createdBy,
+      current: { taxableAmount: 1000, totalTax: 0, tcsAmount: 0, tdsAmount: 0 },
+    });
+    const entry = await JournalEntry.findById(journalId).lean();
+
+    expect(sumByAccount(entry!.lineIds, receivable._id, "debit")).toBe(1000);
+    expect(sumByAccount(entry!.lineIds, inventory._id, "debit")).toBe(0);
   });
 
   it("posts GST as its own liability line, AR still equal to the full total", async () => {

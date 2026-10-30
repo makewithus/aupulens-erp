@@ -218,7 +218,7 @@ export function DailyBrickBarChart({
       if (data.length === 0) {
         return seedDemonstration
           ? generate365DailyData(year, { base: 18000, variance: 8000, seed: 1337, totalDays: initialDays })
-          : generateZeroDailyData(initialDays);
+          : [];
       }
       return data
         .map((item, idx) => {
@@ -245,7 +245,7 @@ export function DailyBrickBarChart({
       return generate365DailyData(year);
     }
 
-    return generateZeroDailyData(initialDays);
+    return seedDemonstration ? generate365DailyData(year, { totalDays: initialDays }) : [];
   }, [data, dateKey, valueKey, seedDemonstration, year, initialDays]);
 
   // View window within chartData: [startIdx, endIdx]
@@ -935,6 +935,17 @@ export function DailyBrickBarChart({
       setViewRange([start, total]);
     }
   };
+
+  if (chartData.length === 0 && !seedDemonstration) {
+    return (
+      <div
+        className={cn("flex w-full items-center justify-center border font-mono text-sm text-muted-foreground", className)}
+        style={{ height: typeof height === "number" ? `${height}px` : height }}
+      >
+        No records are available for this chart.
+      </div>
+    );
+  }
 
   return (
     <div

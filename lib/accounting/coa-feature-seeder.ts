@@ -44,7 +44,7 @@ const ACCOUNTS_DATA = [
   { name: "Purchase Discounts", type: "Expense", locked: true },
   { name: "Inventory Asset", type: "Stock", locked: true },
   { name: "Shipping Charge", type: "Income", locked: true },
-  { name: "Investments", type: "Equity", locked: false },
+  { name: "Investments", type: "Non Current Asset", locked: false },
   { name: "Unearned Revenue", type: "Other Current Liability", locked: true },
   { name: "Opening Balance Adjustments", type: "Other Current Liability", locked: true },
   { name: "Dimension Adjustments", type: "Other Liability", locked: true },
@@ -181,7 +181,7 @@ const CANONICAL_ACCOUNT_CODES: Record<string, string> = {
   "Depreciation And Amortisation": "5310",
   "Finished Goods": "1310",
   "Work In Progress": "1320",
-  "Investments": "1500",
+  "Investments": "1600",
   "Prepaid Expenses": "1230",
   "Employee Advance": "1240",
   "Advance Tax": "1250",
@@ -261,6 +261,48 @@ export async function seedNewChartOfAccounts(tenantId: string, createdByUserId: 
     },
   }));
   await AccountType.bulkWrite(typeOps, { ordered: !session ? false : true, session });
+
+  // Normalize legacy classifications before canonical account seeding. Old
+  // imported COAs stored `type` (bank/current_asset/fixed_asset); newer seed
+  // passes can otherwise misclassify a real fixed-asset code by collision.
+  const fixedAssetType = await AccountType.findOne({ tenantId, name: "Fixed Asset" }).select("_id").session(session || null).lean();
+  const bankType = await AccountType.findOne({ tenantId, name: "Bank" }).select("_id").session(session || null).lean();
+  const stockType = await AccountType.findOne({ tenantId, name: "Stock" }).select("_id").session(session || null).lean();
+  const receivableType = await AccountType.findOne({ tenantId, name: "Accounts Receivable" }).select("_id").session(session || null).lean();
+
+  // `type` is an old, unmodeled field on Account, so use the raw collection
+  // here. Mongoose strictQuery would otherwise drop it and leave corrupted
+  // metadata untouched. Copying the actual ledger name also prevents an old
+  // accountName alias from matching the wrong canonical seed entry.
+  const legacyAccounts = await Account.collection.find(
+    { tenantId, $or: [
+      { type: { $in: ["fixed_asset", "bank", "current_asset"] } },
+      { name: /inventory|stock|accounts receivable/i },
+      { accountName: /inventory|stock|accounts receivable/i },
+    ] },
+    { projection: { _id: 1, name: 1, accountName: 1, type: 1, code: 1, accountCode: 1 }, ...(session ? { session } : {}) },
+  ).toArray();
+  for (const account of legacyAccounts) {
+    const name = String(account.name || account.accountName || "");
+    const normalized = name.toLowerCase();
+    let classification: Record<string, unknown> | undefined;
+    if (account.type === "fixed_asset") {
+      classification = { internal_group: "asset", account_type: "asset_fixed", ...(fixedAssetType?._id ? { accountType: fixedAssetType._id } : {}) };
+    } else if (account.type === "bank" || /\b(?:bank|cash)\b/i.test(name)) {
+      classification = { internal_group: "asset", account_type: "asset_cash", ...(bankType?._id ? { accountType: bankType._id } : {}) };
+    } else if (/inventory|stock/i.test(normalized)) {
+      classification = { internal_group: "asset", account_type: "asset_current", ...(stockType?._id ? { accountType: stockType._id } : {}) };
+    } else if (/accounts\s+receivable/i.test(normalized)) {
+      classification = { internal_group: "asset", account_type: "asset_receivable", ...(receivableType?._id ? { accountType: receivableType._id } : {}) };
+    }
+    if (classification) {
+      await Account.collection.updateOne(
+        { _id: account._id, tenantId },
+        { $set: { ...classification, ...(account.name ? { accountName: account.name } : {}) } },
+        session ? { session } : {},
+      );
+    }
+  }
 
   // Fetch all types to build the map
   const allTypes = await AccountType.find({ tenantId }, { name: 1, _id: 1 }).session(session || null);

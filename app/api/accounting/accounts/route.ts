@@ -73,6 +73,25 @@ export async function GET(request: NextRequest) {
       query.isActive = { $ne: false };
       query.status = { $ne: "inactive" };
     }
+    if (type === "fixed-asset") {
+      const fixedAssetTypeIds = await AccountType.find({
+        tenantId,
+        $or: [
+          { name: { $in: ["Fixed Asset", "Intangible Asset"] } },
+          { segment: "Fixed Asset" },
+        ],
+      }).distinct("_id");
+      query.$or = [
+        { account_type: "asset_fixed" },
+        { type: "fixed_asset" },
+        { accountType: { $in: fixedAssetTypeIds } },
+        { code: /^(14|15)/ },
+        { accountCode: /^(14|15)/ },
+      ];
+      query.isActive = { $ne: false };
+      query.status = { $ne: "inactive" };
+      query.name = { $not: /accumulated\s+(depreciation|amortization)/i };
+    }
 
     let accounts = await Account.find(query)
       .sort({ code: 1 })

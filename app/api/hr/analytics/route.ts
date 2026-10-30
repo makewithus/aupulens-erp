@@ -38,7 +38,8 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const rangeDays = range === "1Y" ? 365 : range === "90D" ? 90 : 30;
-    const rangeStartDate = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const rangeStartDate = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
     const tenantMatch = { tenantId };
 
     // 1. Live Core Aggregations from Database
@@ -78,8 +79,8 @@ export async function GET(req: NextRequest) {
         ...tenantMatch,
         lifecycleStatus: "exited",
         $or: [
-          { "exitDetails.lastWorkingDate": { $gte: rangeStartDate } },
-          { "exitDetails.lastWorkingDate": null, "exitDetails.resignationDate": { $gte: rangeStartDate } },
+          { "exitDetails.lastWorkingDate": { $gte: rangeStartDate, $lte: now } },
+          { "exitDetails.lastWorkingDate": null, "exitDetails.resignationDate": { $gte: rangeStartDate, $lte: now } },
         ],
       }),
 
@@ -110,7 +111,7 @@ export async function GET(req: NextRequest) {
 
       // Trajectory: Group employees by dateOfJoining month
       Employee.aggregate([
-        { $match: { ...tenantMatch, dateOfJoining: { $ne: null } } },
+        { $match: { ...tenantMatch, dateOfJoining: { $gte: rangeStartDate, $lte: now } } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m", date: "$dateOfJoining" } },
@@ -129,7 +130,7 @@ export async function GET(req: NextRequest) {
             exitDate: { $ifNull: ["$exitDetails.lastWorkingDate", "$exitDetails.resignationDate"] },
           },
         },
-        { $match: { exitDate: { $ne: null } } },
+        { $match: { exitDate: { $gte: rangeStartDate, $lte: now } } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m", date: "$exitDate" } },
@@ -201,7 +202,7 @@ export async function GET(req: NextRequest) {
           $match: {
             ...tenantMatch,
             status: { $in: [PAYROLL_STATUS.DISBURSED, PAYROLL_STATUS.POSTED_TO_GL] },
-            disbursedAt: { $gte: rangeStartDate },
+            disbursedAt: { $gte: rangeStartDate, $lte: now },
           },
         },
         { $unwind: "$lineItems" },
@@ -227,7 +228,7 @@ export async function GET(req: NextRequest) {
           $match: {
             ...tenantMatch,
             status: "approved",
-            startDate: { $lte: new Date() },
+            startDate: { $lte: now },
             endDate: { $gte: rangeStartDate },
           },
         },
@@ -241,7 +242,7 @@ export async function GET(req: NextRequest) {
 
       // Performance Reviews by rating (strict tenant isolation)
       PerformanceReview.aggregate([
-        { $match: tenantMatch },
+        { $match: { ...tenantMatch, createdAt: { $gte: rangeStartDate, $lte: now } } },
         {
           $group: {
             _id: "$rating",
@@ -253,7 +254,7 @@ export async function GET(req: NextRequest) {
 
       // Attendance grouped by actual weekday and status within selected period.
       Attendance.aggregate([
-        { $match: { ...tenantMatch, date: { $gte: rangeStartDate } } },
+        { $match: { ...tenantMatch, date: { $gte: rangeStartDate, $lte: now } } },
         {
           $group: {
             _id: { $dayOfWeek: "$date" },
@@ -270,18 +271,20 @@ export async function GET(req: NextRequest) {
     const activeHeadcount = activeEmployees;
 
     // 2. Reconcile the trajectory to actual hires and recorded exits.
-    const sliceMonths = range === "1Y" ? 12 : range === "90D" ? 3 : 1;
     const hiresByMonth = new Map<string, number>(trajectoryRaw.map((row: any) => [String(row._id), Number(row.hires) || 0]));
     const exitsByMonth = new Map<string, number>(exitTrajectoryRaw.map((row: any) => [String(row._id), Number(row.exits) || 0]));
-    const now = new Date();
-    const monthKeys = Array.from({ length: sliceMonths }, (_, index) => {
-      const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - sliceMonths + index + 1, 1));
-      return `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, "0")}`;
-    });
-    const firstVisibleMonth = monthKeys[0];
-    const priorHires = [...hiresByMonth].reduce((sum: number, [month, count]: [string, number]) => month < firstVisibleMonth ? sum + count : sum, 0);
-    const priorExits = [...exitsByMonth].reduce((sum: number, [month, count]: [string, number]) => month < firstVisibleMonth ? sum + count : sum, 0);
-    let runningTotal = Math.max(0, priorHires - priorExits);
+    const monthKeys: string[] = [];
+    const monthCursor = new Date(Date.UTC(rangeStartDate.getUTCFullYear(), rangeStartDate.getUTCMonth(), 1));
+    const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    while (monthCursor <= lastMonth) {
+      monthKeys.push(`${monthCursor.getUTCFullYear()}-${String(monthCursor.getUTCMonth() + 1).padStart(2, "0")}`);
+      monthCursor.setUTCMonth(monthCursor.getUTCMonth() + 1);
+    }
+    const periodNetChange = monthKeys.reduce(
+      (sum, month) => sum + (hiresByMonth.get(month) || 0) - (exitsByMonth.get(month) || 0),
+      0,
+    );
+    let runningTotal = Math.max(0, activeHeadcount - periodNetChange);
     const hasTrajectoryRecords = trajectoryRaw.length > 0 || exitTrajectoryRaw.length > 0;
     const headcountTrajectory = hasTrajectoryRecords ? monthKeys.map((monthKey) => {
       const hires = hiresByMonth.get(monthKey) || 0;
@@ -334,24 +337,18 @@ export async function GET(req: NextRequest) {
     const payrollAgg = payrollAggRaw[0] || {};
     const baseFixed = Number(payrollAgg.totalBasic) || 0;
     const allowances = (Number(payrollAgg.totalHra) || 0) + (Number(payrollAgg.totalDa) || 0) + (Number(payrollAgg.totalSpecial) || 0);
-    const statutory = (Number(payrollAgg.totalPf) || 0) + (Number(payrollAgg.totalEsi) || 0) + (Number(payrollAgg.totalTds) || 0);
     const grossPayroll = Number(payrollAgg.totalGross) || 0;
 
     const payrollAllocation = grossPayroll > 0 ? [
       {
         component: "Base Fixed Salaries",
         amount: baseFixed,
-        percentage: grossPayroll > 0 ? Math.round((baseFixed / grossPayroll) * 100) : 0,
+        percentage: Math.round((baseFixed / grossPayroll) * 100),
       },
       {
         component: "Allowances & Incentives (HRA/DA)",
         amount: allowances,
-        percentage: grossPayroll > 0 ? Math.round((allowances / grossPayroll) * 100) : 0,
-      },
-      {
-        component: "Statutory Deductions (EPF/ESI/TDS)",
-        amount: statutory,
-        percentage: grossPayroll > 0 ? Math.round((statutory / grossPayroll) * 100) : 0,
+        percentage: Math.round((allowances / grossPayroll) * 100),
       },
     ] : [];
 
@@ -399,6 +396,7 @@ export async function GET(req: NextRequest) {
       "3": { label: "Meets Expectations", color: "#3b82f6", count: 0 },
       "4": { label: "Exceeds Expectations", color: "#10b981", count: 0 },
       "5": { label: "Outstanding Leader", color: "#8b5cf6", count: 0 },
+      other: { label: "Other / Unmapped", color: "#64748b", count: 0 },
     };
 
     for (const p of perfAggRaw) {
@@ -406,7 +404,7 @@ export async function GET(req: NextRequest) {
       if (perfDistributionMap[key]) {
         perfDistributionMap[key].count = p.count;
       } else {
-        perfDistributionMap["3"].count += p.count;
+        perfDistributionMap.other.count += p.count;
       }
     }
 

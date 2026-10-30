@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
     const rangeKey = req.nextUrl.searchParams.get("range") || "30d";
     const rangeDays = rangeKey === "1y" ? 365 : rangeKey === "90d" ? 90 : 30;
+    const rangeEnd = new Date();
     const rangeStart = new Date();
     rangeStart.setDate(rangeStart.getDate() - rangeDays);
     const cacheKey = `crm-analytics-live:${tenantId}:${rangeKey}`;
@@ -46,9 +47,8 @@ export async function GET(req: NextRequest) {
       accountCount,
       campaignCount,
       oppsByStage,
-      oppsByStageRange,
       leadSourcesRaw,
-      leadStatusRaw,
+      cohortLeadsRaw,
       monthlyOppsRaw,
       repsAggRaw,
       accountHealthRaw,
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     ] = await Promise.all([
       Opportunity.countDocuments({ tenantId }),
       Lead.countDocuments({ tenantId }),
-      Lead.countDocuments({ tenantId, createdAt: { $gte: rangeStart } }),
+      Lead.countDocuments({ tenantId, createdAt: { $gte: rangeStart, $lte: rangeEnd } }),
       Account.countDocuments({ tenantId }),
       Campaign.countDocuments({ tenantId }),
 
@@ -82,47 +82,27 @@ export async function GET(req: NextRequest) {
         },
       ]),
 
-      Opportunity.aggregate([
-        { $match: { tenantId, createdAt: { $gte: rangeStart }, lead_id: { $ne: null } } },
-        { $group: { _id: "$stage", count: { $sum: 1 } } },
-      ]),
-
       // Group leads by source
       Lead.aggregate([
-        // Lead attribution is an all-time breakdown, matching the all-time
-        // totalLeads KPI and CRM lead list count.
-        { $match: { tenantId } },
+        { $match: { tenantId, createdAt: { $gte: rangeStart, $lte: rangeEnd } } },
         { $group: { _id: "$source", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
 
-      // Group leads by status
-      Lead.aggregate([
-        { $match: { tenantId, createdAt: { $gte: rangeStart } } },
-        { $group: { _id: "$status", count: { $sum: 1 } } },
-      ]),
+      // Keep the selected-period lead cohort intact so its current status can
+      // be compared with opportunities linked to those same leads.
+      Lead.find({ tenantId, createdAt: { $gte: rangeStart, $lte: rangeEnd } }).select("_id status").lean(),
 
-      // Group opportunities by month of creation (real timeline velocity)
-      Opportunity.aggregate([
-        { $match: { tenantId, createdAt: { $gte: rangeStart } } },
-        {
-          $group: {
-            _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-            newPipeline: {
-              $sum: {
-                $cond: [{ $in: ["$stage", ["Closed Won", "Closed Lost"]] }, 0, { $ifNull: ["$amount", 0] }],
-              },
-            },
-            closedWon: {
-              $sum: {
-                $cond: [{ $eq: ["$stage", "Closed Won"] }, { $ifNull: ["$amount", 0] }, 0],
-              },
-            },
-            totalDeals: { $sum: 1 },
-          },
-        },
-        { $sort: { _id: 1 } },
-      ]),
+      // Fetch opportunities created in range or closed won in range. New
+      // pipeline is dated by creation; bookings are dated by Won stage history.
+      Opportunity.find({
+        tenantId,
+        $or: [
+          { createdAt: { $gte: rangeStart, $lte: rangeEnd } },
+          { stage: "Closed Won", stage_history: { $elemMatch: { stage: "Closed Won", entered_at: { $gte: rangeStart, $lte: rangeEnd } } } },
+          { stage: "Closed Won", stage_entered_at: { $gte: rangeStart, $lte: rangeEnd } },
+        ],
+      }).select("createdAt amount stage stage_entered_at stage_history").lean(),
 
       // Group opportunities by owner to compute real sales rep attainment
       Opportunity.aggregate([
@@ -195,21 +175,40 @@ export async function GET(req: NextRequest) {
     const totalClosed = wonDeals + lostDeals;
     const winRate = totalClosed > 0 ? Math.round((wonDeals / totalClosed) * 100) : (wonDeals > 0 ? 100 : 0);
 
-    // 3. Dynamic Lead Funnel from Database
-    const mqlCount = leadStatusRaw
-      .filter((s: any) => ["Qualified", "Connected", "Nurture"].includes(s._id))
-      .reduce((acc: number, s: any) => acc + s.count, 0);
+    // 3. Lead cohort funnel: every step starts from leads created in the
+    // selected period. Opportunity steps count distinct linked leads, not a
+    // mix of opportunity rows and lead rows.
+    const cohortLeadIds = (cohortLeadsRaw as any[]).map((lead: any) => lead._id);
+    const cohortLeadIdSet = new Set(cohortLeadIds.map((id: any) => String(id)));
+    const cohortLeadStatuses = new Map((cohortLeadsRaw as any[]).map((lead: any) => [String(lead._id), lead.status]));
+    const cohortOpportunities = cohortLeadIds.length
+      ? await Opportunity.find({ tenantId, lead_id: { $in: cohortLeadIds } }).select("lead_id stage").lean()
+      : [];
 
-    const sqlCount = oppsByStageRange
-      .filter((s: any) => ["Discovery", "Requirement Gathering", "Solution Fit"].includes(s._id))
-      .reduce((acc: number, s: any) => acc + s.count, 0);
-
-    const rangeActiveDeals = oppsByStageRange
-      .filter((s: any) => !["Closed Won", "Closed Lost"].includes(s._id))
-      .reduce((acc: number, s: any) => acc + s.count, 0);
-    const rangeWonDeals = oppsByStageRange
-      .filter((s: any) => s._id === "Closed Won")
-      .reduce((acc: number, s: any) => acc + s.count, 0);
+    const engagedStatuses = new Set(["Attempting Contact", "Connected", "Qualified", "Nurture", "Converted"]);
+    const qualifiedStatuses = new Set(["Qualified", "Converted"]);
+    const engagedCount = [...cohortLeadStatuses.values()].filter((status: any) => engagedStatuses.has(status)).length;
+    const qualifiedCount = [...cohortLeadStatuses.values()].filter((status: any) => qualifiedStatuses.has(status)).length;
+    const leadsWithOpportunities = new Set<string>();
+    const activeOpportunityLeads = new Set<string>();
+    const wonOpportunityLeads = new Set<string>();
+    const lostOpportunityLeads = new Set<string>();
+    const opportunityStagesByLead = new Map<string, Set<string>>();
+    for (const opportunity of cohortOpportunities as any[]) {
+      const leadId = String(opportunity.lead_id);
+      if (!cohortLeadIdSet.has(leadId)) continue;
+      leadsWithOpportunities.add(leadId);
+      const stages = opportunityStagesByLead.get(leadId) || new Set<string>();
+      stages.add(opportunity.stage);
+      opportunityStagesByLead.set(leadId, stages);
+    }
+    for (const [leadId, stages] of opportunityStagesByLead) {
+      // Assign each lead with multiple linked opportunities to one outcome so
+      // the three outcome counts remain mutually exclusive and reconcile.
+      if (stages.has("Closed Won")) wonOpportunityLeads.add(leadId);
+      else if ([...stages].some((stage) => stage !== "Closed Lost")) activeOpportunityLeads.add(leadId);
+      else lostOpportunityLeads.add(leadId);
+    }
 
     const funnel = [
       {
@@ -217,35 +216,61 @@ export async function GET(req: NextRequest) {
         count: leadCountRange,
       },
       {
-        stage: "Marketing Qualified (MQL)",
-        count: mqlCount,
+        stage: "Engaged Leads",
+        count: engagedCount,
       },
       {
-        stage: "Sales Qualified (SQL)",
-        count: sqlCount,
+        stage: "Qualified Leads",
+        count: qualifiedCount,
       },
       {
-        stage: "Active Opportunities",
-        count: rangeActiveDeals,
+        stage: "Leads with Opportunities",
+        count: leadsWithOpportunities.size,
       },
       {
-        stage: "Closed Won Opportunities",
-        count: rangeWonDeals,
+        stage: "Leads with Active Opportunities",
+        count: activeOpportunityLeads.size,
+      },
+      {
+        stage: "Leads with Won Opportunities",
+        count: wonOpportunityLeads.size,
+      },
+      {
+        stage: "Leads with Lost Opportunities",
+        count: lostOpportunityLeads.size,
       },
     ];
 
     // 4. Dynamic Monthly Velocity from Database
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const monthlyVelocity = monthlyOppsRaw.map((m: any) => {
-      const parts = String(m._id || "").split("-");
-      const monthIdx = parts[1] ? parseInt(parts[1], 10) - 1 : 0;
-      const monthName = monthNames[monthIdx] || parts[1] || m._id;
-      const monthLabel = parts[0] ? `${monthName} '${parts[0].slice(-2)}` : monthName;
-      return {
-        month: monthLabel,
-        newPipeline: m.newPipeline || 0,
-        closedWon: m.closedWon || 0,
-      };
+    const velocityByMonth = new Map<string, { newPipeline: number; closedWon: number }>();
+    for (const opportunity of monthlyOppsRaw as any[]) {
+      const amount = Number(opportunity.amount) || 0;
+      const createdAt = opportunity.createdAt ? new Date(opportunity.createdAt) : null;
+      if (createdAt && createdAt >= rangeStart && createdAt <= rangeEnd) {
+        const key = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, "0")}`;
+        const point = velocityByMonth.get(key) || { newPipeline: 0, closedWon: 0 };
+        point.newPipeline += amount;
+        velocityByMonth.set(key, point);
+      }
+
+      const history = Array.isArray(opportunity.stage_history) ? opportunity.stage_history : [];
+      const wonEntry = opportunity.stage === "Closed Won"
+        ? [...history].reverse().find((entry: any) => entry.stage === "Closed Won" && entry.entered_at)
+        : null;
+      const wonAt = wonEntry?.entered_at ? new Date(wonEntry.entered_at) :
+        opportunity.stage === "Closed Won" && opportunity.stage_entered_at ? new Date(opportunity.stage_entered_at) : null;
+      if (wonAt && wonAt >= rangeStart && wonAt <= rangeEnd) {
+        const key = `${wonAt.getFullYear()}-${String(wonAt.getMonth() + 1).padStart(2, "0")}`;
+        const point = velocityByMonth.get(key) || { newPipeline: 0, closedWon: 0 };
+        point.closedWon += amount;
+        velocityByMonth.set(key, point);
+      }
+    }
+    const monthlyVelocity = [...velocityByMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => {
+      const [year, month] = key.split("-");
+      const monthName = monthNames[Number(month) - 1] || month;
+      return { month: `${monthName} '${year.slice(-2)}`, ...value };
     });
 
     // 5. Dynamic Lead Source Attribution
@@ -261,14 +286,15 @@ export async function GET(req: NextRequest) {
     // 6. Stage Aging & Bottleneck Durations
     const stageAgingDays = oppsByStage
       .filter((s: any) => !["Closed Won", "Closed Lost"].includes(s._id))
-      .slice(0, 5)
       .map((s: any) => {
       const actualDays = Math.max(0, Math.round(s.avgDays || 0));
       return {
         stage: s._id || "Stage",
         days: actualDays,
       };
-      });
+      })
+      .sort((a: any, b: any) => b.days - a.days)
+      .slice(0, 5);
 
     // 7. Dynamic Sales Rep Quota Leaderboard with Real User Records
     const repIds = repsAggRaw.map((r: any) => r._id);

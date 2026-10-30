@@ -41,6 +41,7 @@ interface SalesSummary {
   totalOrders: number;
   totalQuotations: number;
   totalRevenue: number;
+  totalOrderValue: number;
   deliveriesPending: number;
   trends?: {
     revenue: number;
@@ -51,7 +52,7 @@ interface SalesSummary {
 
 interface SalesAnalyticsData {
   orders: Array<{ month: string; count: number }>;
-  revenue: Array<{ month: string; amount: number }>;
+  revenue: Array<{ month: string; date: string; amount: number }>;
   topProducts: Array<{ name: string; value: number }>;
   dailyOrders: Array<{ date: string; count: number; value: number }>;
 }
@@ -71,7 +72,7 @@ export default function SalesAnalyticsPage() {
     try {
       const [sumRes, anaRes] = await Promise.all([
         cachedFetch("/api/sales/summary"),
-        cachedFetch("/api/sales/analytics"),
+        cachedFetch(`/api/sales/analytics?days=${dateRange}`),
       ]);
 
       if (sumRes.ok) {
@@ -88,16 +89,16 @@ export default function SalesAnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     // 1. Safe post-hydration cache read for instant 0ms load
     const cachedSummary = getInstantCachedData<SalesSummary>("/api/sales/summary", { allowPreHydration: true });
-    const cachedAnalytics = getInstantCachedData<SalesAnalyticsData>("/api/sales/analytics", { allowPreHydration: true });
+    const cachedAnalytics = getInstantCachedData<SalesAnalyticsData>(`/api/sales/analytics?days=${dateRange}`, { allowPreHydration: true });
     if (cachedSummary) setSummary(cachedSummary);
     if (cachedAnalytics) setAnalytics(cachedAnalytics);
     if (cachedSummary && cachedAnalytics) setIsLoading(false);
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -122,7 +123,8 @@ export default function SalesAnalyticsPage() {
   const revenueLineData = useMemo(() => {
     if (analytics?.revenue && analytics.revenue.length > 0) {
       return analytics.revenue.map((r) => ({
-        date: r.month,
+        date: r.date,
+        label: r.month,
         value: r.amount,
       }));
     }
@@ -179,7 +181,7 @@ export default function SalesAnalyticsPage() {
   const quotesCount = summary?.totalQuotations || 0;
   const ordersCount = summary?.totalOrders || 0;
   const convRate = quotesCount > 0 ? Math.min(100, Math.round((ordersCount / quotesCount) * 100)) : (ordersCount > 0 ? 100 : 0);
-  const avgOrderVal = ordersCount > 0 && summary?.totalRevenue ? Math.round(summary.totalRevenue / ordersCount) : 0;
+  const avgOrderVal = ordersCount > 0 && summary?.totalOrderValue ? Math.round(summary.totalOrderValue / ordersCount) : 0;
 
   if (status === "loading" || status === "unauthenticated") {
     return <FullPageLoadingSkeleton />;
@@ -221,7 +223,7 @@ export default function SalesAnalyticsPage() {
               Sales Analytics
             </h1>
             <p className="text-xs text-muted-foreground">
-              Real-time revenue trajectory, order throughput velocity, quote-to-cash conversions, and product allocation metrics.
+              Revenue, confirmed order volume, and product mix for the selected period; summary cards use the latest 30 days.
             </p>
           </div>
 
@@ -302,16 +304,16 @@ export default function SalesAnalyticsPage() {
               <div>
                 <CardTitle className="text-sm font-bold tracking-tight uppercase flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-purple-400" />
-                  Revenue Run-Rate Velocity & Trajectory
+                  Daily Invoiced Revenue
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  High-frequency trading-grade timeline with animated bezier curve and glowing frontier beacon dot.
+                  Issued sales invoice revenue excluding GST, grouped by invoice date.
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] uppercase font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping" />
-                  Continuous Stream
+                  Selected Period
                 </span>
               </div>
             </CardHeader>

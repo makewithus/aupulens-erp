@@ -127,160 +127,27 @@ export function expandSparseToDailyTimeline(
   valueKey: string,
   dateKey: string
 ): LineDataPoint[] {
-  if (!rawPoints || rawPoints.length === 0) {
-    return generateZeroHistoricalData(90);
-  }
-
-  // If already rich daily data (>= 28 points)
-  if (rawPoints.length >= 28) {
-    const formatted: LineDataPoint[] = rawPoints.map((d) => {
-      let dVal = d[dateKey];
-      if (dVal instanceof Date) dVal = dVal.toISOString().split("T")[0];
-      else if (typeof dVal === "string") dVal = dVal.split("T")[0];
-      else dVal = String(dVal);
-
-      const val = Number(d[valueKey]) || 0;
+  if (!Array.isArray(rawPoints)) return [];
+  return rawPoints
+    .map((point) => {
+      const rawDate = point[dateKey];
+      const date = rawDate instanceof Date
+        ? rawDate.toISOString().slice(0, 10)
+        : typeof rawDate === "string" ? rawDate.split("T")[0] : String(rawDate ?? "");
+      const value = Number(point[valueKey]) || 0;
       return {
-        ...d,
-        date: dVal,
-        value: val,
-        open: d.open ?? Math.round(val * 0.99),
-        high: d.high ?? Math.round(val * 1.015),
-        low: d.low ?? Math.round(val * 0.985),
-        close: d.close ?? val,
-        label: d.label ?? dVal,
+        ...point,
+        date,
+        value,
+        open: point.open ?? value,
+        high: point.high ?? value,
+        low: point.low ?? value,
+        close: point.close ?? value,
+        label: point.label ?? date,
       };
-    });
-
-    if (formatted.length < 730 && formatted.length > 0) {
-      const needed = 730 - formatted.length;
-      const rawDate = formatted[0].date;
-      const dateStr = typeof rawDate === "string" ? rawDate : (rawDate instanceof Date ? rawDate.toISOString() : String(rawDate));
-      let parsedFirst = Date.parse(dateStr);
-      if (isNaN(parsedFirst)) parsedFirst = Date.parse(dateStr + "T00:00:00");
-      const firstDate = !isNaN(parsedFirst) ? new Date(parsedFirst) : new Date();
-      const firstVal = formatted[0].value || 50000;
-      const rng = createRng(42);
-      const prepended: LineDataPoint[] = [];
-
-      for (let i = needed; i >= 1; i--) {
-        const histDate = new Date(firstDate.getTime() - i * 86400000);
-        const validHistDate = !isNaN(histDate.getTime()) ? histDate : new Date();
-        const t = (needed - i) / needed;
-        const base = firstVal * (0.4 + 0.6 * Math.pow(t, 1.2));
-        const noise = (rng() - 0.48) * (firstVal * 0.05);
-        const val = Math.max(10, Math.round(base + noise));
-        prepended.push({
-          date: validHistDate.toISOString().split("T")[0],
-          value: val,
-          open: Math.round(val * 0.99),
-          high: Math.round(val * 1.015),
-          low: Math.round(val * 0.985),
-          close: val,
-          label: validHistDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        });
-      }
-      return [...prepended, ...formatted];
-    }
-    return formatted;
-  }
-
-  // Sparse checkpoints (e.g. 12 monthly points)
-  const checkpoints: Array<{ date: string; value: number }> = rawPoints.map((d) => {
-    let dVal = d[dateKey];
-    if (dVal instanceof Date) dVal = dVal.toISOString().split("T")[0];
-    else if (typeof dVal === "string") dVal = dVal.split("T")[0];
-    else dVal = String(dVal);
-    return { date: dVal, value: Number(d[valueKey]) || 0 };
-  });
-
-  const totalDays = 730;
-  const now = new Date();
-  const rng = createRng(777);
-
-  if (checkpoints.length === 1) {
-    const targetVal = checkpoints[0].value || 0;
-    if (targetVal <= 0) return generateZeroHistoricalData(90);
-    return [
-      ...generateZeroHistoricalData(89),
-      {
-        date: checkpoints[0].date,
-        value: targetVal,
-        open: targetVal,
-        high: targetVal,
-        low: targetVal,
-        close: targetVal,
-        label: checkpoints[0].date,
-      },
-    ];
-  }
-
-  if (checkpoints.every((c) => c.value === 0)) {
-    return generateZeroHistoricalData(90);
-  }
-
-  const spanDays = Math.min(totalDays, Math.max(90, checkpoints.length * 30));
-  const priorDays = totalDays - spanDays;
-  const result: LineDataPoint[] = [];
-  const firstVal = checkpoints[0].value || 100000;
-  const startDate = new Date(now.getTime() - totalDays * 86400000);
-
-  // 1. Generate prior historical days leading up to first checkpoint
-  for (let i = 0; i < priorDays; i++) {
-    const curDate = new Date(startDate.getTime() + i * 86400000);
-    const t = i / priorDays;
-    const base = firstVal * (0.35 + 0.65 * Math.pow(t, 1.3));
-    const noise = (rng() - 0.48) * (firstVal * 0.06);
-    const val = Math.max(10, Math.round(base + noise));
-    result.push({
-      date: curDate.toISOString().split("T")[0],
-      value: val,
-      open: Math.round(val * 0.99),
-      high: Math.round(val * 1.015),
-      low: Math.round(val * 0.985),
-      close: val,
-      label: curDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    });
-  }
-
-  // 2. Interpolate smoothly between each checkpoint across spanDays
-  const daysPerSegment = spanDays / (checkpoints.length - 1);
-  for (let seg = 0; seg < checkpoints.length - 1; seg++) {
-    const startSegmentVal = checkpoints[seg].value;
-    const endSegmentVal = checkpoints[seg + 1].value;
-    const numDays =
-      seg === checkpoints.length - 2
-        ? spanDays - Math.floor(daysPerSegment * seg)
-        : Math.floor(daysPerSegment);
-
-    for (let d = 0; d < numDays; d++) {
-      const overallDayIdx = priorDays + Math.floor(daysPerSegment * seg) + d;
-      const curDate = new Date(startDate.getTime() + overallDayIdx * 86400000);
-      const isWeekend = curDate.getDay() === 0 || curDate.getDay() === 6;
-
-      const t = d / numDays;
-      const easeT = (1 - Math.cos(t * Math.PI)) / 2;
-      const interpolated = startSegmentVal + (endSegmentVal - startSegmentVal) * easeT;
-
-      const dailyVariance =
-        (rng() - 0.48) *
-        (Math.abs(endSegmentVal - startSegmentVal) * 0.12 + interpolated * 0.02);
-      const weekendFactor = isWeekend ? 0.94 : 1.0;
-      const finalVal = Math.max(10, Math.round((interpolated + dailyVariance) * weekendFactor));
-
-      result.push({
-        date: curDate.toISOString().split("T")[0],
-        value: finalVal,
-        open: Math.round(finalVal * 0.99),
-        high: Math.round(finalVal * 1.015),
-        low: Math.round(finalVal * 0.985),
-        close: finalVal,
-        label: curDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      });
-    }
-  }
-
-  return result;
+    })
+    .filter((point) => point.date && !Number.isNaN(Date.parse(point.date)))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 const PRESET_DAYS = [
@@ -1116,6 +983,17 @@ export function TradingLineChart({
     setViewRange([start, total]);
     setActivePreset("30D");
   };
+
+  if (fullDataset.length === 0) {
+    return (
+      <div
+        className={cn("flex w-full items-center justify-center border font-mono text-sm text-muted-foreground", className)}
+        style={{ height: typeof height === "number" ? `${height}px` : height }}
+      >
+        No records are available for this chart.
+      </div>
+    );
+  }
 
   return (
     <div

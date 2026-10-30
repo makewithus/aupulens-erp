@@ -152,8 +152,7 @@ export function BillsModals({
                   </Button>
                 )}
 
-              {formData?.state === DOCUMENT_STATUS.APPROVED &&
-                formData?.paymentState === PAYMENT_STATE.PAID && (
+              {formData?.state === DOCUMENT_STATUS.APPROVED && (
                   <Button
                     variant="outline"
                     className="rounded-none text-xs text-[#8AE06C] hover:bg-white/5 border border-border/40"
@@ -162,7 +161,7 @@ export function BillsModals({
                   >
                     Post to GL
                   </Button>
-                )}
+              )}
             </div>
 
             <div className="flex gap-3">

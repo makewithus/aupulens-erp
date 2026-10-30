@@ -16,6 +16,7 @@ import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
 import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
 import { InactiveOrbit } from '@/components/admin/graphics/InactiveOrbit';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
+import { cachedFetch } from '@/lib/api/cachedFetch';
 import { toast } from 'sonner';
 
 function downloadCsv(title: string, headers: string[], rows: (string | number)[][]) {
@@ -152,12 +153,31 @@ export default function ReportsPage() {
 
   const loadVisualizationData = async () => {
     try {
-      const res = await fetch('/api/manufacturing/analytics');
+      const res = await cachedFetch('/api/manufacturing/analytics');
+      if (!res.ok) throw new Error('Manufacturing analytics request failed');
       const data = await res.json();
-      const chartData =
-        selectedReport === 'shipments'
-          ? (data.shipments || []).map((d: any) => ({ name: d.month, value: d.count }))
-          : (data.status || []).map((d: any) => ({ name: d.name, value: d.value }));
+      let chartData: { name: string; value: number }[] = [];
+
+      if (selectedReport === 'shipments') {
+        chartData = (data.shipmentsData || []).map((d: any) => ({
+          name: `${new Date(Date.UTC(d._id.year, d._id.month - 1, 1)).toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })}`,
+          value: d.count,
+        }));
+      } else if (selectedReport === 'freight') {
+        chartData = (data.freightLogistics || []).map((d: any) => ({ name: d.mode, value: d.shipments }));
+      } else if (selectedReport === 'performance') {
+        chartData = (data.dailyOutput || []).map((d: any) => ({ name: d.day, value: d.actual }));
+      } else if (selectedReport === 'customs') {
+        const customsRes = await cachedFetch('/api/manufacturing/customs-clearance');
+        if (!customsRes.ok) throw new Error('Customs clearance data request failed');
+        const customsData = await customsRes.json();
+        const counts = new Map<string, number>();
+        for (const record of customsData.clearances || []) {
+          const status = record.customsStatus || record.status || 'unspecified';
+          counts.set(status, (counts.get(status) || 0) + 1);
+        }
+        chartData = [...counts.entries()].map(([name, value]) => ({ name, value }));
+      }
 
       if (chartData.length === 0) {
         toast.info('No data yet for this report type');
@@ -272,8 +292,8 @@ export default function ReportsPage() {
           isOpen={showVisualization}
           onClose={() => setShowVisualization(false)}
           data={visualizationData}
-          title={selectedReport === 'shipments' ? 'Shipments Over Time' : 'Shipment Status Distribution'}
-          chartType={selectedReport === 'shipments' ? 'line' : 'bar'}
+          title={selectedReport === 'shipments' ? 'Shipments by Month' : selectedReport === 'freight' ? 'Shipments by Freight Mode' : selectedReport === 'performance' ? 'Completed Production Units by Day' : 'Clearances by Status'}
+          chartType={selectedReport === 'shipments' || selectedReport === 'performance' ? 'line' : 'bar'}
           xAxisKey="name"
           dataKeys={[{ key: 'value', name: 'Count', color: '#ea580c' }]}
         />

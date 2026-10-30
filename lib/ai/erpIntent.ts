@@ -329,7 +329,9 @@ function extractRoleChange(q: string): { userName: string; role: string; fromRol
 }
 
 export function parseErpIntent(text: string, now = new Date(), context?: ErpIntentContext): ErpIntent {
-  const q = normalizeErpText(text).trim();
+  // Treat the common noun “quotation” exactly like “quote” throughout intent
+  // matching. Keeping this normalization here also covers translated inputs.
+  const q = normalizeErpText(text).trim().replace(/\bquotations?\b/gi, "quote");
 
   // Safety refusals
   if (/\b(?:delete|remove|erase)\b.*\b(?:invoices?|quotes?|customers?|orders?|ledgers?|users?)\b/i.test(q)) return "refuse";
@@ -580,6 +582,13 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
     if (context?.pendingCustomerProposalId) return "customer_cancel";
     if (context?.pendingRoleProposalId) return "role_cancel";
     if (context?.pendingQuoteProposalId) return "quote_cancel";
+  }
+
+  // A bare amount is a common reply when the assistant asks for a quote's
+  // selling price. Keep it attached to the pending quote instead of routing
+  // it as a fresh ERP search.
+  if (context?.pendingQuoteProposalId && /^₹?\s*[0-9][0-9,]*(?:\.\d{1,2})?\s*(?:rs\.?|inr)?$/i.test(q)) {
+    return "validate_values";
   }
 
   // Customer draft ongoing multi-turn inputs

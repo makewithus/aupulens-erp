@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Product from "@/models/inventory/Product";
 import InventoryItem from "@/models/inventory/InventoryItem";
+import Stock from "@/models/inventory/Stock";
 import { escapeRegex } from "@/lib/utils/regex";
 import { STOCK_LEVEL_STATUS } from "@/lib/constants/statuses";
 import { dedupeProductsForTenant } from "@/lib/migration/productDedupe";
@@ -149,13 +150,30 @@ export async function GET(req: any) {
       : [];
     const invByCode = new Map(invItems.map((i: any) => [i.itemCode, i]));
 
+    // Product movements are the live stock ledger. InventoryItem is retained
+    // as an opening balance for older workspaces, but its cached quantity goes
+    // stale as soon as a PO receipt or sales shipment writes ledger movements.
+    const productIds = productsResult.map((p: any) => p._id);
+    const [stockBalances, productsWithMovements] = productIds.length ? await Promise.all([
+      Stock.aggregate([
+        { $match: { tenantId, product: { $in: productIds } } },
+        { $group: { _id: "$product", quantity: { $sum: "$quantity" } } },
+      ]),
+      Stock.distinct("product", { tenantId, product: { $in: productIds } }),
+    ]) : [[], []];
+    const stockByProduct = new Map(stockBalances.map((row: any) => [String(row._id), Number(row.quantity) || 0]));
+    const movementProductIds = new Set(productsWithMovements.map(String));
+
     const enrichedProducts = productsResult.map((product: any) => {
       const code = product.tab_general_information?.default_code;
       const invItem = code ? invByCode.get(code) : undefined;
+      const hasLedger = movementProductIds.has(String(product._id));
+      const inventoryQty = hasLedger ? stockByProduct.get(String(product._id)) || 0 : invItem?.quantity || 0;
       return {
         ...product,
-        inventoryQty: invItem?.quantity || 0,
-        inventoryStatus: invItem?.status || "out_of_stock",
+        inventoryQty,
+        inventoryStatus: inventoryQty <= 0 ? STOCK_LEVEL_STATUS.OUT_OF_STOCK :
+          inventoryQty <= (invItem?.reorderLevel ?? 10) ? STOCK_LEVEL_STATUS.LOW_STOCK : STOCK_LEVEL_STATUS.IN_STOCK,
       };
     });
 

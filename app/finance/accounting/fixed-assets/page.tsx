@@ -51,7 +51,11 @@ export default function FixedAssetsPage() {
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       const qs = params.toString();
-      const res = await cachedFetch(`/api/finance/assets${qs ? `?${qs}` : ""}`);
+      const res = await cachedFetch(
+        `/api/finance/assets${qs ? `?${qs}` : ""}`,
+        { cache: "no-store" },
+        { noCache: true },
+      );
       const json = await res.json();
       setAssets(json.items || []);
     } catch (error) {

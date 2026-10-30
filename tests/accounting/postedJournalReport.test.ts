@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { findMock } = vi.hoisted(() => ({ findMock: vi.fn() }));
 vi.mock("@/models/finance/JournalEntry", () => ({ default: { find: findMock } }));
 
-import { buildPostedJournalReport } from "@/lib/accounting/reports";
+import { buildPostedJournalReport, resolveAccountGroupAndType } from "@/lib/accounting/reports";
 
 let entries: any[] = [];
 
@@ -76,5 +76,25 @@ describe("buildPostedJournalReport as-of filters", () => {
     expect(report.asset.total).toBe(100);
     expect(report.activity.unclassifiedLineCount).toBe(1);
     expect(report.totals.debit).toBe(1000);
+  });
+});
+
+describe("legacy balance-sheet account classification", () => {
+  it("keeps fixed assets out of equity when modern metadata conflicts", () => {
+    expect(resolveAccountGroupAndType({
+      code: "1500",
+      name: "Plant & Machinery Equipment",
+      internal_group: "equity",
+      account_type: "equity",
+    })).toMatchObject({ internalGroup: "asset", accountType: "asset_fixed" });
+  });
+
+  it("classifies inventory, bank and receivables as current assets", () => {
+    expect(resolveAccountGroupAndType({ code: "1200", name: "Inventory Asset Stock", internal_group: "asset", account_type: "asset_receivable" }))
+      .toMatchObject({ internalGroup: "asset", accountType: "asset_current" });
+    expect(resolveAccountGroupAndType({ code: "1050", name: "HDFC Bank Corporate Current", internal_group: "equity", account_type: "equity" }))
+      .toMatchObject({ internalGroup: "asset", accountType: "asset_cash" });
+    expect(resolveAccountGroupAndType({ code: "1100", name: "Accounts Receivable", internal_group: "asset", account_type: "asset_cash" }))
+      .toMatchObject({ internalGroup: "asset", accountType: "asset_receivable" });
   });
 });

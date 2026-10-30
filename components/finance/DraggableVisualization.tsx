@@ -184,7 +184,11 @@ export function DraggableVisualization({
 
       {/* Content */}
       <div className={cn("flex-1 p-4 overflow-auto flex flex-col justify-center", isDark ? "bg-[#0A0A0A]" : "bg-white")} style={{ minHeight: '320px' }}>
-        {chartType === 'bar' ? (
+        {!data || data.length === 0 ? (
+          <div className="flex h-full min-h-[300px] items-center justify-center text-center text-sm text-muted-foreground">
+            No records are available for this chart.
+          </div>
+        ) : chartType === 'bar' ? (
           <div className="w-full h-full min-h-[300px]">
             <DailyBrickBarChart
               data={data && data.length > 0 ? (data as any) : undefined}
@@ -195,7 +199,6 @@ export function DraggableVisualization({
               isDark={isDark}
               yAxisFormatter={(v) => '₹' + v.toLocaleString('en-IN')}
               tooltipValueFormatter={(v) => '₹' + v.toLocaleString('en-IN')}
-              seedDemonstration={!data || data.length === 0}
               height="100%"
             />
           </div>

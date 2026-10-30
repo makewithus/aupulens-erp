@@ -70,8 +70,6 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     }
     usageRequestWasActive.current = true;
     refreshAiUsage();
-    const timer = window.setInterval(refreshAiUsage, 2500);
-    return () => window.clearInterval(timer);
   }, [isLoading]);
   const [showHistory, setShowHistory] = useState(false);
   const [showMemoryPanel, setShowMemoryPanel] = useState(false);

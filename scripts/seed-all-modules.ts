@@ -565,6 +565,7 @@ async function main() {
       { code: "1010", num: "1010", name: "Cash on Hand", type: "current_asset" },
       { code: "1050", num: "1050", name: "HDFC Bank Corporate Current", type: "bank" },
       { code: "1060", num: "1060", name: "ICICI Bank Operations", type: "bank" },
+      { code: "1070", num: "1070", name: "SBI Statutory Tax Disbursement", type: "bank" },
       { code: "1100", num: "1100", name: "Accounts Receivable", type: "current_asset" },
       { code: "1200", num: "1200", name: "Inventory Asset Stock", type: "current_asset" },
       { code: "1500", num: "1500", name: "Plant & Machinery Equipment", type: "fixed_asset" },
@@ -577,6 +578,7 @@ async function main() {
       { code: "2150", num: "2150", name: "TDS Payable (Section 194C/J)", type: "current_liability" },
       { code: "3000", num: "3000", name: "Shareholder Paid-up Capital", type: "equity" },
       { code: "3100", num: "3100", name: "Retained Earnings", type: "equity" },
+      { code: "3305", num: "3305", name: "Opening Balance Equity", type: "equity" },
       { code: "4000", num: "4000", name: "Commercial ERP Software Revenue", type: "income" },
       { code: "4010", num: "4010", name: "Manufacturing Solution Deliveries", type: "income" },
       { code: "4020", num: "4020", name: "Annual Maintenance Contracts Revenue", type: "income" },
@@ -593,6 +595,39 @@ async function main() {
 
     const accIdMap: Record<string, ObjectId> = {};
     for (const a of coaAccounts) {
+      const normalizedName = a.name.toLowerCase();
+      const internalGroup = a.type === "fixed_asset" || a.type === "current_asset" || a.type === "bank"
+        ? "asset"
+        : a.type === "current_liability"
+        ? "liability"
+        : a.type === "equity"
+        ? "equity"
+        : a.type === "income"
+        ? "income"
+        : a.type === "cogs" || a.type === "expense"
+        ? "expense"
+        : "asset";
+      const accountType = a.type === "fixed_asset"
+        ? "asset_fixed"
+        : a.type === "bank" || /cash on hand/.test(normalizedName)
+        ? "asset_cash"
+        : /inventory|stock/.test(normalizedName)
+        ? "asset_current"
+        : /accounts receivable/.test(normalizedName)
+        ? "asset_receivable"
+        : a.type === "current_asset"
+        ? "asset_current"
+        : a.type === "current_liability"
+        ? "liability_current"
+        : a.type === "equity"
+        ? "equity"
+        : a.type === "income"
+        ? "income"
+        : a.type === "cogs"
+        ? "expense_direct_cost"
+        : a.type === "expense"
+        ? "expense"
+        : "asset_current";
       const res = await db.collection("accounts").findOneAndUpdate(
         { tenantId: TENANT_ID, $or: [{ code: a.code }, { accountNumber: a.num }] },
         {
@@ -602,6 +637,10 @@ async function main() {
             code: a.code,
             accountNumber: a.num,
             type: a.type,
+            accountName: a.name,
+            accountCode: a.code,
+            account_type: accountType,
+            internal_group: internalGroup,
             active: true,
             updatedAt: new Date(),
           },
@@ -619,7 +658,7 @@ async function main() {
     const bankDefs = [
       { name: "HDFC Bank Corporate Current", accNum: "50200012345678", ifsc: "HDFC0000123", bal: 4580000, code: "1050" },
       { name: "ICICI Bank Operations", accNum: "001205098765", ifsc: "ICIC0000012", bal: 2850000, code: "1060" },
-      { name: "SBI Statutory Tax Disbursement", accNum: "38901234567", ifsc: "SBIN0001234", bal: 1420000, code: "1050" },
+      { name: "SBI Statutory Tax Disbursement", accNum: "38901234567", ifsc: "SBIN0001234", bal: 1420000, code: "1070" },
     ];
     for (const b of bankDefs) {
       await db.collection("bankaccounts").updateOne(
@@ -637,7 +676,7 @@ async function main() {
             currentBalance: b.bal,
             glAccountId: accIdMap[b.code] || Object.values(accIdMap)[0],
             connectionStatus: "manual",
-            isPrimary: b.code === "1050",
+            isPrimary: b.name === "HDFC Bank Corporate Current",
             status: "active",
             isDemo: true,
             source: SEED_SOURCE,
@@ -816,42 +855,44 @@ async function main() {
     console.log("Corporate expenses verified: 8 expenses.");
 
     // 2.7 Fixed Assets
-    const assetDefs = [
-      { name: "Heavy Duty Logistics Delivery Truck (MH-04-AB-1234)", val: 1850000, salvage: 250000, yrs: 7, method: "linear", acc: "1500" },
-      { name: "CNC High-Precision Milling Station #1", val: 3200000, salvage: 400000, yrs: 10, method: "degressive", acc: "1500" },
-      { name: "High-Availability Server Rack Hardware Cluster", val: 1450000, salvage: 150000, yrs: 5, method: "linear", acc: "1520" },
-      { name: "Executive Ergonomic Office Furniture Suite", val: 680000, salvage: 50000, yrs: 5, method: "linear", acc: "1510" },
-      { name: "Rooftop 50kW Industrial Solar Array Installation", val: 2400000, salvage: 300000, yrs: 15, method: "linear", acc: "1500" },
-      { name: "Advanced Materials Testing Laboratory Rig", val: 1150000, salvage: 120000, yrs: 8, method: "linear", acc: "1500" },
+    // These were synthetic demo records with hard-coded asset-account mappings.
+    // Remove only exact records created by this seed source and their linked
+    // capitalization journals; unrelated user-entered assets and journals stay.
+    const removedDemoAssetNames = [
+      "Heavy Duty Logistics Delivery Truck (MH-04-AB-1234)",
+      "CNC High-Precision Milling Station #1",
+      "High-Availability Server Rack Hardware Cluster",
+      "Executive Ergonomic Office Furniture Suite",
+      "Rooftop 50kW Industrial Solar Array Installation",
+      "Advanced Materials Testing Laboratory Rig",
     ];
-    for (const a of assetDefs) {
-      await db.collection("assets").updateOne(
-        { tenantId: TENANT_ID, name: a.name },
-        {
-          $set: {
-            tenantId: TENANT_ID,
-            name: a.name,
-            purchaseDate: new Date("2024-03-15T00:00:00.000Z"),
-            originalValue: a.val,
-            salvageValue: a.salvage,
-            durationYears: a.yrs,
-            method: a.method,
-            accounts: {
-              assetAccountId: accIdMap[a.acc] || Object.values(accIdMap)[0],
-              depreciationAccountId: accIdMap["6600"] || Object.values(accIdMap)[0],
-              fundingAccountId: accIdMap["1050"] || Object.values(accIdMap)[0],
-            },
-            status: "running",
-            isDemo: true,
-            source: SEED_SOURCE,
-            updatedAt: new Date(),
-          },
-          $setOnInsert: { createdAt: new Date("2024-03-15T00:00:00.000Z") },
+    const seededAssetsToRemove = await db.collection("assets").find({
+      tenantId: TENANT_ID,
+      isDemo: true,
+      source: SEED_SOURCE,
+      name: { $in: removedDemoAssetNames },
+    }, { projection: { _id: 1 } }).toArray();
+    const seededAssetRefs = seededAssetsToRemove.map((asset) => `CAP/${asset._id}`);
+    if (seededAssetRefs.length) {
+      await db.collection("journalentries").updateMany({
+        tenantId: TENANT_ID,
+        "header.ref": { $in: seededAssetRefs },
+      }, {
+        $set: {
+          status: "cancelled",
+          voucherStatus: "cancelled",
+          cancellationReason: "Synthetic fixed-asset seed data removed; retained for audit history.",
+          updatedAt: new Date(),
         },
-        { upsert: true }
-      );
+      });
+      await db.collection("assets").deleteMany({
+        tenantId: TENANT_ID,
+        isDemo: true,
+        source: SEED_SOURCE,
+        _id: { $in: seededAssetsToRemove.map((asset) => asset._id) },
+      });
     }
-    console.log("Fixed assets verified: 6 assets running.");
+    console.log(`Removed ${seededAssetsToRemove.length} hard-coded demo fixed assets and cancelled their linked capitalization journals.`);
 
     // 2.8 Balanced Journal Entries (Debit == Credit)
     const journalEntries = [
@@ -901,12 +942,153 @@ async function main() {
         { upsert: true }
       );
     }
-    console.log("Balanced journal entries verified: 7 double-entry journals posted.");
+    // Older demo invoice journals resolved receivables by code 1200. In this
+    // tenant 1200 was the inventory ledger, so move only the seeded invoice
+    // debit lines to the account explicitly classified as receivable.
+    const receivableAccountId = accIdMap["1100"];
+    const inventoryAccountId = accIdMap["1200"];
+    const demoInvoiceEntries = await db.collection("journalentries").find({
+      tenantId: TENANT_ID,
+      status: "posted",
+      "header.name": { $in: Array.from({ length: 8 }, (_, index) => `SAL/2026/${String(index + 1).padStart(4, "0")}`) },
+      "lineIds.accountId": inventoryAccountId,
+    }, { projection: { lineIds: 1 } }).toArray();
+    for (const entry of demoInvoiceEntries) {
+      const lines = (entry.lineIds || []).map((line: any) =>
+        line.accountId?.equals?.(inventoryAccountId) &&
+        /^Invoice INV-/.test(line.label || "") &&
+        Number(line.debit) > 0
+          ? { ...line, accountId: receivableAccountId }
+          : line,
+      );
+      await db.collection("journalentries").updateOne(
+        { _id: entry._id, tenantId: TENANT_ID },
+        { $set: { lineIds: lines, updatedAt: new Date() } },
+      );
+    }
+
+    // Reconcile seed opening balances to the same persisted sources used by
+    // the UI: BankAccount.currentBalance for HDFC and non-service Product/Stock
+    // valuation for inventory. The InventoryItem legacy list is not added a
+    // second time; that would double-count a different inventory dataset.
+    const openingEquityAccountId = accIdMap["3305"];
+    const seededBankSnapshots = await db.collection("bankaccounts").find({
+      tenantId: TENANT_ID,
+      source: SEED_SOURCE,
+      accountName: { $in: bankDefs.map((bank) => bank.name) },
+    }).toArray();
+    if (!seededBankSnapshots.length || !openingEquityAccountId) {
+      throw new Error("Finance opening-balance source account is missing.");
+    }
+
+    const trackedProducts = products.filter((product) =>
+      product.tab_general_information?.type !== "service" && product.status !== "archived"
+    );
+    const stockByProduct = await db.collection("stocks").aggregate([
+      { $match: { tenantId: TENANT_ID } },
+      { $group: { _id: "$product", quantity: { $sum: "$quantity" } } },
+    ]).toArray();
+    const stockQuantityByProduct = new Map(
+      stockByProduct.map((row) => [String(row._id), Number(row.quantity) || 0]),
+    );
+    const inventoryClosingValue = trackedProducts.reduce((total, product) => {
+      const onHand = stockQuantityByProduct.get(String(product._id)) || 0;
+      const unitCost = Number(product.tab_general_information?.standard_price) || 0;
+      return total + (onHand > 0 ? onHand * unitCost : 0);
+    }, 0);
+
+    const openingEntryName = "JE-DEMO-OPENING-BALANCES";
+    const priorPostedEntries = await db.collection("journalentries").find({
+      tenantId: TENANT_ID,
+      status: "posted",
+      "header.name": { $ne: openingEntryName },
+    }, { projection: { lineIds: 1 } }).toArray();
+    const postedBalanceByAccount = new Map<string, number>();
+    for (const entry of priorPostedEntries) {
+      for (const line of entry.lineIds || []) {
+        const id = String(line.accountId);
+        const signed = (Number(line.debit) || 0) - (Number(line.credit) || 0);
+        postedBalanceByAccount.set(id, (postedBalanceByAccount.get(id) || 0) + signed);
+      }
+    }
+    const openingAdjustments = [
+      ...seededBankSnapshots.map((bank: any) => {
+        const bankDef = bankDefs.find((candidate) => candidate.name === bank.accountName);
+        const accountId = bankDef ? accIdMap[bankDef.code] : null;
+        if (!accountId) throw new Error(`No GL account is configured for bank account ${bank.accountName}.`);
+        return {
+          accountId,
+          label: `${bank.accountName} opening balance`,
+          amount: Number(bank.currentBalance) - (postedBalanceByAccount.get(String(accountId)) || 0),
+        };
+      }),
+      {
+        accountId: inventoryAccountId,
+        label: "Inventory opening stock value — Product + Stock valuation",
+        amount: inventoryClosingValue - (postedBalanceByAccount.get(String(inventoryAccountId)) || 0),
+      },
+    ].filter((adjustment) => Math.abs(adjustment.amount) > 0.01);
+    const openingBalanceTotal = openingAdjustments.reduce((total, adjustment) => total + adjustment.amount, 0);
+    const openingBalanceLines = openingAdjustments.map((adjustment) => ({
+      accountId: adjustment.accountId,
+      label: adjustment.label,
+      debit: adjustment.amount > 0 ? adjustment.amount : 0,
+      credit: adjustment.amount < 0 ? Math.abs(adjustment.amount) : 0,
+    }));
+    openingBalanceLines.push({
+      accountId: openingEquityAccountId,
+      label: "Opening balance equity counterpart",
+      debit: openingBalanceTotal < 0 ? Math.abs(openingBalanceTotal) : 0,
+      credit: openingBalanceTotal > 0 ? openingBalanceTotal : 0,
+    });
+    const totalOpeningDebits = openingBalanceLines.reduce((total, line) => total + line.debit, 0);
+    const totalOpeningCredits = openingBalanceLines.reduce((total, line) => total + line.credit, 0);
+    if (Math.abs(totalOpeningDebits - totalOpeningCredits) > 0.01) {
+      throw new Error("Seeded opening balance journal is not balanced.");
+    }
+    await db.collection("journalentries").updateOne(
+      { tenantId: TENANT_ID, "header.name": openingEntryName },
+      {
+        $set: {
+          tenantId: TENANT_ID,
+          header: {
+            name: "JE-DEMO-OPENING-BALANCES",
+            date: new Date("2024-03-01T00:00:00.000Z"),
+            ref: "Seeded opening balances for HDFC and inventory",
+            journalType: "general",
+          },
+          lineIds: openingBalanceLines,
+          totals: {
+            currencyId: "INR",
+            amountUntaxed: openingBalanceTotal,
+            amountTax: 0,
+            amountTotal: openingBalanceTotal,
+          },
+          status: "posted",
+          voucherType: "journal",
+          voucherStatus: "validated",
+          approvalRequired: false,
+          isDemo: true,
+          source: SEED_SOURCE,
+          createdBy: adminUserId,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: { createdAt: new Date("2024-03-01T00:00:00.000Z") },
+      },
+      { upsert: true },
+    );
+    console.log("Balanced journal entries verified, including seeded current-asset opening balances.");
 
     // 2.9 Bank Statements
     const bAcc = accIdMap["1050"] || Object.values(accIdMap)[0];
+    const bankStatementSnapshots = [
+      { date: new Date("2026-08-31T00:00:00.000Z"), start: 11880000, end: 6680000, description: "August Payroll Disbursement", amount: -5200000, journalDate: new Date("2026-08-31T00:00:00.000Z") },
+      { date: new Date("2026-09-30T00:00:00.000Z"), start: 6680000, end: 5830000, description: "September Facility Rent & Power", amount: -850000, journalDate: new Date("2026-09-30T00:00:00.000Z") },
+      { date: new Date("2026-10-28T00:00:00.000Z"), start: 5830000, end: 4580000, description: "October Operational Logistics", amount: -1250000, journalDate: new Date("2026-10-15T00:00:00.000Z") },
+    ];
     for (let st = 1; st <= 3; st++) {
       const stName = `BS-2026-0${st}`;
+      const statement = bankStatementSnapshots[st - 1];
       await db.collection("bankstatements").updateOne(
         { tenantId: TENANT_ID, "header.name": stName },
         {
@@ -915,30 +1097,23 @@ async function main() {
             header: {
               name: stName,
               journalId: bAcc,
-              date: new Date(2026, 7 + st, 0),
-              balance_start: 3500000 + (st - 1) * 500000,
-              balance_end_real: 4000000 + st * 500000,
+              date: statement.date,
+              balance_start: statement.start,
+              balance_end_real: statement.end,
             },
             lineIds: [
               {
-                date: new Date(2026, 7 + st, 10),
-                payment_ref: `NEFT Client Payment Batch #${st}`,
-                partnerId: customerIds[st % customerIds.length],
-                amount: 850000,
-                isReconciled: true,
-              },
-              {
-                date: new Date(2026, 7 + st, 20),
-                payment_ref: `Vendor Electronic Settlement #${st}`,
-                partnerId: customerIds[(st + 1) % customerIds.length],
-                amount: -350000,
+                date: statement.journalDate,
+                payment_ref: statement.description,
+                partnerId: null,
+                amount: statement.amount,
                 isReconciled: true,
               },
             ],
             status: "posted",
             updatedAt: new Date(),
           },
-          $setOnInsert: { createdAt: new Date(2026, 7 + st, 0) },
+          $setOnInsert: { createdAt: statement.date },
         },
         { upsert: true }
       );

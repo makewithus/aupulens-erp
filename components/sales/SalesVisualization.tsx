@@ -33,8 +33,8 @@ const fmtDate = (d: Date) =>
 const fmtFullDate = (d: Date) =>
   d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
 const fmtK = (v: number) => {
-  if (v >= 100000) return (v / 100000).toFixed(0) + "L";
-  if (v >= 1000) return (v / 1000).toFixed(0) + "K";
+  if (v >= 100000) return (v / 100000).toFixed(1) + "L";
+  if (v >= 1000) return (v / 1000).toFixed(1) + "K";
   return v.toString();
 };
 
@@ -118,7 +118,8 @@ export function SalesVisualization({
     if (isConversion) {
       const sumOrders = visualizationData.reduce((acc, d) => acc + (d.orders || 0), 0);
       const sumQuotes = visualizationData.reduce((acc, d) => acc + (d.quotations || 0), 0);
-      return `${sumOrders.toLocaleString()} Orders / ${sumQuotes.toLocaleString()} Quotes`;
+      const conversionRate = sumQuotes > 0 ? Math.round((sumOrders / sumQuotes) * 100) : 0;
+      return `${sumOrders.toLocaleString()} / ${sumQuotes.toLocaleString()} converted (${conversionRate}%)`;
     }
     if (isStatus) {
       const sum = visualizationData.reduce((acc, d) => acc + (d.value || 0), 0);
@@ -419,7 +420,7 @@ export function SalesVisualization({
         tooltipValue.innerHTML = `
           <div class="flex items-center gap-1.5 text-[11px] mb-1">
             <span style="width:8px; height:8px; border-radius:1px; display:inline-block; background:#10b981"></span>
-            <span class="text-muted-foreground/80">Orders</span>
+            <span class="text-muted-foreground/80">Converted Orders</span>
             <b class="ml-4 font-bold text-foreground">${(d.orders || 0).toLocaleString()}</b>
           </div>
           <div class="flex items-center gap-1.5 text-[11px]">

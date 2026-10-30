@@ -60,8 +60,6 @@ export default function HRAIAssistantPage() {
     }
     usageRequestWasActive.current = true;
     refreshAiUsage();
-    const timer = window.setInterval(refreshAiUsage, 2500);
-    return () => window.clearInterval(timer);
   }, [isLoading]);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);

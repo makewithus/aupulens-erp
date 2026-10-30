@@ -8,6 +8,7 @@ import Asset from "@/models/finance/Asset";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 import { syncAssetCapitalizationEntry } from "@/lib/accounting/assetPosting";
 import { withAccountingTransaction } from "@/lib/accounting/transaction";
+import { isFixedAssetAccount } from "@/lib/accounting/fixedAssetAccount";
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,7 +40,9 @@ export async function GET(req: NextRequest) {
       .populate("accounts.assetAccountId")
       .populate("accounts.depreciationAccountId").lean();
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items }, {
+      headers: { "Cache-Control": "no-store, max-age=0" },
+    });
   } catch (error: any) {
     return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }
@@ -57,6 +60,13 @@ export async function POST(req: NextRequest) {
     const body = stripProtectedFields(await req.json());
 
     await dbConnect();
+
+    if (!(await isFixedAssetAccount(tenantId, body.accounts?.assetAccountId))) {
+      return NextResponse.json(
+        { error: "Choose an account classified as a fixed asset." },
+        { status: 400 },
+      );
+    }
 
     return await withAccountingTransaction(async () => {
       const asset = new Asset({

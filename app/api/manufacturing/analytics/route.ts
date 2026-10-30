@@ -22,9 +22,10 @@ export async function GET(req: NextRequest) {
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
     const rangeKey = req.nextUrl.searchParams.get("range") || "30d";
     const rangeDays = rangeKey === "7d" ? 7 : rangeKey === "90d" ? 90 : 30;
-    const rangeStart = new Date();
-    rangeStart.setDate(rangeStart.getDate() - (rangeDays - 1));
-    rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date();
+    const rangeStart = new Date(rangeEnd);
+    rangeStart.setUTCDate(rangeStart.getUTCDate() - (rangeDays - 1));
+    rangeStart.setUTCHours(0, 0, 0, 0);
     const cacheKey = `mfg-analytics-live:${tenantId}:${rangeKey}`;
 
     if (!isFresh) {
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
     // 1. Fetch live manufacturing records
     const [
       ordersList,
+      currentProductionList,
       totalBomsCount,
       shipmentsList,
       shipmentModesRaw,
@@ -46,65 +48,91 @@ export async function GET(req: NextRequest) {
       ManufacturingOrder.find({
         tenantId,
         $or: [
-          { "header.scheduledDate": { $gte: rangeStart } },
-          { "header.scheduledDate": { $exists: false }, createdAt: { $gte: rangeStart } },
-          { "header.scheduledDate": null, createdAt: { $gte: rangeStart } },
+          { "header.scheduledDate": { $gte: rangeStart, $lte: rangeEnd } },
+          { "header.scheduledDate": { $exists: false }, createdAt: { $gte: rangeStart, $lte: rangeEnd } },
+          { "header.scheduledDate": null, createdAt: { $gte: rangeStart, $lte: rangeEnd } },
+          { finishedAt: { $gte: rangeStart, $lte: rangeEnd } },
+          { "qcDetails.inspectedAt": { $gte: rangeStart, $lte: rangeEnd } },
         ],
       })
         .populate("header.productId", "header.name header.sku")
         .sort({ updatedAt: -1 })
         .lean(),
+      ManufacturingOrder.find({
+        tenantId,
+        $or: [
+          { productionStatus: { $in: ["material_reserved", "material_issued", "in_production"] } },
+          { status: "in_progress", productionStatus: { $exists: false } },
+        ],
+      }).select("header.quantity").lean(),
       BillOfMaterial.countDocuments({ tenantId }),
-      Shipment.find({ tenantId, createdAt: { $gte: rangeStart } })
+      Shipment.find({ tenantId, createdAt: { $gte: rangeStart, $lte: rangeEnd } })
         .select("shipmentType actualDelivery estimatedDelivery createdAt")
         .lean(),
       Shipment.aggregate([
-        { $match: { tenantId, createdAt: { $gte: rangeStart } } },
+        { $match: { tenantId, createdAt: { $gte: rangeStart, $lte: rangeEnd } } },
         { $group: { _id: "$shipmentType", count: { $sum: 1 }, totalVal: { $sum: "$totalValue" } } },
       ]),
     ]);
 
     // 2. Compute Live Operational Metrics
     let finishedQty = 0;
-    let inProductionQty = 0;
     let qcPassedQty = 0;
     let qcFailedQty = 0;
-
-    const statusCounts: Record<string, number> = {
-      finished: 0,
-      in_production: 0,
-      qc_pending: 0,
-      rework: 0,
-      qc_failed: 0,
-      qc_passed: 0,
-      demand_forecast: 0,
-      production_order: 0,
-    };
-
+    let qcPassedOrders = 0;
+    let qcFailedOrders = 0;
     const dailyOutputMap = new Map<string, { actual: number; target: number; scrap: number }>();
+    for (let day = new Date(rangeStart); day <= rangeEnd; day.setUTCDate(day.getUTCDate() + 1)) {
+      const dayKey = day.toISOString().slice(0, 10);
+      dailyOutputMap.set(dayKey, { actual: 0, target: 0, scrap: 0 });
+    }
+
+    const isInRange = (value: Date | string | undefined) => {
+      if (!value) return false;
+      const date = new Date(value);
+      return Number.isFinite(date.getTime()) && date >= rangeStart && date <= rangeEnd;
+    };
+    const legacyStatusMap: Record<string, string> = {
+      done: "finished",
+      in_progress: "in_production",
+      to_close: "qc_pending",
+      draft: "production_order",
+      confirmed: "production_order",
+    };
 
     for (const order of ordersList) {
       const qty = Number(order.header?.quantity) || 0;
-      const status = String(order.productionStatus || order.status || "demand_forecast");
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
+      const status = String(order.productionStatus || legacyStatusMap[order.status] || "demand_forecast");
+      const scheduledDate = order.header?.scheduledDate || order.createdAt;
+      const completionDate = order.finishedAt || (status === "finished" ? order.updatedAt : undefined);
+      const inspectionDate = order.qcDetails?.inspectedAt || (order.qcDetails?.result ? order.updatedAt : undefined);
 
-      if (status === "finished" || status === "qc_passed") {
-        finishedQty += qty;
-      } else if (["in_production", "material_issued", "material_reserved", "production_order"].includes(status)) {
-        inProductionQty += qty;
+      if (isInRange(scheduledDate) && status !== "cancelled") {
+        const dayKey = new Date(scheduledDate).toISOString().slice(0, 10);
+        const currentDay = dailyOutputMap.get(dayKey);
+        if (currentDay) currentDay.target += qty;
       }
-      if (order.qcDetails?.result === "passed") qcPassedQty += qty;
-      if (order.qcDetails?.result === "failed") qcFailedQty += qty;
 
-      // Group into dynamic daily execution buckets from actual units
-      const orderDate = new Date(order.header?.scheduledDate || order.createdAt);
-      const dayKey = orderDate.toISOString().slice(0, 10);
-      const currentDay = dailyOutputMap.get(dayKey) || { actual: 0, target: 0, scrap: 0 };
-      currentDay.actual += (status === "finished" || status === "qc_passed") ? qty : 0;
-      currentDay.target += qty;
-      if (status === "rework" || status === "qc_failed") currentDay.scrap += qty;
-      dailyOutputMap.set(dayKey, currentDay);
+      if (status === "finished" && isInRange(completionDate)) {
+        finishedQty += qty;
+        const dayKey = new Date(completionDate!).toISOString().slice(0, 10);
+        const currentDay = dailyOutputMap.get(dayKey);
+        if (currentDay) currentDay.actual += qty;
+      }
+
+      if (isInRange(inspectionDate) && order.qcDetails?.result === "passed") {
+        qcPassedQty += qty;
+        qcPassedOrders += 1;
+      }
+      if (isInRange(inspectionDate) && order.qcDetails?.result === "failed") {
+        qcFailedQty += qty;
+        qcFailedOrders += 1;
+        const dayKey = new Date(inspectionDate!).toISOString().slice(0, 10);
+        const currentDay = dailyOutputMap.get(dayKey);
+        if (currentDay) currentDay.scrap += qty;
+      }
     }
+    const inProductionQty = (currentProductionList as any[]).reduce((sum, order: any) => sum + (Number(order.header?.quantity) || 0), 0);
 
     // Authoritative totals from database
     const finalTotalOutput = finishedQty;
@@ -130,34 +158,23 @@ export async function GET(req: NextRequest) {
     })).sort((a, b) => a.day.localeCompare(b.day));
 
     // 3. Dynamic QC Yield Breakdown from Real Order Statuses
-    const passedOrders = statusCounts["qc_passed"] || 0;
-    const pendingOrders = statusCounts["qc_pending"] || 0;
-    const reworkOrders = (statusCounts["rework"] || 0) + (statusCounts["qc_failed"] || 0);
-    const totalQcOrders = passedOrders + pendingOrders + reworkOrders;
+    const totalQcOrders = qcPassedOrders + qcFailedOrders;
 
     const qcYieldDistribution: Array<{ name: string; value: number; count: number; color: string }> = [];
     if (totalQcOrders > 0) {
-      if (passedOrders > 0) {
+      if (qcPassedOrders > 0) {
         qcYieldDistribution.push({
-          name: "QC Passed / Accepted",
-          value: Math.round((passedOrders / totalQcOrders) * 100),
-          count: passedOrders,
+          name: "QC Passed",
+          value: Math.round((qcPassedOrders / totalQcOrders) * 100),
+          count: qcPassedOrders,
           color: "#10b981",
         });
       }
-      if (pendingOrders > 0) {
+      if (qcFailedOrders > 0) {
         qcYieldDistribution.push({
-          name: "QC Inspection Pending",
-          value: Math.round((pendingOrders / totalQcOrders) * 100),
-          count: pendingOrders,
-          color: "#3b82f6",
-        });
-      }
-      if (reworkOrders > 0) {
-        qcYieldDistribution.push({
-          name: "QC Rejected / Rework",
-          value: Math.round((reworkOrders / totalQcOrders) * 100),
-          count: reworkOrders,
+          name: "QC Failed",
+          value: Math.round((qcFailedOrders / totalQcOrders) * 100),
+          count: qcFailedOrders,
           color: "#ef4444",
         });
       }

@@ -16,6 +16,23 @@ function calculateTrend(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+function orderPeriodMatch(tenantId: string, from: Date, to: Date, exclusiveEnd = false) {
+  const dateRange = { $gte: from, ...(exclusiveEnd ? { $lt: to } : { $lte: to }) };
+  return {
+    tenantId,
+    $and: [
+      REAL_ORDER_MATCH,
+      {
+        $or: [
+          { "header.dateOrder": dateRange },
+          { "header.dateOrder": { $exists: false }, createdAt: dateRange },
+          { "header.dateOrder": null, createdAt: dateRange },
+        ],
+      },
+    ],
+  };
+}
+
 export async function GET() {
   try {
     const session = await auth();
@@ -44,7 +61,7 @@ export async function GET() {
     prev30Days.setDate(last30Days.getDate() - 30);
 
     const [
-      currentOrders,
+      currentOrderAgg,
       prevOrders,
       currentQuotes,
       prevQuotes,
@@ -52,8 +69,17 @@ export async function GET() {
       prevInvoiceAgg,
       pendingOrders,
     ] = await Promise.all([
-      SaleOrder.countDocuments({ tenantId, createdAt: { $gte: last30Days }, ...REAL_ORDER_MATCH }),
-      SaleOrder.countDocuments({ tenantId, createdAt: { $gte: prev30Days, $lt: last30Days }, ...REAL_ORDER_MATCH }),
+      SaleOrder.aggregate([
+        { $match: orderPeriodMatch(tenantId, last30Days, now) },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+            totalOrderValue: { $sum: { $ifNull: ["$totals.amountTotal", 0] } },
+          },
+        },
+      ]),
+      SaleOrder.countDocuments(orderPeriodMatch(tenantId, prev30Days, last30Days, true)),
       SalesQuotation.countDocuments({ tenantId, createdAt: { $gte: last30Days } }),
       SalesQuotation.countDocuments({ tenantId, createdAt: { $gte: prev30Days, $lt: last30Days } }),
       (SalesInvoice as any).aggregate([
@@ -88,6 +114,8 @@ export async function GET() {
 
     const pendingDC = pendingOrders.length + unlinkedPendingDcs;
 
+    const currentOrders = currentOrderAgg[0]?.count || 0;
+    const totalOrderValue = currentOrderAgg[0]?.totalOrderValue || 0;
     const currentRevenue = currentInvoiceAgg[0]?.total || 0;
     const currentGrossInvoiced = currentInvoiceAgg[0]?.grossTotal || 0;
     const prevRevenue = prevInvoiceAgg[0]?.total || 0;
@@ -97,6 +125,7 @@ export async function GET() {
       totalOrders: currentOrders,
       totalQuotations: currentQuotes,
       totalRevenue: currentRevenue,
+      totalOrderValue,
       totalGrossInvoiced: currentGrossInvoiced,
       deliveriesPending: pendingDC,
       trends: {

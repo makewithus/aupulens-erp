@@ -1,4 +1,4 @@
-import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS, SALES_ORDER_STATUS } from "@/lib/constants/statuses";
 
 /**
  * Matches a real, confirmed order regardless of which sales UI created it.
@@ -7,7 +7,11 @@ import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
  */
 export const REAL_ORDER_MATCH = {
   $or: [
-    { salesOrderStatus: { $ne: null } },
+    {
+      salesOrderStatus: {
+        $in: [SALES_ORDER_STATUS.APPROVED, SALES_ORDER_STATUS.CONFIRMED, SALES_ORDER_STATUS.CLOSED],
+      },
+    },
     { status: { $in: [DOCUMENT_STATUS.APPROVED, DOCUMENT_STATUS.POSTED, DOCUMENT_STATUS.CLOSED] } },
     // Legacy Odoo values remain in old rows although the current schema no
     // longer permits writing them.

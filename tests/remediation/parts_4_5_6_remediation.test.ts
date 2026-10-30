@@ -661,6 +661,20 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
       expect(hindiDraft.customerName).toBe("CLOUD-TEST-CUSTOMER-001");
       expect(hindiDraft.line.qty).toBe(2);
       expect(hindiDraft.totals.totalAmount).toBe(2360);
+
+      const reportedIntent = parseErpIntent(
+        "make quotation for CLOUD-TEST-CUSTOMER-001 : 5 qty CLOUD-TEST-PRODUCT-001",
+      );
+      expect(reportedIntent).toBe("quote_draft");
+      const reportedDraft = await prepareQuoteDraft(
+        makeUserScope(TENANT_A),
+        "make quotation for CLOUD-TEST-CUSTOMER-001 : 5 qty CLOUD-TEST-PRODUCT-001",
+        "req-sys29-reported-format",
+      );
+      expect(reportedDraft.customerName).toBe("CLOUD-TEST-CUSTOMER-001");
+      expect(reportedDraft.line.qty).toBe(5);
+      expect(reportedDraft.line.unitPrice).toBe(1000);
+      expect(reportedDraft.totals.totalAmount).toBe(5900);
     });
 
     it("SYS-30: AI customer mobile update supports English & Tamil with review, safe proposal & confirmed persistence", async () => {

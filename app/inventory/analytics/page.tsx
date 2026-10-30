@@ -124,7 +124,17 @@ export default function InventoryAnalyticsPage() {
       }
       if (orderRes.ok) {
         const data = await orderRes.json();
-        setOrders(data.orders || []);
+        let allOrders = data.orders || [];
+        if (data.totalPages > 1) {
+          const remainingPages = await Promise.all(
+            Array.from({ length: data.totalPages - 1 }, (_, index) =>
+              cachedFetch(`/api/inventory/orders?page=${index + 2}&limit=1000`),
+            ),
+          );
+          const pageData = await Promise.all(remainingPages.map((res) => res.ok ? res.json() : Promise.resolve({ orders: [] })));
+          allOrders = allOrders.concat(...pageData.map((page) => page.orders || []));
+        }
+        setOrders(allOrders);
       }
       if (movesRes.ok) {
         const data = await movesRes.json();
@@ -224,44 +234,58 @@ export default function InventoryAnalyticsPage() {
     }, [] as { name: string; value: number }[]);
   }, [filteredStockItems]);
 
-  // Order Status Distribution
+  // Order Status Distribution from the document status values stored on orders.
   const orderStatusData = useMemo(() => {
-    return [
-      { status: 'Pending', count: filteredOrders.filter(o => o.status === 'pending').length },
-      { status: 'Processing', count: filteredOrders.filter(o => o.status === 'processing').length },
-      { status: 'Fulfilled', count: filteredOrders.filter(o => o.status === 'fulfilled').length },
-      { status: 'Shipped', count: filteredOrders.filter(o => o.status === 'shipped').length },
-      { status: 'Delivered', count: filteredOrders.filter(o => o.status === 'delivered').length },
-    ].filter(d => d.count > 0);
+    const counts = new Map<string, number>();
+    for (const order of filteredOrders) {
+      const status = order.status || 'unspecified';
+      counts.set(status, (counts.get(status) || 0) + 1);
+    }
+    return [...counts.entries()].map(([status, count]) => ({
+      status: status.replace(/_/g, ' ').replace(/^./, (letter) => letter.toUpperCase()),
+      count,
+    }));
   }, [filteredOrders]);
 
-  // Batch Status Distribution
+  // Batch Status Distribution, including every status present in the model.
   const batchStatusData = useMemo(() => {
-    return [
-      { status: 'Active', count: filteredBatches.filter(b => b.status === 'active').length },
-      { status: 'Quarantine', count: filteredBatches.filter(b => b.status === 'quarantine').length },
-      { status: 'Released', count: filteredBatches.filter(b => b.status === 'released').length },
-    ].filter(d => d.count > 0);
+    const counts = new Map<string, number>();
+    for (const batch of filteredBatches) {
+      const status = batch.status || 'unspecified';
+      counts.set(status, (counts.get(status) || 0) + 1);
+    }
+    return [...counts.entries()].map(([status, count]) => ({
+      status: status.replace(/_/g, ' ').replace(/^./, (letter) => letter.toUpperCase()),
+      count,
+    }));
   }, [filteredBatches]);
 
-  // Order Trends (90-day timeline for TradingLineChart zoom/pan/filtering)
+  // Order Trends follows the selected reporting period.
   const orderTrendsData = useMemo(() => {
-    return Array.from({ length: 90 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (89 - i));
-      const dateStr = date.toISOString().split('T')[0];
+    const selectedDays = Number(dateRange) || 30;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const firstDay = new Date(today);
+    firstDay.setDate(today.getDate() - (selectedDays - 1));
+    return Array.from({ length: selectedDays }, (_, i) => {
+      const date = new Date(firstDay);
+      date.setDate(firstDay.getDate() + i);
+      const dateStr = toLocalDateString(date);
       
       const dayOrders = filteredOrders.filter(o => {
         if (!o.orderDate) return false;
         try {
-          const od = typeof o.orderDate === 'string' ? o.orderDate.split('T')[0] : new Date(o.orderDate).toISOString().split('T')[0];
+          const od = toLocalDateString(o.orderDate);
           return od === dateStr;
         } catch {
           return false;
         }
       });
       
-      const realQty = dayOrders.reduce((sum, o) => sum + (o.totalQuantity || 0), 0);
+      const realQty = dayOrders.reduce((sum, order) => {
+        const quantity = order.totalQuantity ?? (order.items || []).reduce((itemSum, item) => itemSum + (item.quantity || 0), 0);
+        return sum + quantity;
+      }, 0);
 
       return {
         date: dateStr,
@@ -270,7 +294,7 @@ export default function InventoryAnalyticsPage() {
         quantity: realQty,
       };
     });
-  }, [filteredOrders]);
+  }, [filteredOrders, dateRange]);
 
   // Real Daily Throughput Data for DailyBrickBarChart
   const dailyThroughputData = useMemo(() => {

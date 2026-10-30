@@ -200,12 +200,12 @@ export default function BalanceSheetPage() {
               </div>
               <div class="mb-4">
                 <div class="flex justify-between items-baseline bg-gray-50 border-b border-gray-300 py-1.5 px-4 font-bold text-xs uppercase text-gray-700">
-                  <span>Non-Current Assets (Fixed Assets)</span>
+                  <span>Non-Current Assets</span>
                   <span>${formatInr(data.asset?.nonCurrent?.total ?? 0)}</span>
                 </div>
                 <table class="w-full text-left mb-2">
                   <tbody>
-                    ${renderRows(assetNonCurrentAccounts, "No non-current / fixed asset accounts with balances")}
+                    ${renderRows(assetNonCurrentAccounts, "No non-current asset accounts with balances")}
                   </tbody>
                 </table>
               </div>
@@ -444,7 +444,7 @@ export default function BalanceSheetPage() {
                     subtitles={{
                       currentTitle: "Current Assets",
                       currentDesc: "Cash, bank balances, receivables, inventory & assets convertible within 12 months",
-                      nonCurrentTitle: "Non-Current Assets (Fixed Assets)",
+                      nonCurrentTitle: "Non-Current Assets",
                       nonCurrentDesc: "Property, plant, machinery, equipment & capital assets held beyond 12 months",
                     }}
                   />

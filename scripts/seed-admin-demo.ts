@@ -813,52 +813,49 @@ async function main() {
     }
     console.log("Vendor bills verified: 6 records.");
 
-    // Fixed Assets
-    // Find accounts for assets:
-    const accList = await db.collection("accounts").find({ tenantId: TENANT_ID }).toArray();
-    const assetAcc = accList.find((a) => a.accountNumber === "1500" || a.code === "1500" || a.type === "fixed_asset")?._id || new ObjectId();
-    const depExpAcc = accList.find((a) => a.accountNumber === "6600" || a.code === "6600" || a.type === "expense")?._id || new ObjectId();
-    const bankAcc = accList.find((a) => a.accountNumber === "1050" || a.code === "1050" || a.type === "bank")?._id || new ObjectId();
-
-    const assetDefs = [
-      { name: "Heavy Duty Logistics Delivery Truck (MH-04-AB-1234)", val: 1850000, salvage: 250000, yrs: 7, method: "linear" },
-      { name: "CNC High-Precision Milling Station #1", val: 3200000, salvage: 400000, yrs: 10, method: "degressive" },
-      { name: "High-Availability Server Rack Hardware Cluster", val: 1450000, salvage: 150000, yrs: 5, method: "linear" },
-      { name: "Executive Ergonomic Office Furniture Suite", val: 680000, salvage: 50000, yrs: 5, method: "linear" },
-      { name: "Rooftop 50kW Industrial Solar Array Installation", val: 2400000, salvage: 300000, yrs: 15, method: "linear" },
-      { name: "Advanced Materials Testing Laboratory Rig", val: 1150000, salvage: 120000, yrs: 8, method: "linear" },
+    // Remove only this seeder's synthetic fixed-asset fixtures. Keep linked
+    // posted journals as cancelled audit records rather than deleting ledger
+    // history; user-entered assets and their postings are not touched.
+    const removedDemoAssetNames = [
+      "Heavy Duty Logistics Delivery Truck (MH-04-AB-1234)",
+      "CNC High-Precision Milling Station #1",
+      "High-Availability Server Rack Hardware Cluster",
+      "Executive Ergonomic Office Furniture Suite",
+      "Rooftop 50kW Industrial Solar Array Installation",
+      "Advanced Materials Testing Laboratory Rig",
     ];
-    for (const a of assetDefs) {
-      await db.collection("assets").updateOne(
-        { tenantId: TENANT_ID, name: a.name },
-        {
-          $set: {
-            tenantId: TENANT_ID,
-            name: a.name,
-            purchaseDate: new Date("2024-03-15T00:00:00.000Z"),
-            originalValue: a.val,
-            salvageValue: a.salvage,
-            durationYears: a.yrs,
-            method: a.method,
-            accounts: {
-              assetAccountId: assetAcc,
-              depreciationAccountId: depExpAcc,
-              fundingAccountId: bankAcc,
-            },
-            status: "running",
-            isDemo: true,
-            source: DEMO_SOURCE,
-            updatedAt: new Date(),
-          },
-          $setOnInsert: { createdAt: new Date("2024-03-15T00:00:00.000Z") },
+    const seededAssetsToRemove = await db.collection("assets").find({
+      tenantId: TENANT_ID,
+      isDemo: true,
+      source: DEMO_SOURCE,
+      name: { $in: removedDemoAssetNames },
+    }, { projection: { _id: 1 } }).toArray();
+    const seededAssetRefs = seededAssetsToRemove.map((asset) => `CAP/${asset._id}`);
+    if (seededAssetRefs.length) {
+      await db.collection("journalentries").updateMany({
+        tenantId: TENANT_ID,
+        "header.ref": { $in: seededAssetRefs },
+        status: "posted",
+      }, {
+        $set: {
+          status: "cancelled",
+          voucherStatus: "cancelled",
+          cancellationReason: "Synthetic fixed-asset seed data removed; retained for audit history.",
+          updatedAt: new Date(),
         },
-        { upsert: true }
-      );
+      });
+      await db.collection("assets").deleteMany({
+        tenantId: TENANT_ID,
+        isDemo: true,
+        source: DEMO_SOURCE,
+        _id: { $in: seededAssetsToRemove.map((asset) => asset._id) },
+      });
     }
-    console.log("Fixed assets verified: 6 assets running.");
+    console.log(`Removed ${seededAssetsToRemove.length} synthetic fixed-asset fixtures from the admin demo seed.`);
 
     // Balanced Journal Entries (Ensure Debit == Credit for every entry)
     console.log("Seeding balanced Journal Entries for Live Financial Reporting...");
+    const accList = await db.collection("accounts").find({ tenantId: TENANT_ID }).toArray();
     // First, safely clean up any invalid journal entries with null header.name from prior interrupted runs
     await db.collection("journalentries").deleteMany({
       tenantId: TENANT_ID,
@@ -870,6 +867,21 @@ async function main() {
       if (a.code) accountsMap.set(String(a.code), a._id);
       if (a.accountNumber) accountsMap.set(String(a.accountNumber), a._id);
     }
+    // This demo dataset has both legacy COA conventions in circulation:
+    // code 1100 can mean cash or receivables, and 1200 can mean receivables or
+    // inventory. Resolve these three control accounts by meaning before the
+    // demo journals are built; never post to an account based on a colliding
+    // code alone.
+    const receivableAccount = accList.find((account) => /accounts?\s+receivable/i.test(account.name || account.accountName || ""));
+    const inventoryAccount = accList.find((account) => /\b(?:inventory|stock)\b/i.test(account.name || account.accountName || ""));
+    const bankAccount = accList.find((account) => /\bhdfc\b.*\bbank\b|\bbank\b.*\bhdfc\b/i.test(account.name || account.accountName || ""))
+      || accList.find((account) => account.type === "bank" || account.account_type === "asset_cash");
+    if (!receivableAccount || !inventoryAccount || !bankAccount) {
+      throw new Error("Demo journal setup requires separate Accounts Receivable, Inventory, and bank GL accounts.");
+    }
+    accountsMap.set("1100", receivableAccount._id);
+    accountsMap.set("1200", inventoryAccount._id);
+    accountsMap.set("1050", bankAccount._id);
     const fallbackAccId = accList[0]?._id || new ObjectId();
     const getAccId = (code: string) => accountsMap.get(code) || fallbackAccId;
 
@@ -981,7 +993,104 @@ async function main() {
         { upsert: true }
       );
     }
-    console.log("Balanced journal entries verified: 7 double-entry journals posted.");
+    // These demo journals include bank outflows and inventory consumption.
+    // Ensure their opening ledger amounts come from the matching bank and
+    // stock snapshots so a fresh demo seed cannot create negative asset
+    // balances simply because no opening journal existed.
+    const openingEntryName = "JE-DEMO-OPENING-BALANCES";
+    const openingEquity = accList.find((account) => /opening\s+balance\s+equity/i.test(account.name || account.accountName || ""))
+      || accList.find((account) => account.internal_group === "equity" || account.account_type === "equity");
+    const hdfcSnapshot = await db.collection("bankaccounts").findOne({
+      tenantId: TENANT_ID,
+      accountName: /hdfc.*corporate current/i,
+      glAccountId: bankAccount._id,
+    });
+    if (!openingEquity || !hdfcSnapshot) {
+      throw new Error("Demo opening balances require an equity account and the HDFC bank snapshot.");
+    }
+
+    const inventoryProducts = await db.collection("products").find({
+      tenantId: TENANT_ID,
+      "tab_general_information.type": { $ne: "service" },
+      status: { $ne: "archived" },
+    }).project({ "tab_general_information.standard_price": 1 }).toArray();
+    const inventoryStock = await db.collection("stocks").aggregate([
+      { $match: { tenantId: TENANT_ID } },
+      { $group: { _id: "$product", quantity: { $sum: "$quantity" } } },
+    ]).toArray();
+    const stockByProduct = new Map(inventoryStock.map((row: any) => [String(row._id), Number(row.quantity) || 0]));
+    const inventoryValue = inventoryProducts.reduce((sum: number, product: any) => {
+      const quantity = stockByProduct.get(String(product._id)) || 0;
+      return sum + Math.max(quantity, 0) * (Number(product.tab_general_information?.standard_price) || 0);
+    }, 0);
+
+    const priorPostedEntries = await db.collection("journalentries").find({
+      tenantId: TENANT_ID,
+      status: "posted",
+      "header.name": { $ne: openingEntryName },
+    }, { projection: { lineIds: 1 } }).toArray();
+    const postedBalanceByAccount = new Map<string, number>();
+    for (const entry of priorPostedEntries) {
+      for (const line of entry.lineIds || []) {
+        const accountId = String(line.accountId);
+        postedBalanceByAccount.set(
+          accountId,
+          (postedBalanceByAccount.get(accountId) || 0) + (Number(line.debit) || 0) - (Number(line.credit) || 0),
+        );
+      }
+    }
+    const openingAdjustments = [
+      {
+        accountId: bankAccount._id,
+        label: "HDFC Bank opening balance",
+        amount: Number(hdfcSnapshot.currentBalance) - (postedBalanceByAccount.get(String(bankAccount._id)) || 0),
+      },
+      {
+        accountId: inventoryAccount._id,
+        label: "Inventory opening stock value — Product + Stock valuation",
+        amount: inventoryValue - (postedBalanceByAccount.get(String(inventoryAccount._id)) || 0),
+      },
+    ].filter((adjustment) => Math.abs(adjustment.amount) > 0.01);
+    const openingTotal = openingAdjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
+    const openingLines = openingAdjustments.map((adjustment) => ({
+      accountId: adjustment.accountId,
+      label: adjustment.label,
+      debit: adjustment.amount > 0 ? adjustment.amount : 0,
+      credit: adjustment.amount < 0 ? Math.abs(adjustment.amount) : 0,
+    }));
+    openingLines.push({
+      accountId: openingEquity._id,
+      label: "Opening balance equity counterpart",
+      debit: openingTotal < 0 ? Math.abs(openingTotal) : 0,
+      credit: openingTotal > 0 ? openingTotal : 0,
+    });
+    await db.collection("journalentries").updateOne(
+      { tenantId: TENANT_ID, "header.name": openingEntryName },
+      {
+        $set: {
+          tenantId: TENANT_ID,
+          header: {
+            name: openingEntryName,
+            date: new Date("2024-03-01T00:00:00.000Z"),
+            ref: "Seeded opening balances for HDFC and inventory",
+            journalType: "general",
+          },
+          lineIds: openingLines,
+          totals: { currencyId: "INR", amountUntaxed: openingTotal, amountTax: 0, amountTotal: openingTotal },
+          status: "posted",
+          voucherType: "journal",
+          voucherStatus: "validated",
+          approvalRequired: false,
+          isDemo: true,
+          source: DEMO_SOURCE,
+          createdBy: adminUserId,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: { createdAt: new Date("2024-03-01T00:00:00.000Z") },
+      },
+      { upsert: true },
+    );
+    console.log("Balanced journal entries and HDFC/inventory opening balances verified.");
 
     // ── 9. MANUFACTURING BOMS & MANUFACTURING ORDERS ──
     console.log("\n==> Phase 9: Seeding Manufacturing BOMs & Orders...");

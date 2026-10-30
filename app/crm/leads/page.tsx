@@ -64,6 +64,7 @@ const STATUS_COLORS_REDESIGNED: Record<string, string> = {
 const EMPTY_FORM = {
   lead_name: "",
   company_name: "",
+  budget_range: "",
   email: "",
   phone: "",
   source: "",
@@ -203,6 +204,7 @@ function LeadsPageInner() {
       body: JSON.stringify({
         lead_name: form.lead_name.trim(),
         company_name: form.company_name.trim() || undefined,
+        budget_range: form.budget_range.trim() || undefined,
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         source: form.source,
@@ -462,6 +464,18 @@ function LeadsPageInner() {
               />
             </div>
 
+            {/* Budget Range */}
+            <div className="space-y-1.5">
+              <Label htmlFor="budget_range">Budget Range</Label>
+              <Input
+                id="budget_range"
+                placeholder="e.g. ₹10,000 - ₹50,000"
+                value={form.budget_range}
+                onChange={(e) => set("budget_range", e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+
             {/* Email + Phone */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -490,7 +504,9 @@ function LeadsPageInner() {
             {/* Source + Priority */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Source</Label>
+                  <Label>
+                    Source <span className="text-red-500">*</span>
+                  </Label>
                 <Select
                   value={form.source}
                   onValueChange={(v) => set("source", v)}

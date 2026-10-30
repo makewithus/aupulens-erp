@@ -10,6 +10,7 @@ import {
   removeAssetCapitalizationEntry,
 } from "@/lib/accounting/assetPosting";
 import { withAccountingTransaction } from "@/lib/accounting/transaction";
+import { isFixedAssetAccount } from "@/lib/accounting/fixedAssetAccount";
 
 export async function PATCH(
   req: Request,
@@ -33,6 +34,18 @@ export async function PATCH(
       const tenantIdGuard = requireTenantId(session);
       if (tenantIdGuard) return tenantIdGuard;
       const tenantId = (session.user as any).tenantId;
+
+      const existingAsset = await Asset.findOne({ _id: id, tenantId });
+      if (!existingAsset) {
+        return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+      }
+      const selectedAssetAccountId = body.accounts?.assetAccountId || existingAsset.accounts?.assetAccountId;
+      if (!(await isFixedAssetAccount(tenantId, selectedAssetAccountId))) {
+        return NextResponse.json(
+          { error: "Choose an account classified as a fixed asset." },
+          { status: 400 },
+        );
+      }
 
       const asset = await Asset.findOneAndUpdate(
         { _id: id, tenantId },

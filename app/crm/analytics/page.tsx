@@ -153,8 +153,8 @@ export default function CrmAnalyticsPage() {
     return monthlyVelocity.map((v: any) => ({
       name: String(v.month).split(" ")[0],
       period: v.month,
-      "New Pipeline": Math.round(v.newPipeline / 100000), // in Lakhs
-      "Closed Won": Math.round(v.closedWon / 100000),
+      "New Pipeline": Number((v.newPipeline / 100000).toFixed(1)), // in Lakhs
+      "Closed Won": Number((v.closedWon / 100000).toFixed(1)),
     }));
   }, [monthlyVelocity]);
 
@@ -338,7 +338,7 @@ export default function CrmAnalyticsPage() {
                   Lead Conversion Funnel
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  End-to-end customer journey progression through deal gates.
+                  Selected-period leads by current status; opportunity outcomes count distinct linked leads.
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-[10px] text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
@@ -355,7 +355,7 @@ export default function CrmAnalyticsPage() {
             ) : (
               funnel.map((item: any, idx: number) => {
                 const maxCount = Math.max(...funnel.map((f: any) => f.count || 0), 1);
-                const pct = Math.max(8, Math.round((item.count / maxCount) * 100));
+                const pct = Math.round((item.count / maxCount) * 100);
                 const colors = [
                   "from-blue-600 to-indigo-600",
                   "from-indigo-600 to-purple-600",
@@ -406,7 +406,7 @@ export default function CrmAnalyticsPage() {
                   Monthly Pipeline Velocity & Closed Won (in ₹ Lakhs)
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Data comes from CRM opportunities grouped by creation month. Pipeline excludes won/lost deals; closed won reflects deals currently in Won. Hover a month for values.
+                  New pipeline is grouped by opportunity creation month; Closed Won is grouped by the date it entered that stage. Hover for values.
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-[10px] text-blue-400 bg-blue-500/10 border-blue-500/20 shrink-0 self-start sm:self-auto">
@@ -447,7 +447,7 @@ export default function CrmAnalyticsPage() {
                   Lead Attribution & Channels
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Volume by customer touchpoint.
+                  Lead source mix for the selected period.
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-[10px]">

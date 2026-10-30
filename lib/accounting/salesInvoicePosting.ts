@@ -60,6 +60,26 @@ async function resolveAccountsByCode(tenantId: string, codes: string[]) {
   };
 }
 
+async function resolveReceivableAccount(tenantId: string) {
+  const account = await Account.findOne({ tenantId, account_type: "asset_receivable" })
+    .sort({ code: 1 });
+  if (account) return account;
+
+  // Legacy charts may not have populated account_type yet. Only fall back to
+  // the canonical code when its account name actually identifies receivables;
+  // code 1200 is also present as inventory in older demo charts.
+  const legacyReceivable = await Account.findOne({
+    tenantId,
+    code: RECEIVABLE_CODE,
+    name: /accounts\s+receivable/i,
+  });
+  if (legacyReceivable) return legacyReceivable;
+
+  throw new Error(
+    "Accounts Receivable account not found in Chart of Accounts. Configure an account classified as receivable before posting this invoice.",
+  );
+}
+
 /**
  * Posts (or reclasses/reverses) the General Ledger impact of a Sales
  * Invoice, by diffing its current { taxableAmount, totalTax, tcsAmount,
@@ -147,13 +167,13 @@ export async function postSalesInvoiceJournal({
     });
   };
 
-  const neededCodes = [RECEIVABLE_CODE, REVENUE_CODE];
+  const neededCodes = [REVENUE_CODE];
   for (const d of taxDeltas) if (Math.abs(d.amount) >= POSTING_EPSILON) neededCodes.push(d.code);
   if (Math.abs(dTcs) >= POSTING_EPSILON) neededCodes.push(TCS_PAYABLE_CODE);
   if (Math.abs(dTds) >= POSTING_EPSILON) neededCodes.push(TDS_RECEIVABLE_CODE);
   const resolveAccount = await resolveAccountsByCode(tenantId, neededCodes);
 
-  const receivableAccount = resolveAccount(RECEIVABLE_CODE);
+  const receivableAccount = await resolveReceivableAccount(tenantId);
   const arDelta = roundCurrency(dTaxable + dTax + dTcs - dTds + dRound);
   pushLine(receivableAccount._id, arDelta, narration);
 

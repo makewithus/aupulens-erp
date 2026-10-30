@@ -109,7 +109,7 @@ export default function HrAnalyticsPage() {
   const tenureDistribution = Array.isArray(data?.tenureDistribution) ? data.tenureDistribution : [];
   const performanceDistribution = Array.isArray(data?.performanceDistribution) ? data.performanceDistribution : [];
 
-  // Headcount Trajectory Composed Chart: Headcount (Bars) vs Net Hires (Line)
+  // Headcount snapshot with hires and exits from the same reporting period.
   const trajectoryChartData = useMemo(() => {
     return headcountTrajectory.map((h: any) => ({
       name: h.month,
@@ -166,7 +166,7 @@ export default function HrAnalyticsPage() {
     rows.push(["Executive Summary", "Retention", "Exit Rate", String(kpis.periodExitRate), "%", periodLabel]);
     rows.push(["Executive Summary", "Operations", "Attendance Compliance", String(kpis.attendanceCompliance), "%", periodLabel]);
     rows.push(["Executive Summary", "Stability", "Average Employee Tenure", String(kpis.avgTenureYears), "Years", periodLabel]);
-    rows.push(["Executive Summary", "Payroll", "Monthly Gross Payroll", String(kpis.monthlyGrossPayroll), "INR", periodLabel]);
+    rows.push(["Executive Summary", "Payroll", "Gross Payroll Disbursed in Range", String(kpis.monthlyGrossPayroll), "INR", periodLabel]);
     rows.push(["Executive Summary", "Recruitment", "Open Job Requisitions", kpis.openRequisitions === null ? "Not tracked" : String(kpis.openRequisitions), "Positions", periodLabel]);
     rows.push(["Executive Summary", "Onboarding", "Active Onboarding Employees", String(kpis.onboardingCount), "Candidates", periodLabel]);
 
@@ -348,8 +348,8 @@ export default function HrAnalyticsPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3 text-xs font-mono">
-                <span className="flex items-center gap-1.5 text-blue-400">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-blue-500" /> Total Staff
+                  <span className="flex items-center gap-1.5 text-blue-400">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Total Staff
                 </span>
                 <span className="flex items-center gap-1.5 text-emerald-400">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Hires
@@ -366,8 +366,11 @@ export default function HrAnalyticsPage() {
                 <CanvasComposedChart
                   data={trajectoryChartData}
                   xAxisKey="name"
-                  barSeries={[{ key: "Headcount", color: "#f97316", name: "Headcount" }]}
-                  lineSeries={{ key: "New Hires", color: "#10b981", name: "Hires" }}
+                  barSeries={[
+                    { key: "New Hires", color: "#10b981", name: "Hires" },
+                    { key: "Exits", color: "#ef4444", name: "Exits" },
+                  ]}
+                  lineSeries={{ key: "Headcount", color: "#3b82f6", name: "Headcount" }}
                   sharedScale
                 />
               </div>
@@ -482,10 +485,10 @@ export default function HrAnalyticsPage() {
           <CardHeader className="p-6 pb-2">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <Award className="w-4 h-4 text-amber-400" />
-              Annual Performance Bell Curve
+              Performance Review Ratings
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Normal distribution across appraisal evaluation bands.
+              Recorded 1–5 review ratings created in the selected period.
             </p>
           </CardHeader>
           <CardContent className="p-6 pt-2">
