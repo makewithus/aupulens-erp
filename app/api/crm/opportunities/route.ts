@@ -9,6 +9,7 @@ import { requireRole } from "@/lib/crm/rbac";
 import { logSystemActivity } from "@/lib/crm/activityLogger";
 import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
 import { applyDemoScope } from "@/lib/auth/scopeFilter";
+import { invalidateServerCache } from "@/lib/api/serverCache";
 import "@/models/crm/Account";
 
 export async function GET(req: NextRequest) {
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
     body.stage_history = [{ stage: body.stage, entered_at: new Date() }];
 
     const opp = await CrmOpportunity.create(body);
+    invalidateServerCache(`crm-analytics-live:${session.user.tenantId}:`);
 
     await CrmAuditLog.create({
       tenantId: session.user.tenantId,

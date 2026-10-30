@@ -41,6 +41,7 @@ function formatPeriodDate(val?: string): string {
 
 interface StructuredErpViewProps {
   data: ErpStructuredResponse;
+  fallbackText?: string;
   onAction?: (actionText: string) => void;
   className?: string;
   isDark?: boolean;
@@ -70,7 +71,7 @@ export function getStatusBadgeClass(status?: string): string {
 import { useRouter } from "next/navigation";
 import { useAiChatStore } from "@/store/aiChatStore";
 
-export function StructuredErpView({ data, onAction, className }: StructuredErpViewProps) {
+export function StructuredErpView({ data, onAction, className, fallbackText }: StructuredErpViewProps) {
   let router: any = null;
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -284,7 +285,7 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
               <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
                 About ₹{(data.amount / 100000).toFixed(1)} lakh
               </span>
-            )}
+              )}
           </div>
           <div className="font-mono text-2xl md:text-3xl font-extrabold tracking-tight text-emerald-400">
             {data.formattedAmount}
@@ -315,6 +316,91 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
               ))}
             </div>
           )}
+        </div>
+      );
+    }
+
+    case "overdue_invoice_summary": {
+      return (
+        <div className={cn("space-y-2.5 rounded-xl border border-rose-500/30 bg-card/70 p-4 shadow-sm", className)}>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-rose-400">
+            <AlertCircle className="h-4 w-4" />
+            <span>Overdue invoices</span>
+          </div>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <span className="font-mono text-3xl font-extrabold tracking-tight text-foreground">
+              {data.count.toLocaleString("en-IN")}
+            </span>
+            <span className="font-mono text-lg font-bold text-rose-400">
+              ₹{data.amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <p className="border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
+            {data.count === 1 ? "invoice is" : "invoices are"} overdue · total outstanding
+          </p>
+        </div>
+      );
+    }
+
+    case "customer_receivables_summary": {
+      const money = (value: number) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+      return (
+        <div className={cn("space-y-3 rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm", className)}>
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Receipt className="h-4 w-4 text-primary" />
+              <span>Payment summary</span>
+            </div>
+            <div className="mt-1 truncate text-sm font-semibold text-foreground">{data.customerName}</div>
+          </div>
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Payment pending</div>
+            <div className="mt-1 font-mono text-2xl font-bold text-emerald-400">{money(data.totalOutstanding)}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+            {[["Total invoiced", data.totalInvoiced], ["Received", data.totalPaid], ["Taxable sales", data.totalRevenue]].map(([label, value]) => (
+              <div key={String(label)} className="min-w-0 rounded border border-border/50 p-2">
+                <div className="truncate text-[10px] text-muted-foreground">{String(label)}</div>
+                <div className="mt-1 truncate font-mono font-semibold text-foreground">{money(Number(value))}</div>
+              </div>
+            ))}
+          </div>
+          {data.invoices.length > 0 && (
+            <div className="space-y-1 border-t border-border/40 pt-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Invoices</div>
+              {data.invoices.slice(0, 4).map((invoice) => (
+                <div key={invoice.number} className="flex min-w-0 items-center justify-between gap-3 text-[11px]">
+                  <span className="truncate font-mono text-foreground">{invoice.number}</span>
+                  <span className="shrink-0 font-mono text-muted-foreground">Due {money(invoice.outstanding)}</span>
+                </div>
+              ))}
+              {data.invoices.length > 4 && <div className="text-[10px] text-muted-foreground">and {data.invoices.length - 4} more invoices</div>}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case "receivables_portfolio_summary": {
+      const money = (value: number) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+      return (
+        <div className={cn("space-y-3 rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm", className)}>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Receipt className="h-4 w-4 text-primary" />
+            <span>Receivables summary</span>
+          </div>
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total outstanding</div>
+            <div className="mt-1 font-mono text-2xl font-bold text-emerald-400">{money(data.totalOutstanding)}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+            {[["Invoices", data.invoiceCount], ["Total invoiced", data.totalInvoiced], ["Received", data.totalPaid], ["Taxable sales", data.totalRevenue]].map(([label, value]) => (
+              <div key={String(label)} className="min-w-0 rounded border border-border/50 p-2">
+                <div className="truncate text-[10px] text-muted-foreground">{String(label)}</div>
+                <div className="mt-1 truncate font-mono font-semibold text-foreground">{label === "Invoices" ? Number(value).toLocaleString("en-IN") : money(Number(value))}</div>
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
@@ -913,7 +999,15 @@ export function StructuredErpView({ data, onAction, className }: StructuredErpVi
     }
 
     default:
-      return null;
+      return fallbackText ? (
+        <div className={cn("whitespace-pre-wrap rounded-lg border border-border/70 bg-card/70 p-3 text-sm leading-relaxed text-foreground", className)}>
+          {fallbackText}
+        </div>
+      ) : (
+        <div className={cn("rounded-lg border border-border/70 bg-card/70 p-3 text-sm text-muted-foreground", className)}>
+          I received a result but couldn’t display its details.
+        </div>
+      );
   }
 }
 

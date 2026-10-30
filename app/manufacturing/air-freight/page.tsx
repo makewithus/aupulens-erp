@@ -23,6 +23,7 @@ import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface AirFreight {
   _id: string;
@@ -71,7 +72,7 @@ export default function AirFreightPage() {
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);
       const qs = params.toString();
-      const response = await fetch(`/api/manufacturing/air-freight${qs ? `?${qs}` : ''}`);
+      const response = await cachedFetch(`/api/manufacturing/air-freight${qs ? `?${qs}` : ''}`);
       if (!response.ok) throw new Error('Failed to fetch air freights');
       const data = await response.json();
       setAirFreights(data);
@@ -88,7 +89,7 @@ export default function AirFreightPage() {
 
   const fetchFreightProviders = useCallback(async () => {
     try {
-      const response = await fetch('/api/manufacturing/freight-providers');
+      const response = await cachedFetch('/api/manufacturing/freight-providers');
       if (response.ok) {
         const data = await response.json();
         setFreightProviders(data.providers || []);
@@ -100,7 +101,7 @@ export default function AirFreightPage() {
 
   const fetchShipments = useCallback(async () => {
     try {
-      const response = await fetch('/api/manufacturing/shipments');
+      const response = await cachedFetch('/api/manufacturing/shipments');
       if (response.ok) {
         const data = await response.json();
         setShipments(data.shipments || []);
@@ -141,7 +142,7 @@ export default function AirFreightPage() {
 
       console.log('Submitting air freight:', body);
 
-      const response = await fetch(url, {
+      const response = await cachedFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -236,7 +237,7 @@ export default function AirFreightPage() {
   const draftNotesWithAi = async () => {
     setDraftingNotes(true);
     try {
-      const res = await fetch('/api/sales/invoices/ai-notes', {
+      const res = await cachedFetch('/api/sales/invoices/ai-notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -262,7 +263,7 @@ export default function AirFreightPage() {
 
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/manufacturing/air-freight?id=${id}`, {
+      const response = await cachedFetch(`/api/manufacturing/air-freight?id=${id}`, {
         method: 'DELETE',
       });
 

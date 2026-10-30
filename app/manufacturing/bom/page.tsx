@@ -36,6 +36,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BillOfMaterialPopup } from "@/app/inventory/operations/popups/BillOfMaterialPopup";
 import { toast } from "sonner";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function BillOfMaterialsPage() {
   const { data: session, status } = useSession();
@@ -80,7 +81,7 @@ export default function BillOfMaterialsPage() {
   // Fetch Data
   const fetchBoms = useCallback(async () => {
     try {
-      const res = await fetch("/api/manufacturing/bom");
+      const res = await cachedFetch("/api/manufacturing/bom");
       const data = await res.json();
       if (data.boms) setBoms(data.boms);
     } catch (error) {
@@ -93,7 +94,7 @@ export default function BillOfMaterialsPage() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/products");
+      const res = await cachedFetch("/api/sales/products");
       const data = await res.json();
       if (data.items) setProducts(data.items);
     } catch (error) {
@@ -181,7 +182,7 @@ export default function BillOfMaterialsPage() {
         })),
       };
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -211,7 +212,7 @@ export default function BillOfMaterialsPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Are you sure you want to delete this BoM?" })) return;
     try {
-      const res = await fetch(`/api/manufacturing/bom/${id}`, {
+      const res = await cachedFetch(`/api/manufacturing/bom/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {

@@ -1213,6 +1213,7 @@ export function CanvasComposedChart({
   barSeries,
   lineSeries,
   tooltipLabelKey,
+  tooltipAdditionalRows = [],
   sharedScale = false,
   isDark: propIsDark,
 }: {
@@ -1221,6 +1222,8 @@ export function CanvasComposedChart({
   barSeries: SeriesConfig[];
   lineSeries: SeriesConfig;
   tooltipLabelKey?: string;
+  /** Extra values to show in the hover card without plotting them on an axis. */
+  tooltipAdditionalRows?: { key: string; name: string }[];
   /** Use one value axis when bar and line series share the same unit. */
   sharedScale?: boolean;
   isDark?: boolean;
@@ -1438,6 +1441,14 @@ export function CanvasComposedChart({
         </span>
         <span class="font-sans tabular-nums font-bold text-xs" style="color: ${lineSeries.color}">${lineVal.toLocaleString()}</span>
       </div>`;
+
+      tooltipAdditionalRows.forEach((row) => {
+        const value = Number(d[row.key]) || 0;
+        tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1">
+          <span class="text-[10px] text-muted-foreground">${row.name}</span>
+          <span class="font-sans tabular-nums font-semibold text-xs">${value.toLocaleString()}</span>
+        </div>`;
+      });
 
       tooltip.innerHTML = tooltipContent;
       tooltip.style.display = "block";

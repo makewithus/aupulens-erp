@@ -17,6 +17,7 @@ import {
   Power,
   Activity,
 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 /**
  * Aupulens Connect (vNext Expansion Module 2) — the iPaaS console.
@@ -61,9 +62,9 @@ export default function IntegrationsPage() {
     setLoading(true);
     try {
       const [cat, conn, ev] = await Promise.all([
-        fetch("/api/integrations/connectors").then((r) => r.json()),
-        fetch("/api/integrations/connections").then((r) => r.json()),
-        fetch("/api/integrations/events?limit=25").then((r) => r.json()),
+        cachedFetch("/api/integrations/connectors").then((r) => r.json()),
+        cachedFetch("/api/integrations/connections").then((r) => r.json()),
+        cachedFetch("/api/integrations/events?limit=25").then((r) => r.json()),
       ]);
       if (cat.success) setCatalog(cat.data);
       if (conn.success) setConnections(conn.data);
@@ -83,7 +84,7 @@ export default function IntegrationsPage() {
     if (!adding) return;
     setBusy("create");
     try {
-      const res = await fetch("/api/integrations/connections", {
+      const res = await cachedFetch("/api/integrations/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectorId: adding.id, name, credentials: creds }),
@@ -101,7 +102,7 @@ export default function IntegrationsPage() {
   const act = async (id: string, action: "test" | "toggle", label: string) => {
     setBusy(id + action);
     try {
-      const res = await fetch(`/api/integrations/connections/${id}/${action}`, { method: "POST" });
+      const res = await cachedFetch(`/api/integrations/connections/${id}/${action}`, { method: "POST" });
       const json = await res.json();
       if (!json.success) return toast.error(json.message || `${label} failed`);
       if (action === "test") { if (json.data.ok) toast.success(json.data.message); else toast.error(json.data.message); }
@@ -113,7 +114,7 @@ export default function IntegrationsPage() {
 
   const del = async (id: string) => {
     if (!confirm("Delete this connection and its event history?")) return;
-    const res = await fetch(`/api/integrations/connections/${id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/integrations/connections/${id}`, { method: "DELETE" });
     const json = await res.json();
     if (!json.success) return toast.error("Delete failed");
     await load();

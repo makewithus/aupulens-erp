@@ -22,6 +22,8 @@ export type SaaSSubscriptionStatus =
 
 export interface IScheduledChange {
   planKey: PlanKeyType;
+  userCount?: number;
+  addOns?: string[];
   billingCycle?: BillingCycle;
   effectiveDate: Date;
   requestedAt: Date;
@@ -63,6 +65,7 @@ export interface ISaaSSubscription extends Document {
   status: SaaSSubscriptionStatus;
   billingCycle: BillingCycle;
   currentPrice: number;
+  userCount: number;
   currency: string;
   startDate: Date;
   currentPeriodStart: Date;
@@ -86,6 +89,8 @@ export interface ISaaSSubscription extends Document {
 const ScheduledChangeSchema = new Schema<IScheduledChange>(
   {
     planKey: { type: String, enum: PLAN_KEY_VALUES },
+    userCount: { type: Number, min: 1 },
+    addOns: { type: [String], default: [] },
     billingCycle: { type: String, enum: BILLING_CYCLE_VALUES },
     effectiveDate: { type: Date },
     requestedAt: { type: Date },
@@ -122,6 +127,7 @@ const SaaSSubscriptionSchema = new Schema<ISaaSSubscription>(
       default: "monthly",
     },
     currentPrice: { type: Number, required: true, default: 0 },
+    userCount: { type: Number, required: true, default: 1, min: 1 },
     currency: { type: String, required: true, default: "INR", uppercase: true },
     startDate: { type: Date, required: true, default: Date.now },
     currentPeriodStart: { type: Date, required: true, default: Date.now },

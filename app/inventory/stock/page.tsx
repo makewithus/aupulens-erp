@@ -154,9 +154,9 @@ function StockTrackingPageInner() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (silent = false) => {
     try {
-      setLoadingProducts(true);
+      if (!silent) setLoadingProducts(true);
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
@@ -164,7 +164,7 @@ function StockTrackingPageInner() {
       });
       if (statusFilter) params.set("status", statusFilter);
 
-      const res = await cachedFetch(`/api/sales/products?${params}`);
+      const res = await cachedFetch(`/api/sales/products?${params}`, undefined, { force: true });
       const data = await res.json();
 
       setProducts(data.items || []);
@@ -173,9 +173,9 @@ function StockTrackingPageInner() {
       }
     } catch (error) {
       console.error("Error fetching products:", error);
-      toast.error("Failed to load products");
+      if (!silent) toast.error("Failed to load products");
     } finally {
-      setLoadingProducts(false);
+      if (!silent) setLoadingProducts(false);
     }
   }, [debouncedQuery, pagination.limit, pagination.page, statusFilter]);
 
@@ -184,6 +184,21 @@ function StockTrackingPageInner() {
     if (status === "authenticated") {
       fetchProducts();
     }
+  }, [fetchProducts, status]);
+
+  // Stock can change when another user posts a receipt or delivery. Keep
+  // balances fresh while this screen is open and refresh on tab focus.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") void fetchProducts(true);
+    };
+    const timer = window.setInterval(refresh, 5_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [fetchProducts, status]);
 
   // Handlers
@@ -220,7 +235,7 @@ function StockTrackingPageInner() {
   };
 
   const handleOpenStockUpdate = (product: any) => {
-    const currentQty = stockMap[product._id] || 0;
+    const currentQty = Number(product.inventoryQty ?? stockMap[product._id] ?? 0);
     setStockUpdateData({
       productId: product._id,
       productName: product.header.name,

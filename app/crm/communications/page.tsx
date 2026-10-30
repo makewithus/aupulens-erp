@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function CommunicationHubPage() {
   const [comms, setComms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/crm/communications")
+    cachedFetch("/api/crm/communications")
       .then(res => res.json())
       .then(data => {
         if (data.success) setComms(data.data);

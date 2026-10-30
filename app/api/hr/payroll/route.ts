@@ -7,6 +7,8 @@ import connectDB from "@/lib/db";
 import Payroll from "@/models/hr/Payroll";
 import Employee from "@/models/hr/Employee";
 import Attendance from "@/models/hr/Attendance";
+import { currentEmployeeFilter } from "@/lib/hr/employeeLifecycle";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -100,7 +102,7 @@ const ppMonth = body.payrollPeriod?.month || body.month;
     const endDate = new Date(year, month, 0, 23, 59, 59, 999); // end of last day of month
 
     // Fetch all active employees for this tenant (optionally filtered by department)
-    const employeeQuery: any = { tenantId, lifecycleStatus: "active" };
+    const employeeQuery: any = applyDemoScope(session, currentEmployeeFilter(tenantId));
     if (body.departmentId) employeeQuery.departmentId = body.departmentId;
 
     const employees = await Employee.find(employeeQuery).lean();

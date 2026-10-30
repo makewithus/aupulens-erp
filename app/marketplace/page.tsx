@@ -1,49 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
-import { toast } from "sonner";
-import { Store, Download, Loader2, Workflow, ShieldCheck, Palette } from "lucide-react";
-
-/**
- * Marketplace (6.12) — browse and install shareable configuration packages
- * (workflows, approval policies, print formats) published by any workspace.
- * Installing creates fresh, tenant-owned records in your workspace.
- */
-const CATEGORY_META: Record<string, { label: string; icon: any; color: string }> = {
-  workflow: { label: "Workflow", icon: Workflow, color: "text-purple-400" },
-  "approval-policy": { label: "Approval policy", icon: ShieldCheck, color: "text-emerald-400" },
-  "print-format": { label: "Print format", icon: Palette, color: "text-indigo-400" },
-};
+import { Clock3, Store } from "lucide-react";
 
 export default function MarketplacePage() {
   const { data: session, status } = useSession();
-  const [packages, setPackages] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("");
-  const [installing, setInstalling] = useState<string | null>(null);
-
-  const load = () => {
-    setLoading(true);
-    fetch(`/api/marketplace${filter ? `?category=${filter}` : ""}`)
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setPackages(d.data); setLoading(false); })
-      .catch(() => setLoading(false));
-  };
-  useEffect(load, [filter]);
-
-  const install = async (id: string) => {
-    setInstalling(id);
-    try {
-      const res = await fetch(`/api/marketplace/${id}/install`, { method: "POST" });
-      const d = await res.json();
-      if (d.success) { toast.success(d.data.message); load(); }
-      else toast.error(d.message || "Install failed");
-    } finally { setInstalling(null); }
-  };
 
   if (status === "loading") return <AuthSplash />;
 
@@ -57,53 +21,21 @@ export default function MarketplacePage() {
       userEmail={session?.user?.email || ""}
       userRole={(session?.user as any)?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth" })}
-      onRefresh={load}
     >
-    <div className="max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Store className="h-6 w-6 text-indigo-500" /> Marketplace</h1>
-        <p className="text-sm text-muted-foreground mt-1">Install ready-made workflows, approval policies, and print formats.</p>
+      <div className="mx-auto flex min-h-[55vh] max-w-3xl items-center justify-center">
+        <section className="w-full rounded-xl border bg-card px-6 py-12 text-center shadow-sm sm:px-12">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Store className="h-7 w-7" />
+          </div>
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <Clock3 className="h-3.5 w-3.5" /> Coming Soon
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Marketplace</h1>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+            The Marketplace is being prepared. It will be available here soon.
+          </p>
+        </section>
       </div>
-
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {["", "workflow", "approval-policy", "print-format"].map((c) => (
-          <button key={c || "all"} onClick={() => setFilter(c)} className={`text-xs rounded-full px-3 py-1.5 border ${filter === c ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
-            {c ? CATEGORY_META[c].label : "All"}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
-      ) : packages.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No packages published yet.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {packages.map((p) => {
-            const meta = CATEGORY_META[p.category] || CATEGORY_META.workflow;
-            const Icon = meta.icon;
-            return (
-              <div key={p._id} className="border-2 rounded-xl p-4 flex flex-col">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon className={`h-5 w-5 ${meta.color}`} />
-                    <div>
-                      <p className="font-semibold text-sm">{p.name}</p>
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{meta.label} · by {p.publisherName}</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{p.installCount} installs</span>
-                </div>
-                {p.description && <p className="text-xs text-muted-foreground mt-2 flex-1">{p.description}</p>}
-                <button onClick={() => install(p._id)} disabled={installing === p._id} className="mt-3 bg-primary text-primary-foreground rounded-md py-1.5 text-sm font-semibold flex items-center justify-center gap-1 disabled:opacity-50">
-                  {installing === p._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Install
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
     </DashboardLayout>
   );
 }

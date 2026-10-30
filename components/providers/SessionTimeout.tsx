@@ -22,6 +22,19 @@ export function SessionTimeout() {
   const [lastActivity, setLastActivity] = useState(Date.now());
 
   useEffect(() => {
+    // Browsers can restore protected pages from the back/forward cache without
+    // asking middleware whether the session is still valid. Force a document
+    // navigation on restore so an expired cookie is checked before the page
+    // becomes interactive again.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
+  useEffect(() => {
     // This provider survives navigation to /auth. A new login starts a fresh timer.
     setShowWarning(false);
     setCountdown(COUNTDOWN_TIME);

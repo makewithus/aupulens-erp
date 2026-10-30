@@ -41,6 +41,7 @@ import Link from "next/link";
 import { Loader2, Plus, FolderKanban } from "lucide-react";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 const SOURCES = [
   "Organic Search","Paid Ads","Referral","Event","Social Media",
@@ -123,7 +124,7 @@ function LeadsPageInner() {
       if (currentSearch) params.set("search", currentSearch);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
-      const res = await fetch(`/api/crm/leads?${params.toString()}`);
+      const res = await cachedFetch(`/api/crm/leads?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setLeads(data.data.leads ?? data.data ?? []);
@@ -187,6 +188,7 @@ function LeadsPageInner() {
       const created = await submitLead(false);
       if (!created) return;
       toast.success(`Lead "${form.lead_name}" created successfully!`);
+      invalidateCache("/api/crm/leads");
       setSheetOpen(false);
       setForm(EMPTY_FORM);
       fetchLeads();

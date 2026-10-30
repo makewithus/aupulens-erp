@@ -6,6 +6,8 @@ import connectDB from "@/lib/db";
 import Payroll from "@/models/hr/Payroll";
 import Employee from "@/models/hr/Employee";
 import Attendance from "@/models/hr/Attendance";
+import { currentEmployeeFilter } from "@/lib/hr/employeeLifecycle";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 import JournalEntry from "@/models/finance/JournalEntry";
 import Account from "@/models/finance/Account";
 import { VOUCHER_TYPE, DOCUMENT_STATUS } from "@/lib/constants/statuses";
@@ -132,10 +134,7 @@ export async function PATCH(
 
         // ── COMPUTE PAYROLL ──
         if (body.status === "computed") {
-          const employeeQuery: any = {
-            tenantId,
-            lifecycleStatus: "active",
-          };
+          const employeeQuery: any = applyDemoScope(session, currentEmployeeFilter(tenantId));
           if (payroll.departmentId) {
             employeeQuery.departmentId = payroll.departmentId;
           }

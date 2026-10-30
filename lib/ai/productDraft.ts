@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Product from "@/models/inventory/Product";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
-import { ErpToolError, escapeRegex, currency, requireSalesAccess } from "./erpQuery";
+import { ErpToolError, escapeRegex, currency, flexibleNameRegex, requireSalesAccess } from "./erpQuery";
 import { normalizeErpText } from "./erpIntent";
 import { AI_ACTION_STATUS as A, PRODUCT_STATUS } from "@/lib/constants/statuses";
 
@@ -248,4 +248,59 @@ export async function cancelProductDraft(scope: Scope, proposalId: string) {
     { $set: { status: A.REJECTED } }
   );
   return "Product draft cancelled. No product record was created.";
+}
+
+export async function prepareProductPriceUpdate(scope: Scope, productQuery: string, oldPrice: number, newPrice: number) {
+  requireSalesAccess(scope.role);
+  const q = productQuery.trim();
+  if (!q || !Number.isFinite(oldPrice) || !Number.isFinite(newPrice) || oldPrice < 0 || newPrice < 0) {
+    throw new ErpToolError("INVALID_INPUT", "Provide a product and valid old and new selling prices.");
+  }
+  const products = await Product.find({ tenantId: scope.tenantId, $or: [
+    { "tab_general_information.default_code": { $regex: `^${escapeRegex(q)}$`, $options: "i" } },
+    { "header.name": flexibleNameRegex(q) },
+  ] }).select("header.name tab_general_information.default_code tab_general_information.list_price").limit(3).lean();
+  if (products.length === 0) throw new ErpToolError("NOT_FOUND", `No product matching “${q}” was found in your workspace.`, 404);
+  if (products.length > 1) throw new ErpToolError("AMBIGUOUS_MATCH", `More than one product matches “${q}”. Use its exact catalog name or code.`, 409);
+  const product: any = products[0];
+  const currentPrice = Number(product.tab_general_information?.list_price) || 0;
+  if (Math.abs(currentPrice - oldPrice) > 0.005) throw new ErpToolError("BUSINESS_RULE", `The catalog price for “${product.header?.name}” is ${currency(currentPrice)}, not ${currency(oldPrice)}. No change was prepared.`);
+  const name = product.header?.name || "Product";
+  const code = product.tab_general_information?.default_code || "";
+  const summary = `Update Product Selling Price — not saved:\n\nProduct: ${name}${code ? ` (${code})` : ""}\nCurrent Price: ${currency(currentPrice)}\nNew Price: ${currency(newPrice)}\n\nConfirm to apply this update, or cancel to discard.`;
+  const proposal = await AiCommandProposal.create({
+    tenantId: scope.tenantId, userId: scope.userId, module: "inventory", actionType: "update_product_price", destructive: false,
+    params: { productId: String(product._id), productName: name, code, oldPrice: currentPrice, newPrice, conversationId: scope.conversationId },
+    preview: { productId: String(product._id), productName: name, code, oldPrice: currentPrice, newPrice },
+    summary, status: A.PROPOSED, expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+  });
+  return { proposalId: String(proposal._id), productId: String(product._id), name, code, oldPrice: currentPrice, newPrice, message: summary };
+}
+
+export async function confirmProductPriceUpdate(scope: Scope, proposalId: string) {
+  requireSalesAccess(scope.role);
+  const proposal = await AiCommandProposal.findOne({ _id: proposalId, tenantId: scope.tenantId, userId: scope.userId, actionType: "update_product_price" });
+  if (!proposal) throw new ErpToolError("NOT_FOUND", "Product price update proposal not found.");
+  if (proposal.status !== A.PROPOSED) throw new ErpToolError("BUSINESS_RULE", `This update proposal is ${proposal.status} and cannot be executed.`);
+  const locked = await AiCommandProposal.findOneAndUpdate({ _id: proposalId, status: A.PROPOSED, "params.executing": { $ne: true } }, { $set: { "params.executing": true } }, { new: true });
+  if (!locked) throw new ErpToolError("BUSINESS_RULE", "This product update is already being processed.");
+  const params = locked.params as any;
+  const product = await Product.findOne({ _id: params.productId, tenantId: scope.tenantId });
+  if (!product) throw new ErpToolError("NOT_FOUND", "Product no longer exists.");
+  const currentPrice = Number(product.tab_general_information?.list_price) || 0;
+  if (Math.abs(currentPrice - Number(params.oldPrice)) > 0.005) throw new ErpToolError("BUSINESS_RULE", "The catalog price changed after this preview. Prepare the update again to review the latest value.");
+  product.tab_general_information.list_price = Number(params.newPrice);
+  await product.save();
+  await CrmAuditLog.create({ tenantId: scope.tenantId, user_id: scope.userId, action: "updated", record_type: "Product", record_id: product._id, old_value: String(params.oldPrice), new_value: String(params.newPrice) });
+  locked.status = A.EXECUTED;
+  locked.resultRef = String(product._id);
+  locked.executedAt = new Date();
+  await locked.save();
+  return { productId: String(product._id), name: product.header.name, code: product.tab_general_information.default_code, price: product.tab_general_information.list_price, route: "/inventory/products", message: `Product “${product.header.name}” selling price updated to ${currency(product.tab_general_information.list_price)}.` };
+}
+
+export async function cancelProductPriceUpdate(scope: Scope, proposalId: string) {
+  requireSalesAccess(scope.role);
+  await AiCommandProposal.updateOne({ _id: proposalId, tenantId: scope.tenantId, userId: scope.userId, actionType: "update_product_price", status: A.PROPOSED }, { $set: { status: A.REJECTED } });
+  return "Product price update cancelled. The catalog price remains unchanged.";
 }

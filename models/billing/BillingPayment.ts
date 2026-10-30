@@ -41,6 +41,7 @@ export interface IUpgradeDetails {
   daysRemaining: number;
   totalDaysInCycle: number;
   prorationFraction: number;
+  userCount?: number;
 }
 
 export interface IRefundDetails {
@@ -128,6 +129,7 @@ const BillingPaymentSchema = new Schema<IBillingPayment>(
       daysRemaining: { type: Number },
       totalDaysInCycle: { type: Number },
       prorationFraction: { type: Number },
+      userCount: { type: Number },
     },
     // A missing refund must remain absent. An implicit empty subdocument made
     // every payment appear refunded to the refund route's duplicate guard.

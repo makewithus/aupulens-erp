@@ -3,9 +3,10 @@ import { auth } from "@/auth";
 import Organization from "@/models/admin/Organization";
 import { subscriptionManager } from "@/lib/billing/subscriptionManager";
 import { calculateProration, DEFAULT_SELLER_STATE } from "@/lib/billing/proration";
-import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
+import Plan from "@/models/platform/Plan";
 import { PlanKeyType } from "@/lib/constants/statuses";
 import { handleRouteError } from "@/lib/api/validateId";
+import { priceWithAddOns } from "@/lib/billing/planPricing";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,8 +19,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const targetPlanKey = body.targetPlanKey as PlanKeyType;
     const billingCycle = (body.billingCycle || "monthly") as "monthly" | "yearly";
+    const userCount = Number(body.userCount);
 
-    if (typeof targetPlanKey !== "string" || !Object.hasOwn(PLAN_DEFINITIONS, targetPlanKey)) {
+    if (typeof targetPlanKey !== "string") {
       return NextResponse.json(
         { success: false, error: "Valid targetPlanKey is required." },
         { status: 400 }
@@ -34,8 +36,10 @@ export async function POST(req: NextRequest) {
 
     const subscription = await subscriptionManager.getOrCreateSubscription(tenantId);
     const org = await Organization.findOne({ subdomain: tenantId });
-    const targetDef = PLAN_DEFINITIONS[targetPlanKey];
-    const targetPrice = billingCycle === "yearly" ? targetDef.priceYearly : targetDef.priceMonthly;
+    const targetDef = await Plan.findOne({ key: targetPlanKey, active: true, availableForPurchase: true }).lean();
+    if (!targetDef) return NextResponse.json({ success: false, error: "Target plan is unavailable." }, { status: 404 });
+    const addOns = Array.isArray(body.addOns) ? body.addOns.filter((key: unknown) => typeof key === "string") : [];
+    const { price: targetPrice, userCount: pricedUserCount, selectedAddOns } = priceWithAddOns({ ...targetDef, key: targetDef.key }, billingCycle, userCount, addOns);
 
     const proration = calculateProration({
       currentPlanPrice: subscription.currentPrice,
@@ -54,6 +58,8 @@ export async function POST(req: NextRequest) {
         billingCycle,
         currentPrice: subscription.currentPrice,
         targetPrice,
+        userCount: pricedUserCount,
+        addOns: selectedAddOns,
         effectiveDate: new Date(),
         nextRenewalDate: subscription.nextRenewalDate,
         proration,

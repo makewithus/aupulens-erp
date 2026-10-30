@@ -10,15 +10,32 @@ export function refreshAiUsage() { window.dispatchEvent(new Event(AI_USAGE_CHANG
  * completions that occur while a summary is already being read. No usage is persisted client-side. */
 let pending: Promise<AiUsageSummary> | null = null;
 let pendingScope: string | null = null;
+let requestSequence = 0;
+const latestResponse = new Map<string, { sequence: number; data: AiUsageSummary }>();
 function readSummary(scope: string, force = false): Promise<AiUsageSummary> {
   if (!force && pending && pendingScope === scope) return pending;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
+  const sequence = ++requestSequence;
   const request = fetch("/api/ai/usage", { cache: "no-store", signal: controller.signal }).then(async response => {
     if (!response.ok) throw new Error("Usage unavailable");
     const body = await response.json();
     if (!body.success || !Number.isFinite(Date.parse(body.data?.serverTime))) throw new Error("Invalid usage summary");
-    return body.data as AiUsageSummary;
+    let summary = body.data as AiUsageSummary;
+    const latest = latestResponse.get(scope);
+    // Some entitlement reads can temporarily omit credit windows while the
+    // optional legacy request quotas still return successfully. Preserve the
+    // last complete credit meter across all indicator instances in this tab.
+    if (latest?.data.credits?.windows && !summary.credits?.windows) {
+      summary = { ...summary, credits: latest.data.credits };
+    }
+    if (!latest || sequence >= latest.sequence) {
+      latestResponse.set(scope, { sequence, data: summary });
+      return summary;
+    }
+    // An older in-flight request completed after a newer refresh. Never let
+    // its stale usage values roll the meter backwards.
+    return latest.data;
   });
   pending = request;
   pendingScope = scope;
@@ -49,9 +66,14 @@ export function useAiUsageSummary() {
         const result = await readSummary(scope, force);
         if (!active) return;
         retryAfter = 0;
-        data = result;
+        // A temporary legacy/fallback response must not replace a known-good
+        // credit meter with the unrelated optional request-quota windows.
+        // Keep the last credit windows until the API returns fresh ones.
+        data = data?.credits?.windows && !result.credits?.windows
+          ? { ...result, credits: data.credits }
+          : result;
         clockOrigin = performance.now();
-        serverOrigin = Date.parse(result.serverTime);
+        serverOrigin = Date.parse(data.serverTime);
         setState({ scope, data, unavailable: false, now: now() });
       } catch {
         retryAfter = performance.now() + 60000;

@@ -110,7 +110,7 @@ export default function OrgSettingsPage() {
       pageName="Workspace Settings"
       breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Settings" }]}
     >
-      <div className="p-6 max-w-3xl space-y-8">
+      <div className="mx-auto w-full max-w-4xl space-y-6 p-4 sm:space-y-8 sm:p-6 lg:p-8">
         <div>
           <h1 className="text-2xl font-bold">Workspace Settings</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -171,11 +171,11 @@ export default function OrgSettingsPage() {
               </div>
             </section>
 
-            <section className="space-y-4 border-2 rounded-xl p-6">
+            <section className="space-y-5 rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-6">
               <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                 <Receipt className="h-4 w-4" /> Tax &amp; Currency
               </h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
                 <div className="space-y-1">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Country</Label>
                   <select
@@ -195,31 +195,36 @@ export default function OrgSettingsPage() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    Currency <span className="normal-case font-normal text-muted-foreground/60">(auto from country, editable)</span>
-                  </Label>
-                  <Input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} maxLength={3} />
+                  <Label htmlFor="org-currency" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Currency</Label>
+                  <Input id="org-currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} maxLength={3} />
+                  <p className="text-[11px] leading-4 text-muted-foreground">Set from country; you can edit it.</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">State</Label>
                   <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Address Line / City</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input value={form.addressLine1} onChange={(e) => setForm({ ...form, addressLine1: e.target.value })} placeholder="Address" />
-                  <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="City" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5">
+                <div className="space-y-1">
+                  <Label htmlFor="org-address" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Address line</Label>
+                  <Input id="org-address" value={form.addressLine1} onChange={(e) => setForm({ ...form, addressLine1: e.target.value })} placeholder="Street address" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="org-city" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">City</Label>
+                  <Input id="org-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="City" />
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">GST Registered</Label>
-                <Switch checked={form.isGstRegistered} onCheckedChange={(v) => setForm({ ...form, isGstRegistered: v })} />
+              <div className="flex min-h-12 items-center justify-between gap-4 rounded-md border border-border/60 px-3 sm:px-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="gst-registered" className="text-xs font-semibold text-foreground">GST registered</Label>
+                  <p className="text-[11px] text-muted-foreground">Turn on to add your organization GSTIN.</p>
+                </div>
+                <Switch id="gst-registered" checked={form.isGstRegistered} onCheckedChange={(v) => setForm({ ...form, isGstRegistered: v })} />
               </div>
               {form.isGstRegistered && (
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">GSTIN</Label>
-                  <Input value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="org-gstin" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">GSTIN</Label>
+                  <Input id="org-gstin" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} maxLength={15} placeholder="15-character GSTIN" className="font-mono uppercase tracking-wide" />
                 </div>
               )}
             </section>

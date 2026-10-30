@@ -19,6 +19,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   crmCase.status = 'Reopened';
   crmCase.sla_target_at = calculateSlaTarget(crmCase.severity || 'Medium');
   crmCase.sla_breached = false;
+  crmCase.resolvedAt = undefined;
   await crmCase.save();
 
   await CrmActivity.create({

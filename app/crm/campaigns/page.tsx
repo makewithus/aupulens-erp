@@ -17,6 +17,7 @@ import {
   Plus, Search, Megaphone, DollarSign, Target, TrendingUp, Loader2
 } from "lucide-react";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "bg-accent text-foreground",
@@ -210,7 +211,7 @@ function CampaignsPageInner() {
     if (statusFilter) params.set("status", statusFilter);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
-    const res = await fetch(`/api/crm/campaigns?${params}`);
+    const res = await cachedFetch(`/api/crm/campaigns?${params}`);
     const data = await res.json();
     if (data.success) {
       setCampaigns(data.data.campaigns || []);
@@ -236,6 +237,7 @@ function CampaignsPageInner() {
     const res = await fetch("/api/crm/reports/roi", { method: "POST" });
     if (res.ok) {
       toast.success("ROI updated successfully");
+      invalidateCache("/api/crm/campaigns");
       fetchCampaigns();
     } else {
       toast.error("ROI update failed");
@@ -247,7 +249,7 @@ function CampaignsPageInner() {
       <NewCampaignModal
         open={showModal}
         onClose={() => { setShowModal(false); setAiCampaignData(undefined); }}
-        onCreated={() => { setShowModal(false); setAiCampaignData(undefined); fetchCampaigns(); }}
+        onCreated={() => { setShowModal(false); setAiCampaignData(undefined); invalidateCache("/api/crm/campaigns"); fetchCampaigns(); }}
         initialData={aiCampaignData}
       />
 

@@ -7,6 +7,9 @@ import connectDB from "@/lib/db";
 import Attendance from "@/models/hr/Attendance";
 import Employee from "@/models/hr/Employee";
 import "@/models/hr/Department";
+import { validateObjectId } from "@/lib/api/validateId";
+
+const ATTENDANCE_STATUSES = new Set(["present", "absent", "half-day", "on-leave", "holiday", "week-off"]);
 
 export async function GET(req: NextRequest) {
   try {
@@ -52,22 +55,26 @@ export async function GET(req: NextRequest) {
     const dateTo = searchParams.get("dateTo");
     if (dateFrom || dateTo) {
       const range: any = {};
-      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) {
+        const start = new Date(dateFrom);
+        start.setUTCHours(0, 0, 0, 0);
+        range.$gte = start;
+      }
       if (dateTo && !isNaN(Date.parse(dateTo))) {
         const end = new Date(dateTo);
-        end.setHours(23, 59, 59, 999);
+        end.setUTCHours(23, 59, 59, 999);
         range.$lte = end;
       }
       if (Object.keys(range).length > 0) query.date = range;
     } else if (date) {
       const d = new Date(date);
-      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
       const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
       query.date = { $gte: start, $lt: end };
     } else if (month && year) {
       const m = month - 1;
-      const start = new Date(year, m, 1);
-      const end = new Date(year, m + 1, 1);
+      const start = new Date(Date.UTC(year, m, 1));
+      const end = new Date(Date.UTC(year, m + 1, 1));
       query.date = { $gte: start, $lt: end };
     }
 
@@ -169,6 +176,25 @@ if (!body.employeeId || !body.date || !body.status) {
       );
     }
 
+    if (validateObjectId(String(body.employeeId)) || !ATTENDANCE_STATUSES.has(body.status)) {
+      return NextResponse.json({ error: "Choose a valid employee and attendance status." }, { status: 400 });
+    }
+    if (body.leaveType && !["casual", "sick", "earned", "unpaid"].includes(body.leaveType)) {
+      return NextResponse.json({ error: "Choose a valid leave type." }, { status: 400 });
+    }
+    const employee = await Employee.findOne({ _id: body.employeeId, tenantId }).select("_id lifecycleStatus").lean();
+    if (!employee) return NextResponse.json({ error: "Employee not found in this organization." }, { status: 404 });
+    if (employee.lifecycleStatus === "exited") return NextResponse.json({ error: "Attendance cannot be recorded for an exited employee." }, { status: 400 });
+    const parsedDate = new Date(body.date);
+    if (Number.isNaN(parsedDate.getTime())) return NextResponse.json({ error: "Enter a valid attendance date." }, { status: 400 });
+    if (body.checkIn && body.checkOut) {
+      const checkIn = new Date(body.checkIn);
+      const checkOut = new Date(body.checkOut);
+      if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut < checkIn) {
+        return NextResponse.json({ error: "Check-out time must be after check-in time." }, { status: 400 });
+      }
+    }
+
     // Strip empty leaveType to avoid enum validation error
     if (!body.leaveType) delete body.leaveType;
     if (body.status !== "on-leave") delete body.leaveType;
@@ -186,7 +212,7 @@ if (!body.employeeId || !body.date || !body.status) {
 
     // Check for existing attendance for same employee on same date
     const d = new Date(body.date);
-    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
     const existing = await Attendance.findOne({
       tenantId,

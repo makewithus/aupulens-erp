@@ -6,9 +6,9 @@
  * in period "202601"; the next call at 2026-02-01 00:00 UTC is in "202602"
  * (fresh counter starting at 0).
  *
- * Increment policy: ONLY on successful Claude responses.  Gated requests
- * (AI_DISABLED, AI_LIMIT_REACHED) and failed Claude calls (API errors,
- * network timeouts) must NOT call incrementAiUsage.
+ * Increment policy: once per completed user request (including deterministic
+ * ERP answers). Gated requests, failed calls, and safety refusals are not
+ * counted. requestId makes provider retries and multi-call turns idempotent.
  */
 
 import connectDB from "@/lib/db";
@@ -33,7 +33,7 @@ export function getAiPeriod(date: Date = new Date()): string {
 }
 
 /**
- * Returns the current successful-call count for a tenant in the given period.
+ * Returns the current completed-request count for a tenant in the given period.
  * Returns 0 when no document exists yet (first call of the month).
  */
 export async function getAiUsageCount(tenantId: string, period: string): Promise<number> {
@@ -43,17 +43,26 @@ export async function getAiUsageCount(tenantId: string, period: string): Promise
 }
 
 /**
- * Atomically increments the usage counter by 1.
- * Creates the document on first call of the month (upsert).
- * Must only be called after a successful Claude API response.
+ * Atomically increments the usage counter by 1. When requestId is supplied,
+ * duplicate provider calls and retries for that user turn count only once.
  */
-export async function incrementAiUsage(tenantId: string, period: string): Promise<void> {
+export async function incrementAiUsage(tenantId: string, period: string, requestId?: string): Promise<void> {
   await connectDB();
-  await AiUsage.findOneAndUpdate(
-    { tenantId, period },
-    { $inc: { count: 1 } },
-    { upsert: true }
-  );
+  if (!requestId) {
+    await AiUsage.findOneAndUpdate({ tenantId, period }, { $inc: { count: 1 } }, { upsert: true });
+    return;
+  }
+  try {
+    await AiUsage.findOneAndUpdate(
+      { tenantId, period, requestIds: { $ne: requestId } },
+      { $inc: { count: 1 }, $addToSet: { requestIds: requestId } },
+      { upsert: true },
+    );
+  } catch (error: any) {
+    // Concurrent retries with the same id race on the unique tenant/period
+    // index; the winner already recorded this user request.
+    if (error?.code !== 11000) throw error;
+  }
 }
 
 /**
@@ -86,6 +95,6 @@ export async function getGlobalAiUsageCount(period: string): Promise<number> {
  * Increment the platform-wide counter. Called alongside the per-tenant
  * increment on every successful call so the global ceiling stays accurate.
  */
-export async function incrementGlobalAiUsage(period: string): Promise<void> {
-  return incrementAiUsage(PLATFORM_TENANT_ID, period);
+export async function incrementGlobalAiUsage(period: string, requestId?: string): Promise<void> {
+  return incrementAiUsage(PLATFORM_TENANT_ID, period, requestId);
 }

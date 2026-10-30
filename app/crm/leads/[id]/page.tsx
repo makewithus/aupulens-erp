@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { Loader2 } from "lucide-react";
 
 const LEAD_STATUSES = [
@@ -36,7 +37,7 @@ export default function LeadDetailPage(props: { params: Promise<{ id: string }> 
   const [convertModalOpen, setConvertModalOpen] = useState(false);
 
   const fetchLead = async () => {
-    const res = await fetch(`/api/crm/leads/${params.id}`);
+    const res = await cachedFetch(`/api/crm/leads/${params.id}`);
     const data = await res.json();
     if (data.success) {
       setLead(data.data);

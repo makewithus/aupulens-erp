@@ -10,6 +10,7 @@ import "@/models/crm/Lead";
 import "@/models/crm/Contact";
 import "@/models/crm/Opportunity";
 import * as xlsx from "xlsx";
+import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 
 const ALLOWED_EXTENSIONS = ["csv", "tsv", "xls", "xlsx"];
 
@@ -86,6 +87,7 @@ function mapRecord(raw: Record<string, any>, entityType: string) {
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
 
@@ -123,6 +125,12 @@ export async function POST(req: NextRequest) {
       );
     }
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!sheet) {
+      return NextResponse.json(
+        { success: false, message: "The workbook does not contain a readable worksheet." },
+        { status: 400 },
+      );
+    }
     // raw:false avoids Excel serial-number dates/numbers arriving unformatted
     // (same fix applied to the Sales import routes elsewhere in this repo).
     const parsedRows = xlsx.utils.sheet_to_json(sheet, { raw: false }) as Record<string, any>[];
@@ -196,15 +204,23 @@ export async function POST(req: NextRequest) {
 
   const inserted = await Model.insertMany(docsToInsert);
 
-  await CrmAuditLog.create({
-    tenantId,
-    user_id: session.user.id,
-    action: "imported",
-    record_type: entityType,
-    record_id: inserted[0]._id,
-    new_value: `Imported ${inserted.length} records. Removed ${duplicatesRemoved} duplicates.`,
-    timestamp: new Date(),
-  });
+  let auditWarning: string | undefined;
+  try {
+    await CrmAuditLog.create({
+      tenantId,
+      user_id: session.user.id,
+      action: "imported",
+      record_type: entityType,
+      record_id: inserted[0]._id,
+      new_value: `Imported ${inserted.length} records. Removed ${duplicatesRemoved} duplicates.`,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    // The import has already committed. Do not report it as failed and invite
+    // a retry that could create duplicate records just because auditing failed.
+    console.error("CRM import audit logging failed:", error);
+    auditWarning = "Records imported, but the audit log could not be written.";
+  }
 
   return NextResponse.json(
     {
@@ -212,7 +228,15 @@ export async function POST(req: NextRequest) {
       insertedCount: inserted.length,
       duplicatesRemoved,
       errors: allErrors,
+      warnings: auditWarning ? [auditWarning] : [],
     },
     { status: 201 },
   );
+  } catch (error) {
+    console.error("CRM import failed:", error);
+    return NextResponse.json(
+      { success: false, message: safeInternalErrorMessage() },
+      { status: 500 },
+    );
+  }
 }

@@ -4,7 +4,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Attendance from "@/models/hr/Attendance";
-import "@/models/hr/Employee";
+import Employee from "@/models/hr/Employee";
 import "@/models/hr/Department";
 import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
@@ -80,14 +80,27 @@ const attendance = await Attendance.findOne({ _id: id, tenantId });
       );
     }
 
+    if (body.status && !["present", "absent", "half-day", "on-leave", "holiday", "week-off"].includes(body.status)) {
+      return NextResponse.json({ error: "Choose a valid attendance status." }, { status: 400 });
+    }
+    if (body.employeeId) {
+      const employee = await Employee.findOne({ _id: body.employeeId, tenantId }).select("_id").lean();
+      if (!employee) return NextResponse.json({ error: "Employee not found in this organization." }, { status: 404 });
+    }
+
     // Strip empty leaveType to avoid enum validation error
     if (!body.leaveType) delete body.leaveType;
     if (body.status !== "on-leave") delete body.leaveType;
 
     // Recalculate hours if check in/out provided
-    if (body.checkIn && body.checkOut) {
-      const checkIn = new Date(body.checkIn);
-      const checkOut = new Date(body.checkOut);
+    const checkInValue = body.checkIn ?? attendance.checkIn;
+    const checkOutValue = body.checkOut ?? attendance.checkOut;
+    if (checkInValue && checkOutValue) {
+      const checkIn = new Date(checkInValue);
+      const checkOut = new Date(checkOutValue);
+      if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut < checkIn) {
+        return NextResponse.json({ error: "Check-out time must be after check-in time." }, { status: 400 });
+      }
       body.hoursWorked =
         Math.round(
           ((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60)) * 100,

@@ -13,6 +13,7 @@ import { PreviewAndResolution } from "@/components/migration/PreviewAndResolutio
 import { InvalidRecordsEditor } from "@/components/migration/InvalidRecordsEditor";
 import { AupulensPreview } from "@/components/migration/AupulensPreview";
 import { productionMigrationError } from "@/lib/migration/errors";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const STEPS = [
   "UPLOAD",
@@ -134,7 +135,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
     if (loadRequestInFlightRef.current) return;
     loadRequestInFlightRef.current = true;
     try {
-      const res = await fetch(`/api/migration/batches/${id}`);
+      const res = await cachedFetch(`/api/migration/batches/${id}`);
       const json = await res.json();
       if (!res.ok || !json.success) {
         const message = json.message || "Failed to load migration batch.";
@@ -186,7 +187,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
     if (workerTickInFlightRef.current) return;
     workerTickInFlightRef.current = true;
     try {
-      await fetch(`/api/migration/batches/${id}/worker`, { method: "POST" });
+      await cachedFetch(`/api/migration/batches/${id}/worker`, { method: "POST" });
     } catch {
       // The next poll will surface any persisted worker failure from the batch.
     } finally {
@@ -197,7 +198,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const fetchMappings = async () => {
     setFetchingMappings(true);
     try {
-      const res = await fetch(`/api/migration/batches/${id}/mapping`);
+      const res = await cachedFetch(`/api/migration/batches/${id}/mapping`);
       const json = await res.json();
       if (res.ok && json.success) {
         setMappings(json.data);
@@ -266,7 +267,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const saveMapping = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/migration/batches/${id}/mapping`, {
+      const res = await cachedFetch(`/api/migration/batches/${id}/mapping`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobMappings: mappings.map(m => ({ jobId: m.jobId, mapping: m.mapping })) })
@@ -293,7 +294,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const executeMigration = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/migration/batches/${id}/start`, { method: "POST" });
+      const res = await cachedFetch(`/api/migration/batches/${id}/start`, { method: "POST" });
       const data = await res.json();
       if (res.ok && data.success !== false) {
         setBatch((current: any) => current ? { ...current, status: "running", progress: 1 } : current);
@@ -315,7 +316,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const recoverFailedRecords = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/migration/batches/${id}/recover-failed`, { method: "POST" });
+      const res = await cachedFetch(`/api/migration/batches/${id}/recover-failed`, { method: "POST" });
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success(data.message || "Failed records reopened for review.");

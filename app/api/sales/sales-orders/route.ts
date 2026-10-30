@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/sales/SaleOrder";
+import Customer from "@/models/sales/Customer";
 import SalesView from "@/models/sales/SalesView";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateSaleOrderNumber } from "@/lib/sales/saleOrderNumbering";
@@ -50,13 +51,32 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^\$\{\}()|[\]\\]/g, "\\$&"));
-      query.$and = words.map(word => ({
-        $or: [
-          { "header.name": { $regex: word, $options: "i" } },
-          { "otherInfo.clientOrderRef": { $regex: word, $options: "i" } }
-        ]
-      }));
+      const words = search.trim().split(/\s+/).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      if (words.length) {
+        const matchingCustomers = await Customer.find({
+          tenantId,
+          $and: words.map(word => ({
+            $or: [
+              { "header.displayName": { $regex: word, $options: "i" } },
+              { "header.companyName": { $regex: word, $options: "i" } },
+              { "header.name": { $regex: word, $options: "i" } },
+              { "header.firstName": { $regex: word, $options: "i" } },
+              { "header.lastName": { $regex: word, $options: "i" } },
+            ],
+          })),
+        }).select("_id").limit(500).lean();
+        const customerIds = matchingCustomers.map((customer: any) => customer._id);
+        query.$and = [
+          ...(query.$and || []),
+          ...words.map(word => ({
+            $or: [
+              { "header.name": { $regex: word, $options: "i" } },
+              { "otherInfo.clientOrderRef": { $regex: word, $options: "i" } },
+              ...(customerIds.length ? [{ "header.partnerId": { $in: customerIds } }] : []),
+            ],
+          })),
+        ];
+      }
     }
 
     // AI-native "redirect with filters" support — additive: omitting these

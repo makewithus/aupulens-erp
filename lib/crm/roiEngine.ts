@@ -23,14 +23,14 @@ export async function calculateCampaignROI(campaignId: string, tenantId: string)
   const campaign = await CrmCampaign.findOne({ _id: campaignId, tenantId }).lean();
   if (!campaign) throw new Error("Campaign not found");
 
-  const budget = (campaign as any).budget || 0;
+  const budget = Number((campaign as any).budget) || 0;
 
   const [
     totalLeads, 
     qualifiedLeads, 
     totalOpportunities, 
     closedWonOpportunities,
-    attributedRevenue
+    contractRevenue
   ] = await Promise.all([
     CrmLead.countDocuments({ campaign_id: campaignId, tenantId }),
     CrmLead.countDocuments({ campaign_id: campaignId, tenantId, status: { $in: ["Qualified", "Converted"] } }),
@@ -38,6 +38,16 @@ export async function calculateCampaignROI(campaignId: string, tenantId: string)
     CrmOpportunity.countDocuments({ campaign_id: campaignId, tenantId, stage: "Closed Won" }),
     getCampaignRevenue(campaignId, tenantId)
   ]);
+
+  // Prefer current contract attribution. Older/imported campaigns may have
+  // revenue recorded on the campaign itself without a campaign_id link on the
+  // contract, so fall back to the saved campaign revenue when no linked
+  // contract revenue exists. Campaign detail and global ROI share this path.
+  const storedRevenue = Math.max(
+    Number((campaign as any).attributed_revenue) || 0,
+    Number((campaign as any).actual_revenue) || 0,
+  );
+  const attributedRevenue = contractRevenue || storedRevenue;
 
   const costPerLead = totalLeads > 0 ? budget / totalLeads : 0;
   const costPerOpportunity = totalOpportunities > 0 ? budget / totalOpportunities : 0;
@@ -81,14 +91,17 @@ export async function calculateGlobalROI(tenantId: string) {
   await dbConnect();
 
   const campaigns = await CrmCampaign.find({ tenantId }).lean();
-  const totalBudget = campaigns.reduce((acc, c) => acc + ((c as any).budget || 0), 0);
-  
-  const [totalLeads, totalOpps, closedWon, totalRevenueAggr] = await Promise.all([
-    CrmLead.countDocuments({ tenantId, campaign_id: { $exists: true, $ne: null } }),
-    CrmOpportunity.countDocuments({ tenantId, campaign_id: { $exists: true, $ne: null } }),
-    CrmOpportunity.countDocuments({ tenantId, campaign_id: { $exists: true, $ne: null }, stage: "Closed Won" }),
-    getGlobalCampaignRevenue(tenantId)
-  ]);
+  // Sum the same per-campaign attribution result shown on each campaign page.
+  // This keeps the global card reconcilable with individual campaigns and
+  // avoids a second, subtly different contract-only attribution query.
+  const campaignMetrics = await Promise.all(
+    campaigns.map((campaign) => calculateCampaignROI(String(campaign._id), tenantId)),
+  );
+  const totalBudget = campaignMetrics.reduce((sum, metrics) => sum + metrics.budget, 0);
+  const totalLeads = campaignMetrics.reduce((sum, metrics) => sum + metrics.totalLeads, 0);
+  const totalOpps = campaignMetrics.reduce((sum, metrics) => sum + metrics.totalOpportunities, 0);
+  const closedWon = campaignMetrics.reduce((sum, metrics) => sum + metrics.closedWonOpportunities, 0);
+  const totalRevenueAggr = campaignMetrics.reduce((sum, metrics) => sum + metrics.attributedRevenue, 0);
 
   const roiPercentage = totalBudget > 0 
     ? ((totalRevenueAggr - totalBudget) / totalBudget) * 100 
@@ -102,15 +115,4 @@ export async function calculateGlobalROI(tenantId: string) {
     closedWon,
     roiPercentage
   };
-}
-
-// Helper to get total attributed revenue globally
-async function getGlobalCampaignRevenue(tenantId: string) {
-  const { default: CrmContract } = await import("@/models/crm/Contract");
-  const contracts = await CrmContract.find({ 
-    tenantId, 
-    campaign_id: { $exists: true, $ne: null },
-    status: { $in: ["Active", "Renewal Due", "Expiring", "Renewed"] }
-  }).lean();
-  return contracts.reduce((acc, c) => acc + ((c as any).contract_value || 0), 0);
 }

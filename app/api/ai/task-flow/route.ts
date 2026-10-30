@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
@@ -30,19 +31,19 @@ const deps: TaskFlowDeps = {
     if ((await getAiUsageCount(tenantId, period)) >= cap) return (await resolveAtLimitDecision(tenantId)).action !== "block";
     return true;
   },
-  async classify(tenantId, english) {
+  async classify(tenantId, english, requestId) {
     // Metered and gated exactly like any other AI call (callClaudeForTenant). The reply is parsed strictly
     // to three tokens, so nothing the model (or the user's text) says can do anything but pick one of them.
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
     const prompt = buildClassifyPrompt(english);
-    const r = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { maxTokens: 12, feature: "task_flow_classify" });
+    const r = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { maxTokens: 12, feature: "task_flow_classify", idempotencyKey: requestId });
     if (r.gated === true) return null;
     return parseClassification(r.text);
   },
-  async chargeTranslation(tenantId) {
+  async chargeTranslation(tenantId, requestId) {
     const period = getAiPeriod();
-    await incrementAiUsage(tenantId, period);
-    await incrementGlobalAiUsage(period);
+    await incrementAiUsage(tenantId, period, requestId);
+    await incrementGlobalAiUsage(period, requestId);
   },
 };
 
@@ -58,18 +59,24 @@ export async function POST(req: Request) {
     const text = typeof body.text === "string" ? body.text.trim() : "";
     if (!text) return NextResponse.json({ success: false, message: "text is required" }, { status: 400 });
     if (text.length > 2000) return NextResponse.json({ handled: false, sessionActive: false, kind: "not_handled", message: "", english: text, language: { detected: "und", degraded: false, original: text } });
+    const requestId = typeof body.requestId === "string" && /^[a-zA-Z0-9_-]{1,100}$/.test(body.requestId) ? body.requestId : randomUUID();
 
     await connectDB();
     const { aiSettings } = await resolveTenantAiSettings(tenantId);
     const url = new URL(req.url);
     const result = await handleTaskFlow(
       {
-        tenantId, userId, role: String((session.user as any).role ?? ""), text,
+        tenantId, userId, role: String((session.user as any).role ?? ""), text, requestId,
         expectSession: body.expectSession === true, aiSettings,
         http: { origin: url.origin, cookie: req.headers.get("cookie") ?? "" },
       },
       deps,
     );
+    if (result.handled && result.kind !== "refused") {
+      const period = getAiPeriod();
+      await incrementAiUsage(tenantId, period, requestId);
+      await incrementGlobalAiUsage(period, requestId);
+    }
     return NextResponse.json({ success: true, ...result });
   } catch (err) {
     console.error("[task-flow] route error", err instanceof Error ? err.message : String(err));

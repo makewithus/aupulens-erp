@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import LeaveRequest from "@/models/hr/LeaveRequest";
 import Employee from "@/models/hr/Employee";
+import { validateObjectId } from "@/lib/api/validateId";
 
 export async function PATCH(
   req: NextRequest,
@@ -18,6 +19,8 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    const idGuard = validateObjectId(id);
+    if (idGuard) return idGuard;
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = getEffectiveTenantId(session);
@@ -40,6 +43,9 @@ const leave = await LeaveRequest.findOne({ _id: id, tenantId });
       if (employee && leave.leaveType !== "unpaid") {
         const balanceKey =
           leave.leaveType as keyof typeof employee.leaveBalance;
+        if (employee.leaveBalance[balanceKey] < leave.totalDays) {
+          return NextResponse.json({ error: `Insufficient ${leave.leaveType} leave balance. Available: ${employee.leaveBalance[balanceKey]}, requested: ${leave.totalDays}.` }, { status: 409 });
+        }
         employee.leaveBalance[balanceKey] = Math.max(
           0,
           employee.leaveBalance[balanceKey] - leave.totalDays,

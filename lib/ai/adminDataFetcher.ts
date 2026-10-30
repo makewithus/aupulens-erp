@@ -1,4 +1,6 @@
 import { issuedInvoiceFilter, invoiceRevenueExpression, invoiceGrossValueExpression } from "@/lib/sales/invoiceEligibility";
+import { REAL_ORDER_MATCH } from "@/lib/sales/orderEligibility";
+import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { buildPostedJournalReport } from "@/lib/accounting/reports";
 import SaleOrder from "@/models/sales/SaleOrder";
 import InventoryItem from "@/models/inventory/InventoryItem";
@@ -88,13 +90,27 @@ export async function fetchAdminSalesData(tenantId: string) {
       .lean(),
   ]);
 
-  const [totalOrders, issued] = await Promise.all([
-    SaleOrder.countDocuments({ tenantId }),
+  const [confirmedOrders, issued] = await Promise.all([
+    SaleOrder.countDocuments({ tenantId, ...REAL_ORDER_MATCH }),
     SalesInvoice.aggregate([
       { $match: { tenantId, ...issuedInvoiceFilter() } },
       { $group: { _id: null, total: { $sum: invoiceRevenueExpression }, grossTotal: { $sum: invoiceGrossValueExpression } } },
     ]).exec(),
   ]);
+  // Keep the health summary's order count on the same confirmed-order basis
+  // as the admin dashboard. Only use issued invoices when there are no
+  // confirmed order records, matching the dashboard's legacy fallback.
+  const totalOrders = confirmedOrders > 0
+    ? confirmedOrders
+    : await SalesInvoice.countDocuments({
+        tenantId,
+        status: { $in: [
+          SALES_INVOICE_STATUS.SAVED,
+          SALES_INVOICE_STATUS.PARTIALLY_PAID,
+          SALES_INVOICE_STATUS.PAID,
+          SALES_INVOICE_STATUS.OVERDUE,
+        ] },
+      });
   const totalRevenue = issued[0]?.total || 0;
   const productCounts: Record<string, number> = {};
   if (orders.length > 0) {

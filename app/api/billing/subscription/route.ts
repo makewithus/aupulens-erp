@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { subscriptionManager } from "@/lib/billing/subscriptionManager";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
-import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
+import Plan from "@/models/platform/Plan";
 import { handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(req: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const tenantId = session.user.tenantId;
     const subscription = await subscriptionManager.getOrCreateSubscription(tenantId);
     const entitlements = await resolveEntitlements(tenantId);
-    const planDef = PLAN_DEFINITIONS[subscription.planKey] || PLAN_DEFINITIONS.starter;
+    const planDef = await Plan.findOne({ key: subscription.planKey }).lean();
 
     return NextResponse.json({
       success: true,

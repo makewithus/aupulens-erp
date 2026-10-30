@@ -18,7 +18,7 @@ import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
 import { NetProfitCard } from "@/components/admin/NetProfitCard";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
 import { BusinessHealthCard, BusinessHealthCardSkeleton } from "@/components/dashboard/BusinessHealthCard";
-import { cachedFetch, getInstantCachedData, markHydrated } from "@/lib/api/cachedFetch";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
 
 interface DashboardSummary {
@@ -64,11 +64,6 @@ interface DashboardSummary {
   }>;
 }
 
-interface AdminDashboardPayload {
-  summary: DashboardSummary;
-  businessHealth?: any;
-}
-
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -92,7 +87,9 @@ export default function AdminDashboard() {
       ) {
         router.replace("/auth/admin");
       } else {
-        fetchDashboardData(false);
+        // Always read the latest tenant-scoped DB snapshot when the dashboard
+        // opens. The regular dashboard payload is cached for other callers.
+        fetchDashboardData(true);
       }
     }
   }, [status, session, router]);
@@ -118,30 +115,6 @@ export default function AdminDashboard() {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    markHydrated();
-    if (!summary) {
-      const cached = getInstantCachedData<AdminDashboardPayload>("/api/admin/dashboard", { allowPreHydration: true });
-      if (cached?.summary && Object.prototype.hasOwnProperty.call(cached, "businessHealth")) {
-        setSummary(cached.summary);
-        setBusinessHealth(cached.businessHealth ?? null);
-        setIsLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleRevalidate = (e: any) => {
-      if (e?.detail?.url?.includes("/api/admin/dashboard")) {
-        fetchDashboardData(true);
-      }
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener("aup:revalidated", handleRevalidate);
-      return () => window.removeEventListener("aup:revalidated", handleRevalidate);
-    }
-  }, []);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -194,7 +167,7 @@ export default function AdminDashboard() {
         userEmail={session?.user?.email}
         userRole={session?.user?.role}
         onSignOut={() => signOut({ callbackUrl: "/auth" })}
-        onRefresh={fetchDashboardData}
+        onRefresh={() => fetchDashboardData(true)}
         profilePath="/admin/profile"
       >
         <div className="space-y-6">
@@ -272,7 +245,7 @@ export default function AdminDashboard() {
         userEmail={session?.user?.email || ""}
         userRole={session?.user?.role}
         onSignOut={() => signOut({ callbackUrl: "/auth" })}
-        onRefresh={fetchDashboardData}
+        onRefresh={() => fetchDashboardData(true)}
         profilePath="/admin/profile"
       >
         <div className="h-[60vh] flex flex-col items-center justify-center opacity-20">
@@ -302,13 +275,13 @@ export default function AdminDashboard() {
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth" })}
-      onRefresh={fetchDashboardData}
+      onRefresh={() => fetchDashboardData(true)}
       profilePath="/admin/profile"
     >
-      <div className="space-y-6">
+      <div className="mx-auto w-full max-w-[1800px] min-w-0 space-y-4 sm:space-y-6">
 
         <div className="space-y-1">
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+          <h1 className="break-words text-3xl font-black tracking-tighter text-primary sm:text-4xl md:text-[56px]">
             System Overview
           </h1>
         </div>

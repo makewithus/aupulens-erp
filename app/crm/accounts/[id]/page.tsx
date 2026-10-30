@@ -12,6 +12,7 @@ import { Loader2 } from "lucide-react";
 import { LogActivityModal } from "@/components/crm/LogActivityModal";
 import ActivityTimeline from "@/components/crm/ActivityTimeline";
 import CustomerJourney from "@/components/crm/CustomerJourney";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function Account360Page(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
@@ -19,7 +20,7 @@ export default function Account360Page(props: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/crm/accounts/${params.id}`)
+    cachedFetch(`/api/crm/accounts/${params.id}`)
       .then(res => res.json())
       .then(d => { setData(d.data); setLoading(false); });
   }, [params.id]);
@@ -180,7 +181,7 @@ function EditAccountModal({ account, onUpdate }: { account: any, onUpdate: () =>
   const handleSave = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/crm/accounts/${account._id}`, {
+      const res = await cachedFetch(`/api/crm/accounts/${account._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ company_name: companyName })
@@ -231,7 +232,7 @@ function NewOpportunityModal({ accountId }: { accountId: string }) {
     if (!dealName.trim()) return toast.error("Deal name is required");
     setLoading(true);
     try {
-      const res = await fetch(`/api/crm/opportunities`, {
+      const res = await cachedFetch(`/api/crm/opportunities`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deal_name: dealName, amount: Number(amount) || 0, account_id: accountId })
@@ -284,7 +285,7 @@ function AccountContacts({ accountId }: { accountId: string }) {
   const [loading, setLoading] = useState(false);
 
   const fetchContacts = () => {
-    fetch(`/api/crm/contacts?account_id=${accountId}`)
+    cachedFetch(`/api/crm/contacts?account_id=${accountId}`)
       .then(res => res.json())
       .then(d => d.success && setContacts(d.data.contacts || []));
   };
@@ -296,7 +297,7 @@ function AccountContacts({ accountId }: { accountId: string }) {
     if (!form.first_name.trim()) return toast.error("First name is required");
     setLoading(true);
     try {
-      const res = await fetch("/api/crm/contacts", {
+      const res = await cachedFetch("/api/crm/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, account_id: accountId })
@@ -378,7 +379,7 @@ function AccountApprovals({ accountId }: { accountId: string }) {
   const [approvals, setApprovals] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(`/api/crm/approvals?account_id=${accountId}`)
+    cachedFetch(`/api/crm/approvals?account_id=${accountId}`)
       .then(res => res.json())
       .then(d => d.success && setApprovals(d.data.approvals || []));
   }, [accountId]);
@@ -404,7 +405,7 @@ function AccountCases({ accountId }: { accountId: string }) {
   const [cases, setCases] = useState<any[]>([]);
   
   useEffect(() => {
-    fetch(`/api/crm/cases?account_id=${accountId}`)
+    cachedFetch(`/api/crm/cases?account_id=${accountId}`)
       .then(res => res.json())
       .then(d => d.success && setCases(d.data.cases));
   }, [accountId]);
@@ -473,7 +474,7 @@ function AccountTasks({ accountId }: { accountId: string }) {
   const [tasks, setTasks] = useState<any[]>([]);
   
   useEffect(() => {
-    fetch(`/api/crm/tasks?account_id=${accountId}`)
+    cachedFetch(`/api/crm/tasks?account_id=${accountId}`)
       .then(res => res.json())
       .then(d => d.success && setTasks(d.data.tasks));
   }, [accountId]);
@@ -517,7 +518,7 @@ function AccountOpportunities({ accountId }: { accountId: string }) {
   const [opps, setOpps] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(`/api/crm/opportunities?account_id=${accountId}`)
+    cachedFetch(`/api/crm/opportunities?account_id=${accountId}`)
       .then(res => res.json())
       .then(d => d.success && setOpps(d.data.opportunities || d.data)); // Fallback depending on API shape
   }, [accountId]);
@@ -599,7 +600,7 @@ function AccountQuotes({ accountId }: { accountId: string }) {
   const [quotes, setQuotes] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(`/api/crm/quotes?account_id=${accountId}`)
+    cachedFetch(`/api/crm/quotes?account_id=${accountId}`)
       .then(res => res.json())
       .then(d => d.success && setQuotes(d.data.quotes));
   }, [accountId]);
@@ -630,7 +631,7 @@ function AccountDocuments({ accountId }: { accountId: string }) {
   const [docs, setDocs] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(`/api/crm/documents?linked_record_id=${accountId}&linked_record_type=Account`)
+    cachedFetch(`/api/crm/documents?linked_record_id=${accountId}&linked_record_type=Account`)
       .then(res => res.json())
       .then(d => d.success && setDocs(d.data.documents));
   }, [accountId]);

@@ -177,14 +177,6 @@ export default function ProjectsDashboardPage() {
     }
   }, []);
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(val);
-  };
-
   return (
     <DashboardLayout
       sidebarSections={projectsSidebarConfig}
@@ -413,6 +405,7 @@ export default function ProjectsDashboardPage() {
                   height={340}
                   colorTheme="purple"
                   metricLabel="Project Activity"
+                  unit="number"
                   data={dailyDeliverables}
                   valueKey="count"
                   yAxisFormatter={(v) => `${v}`}

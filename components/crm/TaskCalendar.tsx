@@ -14,6 +14,8 @@ import {
   subMonths,
   startOfYear,
   endOfYear,
+  startOfDay,
+  endOfDay,
   addYears,
   subYears,
   isSameDay,
@@ -44,7 +46,6 @@ import {
   Zap,
   ArrowRight,
   Sun,
-  Printer,
   Volume2,
   VolumeX,
   Globe,
@@ -64,6 +65,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useThemeStore } from "@/store/themeStore";
 import { cn } from "@/lib/utils";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 /**
  * Enterprise Calendar — Full Google Calendar Dynamic Feature Specification.
@@ -82,7 +84,7 @@ import { cn } from "@/lib/utils";
  * 11. Multi-view support: Day, 3-Day, Week, Month, Year Heatmap, and Agenda stream.
  * 12. Web Audio API soft chime audio feedback for actions (create, drop, resize) with mute toggle.
  * 13. Comprehensive keyboard shortcuts (T=Today, D=Day, 3=3-Day, W=Week, M=Month, Y=Year, A=Agenda, J/K=Nav, C=Create, /=Search).
- * 14. Print / PDF formatted layout via window.print().
+ * 14. Branded, printer-friendly calendar PDF export.
  */
 
 export interface UnifiedEvent {
@@ -987,10 +989,160 @@ export default function TaskCalendar() {
 
   const conflictDays = new Set((conflicts || []).map((c) => c.date));
 
+  const printSchedule = () => {
+    const eventsForPrint = filteredEvents
+      .filter((event) => {
+        const date = new Date(event.start);
+        return date >= startOfDay(rangeStart) && date <= endOfDay(rangeEnd);
+      })
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+    void (async () => {
+      try {
+        const pdf = await PDFDocument.create();
+        pdf.setTitle("Aupulens ERP | Enterprise Calendar");
+        pdf.setAuthor("Aupulens ERP");
+        const regular = await pdf.embedFont(StandardFonts.Helvetica);
+        const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+        const pageWidth = 841.89;
+        const pageHeight = 595.28;
+        const margin = 36;
+        const contentWidth = pageWidth - margin * 2;
+        const columns = [96, 76, 262, 190, contentWidth - 624];
+        const headers = ["DATE", "TIME", "EVENT", "CATEGORY", "STATUS"];
+        const colors = {
+          ink: rgb(0.12, 0.12, 0.14),
+          muted: rgb(0.38, 0.39, 0.43),
+          purple: rgb(0.53, 0.25, 0.88),
+          palePurple: rgb(0.95, 0.92, 0.99),
+          header: rgb(0.08, 0.08, 0.09),
+          border: rgb(0.83, 0.83, 0.86),
+          row: rgb(0.97, 0.97, 0.98),
+          white: rgb(1, 1, 1),
+        };
+        const fontSize = 9;
+        const lineHeight = 11.5;
+        const cellPadding = 7;
+        const bottomLimit = 42;
+        let pageNumber = 0;
+        let page = pdf.addPage([pageWidth, pageHeight]);
+        let rowIndex = 0;
+        let y = 0;
+
+        const wrapText = (text: string, font: typeof regular, maxWidth: number) => {
+          const words = text.split(/\s+/).filter(Boolean);
+          const lines: string[] = [];
+          let line = "";
+          for (const word of words) {
+            const candidate = line ? `${line} ${word}` : word;
+            if (font.widthOfTextAtSize(candidate, fontSize) <= maxWidth || !line) {
+              line = candidate;
+            } else {
+              lines.push(line);
+              line = word;
+            }
+          }
+          if (line) lines.push(line);
+          return lines.length ? lines : [""];
+        };
+
+        const startPage = () => {
+          pageNumber += 1;
+          if (pageNumber > 1) page = pdf.addPage([pageWidth, pageHeight]);
+          page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: colors.white });
+          page.drawRectangle({ x: margin, y: pageHeight - margin - 76, width: contentWidth, height: 76, color: colors.header });
+          page.drawRectangle({ x: margin, y: pageHeight - margin - 76, width: 5, height: 76, color: colors.purple });
+          page.drawText("AUPULENS ERP", { x: margin + 20, y: pageHeight - margin - 25, size: 8, font: bold, color: rgb(0.78, 0.63, 1) });
+          page.drawText("Enterprise Calendar", { x: margin + 20, y: pageHeight - margin - 51, size: 21, font: bold, color: colors.white });
+          page.drawText(rangeLabel, { x: margin + 20, y: pageHeight - margin - 67, size: 9, font: regular, color: rgb(0.82, 0.82, 0.85) });
+          y = pageHeight - margin - 76 - 18;
+          const headerHeight = 24;
+          page.drawRectangle({ x: margin, y: y - headerHeight, width: contentWidth, height: headerHeight, color: colors.palePurple });
+          let x = margin;
+          headers.forEach((label, index) => {
+            page.drawText(label, { x: x + cellPadding, y: y - 16, size: 7.5, font: bold, color: colors.purple });
+            x += columns[index];
+          });
+          page.drawLine({ start: { x: margin, y: y - headerHeight }, end: { x: margin + contentWidth, y: y - headerHeight }, thickness: 1, color: colors.purple });
+          y -= headerHeight;
+        };
+
+        const drawFooter = () => {
+          page.drawLine({ start: { x: margin, y: 28 }, end: { x: pageWidth - margin, y: 28 }, thickness: 0.6, color: colors.border });
+          page.drawText("Aupulens ERP  •  Enterprise Calendar", { x: margin, y: 16, size: 7.5, font: regular, color: colors.muted });
+          const pageLabel = `Page ${pageNumber}`;
+          page.drawText(pageLabel, { x: pageWidth - margin - regular.widthOfTextAtSize(pageLabel, 7.5), y: 16, size: 7.5, font: regular, color: colors.muted });
+        };
+
+        startPage();
+        if (eventsForPrint.length === 0) {
+          page.drawText("No events in this period.", { x: margin + cellPadding, y: y - 18, size: 10, font: regular, color: colors.muted });
+        }
+
+        for (const event of eventsForPrint) {
+          const date = new Date(event.start);
+          const time = event.allDay
+            ? "All day"
+            : `${format(date, "h:mm a")}${event.end ? ` – ${format(new Date(event.end), "h:mm a")}` : ""}`;
+          const values = [
+            format(date, "EEE, MMM d, yyyy"),
+            time,
+            event.title,
+            SOURCE_META[event.source]?.label || "Calendar",
+            event.meta?.status ? String(event.meta.status) : "—",
+          ];
+          const wrapped = values.map((value, index) => wrapText(value, regular, columns[index] - cellPadding * 2));
+          const rowHeight = Math.max(25, Math.max(...wrapped.map((lines) => lines.length)) * lineHeight + cellPadding * 2);
+          if (y - rowHeight < bottomLimit) {
+            drawFooter();
+            startPage();
+          }
+          if (rowIndex % 2 === 1) page.drawRectangle({ x: margin, y: y - rowHeight, width: contentWidth, height: rowHeight, color: colors.row });
+          let x = margin;
+          wrapped.forEach((lines, index) => {
+            lines.forEach((line, lineIndex) => {
+              page.drawText(line, {
+                x: x + cellPadding,
+                y: y - cellPadding - fontSize - lineIndex * lineHeight,
+                size: fontSize,
+                font: regular,
+                color: index === 4 && /overdue/i.test(line) ? rgb(0.75, 0.12, 0.18) : colors.ink,
+              });
+            });
+            x += columns[index];
+          });
+          page.drawLine({ start: { x: margin, y: y - rowHeight }, end: { x: margin + contentWidth, y: y - rowHeight }, thickness: 0.5, color: colors.border });
+          let dividerX = margin;
+          columns.slice(0, -1).forEach((width) => {
+            dividerX += width;
+            page.drawLine({ start: { x: dividerX, y }, end: { x: dividerX, y: y - rowHeight }, thickness: 0.35, color: colors.border });
+          });
+          y -= rowHeight;
+          rowIndex += 1;
+        }
+
+        drawFooter();
+        const bytes = await pdf.save();
+        const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `aupulens-enterprise-calendar-${format(rangeStart, "yyyy-MM-dd")}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        showNotice("Calendar PDF downloaded");
+      } catch (error) {
+        console.error("Calendar PDF export failed:", error);
+        showNotice("Could not create the calendar PDF. Please try again.");
+      }
+    })();
+  };
+
   return (
+    <>
     <div
       className={cn(
-        "flex flex-col h-[calc(100vh-140px)] min-h-[720px] rounded-lg border font-mono shadow-sm transition-colors overflow-hidden relative print:border-none print:h-auto print:shadow-none",
+        "flex flex-col h-[calc(100vh-140px)] min-h-[720px] rounded-lg border font-mono shadow-sm transition-colors overflow-hidden relative print:hidden",
         isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
       )}
     >
@@ -1152,14 +1304,14 @@ export default function TaskCalendar() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => window.print()}
+            onClick={printSchedule}
             className={cn(
               "h-8 w-8 hidden lg:flex border shadow-xs transition-colors",
               isDark ? "bg-[#1E1E1E] border-[#333] text-muted-foreground hover:text-foreground" : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
             )}
-            title="Print Schedule / Save PDF"
+            title="Download Calendar PDF"
           >
-            <Printer className="h-3.5 w-3.5" />
+            <Download className="h-3.5 w-3.5" />
           </Button>
 
           {/* iCal / Google Calendar Export */}
@@ -2136,6 +2288,7 @@ export default function TaskCalendar() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }
 

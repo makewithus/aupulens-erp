@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { ReactNode, useMemo, useState, useRef, useEffect } from "react";
+import { Children, ReactNode, useMemo, useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { DashboardHeader, BreadcrumbItem } from "./DashboardHeader";
@@ -192,7 +192,7 @@ export function DashboardLayout({
 
   return (
     <div
-      className="flex h-dvh min-h-[100dvh] min-w-0 flex-col overflow-hidden bg-background"
+      className="dashboard-layout-root flex h-dvh min-h-[100dvh] min-w-0 flex-col overflow-hidden bg-background"
       // Expose the AI sidebar's width so viewport-fixed form action bars can
       // offset their right edge and not slide under the panel when it's open.
       style={{ ["--ai-sidebar-w" as string]: isAiSidebarOpen ? "450px" : "0px" }}
@@ -245,7 +245,7 @@ export function DashboardLayout({
             ref={contentRef}
             className="min-w-0 w-full p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 md:p-6 lg:p-8"
           >
-            {children}
+            {Children.toArray(children)}
           </div>
         </main>
 

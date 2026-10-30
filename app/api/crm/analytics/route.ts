@@ -10,6 +10,7 @@ import Campaign from "@/models/crm/Campaign";
 import Contract from "@/models/crm/Contract";
 import User from "@/models/auth/User";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
+import { applyDemoScope, getDemoCacheSegment } from "@/lib/auth/scopeFilter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,14 +22,22 @@ export async function GET(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
+    const opportunityScope = applyDemoScope(session, { tenantId });
 
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
-    const rangeKey = req.nextUrl.searchParams.get("range") || "30d";
+    const rangeKey = req.nextUrl.searchParams.get("range") || "all";
     const rangeDays = rangeKey === "1y" ? 365 : rangeKey === "90d" ? 90 : 30;
     const rangeEnd = new Date();
-    const rangeStart = new Date();
-    rangeStart.setDate(rangeStart.getDate() - rangeDays);
-    const cacheKey = `crm-analytics-live:${tenantId}:${rangeKey}`;
+    const rangeStart = rangeKey === "all" ? new Date(0) : new Date();
+    if (rangeKey !== "all") rangeStart.setDate(rangeStart.getDate() - rangeDays);
+    const cacheKey = `crm-analytics-live:${tenantId}:${getDemoCacheSegment(session)}:${rangeKey}`;
+    const leadScope = applyDemoScope(session, { tenantId });
+    // The All Leads screen includes every lead for the current scope. Avoid
+    // dropping legacy rows without createdAt (or rows dated in the future)
+    // from the all-time source breakdown.
+    const leadPeriodScope = rangeKey === "all"
+      ? leadScope
+      : { ...leadScope, createdAt: { $gte: rangeStart, $lte: rangeEnd } };
 
     if (!isFresh) {
       const cached = getCachedData<any>(cacheKey);
@@ -50,21 +59,21 @@ export async function GET(req: NextRequest) {
       leadSourcesRaw,
       cohortLeadsRaw,
       monthlyOppsRaw,
-      repsAggRaw,
+      wonBookingsRaw,
       accountHealthRaw,
       closedOpportunities,
       renewalStats,
       activeContracts,
     ] = await Promise.all([
-      Opportunity.countDocuments({ tenantId }),
-      Lead.countDocuments({ tenantId }),
-      Lead.countDocuments({ tenantId, createdAt: { $gte: rangeStart, $lte: rangeEnd } }),
+      Opportunity.countDocuments(opportunityScope),
+      Lead.countDocuments(leadScope),
+      Lead.countDocuments(leadPeriodScope),
       Account.countDocuments({ tenantId }),
       Campaign.countDocuments({ tenantId }),
 
       // Group opportunities by stage
       Opportunity.aggregate([
-        { $match: { tenantId } },
+        { $match: opportunityScope },
         {
           $group: {
             _id: "$stage",
@@ -84,44 +93,33 @@ export async function GET(req: NextRequest) {
 
       // Group leads by source
       Lead.aggregate([
-        { $match: { tenantId, createdAt: { $gte: rangeStart, $lte: rangeEnd } } },
+        { $match: leadPeriodScope },
         { $group: { _id: "$source", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
 
       // Keep the selected-period lead cohort intact so its current status can
       // be compared with opportunities linked to those same leads.
-      Lead.find({ tenantId, createdAt: { $gte: rangeStart, $lte: rangeEnd } }).select("_id status").lean(),
+      Lead.find(leadPeriodScope).select("_id status").lean(),
 
       // Fetch opportunities created in range or closed won in range. New
       // pipeline is dated by creation; bookings are dated by Won stage history.
+      // Apply the same role-aware opportunity scope used by the summary cards
+      // and opportunity list so demo records are handled consistently.
       Opportunity.find({
-        tenantId,
+        ...opportunityScope,
         $or: [
           { createdAt: { $gte: rangeStart, $lte: rangeEnd } },
           { stage: "Closed Won", stage_history: { $elemMatch: { stage: "Closed Won", entered_at: { $gte: rangeStart, $lte: rangeEnd } } } },
           { stage: "Closed Won", stage_entered_at: { $gte: rangeStart, $lte: rangeEnd } },
         ],
-      }).select("createdAt amount stage stage_entered_at stage_history").lean(),
+      }).select("createdAt amount stage stage_entered_at stage_history owner_id").lean(),
 
-      // Group opportunities by owner to compute real sales rep attainment
-      Opportunity.aggregate([
-        { $match: { tenantId, owner_id: { $ne: null } } },
-        {
-          $group: {
-            _id: "$owner_id",
-            closedWonAmount: {
-              $sum: { $cond: [{ $eq: ["$stage", "Closed Won"] }, { $ifNull: ["$amount", 0] }, 0] },
-            },
-            activeDealsCount: {
-              $sum: { $cond: [{ $in: ["$stage", ["Closed Won", "Closed Lost"]] }, 0, 1] },
-            },
-            wonCount: { $sum: { $cond: [{ $eq: ["$stage", "Closed Won"] }, 1, 0] } },
-          },
-        },
-        { $sort: { closedWonAmount: -1 } },
-        { $limit: 5 },
-      ]),
+      // Keep leaderboard bookings on the same date range as the monthly
+      // Closed Won series. Open deal counts remain a current snapshot.
+      Opportunity.find({ ...opportunityScope, stage: "Closed Won", owner_id: { $ne: null } })
+        .select("owner_id amount createdAt stage_entered_at stage_history")
+        .lean(),
 
       // Group accounts by health score
       Account.aggregate([
@@ -139,7 +137,7 @@ export async function GET(req: NextRequest) {
         },
       ]),
       Opportunity.aggregate([
-        { $match: { tenantId, stage: { $in: ["Closed Won", "Closed Lost"] } } },
+        { $match: { ...opportunityScope, stage: { $in: ["Closed Won", "Closed Lost"] } } },
         { $project: { createdAt: 1, stage_history: 1 } },
       ]),
       Contract.aggregate([
@@ -182,7 +180,7 @@ export async function GET(req: NextRequest) {
     const cohortLeadIdSet = new Set(cohortLeadIds.map((id: any) => String(id)));
     const cohortLeadStatuses = new Map((cohortLeadsRaw as any[]).map((lead: any) => [String(lead._id), lead.status]));
     const cohortOpportunities = cohortLeadIds.length
-      ? await Opportunity.find({ tenantId, lead_id: { $in: cohortLeadIds } }).select("lead_id stage").lean()
+      ? await Opportunity.find({ ...opportunityScope, lead_id: { $in: cohortLeadIds } }).select("lead_id stage").lean()
       : [];
 
     const engagedStatuses = new Set(["Attempting Contact", "Connected", "Qualified", "Nurture", "Converted"]);
@@ -243,13 +241,13 @@ export async function GET(req: NextRequest) {
 
     // 4. Dynamic Monthly Velocity from Database
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const velocityByMonth = new Map<string, { newPipeline: number; closedWon: number }>();
+    const velocityByMonth = new Map<string, { newPipeline: number; closedWon: number; closedWonCount: number }>();
     for (const opportunity of monthlyOppsRaw as any[]) {
       const amount = Number(opportunity.amount) || 0;
       const createdAt = opportunity.createdAt ? new Date(opportunity.createdAt) : null;
       if (createdAt && createdAt >= rangeStart && createdAt <= rangeEnd) {
         const key = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, "0")}`;
-        const point = velocityByMonth.get(key) || { newPipeline: 0, closedWon: 0 };
+        const point = velocityByMonth.get(key) || { newPipeline: 0, closedWon: 0, closedWonCount: 0 };
         point.newPipeline += amount;
         velocityByMonth.set(key, point);
       }
@@ -258,12 +256,16 @@ export async function GET(req: NextRequest) {
       const wonEntry = opportunity.stage === "Closed Won"
         ? [...history].reverse().find((entry: any) => entry.stage === "Closed Won" && entry.entered_at)
         : null;
+      // Older imports may lack stage history. Use the current stage timestamp,
+      // then creation time as a last-resort date so won deals remain visible.
       const wonAt = wonEntry?.entered_at ? new Date(wonEntry.entered_at) :
-        opportunity.stage === "Closed Won" && opportunity.stage_entered_at ? new Date(opportunity.stage_entered_at) : null;
+        opportunity.stage === "Closed Won" && opportunity.stage_entered_at ? new Date(opportunity.stage_entered_at) :
+        opportunity.stage === "Closed Won" && opportunity.createdAt ? new Date(opportunity.createdAt) : null;
       if (wonAt && wonAt >= rangeStart && wonAt <= rangeEnd) {
         const key = `${wonAt.getFullYear()}-${String(wonAt.getMonth() + 1).padStart(2, "0")}`;
-        const point = velocityByMonth.get(key) || { newPipeline: 0, closedWon: 0 };
+        const point = velocityByMonth.get(key) || { newPipeline: 0, closedWon: 0, closedWonCount: 0 };
         point.closedWon += amount;
+        point.closedWonCount += 1;
         velocityByMonth.set(key, point);
       }
     }
@@ -276,27 +278,69 @@ export async function GET(req: NextRequest) {
     // 5. Dynamic Lead Source Attribution
     const leadSourcesTotal = leadSourcesRaw.reduce((acc: number, s: any) => acc + s.count, 0);
     const colors = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", "#06b6d4", "#64748b", "#6366f1"];
+    const sourceShares = leadSourcesRaw.map((s: any) => {
+      const exact = leadSourcesTotal > 0 ? (s.count / leadSourcesTotal) * 100 : 0;
+      return { floor: Math.floor(exact), remainder: exact - Math.floor(exact) };
+    });
+    // Largest-remainder rounding keeps the displayed channel percentages at
+    // exactly 100% while preserving each channel's share as closely as possible.
+    let pointsToAllocate = Math.max(0, 100 - sourceShares.reduce((sum: number, share: any) => sum + share.floor, 0));
+    const shareOrder = sourceShares.map((share: any, index: number) => ({ index, remainder: share.remainder }))
+      .sort((a: any, b: any) => b.remainder - a.remainder);
+    const roundedShares = sourceShares.map((share: any) => share.floor);
+    for (const share of shareOrder) {
+      if (pointsToAllocate <= 0) break;
+      roundedShares[share.index] += 1;
+      pointsToAllocate -= 1;
+    }
     const leadSources = leadSourcesRaw.map((s: any, idx: number) => ({
       name: s._id || "Unspecified",
       count: s.count,
-      value: leadSourcesTotal > 0 ? Math.round((s.count / leadSourcesTotal) * 100) : 0,
+      value: roundedShares[idx] || 0,
       color: colors[idx % colors.length],
     }));
 
-    // 6. Stage Aging & Bottleneck Durations
+    // 6. Live opportunity counts and average age by current pipeline stage.
+    // Counts let users reconcile each bar with the Opportunities stage filter;
+    // average age remains available for the bottleneck notice.
     const stageAgingDays = oppsByStage
       .filter((s: any) => !["Closed Won", "Closed Lost"].includes(s._id))
       .map((s: any) => {
-      const actualDays = Math.max(0, Math.round(s.avgDays || 0));
-      return {
-        stage: s._id || "Stage",
-        days: actualDays,
-      };
+        const actualDays = Math.max(0, Math.round(s.avgDays || 0));
+        return {
+          stage: s._id || "Stage",
+          count: Number(s.count) || 0,
+          days: actualDays,
+        };
       })
-      .sort((a: any, b: any) => b.days - a.days)
-      .slice(0, 5);
+      .sort((a: any, b: any) => b.count - a.count);
 
     // 7. Dynamic Sales Rep Quota Leaderboard with Real User Records
+    const repTotals = new Map<string, { _id: any; closedWonAmount: number; activeDealsCount: number }>();
+    for (const opportunity of wonBookingsRaw as any[]) {
+      if (!opportunity.owner_id) continue;
+      const history = Array.isArray(opportunity.stage_history) ? opportunity.stage_history : [];
+      const wonEntry = [...history].reverse().find((entry: any) => entry.stage === "Closed Won" && entry.entered_at);
+      const wonAt = wonEntry?.entered_at ? new Date(wonEntry.entered_at) :
+        opportunity.stage_entered_at ? new Date(opportunity.stage_entered_at) :
+        opportunity.createdAt ? new Date(opportunity.createdAt) : null;
+      if (!wonAt || wonAt < rangeStart || wonAt > rangeEnd) continue;
+      const key = String(opportunity.owner_id);
+      const current = repTotals.get(key) || { _id: opportunity.owner_id, closedWonAmount: 0, activeDealsCount: 0 };
+      current.closedWonAmount += Number(opportunity.amount) || 0;
+      repTotals.set(key, current);
+    }
+    const activeCounts = await Opportunity.aggregate([
+      { $match: { ...opportunityScope, owner_id: { $ne: null }, stage: { $nin: ["Closed Won", "Closed Lost"] } } },
+      { $group: { _id: "$owner_id", activeDealsCount: { $sum: 1 } } },
+    ]);
+    for (const row of activeCounts) {
+      const key = String(row._id);
+      const current = repTotals.get(key) || { _id: row._id, closedWonAmount: 0, activeDealsCount: 0 };
+      current.activeDealsCount = row.activeDealsCount;
+      repTotals.set(key, current);
+    }
+    const repsAggRaw = [...repTotals.values()].sort((a, b) => b.closedWonAmount - a.closedWonAmount).slice(0, 5);
     const repIds = repsAggRaw.map((r: any) => r._id);
     const users = await User.find({ _id: { $in: repIds } }).select("name email role").lean();
     const userMap = new Map(users.map((u: any) => [String(u._id), u.name || u.email]));
@@ -367,6 +411,7 @@ export async function GET(req: NextRequest) {
         totalPipelineValue,
         activeDeals,
         wonDeals,
+        wonValue,
         lostDeals,
         winRate,
         avgSalesCycleDays,

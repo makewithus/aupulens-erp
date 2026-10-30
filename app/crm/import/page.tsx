@@ -43,9 +43,24 @@ export default function ImportCenterPage() {
       fd.append("entityType", entity);
       fd.append("strict", "false");
       const res = await fetch("/api/crm/import", { method: "POST", body: fd });
-      const data = await res.json();
+      const responseText = await res.text();
+      let data: any;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        throw new Error(`Import failed (HTTP ${res.status}): the server returned an invalid response. No success was reported.`);
+      }
+      if (!data || typeof data !== "object") {
+        throw new Error(`Import failed (HTTP ${res.status}): the server returned an empty response. No success was reported.`);
+      }
       setResults(data);
-      toast(data.insertedCount ? `Imported ${data.insertedCount} record(s)` : (data.message || "Import failed"));
+      if (data.insertedCount > 0) {
+        const errorCount = data.errors?.length || 0;
+        toast.success(`Imported ${data.insertedCount} record(s)${errorCount ? `; ${errorCount} row(s) need attention` : ""}`);
+        for (const warning of data.warnings || []) toast.warning(warning);
+      } else {
+        toast.error(data.message || "No records were imported.");
+      }
     } catch (e: any) {
       toast.error(e.message || "Import failed");
     } finally {

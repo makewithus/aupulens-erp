@@ -10,7 +10,9 @@ import LeaveRequest from "@/models/hr/LeaveRequest";
 import PerformanceReview from "@/models/hr/PerformanceReview";
 import { PAYROLL_STATUS } from "@/lib/constants/statuses";
 import Payroll from "@/models/hr/Payroll";
+import { currentEmployeeFilter, onboardingEmployeeFilter } from "@/lib/hr/employeeLifecycle";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
+import { applyDemoScope, getDemoCacheSegment } from "@/lib/auth/scopeFilter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,7 +28,7 @@ export async function GET(req: NextRequest) {
     const isFresh = req.nextUrl.searchParams.get("fresh") === "true";
     const requestedRange = req.nextUrl.searchParams.get("range") || "30d";
     const range = requestedRange.toUpperCase();
-    const cacheKey = `hr-analytics-live:${tenantId}:${range}`;
+    const cacheKey = `hr-analytics-live:${tenantId}:${range}:${getDemoCacheSegment(session)}`;
 
     if (!isFresh) {
       const cached = getCachedData<any>(cacheKey);
@@ -41,6 +43,7 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const rangeStartDate = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
     const tenantMatch = { tenantId };
+    const employeeTenantMatch = applyDemoScope(session, tenantMatch);
 
     // 1. Live Core Aggregations from Database
     const [
@@ -60,23 +63,14 @@ export async function GET(req: NextRequest) {
       attendanceAggRaw,
     ] = await Promise.all([
       // Active count
-      Employee.countDocuments({
-        ...tenantMatch,
-        $or: [
-          { lifecycleStatus: { $in: ["active", "on_notice"] } },
-          { lifecycleStatus: { $exists: false }, status: "active" },
-        ],
-      }),
+      Employee.countDocuments(applyDemoScope(session, currentEmployeeFilter(tenantId))),
 
       // Onboarding count
-      Employee.countDocuments({
-        ...tenantMatch,
-        $or: [{ lifecycleStatus: "onboarding" }, { status: "onboarding" }],
-      }),
+      Employee.countDocuments(applyDemoScope(session, onboardingEmployeeFilter(tenantId))),
 
       // Exited count (for turnover calculation)
       Employee.countDocuments({
-        ...tenantMatch,
+        ...employeeTenantMatch,
         lifecycleStatus: "exited",
         $or: [
           { "exitDetails.lastWorkingDate": { $gte: rangeStartDate, $lte: now } },
@@ -88,19 +82,11 @@ export async function GET(req: NextRequest) {
       Department.countDocuments({ tenantId, isActive: { $ne: false } }),
 
       // Authoritative Department Master List (preserving zero-staff departments)
-      Department.find({ tenantId, isActive: { $ne: false } }).select("_id name code").sort({ name: 1 }).lean(),
+      Department.find({ tenantId }).select("_id name code isActive").sort({ name: 1 }).lean(),
 
       // Employee counts grouped by departmentId
       Employee.aggregate([
-        {
-          $match: {
-            ...tenantMatch,
-            $or: [
-              { lifecycleStatus: { $in: ["active", "on_notice"] } },
-              { lifecycleStatus: { $exists: false }, status: "active" },
-            ],
-          },
-        },
+        { $match: applyDemoScope(session, currentEmployeeFilter(tenantId)) },
         {
           $group: {
             _id: "$departmentId",
@@ -111,7 +97,7 @@ export async function GET(req: NextRequest) {
 
       // Trajectory: Group employees by dateOfJoining month
       Employee.aggregate([
-        { $match: { ...tenantMatch, dateOfJoining: { $gte: rangeStartDate, $lte: now } } },
+        { $match: { ...employeeTenantMatch, dateOfJoining: { $gte: rangeStartDate, $lte: now } } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m", date: "$dateOfJoining" } },
@@ -124,7 +110,7 @@ export async function GET(req: NextRequest) {
       // Actual exits by month. A resignation date is used only when no last
       // working date has been recorded.
       Employee.aggregate([
-        { $match: { ...tenantMatch, lifecycleStatus: "exited" } },
+        { $match: { ...employeeTenantMatch, lifecycleStatus: "exited" } },
         {
           $project: {
             exitDate: { $ifNull: ["$exitDetails.lastWorkingDate", "$exitDetails.resignationDate"] },
@@ -144,12 +130,9 @@ export async function GET(req: NextRequest) {
       Employee.aggregate([
         {
           $match: {
-            ...tenantMatch,
+            ...employeeTenantMatch,
             dateOfJoining: { $ne: null },
-            $or: [
-              { lifecycleStatus: { $in: ["active", "on_notice"] } },
-              { lifecycleStatus: { $exists: false }, status: "active" },
-            ],
+            $or: currentEmployeeFilter(tenantId).$or,
           },
         },
         {
@@ -177,12 +160,9 @@ export async function GET(req: NextRequest) {
       Employee.aggregate([
         {
           $match: {
-            ...tenantMatch,
+            ...employeeTenantMatch,
             dateOfJoining: { $ne: null },
-            $or: [
-              { lifecycleStatus: { $in: ["active", "on_notice"] } },
-              { lifecycleStatus: { $exists: false }, status: "active" },
-            ],
+            $or: currentEmployeeFilter(tenantId).$or,
           },
         },
         {
@@ -298,7 +278,7 @@ export async function GET(req: NextRequest) {
     // 3. Dynamic Department Staffing Density from Authoritative Department Master
     const empCountByDeptId: Record<string, number> = {};
     for (const ec of empDeptCountsRaw) {
-      if (ec._id) empCountByDeptId[String(ec._id)] = ec.count;
+      empCountByDeptId[ec._id ? String(ec._id) : "unassigned"] = ec.count;
     }
 
     const deptColors = ["#3b82f6", "#8b5cf6", "#10b981", "#06b6d4", "#f59e0b", "#ec4899", "#6366f1", "#64748b"];
@@ -309,11 +289,17 @@ export async function GET(req: NextRequest) {
         _id: String(d._id),
         name: d.name || "General Operations",
         code: d.code,
+        isActive: d.isActive !== false,
         count,
         value: pct,
         color: deptColors[idx % deptColors.length],
       };
     });
+    const unassignedCount = empCountByDeptId.unassigned || 0;
+    if (unassignedCount > 0) {
+      const pct = headcount > 0 ? Math.round((unassignedCount / headcount) * 100) : 0;
+      departmentDistribution.push({ _id: "unassigned", name: "Unassigned", code: "", isActive: true, count: unassignedCount, value: pct, color: deptColors[deptColors.length - 1] });
+    }
 
     // 4. Dynamic Tenure Distribution
     const tenureLabels: Record<string, string> = {

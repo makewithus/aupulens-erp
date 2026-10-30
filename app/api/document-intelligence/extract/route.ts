@@ -12,6 +12,8 @@ import { findDuplicates } from "@/lib/docIntel/duplicateCheck";
 import { loadExistingBills } from "@/lib/docIntel/billCreate";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
+export const runtime = "nodejs";
+
 // POST /api/document-intelligence/extract — upload a document, run OCR/extraction,
 // persist the structured result, and return it with any duplicate warnings.
 export async function POST(req: NextRequest) {

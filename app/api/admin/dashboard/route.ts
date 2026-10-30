@@ -137,10 +137,15 @@ export async function GET(req?: Request) {
       }),
       Customer.countDocuments({
         tenantId,
+        // Match the canonical customer count used by Sales and the ERP
+        // assistant. Supplier-only partner rows share this collection but
+        // must not inflate the Customers KPI.
+        isCustomer: { $ne: false },
       }),
       Customer.countDocuments({
-        createdAt: { $gte: currentMonthStart },
+        createdAt: { $gte: currentMonthStart, $lt: nextMonthStart },
         tenantId,
+        isCustomer: { $ne: false },
       }),
       SalesInvoice.countDocuments({
         tenantId,
@@ -201,14 +206,30 @@ export async function GET(req?: Request) {
     // journal is already included and must not be added a second time.
     const totalTransactions = ledger.activity.postedEntryCount;
 
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
     const monthRanges = Array.from({ length: 6 }, (_, idx) => {
       const i = 5 - idx;
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
       return { monthStart, monthEnd };
     });
+    // buildPostedIncomeExpenseSeries returns display labels ("Oct") for
+    // monthly buckets, while dashboard points use YYYY-MM keys. Resolve each
+    // label against this exact six-month window before joining the datasets.
+    const monthKeyByLabel = new Map(
+      monthRanges.map(({ monthStart }) => [
+        monthNames[monthStart.getMonth()],
+        `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}`,
+      ]),
+    );
     const revenueByMonth = new Map<string, number>(
-      revenueByMonthRows.map((row: any) => [row.date, Number(row.revenue) || 0]),
+      revenueByMonthRows.flatMap((row: any) => {
+        const key = monthKeyByLabel.get(row.date);
+        return key ? [[key, Number(row.revenue) || 0] as [string, number]] : [];
+      }),
     );
 
     const ordersByMonth = await Promise.all(
@@ -237,21 +258,6 @@ export async function GET(req?: Request) {
       : 0;
 
     // Build chart data
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-
     const chartData = [];
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -259,8 +265,6 @@ export async function GET(req?: Request) {
 
       chartData.push({
         month: monthNames[month],
-        // The accounting series is keyed by YYYY-MM. Month names alone collide
-        // across years and never matched the API's actual keys.
         revenue: revenueByMonth.get(`${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`) ?? 0,
         orders: ordersByMonth[5 - i],
       });
@@ -315,7 +319,15 @@ export async function GET(req?: Request) {
       chartData,
     };
 
-    const responsePayload = { summary, businessHealth: await businessHealthPromise };
+    const businessHealth = await businessHealthPromise;
+    const healthOrderCount = Number(businessHealth?.metrics?.sales?.totalOrders);
+    // Scheduled AI commentary is a snapshot. Suppress it whenever its order
+    // basis no longer agrees with the live dashboard count so stale narrative
+    // figures cannot contradict the current database KPIs.
+    const consistentBusinessHealth = Number.isFinite(healthOrderCount) && healthOrderCount === totalOrders
+      ? businessHealth
+      : null;
+    const responsePayload = { summary, businessHealth: consistentBusinessHealth };
     setCachedData(cacheKey, responsePayload, 60_000);
     return NextResponse.json(responsePayload);
   } catch (error) {

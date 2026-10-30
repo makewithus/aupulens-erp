@@ -9,8 +9,8 @@ import User from "@/models/auth/User";
 import { parseErpIntent, normalizeErpText, type ErpIntentContext } from "./erpIntent";
 import { executeErpQuery, ErpToolError, currency, customerName, flexibleNameRegex, requireSalesAccess, resolveCustomer } from "./erpQuery";
 import { prepareQuoteDraft, confirmQuoteDraft, updateQuoteDraft } from "./quoteDraft";
-import { prepareCustomerDraft, updateCustomerDraft, confirmCustomerDraft, cancelCustomerDraft, prepareUpdateCustomerMobile, confirmUpdateCustomerMobile, cancelUpdateCustomerMobile } from "./customerDraft";
-import { prepareProductDraft, confirmProductDraft, cancelProductDraft } from "./productDraft";
+import { prepareCustomerDraft, updateCustomerDraft, confirmCustomerDraft, cancelCustomerDraft, prepareUpdateCustomerMobile, confirmUpdateCustomerMobile, cancelUpdateCustomerMobile, prepareUpdateCustomerEmail, confirmUpdateCustomerEmail } from "./customerDraft";
+import { prepareProductDraft, confirmProductDraft, cancelProductDraft, prepareProductPriceUpdate, confirmProductPriceUpdate, cancelProductPriceUpdate } from "./productDraft";
 import Vendor from "@/models/admin/Vendor";
 import Customer from "@/models/sales/Customer";
 import Payment from "@/models/sales/Payment";
@@ -27,13 +27,40 @@ import Account from "@/models/finance/Account";
 import Payroll from "@/models/hr/Payroll";
 import Employee from "@/models/hr/Employee";
 import Department from "@/models/hr/Department";
+import levenshtein from "js-levenshtein";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function employeeDepartmentName(employee: any): string {
+  return employee?.departmentId?.name || "Unassigned";
+}
+
+function normalizedPersonName(value: string): string {
+  return value.toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function isLikelyEmployeeNameTypo(query: string, fullName: string): boolean {
+  const a = normalizedPersonName(query);
+  const b = normalizedPersonName(fullName);
+  if (!a || !b) return false;
+  if (a === b || b.includes(a) || a.includes(b)) return true;
+  // Allow a small number of edits for longer complete names, and require a
+  // close match for each typed name part so unrelated employees are not returned.
+  const aParts = a.split(" ");
+  const bParts = b.split(" ");
+  if (aParts.length !== bParts.length || aParts.some((part) => part.length < 3)) return false;
+  return aParts.every((part, index) => {
+    const target = bParts[index];
+    const max = part.length >= 8 ? 2 : 1;
+    return Math.abs(part.length - target.length) <= max && levenshtein(part, target) <= max;
+  });
+}
+
 import type { ErpStructuredResponse } from "./erpTypes";
 import { formatSalesDate } from "@/lib/sales/formatters";
+import { getAiPeriod, incrementAiUsage, incrementGlobalAiUsage } from "@/lib/ai/usage";
 
 // Fixed data cache for organization and plan lookups to reduce repeated database roundtrips
 const orgCache = new Map<string, { org: any; expiresAt: number }>();
@@ -179,6 +206,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   const isCustomerReceivablesQuery = typeof intent === "object" && intent !== null && (intent as any).type === "customer_receivables";
   const isSalesPeriodSummaryQuery = typeof intent === "object" && intent !== null && (intent as any).type === "sales_period_summary";
   const isProductDraftQuery = intent === "product_draft" || intent === "product_confirm" || intent === "product_cancel" || (typeof intent === "object" && intent !== null && (intent as any).type === "product_draft");
+  const isProductPriceUpdateQuery = typeof intent === "object" && intent !== null && (intent as any).type === "product_price_update";
   const isFinanceSpecializedQuery =
     typeof intent === "object" &&
     intent !== null &&
@@ -210,7 +238,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
     }
   } else if (isEmployeeQuery) {
     await requireWorkspaceModuleAccess("hr", input.tenantId);
-  } else if (isProductDraftQuery) {
+  } else if (isProductDraftQuery || isProductPriceUpdateQuery || intent === "product_price_confirm" || intent === "product_price_cancel") {
     requireSalesAccess(input.role);
     await requireWorkspaceModuleAccess("inventory", input.tenantId);
   } else {
@@ -231,7 +259,13 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
   let pendingRoleProposalId: string | undefined;
   let structured: ErpStructuredResponse | any | undefined;
   if (!cached) {
-    if (intent === "refuse") {
+    if (intent === "greeting") {
+      message = "I can help with ERP questions and actions in this workspace, including customers, products, quotations, sales orders, invoices, stock, and finance reports. Tell me what you need, and I’ll ask you to confirm before saving a change.";
+      structured = { type: "assistant_capabilities" as any, capabilities: ["customers", "products", "quotations", "sales orders", "invoices", "stock", "finance reports"] };
+    } else if (intent === "off_topic") {
+      message = "I’m designed to help with ERP tasks in this workspace. I can’t provide a live Chennai weather report or draft a leave letter. I can help with sales, finance, stock, customer, or HR records.";
+      structured = { type: "off_topic_guidance" as any, scope: "ERP workspace assistance" };
+    } else if (intent === "refuse") {
       const asksForProtectedData = /\b(?:system\s+prompt|hidden\s+instructions|other\s+companies|other\s+tenants)\b/i.test(input.text);
       let draftCount = 0;
       if (!asksForProtectedData) {
@@ -1182,6 +1216,22 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         await ChatHistory.updateOne(filter, { $unset: { pendingCustomerProposalId: "" } });
       }
       message = "Customer draft cancelled. No customer record was created.";
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "customer_email_update") {
+      const emailIntent = intent as { type: "customer_email_update"; customerQuery: string; newEmail: string };
+      const draft = await prepareUpdateCustomerEmail(scope, emailIntent.customerQuery, emailIntent.newEmail);
+      message = draft.message;
+      actions = [{ label: "Confirm email update", value: "confirm customer email update" }, { label: "Cancel", value: "cancel customer email update" }];
+      structured = { type: "customer_email_update_proposal" as any, proposalId: draft.proposalId, customerId: draft.customerId, customerName: draft.customerName, oldEmail: draft.oldEmail, newEmail: draft.newEmail, status: "proposed" };
+    } else if (intent === "customer_email_confirm") {
+      const proposal = await AiCommandProposal.findOne({ tenantId: scope.tenantId, userId: scope.userId, actionType: "update_customer_email", status: A.PROPOSED, "params.conversationId": scope.conversationId }).sort({ createdAt: -1 }).lean();
+      if (!proposal) throw new ErpToolError("MISSING_FIELD", "No customer email update is waiting for confirmation.");
+      const result = await confirmUpdateCustomerEmail(scope, String(proposal._id));
+      message = result.message;
+      structured = { type: "customer_email_updated" as any, ...result };
+    } else if (intent === "customer_email_cancel") {
+      const proposal = await AiCommandProposal.findOne({ tenantId: scope.tenantId, userId: scope.userId, actionType: "update_customer_email", status: A.PROPOSED, "params.conversationId": scope.conversationId }).sort({ createdAt: -1 });
+      if (proposal) { proposal.status = A.REJECTED; await proposal.save(); }
+      message = "Customer email update cancelled. The customer record remains unchanged.";
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "customer_mobile_update") {
       const mobIntent = intent as { type: "customer_mobile_update"; customerQuery: string; newMobile: string };
       const prep = await prepareUpdateCustomerMobile(scope, mobIntent.customerQuery, mobIntent.newMobile, requestId);
@@ -1232,6 +1282,22 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       }
       if (proposalId) await cancelUpdateCustomerMobile(scope, proposalId);
       message = "Customer update cancelled. The customer record remains unchanged.";
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "product_price_update") {
+      const priceIntent = intent as { type: "product_price_update"; productQuery: string; oldPrice: number; newPrice: number };
+      const draft = await prepareProductPriceUpdate(scope, priceIntent.productQuery, priceIntent.oldPrice, priceIntent.newPrice);
+      message = draft.message;
+      actions = [{ label: "Confirm price update", value: "confirm product price update" }, { label: "Cancel", value: "cancel product price update" }];
+      structured = { type: "product_price_update_proposal" as any, proposalId: draft.proposalId, productId: draft.productId, name: draft.name, code: draft.code, oldPrice: draft.oldPrice, newPrice: draft.newPrice, status: "proposed" };
+    } else if (intent === "product_price_confirm") {
+      const proposal = await AiCommandProposal.findOne({ tenantId: scope.tenantId, userId: scope.userId, actionType: "update_product_price", status: A.PROPOSED, "params.conversationId": scope.conversationId }).sort({ createdAt: -1 }).lean();
+      if (!proposal) throw new ErpToolError("MISSING_FIELD", "No product price update is waiting for confirmation.");
+      const result = await confirmProductPriceUpdate(scope, String(proposal._id));
+      message = result.message;
+      structured = { type: "product_price_updated" as any, ...result };
+    } else if (intent === "product_price_cancel") {
+      const proposal = await AiCommandProposal.findOne({ tenantId: scope.tenantId, userId: scope.userId, actionType: "update_product_price", status: A.PROPOSED, "params.conversationId": scope.conversationId }).sort({ createdAt: -1 });
+      if (proposal) { proposal.status = A.REJECTED; await proposal.save(); }
+      message = "Product price update cancelled. The catalog price remains unchanged.";
     } else if (intent === "product_draft" || (typeof intent === "object" && intent !== null && (intent as any).type === "product_draft")) {
       const draft = await prepareProductDraft(scope, input.text, requestId);
       message = draft.message;
@@ -1285,6 +1351,18 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
       }
       if (proposalId) await cancelProductDraft(scope, proposalId);
       message = "Product draft cancelled. No product record was created.";
+    } else if (typeof intent === "object" && intent !== null && (intent as any).type === "customer_sales_summary") {
+      await connectDB();
+      const [customerCount, salesRows] = await Promise.all([
+        Customer.countDocuments({ tenantId: scope.tenantId, isCustomer: { $ne: false } }),
+        SalesInvoice.aggregate([
+          { $match: { tenantId: scope.tenantId, ...issuedInvoiceFilter() } },
+          { $group: { _id: null, revenue: { $sum: invoiceRevenueExpression } } },
+        ]).option({ maxTimeMS: 10_000 }),
+      ]);
+      const totalSales = Number(salesRows[0]?.revenue) || 0;
+      message = `Workspace sales overview:\n\n- **Customers:** ${customerCount}\n- **Total recognized sales (excluding GST):** ${currency(totalSales)}.`;
+      structured = { type: "customer_sales_summary" as any, customerCount, totalSales };
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "sales_period_summary") {
       const period = (intent as any).period as "this_month" | "last_month" | "this_year" | "last_30_days";
       const now = new Date();
@@ -1564,7 +1642,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         };
       }
     } else if (typeof intent === "object" && intent !== null && (intent as any).type === "employee_lookup") {
-      const lookupIntent = intent as { type: "employee_lookup"; name?: string; department?: string; employeeCode?: string };
+      const lookupIntent = intent as { type: "employee_lookup"; name?: string; department?: string; employeeCode?: string; attribute?: string };
       await connectDB();
       const filterQuery: any = { tenantId: input.tenantId };
       if (lookupIntent.name) {
@@ -1594,6 +1672,13 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
           const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim().toLowerCase();
           return fullName === target || fullName.includes(target);
         });
+        // Exact search first; if no record matched, recover clear name typos
+        // from this tenant's employees and keep all close matches for disambiguation.
+        if (employees.length === 0) {
+          employees = allEmps.filter((emp: any) =>
+            isLikelyEmployeeNameTypo(lookupIntent.name!, `${emp.firstName || ""} ${emp.lastName || ""}`.trim()),
+          ).slice(0, 10);
+        }
       }
 
       if (employees.length === 0) {
@@ -1607,7 +1692,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         };
       } else if (lookupIntent.name && employees.length > 1) {
         const items = employees.map((e: any) =>
-          `- **${e.firstName} ${e.lastName}** (Employee Code: \`${e.employeeCode || String(e._id)}\`, Role/Designation: *${e.designation || "Not specified"}*, Department: *${e.departmentId?.name || "General"}*)`
+          `- **${e.firstName} ${e.lastName}** (Employee Code: \`${e.employeeCode || String(e._id)}\`, Role/Designation: *${e.designation || "Not specified"}*, Department: *${employeeDepartmentName(e)}*)`
         ).join("\n");
         message = `Found ${employees.length} employees matching "${lookupIntent.name}". Please specify the employee code or full name to disambiguate:\n\n${items}`;
         structured = {
@@ -1617,11 +1702,28 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
         };
       } else {
         const items = employees.map((e: any) =>
-          `- **${e.firstName} ${e.lastName}** (Employee ID: \`${e.employeeCode || String(e._id)}\`, Current Role/Designation: *${e.designation || "Not specified"}*, Department: *${e.departmentId?.name || "General"}*, Email: \`${e.email}\`)`
+          `- **${e.firstName} ${e.lastName}** (Employee ID: \`${e.employeeCode || String(e._id)}\`, Current Role/Designation: *${e.designation || "Not specified"}*, Department: *${employeeDepartmentName(e)}*, Email: \`${e.email}\`)`
         ).join("\n");
-        message = employees.length === 1
-          ? `Found employee record in current organization:\n\n${items}`
-          : `Found ${employees.length} employees in current organization:\n\n${items}`;
+        if (employees.length === 1 && lookupIntent.attribute) {
+          const employee: any = employees[0];
+          const requestedFields: Record<string, { label: string; value: unknown }> = {
+            code: { label: "Employee code", value: employee.employeeCode },
+            id: { label: "Employee ID", value: employee.employeeCode || String(employee._id) },
+            email: { label: "Email", value: employee.email },
+            phone: { label: "Phone", value: employee.phone },
+            mobile: { label: "Mobile", value: employee.phone },
+            designation: { label: "Designation", value: employee.designation },
+            department: { label: "Department", value: employeeDepartmentName(employee) },
+            role: { label: "Role/designation", value: employee.designation || employee.userId?.role || employee.userId?.userRole },
+          };
+          const requested = requestedFields[lookupIntent.attribute];
+          const value = requested?.value == null || requested.value === "" ? "Not provided in the employee record" : String(requested.value);
+          message = `**${requested?.label || "Employee detail"} for ${employee.firstName} ${employee.lastName}:** ${value}`;
+        } else {
+          message = employees.length === 1
+            ? `Found employee record in current organization:\n\n${items}`
+            : `Found ${employees.length} employees in current organization:\n\n${items}`;
+        }
         structured = {
           type: "record_list",
           title: "Employees",
@@ -1635,7 +1737,7 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
             route: `/hr/employees/${e._id}`,
             extra: {
               role: e.designation || "Not specified",
-              department: e.departmentId?.name || "General",
+              department: employeeDepartmentName(e),
             },
           })),
           totalCount: employees.length,
@@ -1987,11 +2089,22 @@ export async function tryErpAssistant(input: { text: string; tenantId: string; u
             count: aggregateTotal.count,
           } : undefined,
           offset: result.query.offset,
-          totalCount: result.count,
+          // The invoice preview query is intentionally capped, while the
+          // unpaid/overdue aggregate counts every matching invoice. Use that
+          // authoritative total for the list label and "View all" link.
+          totalCount: aggregateTotal?.count ?? result.count,
         };
       }
     }
     await saveCompletedExchange({ ...filter, message: input.text, response: message!, requestId, skipSummary: true, erpCreditsUsed: 0 });
+    // Count one completed Copilot question even when ERP data resolution was
+    // deterministic and used no provider credits. Safety refusals/off-topic
+    // declines remain excluded. The request id deduplicates client retries.
+    if (intent !== "refuse" && intent !== "off_topic") {
+      const period = getAiPeriod();
+      await incrementAiUsage(scope.tenantId, period, requestId);
+      await incrementGlobalAiUsage(period, requestId);
+    }
     if (pendingQuoteProposalId) await ChatHistory.updateOne(filter, { $set: { pendingQuoteProposalId } });
     if (pendingCustomerProposalId) await ChatHistory.updateOne(filter, { $set: { pendingCustomerProposalId } });
     if (pendingRoleProposalId) await ChatHistory.updateOne(filter, { $set: { pendingRoleProposalId } });
@@ -2021,8 +2134,16 @@ export function safeErpError(error: unknown, requestId: string) {
   if (error instanceof ErpToolError && error.status >= 500) console.error("[erp-assistant] service failed", { requestId, category: error.code });
   if (error instanceof ErpToolError) return { status: error.status, body: { success: false, handled: true, error: error.message, message: error.message, code: error.code, requestId } };
   const database = error instanceof mongoose.Error || /Mongo|database|buffering/i.test(error instanceof Error ? error.name + error.message : "");
+  const mongoError = error as { code?: unknown; codeName?: unknown; keyPattern?: Record<string, unknown> };
   // Deliberately omit raw exception messages: drivers/providers may embed URIs or protected records.
-  console.error("[erp-assistant] request failed", { requestId, category: database ? "DATABASE_UNAVAILABLE" : "INTERNAL_ERROR", errorType: error instanceof Error ? error.name : "unknown" });
+  console.error("[erp-assistant] request failed", {
+    requestId,
+    category: database ? "DATABASE_UNAVAILABLE" : "INTERNAL_ERROR",
+    errorType: error instanceof Error ? error.name : "unknown",
+    ...(database && mongoError?.code !== undefined ? { mongoCode: mongoError.code } : {}),
+    ...(database && mongoError?.codeName ? { mongoCodeName: mongoError.codeName } : {}),
+    ...(database && mongoError?.keyPattern ? { mongoKeyFields: Object.keys(mongoError.keyPattern).slice(0, 8) } : {}),
+  });
   const message = database ? "I couldn't retrieve the records right now. Please try again shortly." : "I couldn't complete this request. Please try again shortly.";
   return { status: database ? 503 : 500, body: { success: false, handled: true, error: message, message, code: database ? "DATABASE_UNAVAILABLE" : "INTERNAL_ERROR", requestId } };
 }

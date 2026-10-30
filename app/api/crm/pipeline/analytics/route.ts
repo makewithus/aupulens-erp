@@ -14,11 +14,15 @@ export async function GET(req: NextRequest) {
   
   const pipeline = await CrmOpportunity.aggregate([
     { $match: scopedMatch },
+    { $set: {
+      amountNumber: { $convert: { input: "$amount", to: "double", onError: 0, onNull: 0 } },
+      probabilityNumber: { $convert: { input: "$probability", to: "double", onError: 0, onNull: 0 } },
+    } },
     { $group: {
         _id: null,
         total_opportunities: { $sum: 1 },
-        total_pipeline_value: { $sum: { $cond: [{ $in: ['$stage', ['Closed Won', 'Closed Lost']] }, 0, '$amount'] } },
-        weighted_pipeline: { $sum: { $cond: [{ $in: ['$stage', ['Closed Won', 'Closed Lost']] }, 0, { $multiply: ['$amount', { $divide: ['$probability', 100] }] }] } },
+        total_pipeline_value: { $sum: { $cond: [{ $in: ['$stage', ['Closed Won', 'Closed Lost']] }, 0, '$amountNumber'] } },
+        weighted_pipeline: { $sum: { $cond: [{ $in: ['$stage', ['Closed Won', 'Closed Lost']] }, 0, { $multiply: ['$amountNumber', { $divide: ['$probabilityNumber', 100] }] }] } },
         closed_won_count: { $sum: { $cond: [{ $eq: ['$stage', 'Closed Won'] }, 1, 0] } },
         closed_lost_count: { $sum: { $cond: [{ $eq: ['$stage', 'Closed Lost'] }, 1, 0] } },
         total_closed: { $sum: { $cond: [{ $in: ['$stage', ['Closed Won', 'Closed Lost']] }, 1, 0] } }

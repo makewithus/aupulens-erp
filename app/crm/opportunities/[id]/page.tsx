@@ -4,41 +4,96 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { Check, Loader2, Plus } from "lucide-react";
 import OpportunityTimeline from "@/components/crm/OpportunityTimeline";
+import QuoteBuilder from "@/components/crm/QuoteBuilder";
+import { formatOpportunityDate } from "@/lib/crm/opportunityDisplay";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 export default function OpportunityDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
   const [opp, setOpp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingStage, setUpdatingStage] = useState<string | null>(null);
   const [conversationSummaries, setConversationSummaries] = useState<any[]>([]);
 
   const fetchOpp = async () => {
-    const res = await fetch(`/api/crm/opportunities/${params.id}`);
-    const data = await res.json();
-    if (data.success) setOpp(data.data);
-    setLoading(false);
+    try {
+      const res = await cachedFetch(`/api/crm/opportunities/${params.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setOpp(data.data);
+        // AI enrichments are slower than the deal details. Load the record first,
+        // then fill in the assessment and AI probability without blocking the page.
+        void fetch(`/api/crm/opportunities/${params.id}?insights=true`, { cache: "no-store" })
+          .then((insightRes) => insightRes.json())
+          .then((insightData) => {
+            if (insightData.success) setOpp((current: any) => current ? ({ ...current, ...insightData.data }) : current);
+          })
+          .catch(() => {});
+      } else if (!opp) {
+        setOpp(null);
+      }
+    } catch {
+      if (!opp) toast.error("Could not load this deal. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchOpp(); }, [params.id]);
+  useEffect(() => {
+    try {
+      const cachedRows = JSON.parse(sessionStorage.getItem("crm-opportunity-detail-cache") || "[]");
+      const cached = Array.isArray(cachedRows) ? cachedRows.find((row: any) => String(row._id) === params.id) : null;
+      if (cached) {
+        setOpp(cached);
+        setLoading(false);
+      }
+    } catch { /* continue with the database request */ }
+    void fetchOpp();
+  }, [params.id]);
 
   useEffect(() => {
-    fetch(`/api/crm/conversation-summaries?recordType=Opportunity&recordId=${params.id}`)
+    cachedFetch(`/api/crm/conversation-summaries?recordType=Opportunity&recordId=${params.id}`)
       .then((res) => res.json())
       .then((data) => { if (data.success) setConversationSummaries(data.data); });
   }, [params.id]);
 
   const updateStage = async (newStage: string) => {
-    const res = await fetch(`/api/crm/opportunities/${params.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage: newStage })
-    });
-    const result = await res.json();
-    if (result.success) {
-      toast.success(`Stage moved to ${newStage}`);
-      fetchOpp();
-    } else {
-      toast.error(result.message || "Failed to update stage");
+    if (updatingStage) return;
+    if (opp?.stage === newStage) {
+      toast.info(`This deal is already at ${newStage}`);
+      return;
+    }
+
+    setUpdatingStage(newStage);
+    try {
+      const res = await cachedFetch(`/api/crm/opportunities/${params.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: newStage })
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        toast.error(result.message || "Failed to update stage");
+        return;
+      }
+
+      invalidateCache();
+      setOpp((current: any) => current ? ({
+        ...current,
+        stage: result.data.stage,
+        probability: result.data.probability,
+        weighted_value: result.data.weighted_value,
+        stage_history: result.data.stage_history,
+        stage_entered_at: result.data.stage_entered_at,
+      }) : result.data);
+      toast.success(newStage === "Proposal Sent" ? "Moved to Proposal" : `Stage moved to ${newStage}`);
+      void fetchOpp().catch(() => {});
+    } catch {
+      toast.error("Could not update the deal stage. Please try again.");
+    } finally {
+      setUpdatingStage(null);
     }
   };
 
@@ -46,13 +101,21 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
   if (!opp) return <div className="p-6">Opportunity not found</div>;
 
   const weightedValue = opp.amount * (opp.probability / 100);
+  const proposalReached = ["Proposal Sent", "Negotiation", "Approval", "Closed Won"].includes(opp.stage);
+  const stageHistory = (opp.stage_history || []).reduce((history: any[], entry: any) => {
+    if (history[history.length - 1]?.stage !== entry.stage) history.push(entry);
+    return history;
+  }, []);
+  if (opp.stage && stageHistory[stageHistory.length - 1]?.stage !== opp.stage) {
+    stageHistory.push({ stage: opp.stage, entered_at: opp.stage_entered_at || opp.updatedAt });
+  }
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center bg-card p-6 rounded-lg border border-border">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            {opp.deal_name}
+            {opp.deal_name || opp.name || "Untitled Opportunity"}
             <Badge variant="outline">{opp.stage}</Badge>
             {opp.dynamicRisk && (
               <Badge className={opp.dynamicRisk === 'High' ? 'bg-red-600' : opp.dynamicRisk === 'Medium' ? 'bg-orange-600' : 'bg-green-600'}>
@@ -67,9 +130,22 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
         <div className="flex gap-2">
           {opp.stage !== 'Closed Won' && opp.stage !== 'Closed Lost' && (
             <>
-              <Button onClick={() => updateStage('Proposal Sent')} variant="outline">Move to Proposal</Button>
-              <Button onClick={() => updateStage('Closed Won')} className="bg-green-600">Close Won</Button>
-              <Button onClick={() => updateStage('Closed Lost')} variant="destructive">Close Lost</Button>
+              <Button
+                onClick={() => updateStage('Proposal Sent')}
+                variant="outline"
+                disabled={Boolean(updatingStage) || proposalReached}
+              >
+                {updatingStage === "Proposal Sent" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : proposalReached ? <Check className="mr-2 h-4 w-4" /> : null}
+                {proposalReached ? "Moved to Proposal" : "Move to Proposal"}
+              </Button>
+              <Button onClick={() => updateStage('Closed Won')} className="bg-green-600" disabled={Boolean(updatingStage)}>
+                {updatingStage === "Closed Won" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Close Won
+              </Button>
+              <Button onClick={() => updateStage('Closed Lost')} variant="destructive" disabled={Boolean(updatingStage)}>
+                {updatingStage === "Closed Lost" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Close Lost
+              </Button>
             </>
           )}
         </div>
@@ -96,7 +172,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
                 <div>
                   <h3 className="font-bold mb-4">Deal Details</h3>
                   <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
-                    <div><span className="text-muted-foreground block mb-1">Expected Close</span> <span className="font-medium">{opp.expected_close_date ? new Date(opp.expected_close_date).toLocaleDateString() : 'N/A'}</span></div>
+                    <div><span className="text-muted-foreground block mb-1">Expected Close</span> <span className="font-medium">{formatOpportunityDate(opp.expected_close_date)}</span></div>
                     <div><span className="text-muted-foreground block mb-1">Owner</span> <span className="font-medium">{opp.ownerId?.name || opp.owner_id?.name || 'Unassigned'}</span></div>
                     <div><span className="text-muted-foreground block mb-1">Source</span> <span className="font-medium">{opp.source || 'N/A'}</span></div>
                     <div><span className="text-muted-foreground block mb-1">Next Action</span> <span className="font-medium">{opp.next_action || 'N/A'}</span></div>
@@ -185,11 +261,11 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
               <div className="bg-card border border-border p-6 rounded-lg">
                 <h3 className="font-bold mb-4">Stage History</h3>
                 <div className="relative border-l border-border ml-3 space-y-6">
-                  {opp.stage_history?.map((sh: any, i: number) => (
+                  {stageHistory.map((sh: any, i: number) => (
                     <div key={i} className="pl-6 relative">
                       <div className="absolute w-3 h-3 bg-primary rounded-full -left-1.5 top-1 border-2 border-border" />
                       <p className="font-bold text-sm">{sh.stage}</p>
-                      <p className="text-xs text-muted-foreground">Entered: {new Date(sh.enteredAt || sh.entered_at).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">Entered: {(sh.enteredAt || sh.entered_at) ? new Date(sh.enteredAt || sh.entered_at).toLocaleString("en-GB") : "—"}</p>
                     </div>
                   ))}
                 </div>
@@ -317,15 +393,12 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
   );
 }
 
-import { Plus, Loader2 } from "lucide-react";
-import QuoteBuilder from "@/components/crm/QuoteBuilder";
-
 function OpportunityQuotes({ oppId, accountId }: { oppId: string, accountId: string }) {
   const [quotes, setQuotes] = useState<any[]>([]);
   const [showBuilder, setShowBuilder] = useState(false);
 
   const fetchQuotes = async () => {
-    const res = await fetch(`/api/crm/quotes?opportunity_id=${oppId}`);
+    const res = await cachedFetch(`/api/crm/quotes?opportunity_id=${oppId}`);
     const d = await res.json();
     if (d.success) setQuotes(d.data.quotes);
   };

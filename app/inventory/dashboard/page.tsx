@@ -40,40 +40,13 @@ export default function InventoryDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return !getInstantCachedData<any>("/api/inventory/summary", { allowPreHydration: true });
-    }
-    return true;
-  });
+  // The initial client render must match the server render. Browser cache is
+  // applied in the effect below, after hydration, to avoid rendering cached
+  // KPI values into the server's zero-value markup.
+  const [isLoading, setIsLoading] = useState(true);
 
   // Live Module Parameters for Inventory
-  const [stats, setStats] = useState(() => {
-    if (typeof window !== "undefined") {
-      const cachedSum = getInstantCachedData<any>("/api/inventory/summary", { allowPreHydration: true });
-      if (cachedSum?.summary) {
-        const s = cachedSum.summary;
-        const totalItems = s.totalItems?.current || 0;
-        const lowStock = s.lowStock?.current || 0;
-        const outOfStock = s.outOfStock?.current || 0;
-        const stockRate = typeof s.inStockRate === "number"
-          ? s.inStockRate
-          : (totalItems > 0 ? Math.max(0, 100 - Math.round((lowStock / totalItems) * 100)) : 0);
-        return {
-          totalValuation: s.totalValue?.current || 0,
-          valuationChange: 0,
-          activeSKUs: totalItems,
-          lowStockCount: lowStock,
-          inboundToday: s.operations?.receipts || 0,
-          outboundToday: s.operations?.deliveries || 0,
-          skuStockRate: stockRate,
-          warehouseCapacity: 0,
-          outOfStockCount: outOfStock,
-          stockTurnoverRatio: 0,
-        };
-      }
-    }
-    return {
+  const [stats, setStats] = useState(() => ({
       totalValuation: 0,
       valuationChange: 0,
       activeSKUs: 0,
@@ -84,8 +57,7 @@ export default function InventoryDashboardPage() {
       stockTurnoverRatio: 0,
       inboundToday: 0,
       outboundToday: 0,
-    };
-  });
+    }));
   const inventoryStats = stats;
 
   const [valuationByCategory, setValuationByCategory] = useState<any[]>([]);

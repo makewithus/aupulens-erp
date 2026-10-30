@@ -5,13 +5,14 @@ import { Link2, RefreshCcw, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function IntegrationsDashboard() {
   const [links, setLinks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/crm/integrations").then(r => r.json()).then(d => {
+    cachedFetch("/api/crm/integrations").then(r => r.json()).then(d => {
       if (d.success) setLinks(d.data);
       setLoading(false);
     });

@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { Loader2, Plus, FolderKanban } from "lucide-react";
 import Link from "next/link";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 const STATUS_COLORS_REDESIGNED: Record<string, string> = {
   Active: "text-[#8AE06C]",    // Soft green
@@ -63,7 +64,7 @@ export default function AccountsPage() {
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (currentSearch) params.set("search", currentSearch);
-      const res = await fetch(`/api/crm/accounts?${params.toString()}`);
+      const res = await cachedFetch(`/api/crm/accounts?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setAccounts(data.data.accounts ?? data.data ?? []);
@@ -108,6 +109,7 @@ export default function AccountsPage() {
         toast.success("Account created successfully!");
         setSheetOpen(false);
         setForm(EMPTY_FORM);
+        invalidateCache("/api/crm/accounts");
         fetchAccounts();
       } else {
         toast.error(data.message || "Failed to create account");

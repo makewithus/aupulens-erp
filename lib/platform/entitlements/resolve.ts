@@ -5,6 +5,7 @@ import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 import { ORGANIZATION_TIER, PLAN_KEY, PlanKeyType, PLATFORM_EVENT_CATEGORY, PLATFORM_EVENT_TYPE, PLATFORM_SEVERITY } from "@/lib/constants/statuses";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
 import { PLAN_DEFINITIONS } from "./planCatalog";
+import { PLAN_SEAT_BANDS, type SeatBandPlanKey } from "@/lib/billing/seatBands";
 
 /**
  * The single source of truth for "what does this tenant get" (source doc
@@ -83,6 +84,7 @@ function resolvePlanLimits(planKey: PlanKeyType, features: IPlanFeatures) {
     featureFlags,
     limits: {
       ...storedLimits,
+      ...(planKey in PLAN_SEAT_BANDS ? { maxUsers: PLAN_SEAT_BANDS[planKey as SeatBandPlanKey].maximum } : {}),
       aiCreditsPerSession: storedLimits.aiCreditsPerSession ?? defaults?.aiCreditsPerSession ?? 20,
       aiCreditsPerWeek: storedLimits.aiCreditsPerWeek ?? defaults?.aiCreditsPerWeek ?? 100,
     },

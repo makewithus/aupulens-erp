@@ -61,6 +61,18 @@ export const EMPTY_QUOTE: QuoteFormValue = {
   customerNotes: "Looking forward for your business.",
 };
 
+export function quoteLineFromCatalogProduct(product: any): Partial<QuoteLineItem> {
+  return {
+    name: product.header?.name || "",
+    itemId: String(product._id),
+    unitPrice: Number(product.tab_general_information?.list_price) || 0,
+    taxRate: Number(product._taxRate ?? product.tab_general_information?.gstRate) || 0,
+    hsn: product.tab_general_information?.hsnSacCode || "",
+    gstTreatment: product.tab_general_information?.gstTreatment || "",
+    taxReference: product.tab_general_information?.taxReference,
+  };
+}
+
 interface QuoteFormProps {
   initialValue?: QuoteFormValue;
   quoteId?: string;
@@ -509,15 +521,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
                         onValueChange={(itemId) => {
                           const match = products.find((p: any) => p._id === itemId);
                           if (!match) return;
-                          updateLine(i, {
-                            name: match.header?.name || "",
-                            itemId,
-                            unitPrice: Number(match.tab_general_information?.list_price) || 0,
-                            taxRate: Number(match._taxRate ?? match.tab_general_information?.gstRate) || 0,
-                            hsn: match.tab_general_information?.hsnSacCode || "",
-                            gstTreatment: match.tab_general_information?.gstTreatment || "",
-                            taxReference: match.tab_general_information?.taxReference,
-                          });
+                          updateLine(i, { ...quoteLineFromCatalogProduct(match), itemId });
                         }}
                       >
                         <SelectTrigger className="w-28 shrink-0" aria-label="Choose a catalog item">

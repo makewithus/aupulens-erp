@@ -49,6 +49,7 @@ import { ModularModal } from "@/components/dashboard/ModularModal";
 import { ProductPopupContent } from "@/app/sales/products/popup/ProductPopup";
 import { PricelistPopupContent } from "@/app/sales/pricelist/popup/PricelistPopup";
 import { manufacturingSidebarConfig } from "@/config/sidebar/manufacturing";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface AccountItem {
   _id: string;
@@ -168,7 +169,7 @@ export default function ProductsPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/products");
+      const res = await cachedFetch("/api/sales/products");
       const json = await res.json();
       setData(json.items || []);
     } catch (error) {
@@ -181,7 +182,7 @@ export default function ProductsPage() {
 
   const loadAccounts = useCallback(async () => {
     try {
-      const res = await fetch("/api/accounting/accounts");
+      const res = await cachedFetch("/api/accounting/accounts");
       const json = await res.json();
       setAccounts(json.items || []);
     } catch (error) {
@@ -191,7 +192,7 @@ export default function ProductsPage() {
 
   const loadPricelists = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/pricelists");
+      const res = await cachedFetch("/api/sales/pricelists");
       const json = await res.json();
       setPricelists(json.items || []);
     } catch (error) {
@@ -281,7 +282,7 @@ export default function ProductsPage() {
         : "/api/sales/products";
       const method = editingId ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -322,7 +323,7 @@ export default function ProductsPage() {
     if (!deleteInfo) return;
 
     try {
-      const res = await fetch(`/api/sales/products/${deleteInfo.id}`, {
+      const res = await cachedFetch(`/api/sales/products/${deleteInfo.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");
@@ -395,7 +396,7 @@ export default function ProductsPage() {
     }
 
     try {
-      const res = await fetch("/api/sales/pricelists", {
+      const res = await cachedFetch("/api/sales/pricelists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(pricelistFormData),
@@ -431,7 +432,7 @@ export default function ProductsPage() {
     }
 
     try {
-      const res = await fetch("/api/accounting/accounts", {
+      const res = await cachedFetch("/api/accounting/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(accountFormData),

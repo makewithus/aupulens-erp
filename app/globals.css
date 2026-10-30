@@ -517,3 +517,10 @@ html.lenis body {
     transition: background-color 5000s ease-in-out 0s !important;
   }
 }
+@media (max-width: 1279px) {
+  /* The AI panel overlays the page below xl, so fixed form actions should
+     continue using the full viewport width at those breakpoints. */
+  .dashboard-layout-root {
+    --ai-sidebar-w: 0px !important;
+  }
+}

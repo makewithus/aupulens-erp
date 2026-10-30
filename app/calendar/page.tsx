@@ -57,7 +57,7 @@ export default function CalendarPage() {
       userRole={role}
       onSignOut={() => signOut({ callbackUrl: cfg.authPath })}
     >
-      <div className="mb-4 flex flex-col gap-2 border-b border-border/40 pb-4 md:flex-row md:items-end md:justify-between">
+      <div className="mb-4 flex flex-col gap-2 border-b border-border/40 pb-4 md:flex-row md:items-end md:justify-between print:hidden">
         <div>
           <h1 className="flex items-center gap-3 text-3xl !font-bold !tracking-tight text-foreground md:text-4xl">
             <CalendarDays className="h-7 w-7 text-purple-500" /> Enterprise Calendar

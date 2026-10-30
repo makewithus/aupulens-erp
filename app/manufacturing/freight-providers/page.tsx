@@ -18,6 +18,7 @@ import { Loader2, Ship, Plus, BarChart3, Edit, Trash2 } from 'lucide-react';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface FreightProvider {
   _id: string;
@@ -53,7 +54,7 @@ export default function FreightProvidersPage() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const res = await fetch('/api/manufacturing/freight-providers');
+      const res = await cachedFetch('/api/manufacturing/freight-providers');
       const data = await res.json();
       setProviders(data.providers || []);
     } catch (err) {
@@ -79,7 +80,7 @@ export default function FreightProvidersPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/manufacturing/freight-providers', {
+      const res = await cachedFetch('/api/manufacturing/freight-providers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -119,7 +120,7 @@ export default function FreightProvidersPage() {
     if (!await confirmDialog({ title: 'Are you sure you want to delete this freight provider?' })) return;
     
     try {
-      const res = await fetch(`/api/manufacturing/freight-providers/${id}`, {
+      const res = await cachedFetch(`/api/manufacturing/freight-providers/${id}`, {
         method: 'DELETE',
       });
 

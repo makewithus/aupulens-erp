@@ -18,3 +18,6 @@ export const REAL_ORDER_MATCH = {
     { status: { $in: ["sale", "done"] } },
   ],
 };
+
+/** Tenant-scoped definition used by confirmed-order summaries and AI context. */
+export const realOrderFilter = (tenantId: string) => ({ tenantId, ...REAL_ORDER_MATCH });

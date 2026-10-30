@@ -25,6 +25,7 @@ import { Loader2, Plus, Download, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 const LIMIT = 25;
 
@@ -44,7 +45,7 @@ export default function CasesPage() {
 function CasesPageInner() {
   const searchParams = useSearchParams();
   const [cases, setCases] = useState<any[]>([]);
-  const [stats, setStats] = useState({ openCases: 0, overdueCases: 0, slaBreaches: 0, resolvedToday: 0, avgResTime: "0", reopenedCases: 0, avgSatScore: 0, escalations: 0 });
+  const [stats, setStats] = useState({ totalCases: 0, openCases: 0, overdueCases: 0, slaBreaches: 0, resolvedToday: 0, avgResTime: "0", reopenedCases: 0, avgSatScore: 0, escalations: 0 });
   const [accounts, setAccounts] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,7 @@ function CasesPageInner() {
   const [search, setSearch] = useState(() => searchParams.get("search") || "");
   const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("search") || "");
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+  const [view, setView] = useState("my");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -92,7 +94,8 @@ function CasesPageInner() {
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       if (statusFilter) params.set("status", statusFilter);
-      const res = await fetch(`/api/crm/cases?${params.toString()}`);
+      params.set("view", view);
+      const res = await cachedFetch(`/api/crm/cases?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setCases(data.data.cases);
@@ -110,7 +113,12 @@ function CasesPageInner() {
 
   const fetchKPIs = async () => {
     try {
-      const res = await fetch(`/api/crm/cases/kpi`);
+      const params = new URLSearchParams({ view });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (statusFilter) params.set("status", statusFilter);
+      const res = await cachedFetch(`/api/crm/cases/kpi?${params}`);
       const data = await res.json();
       if (data.success) setStats(data.data);
     } catch (e) {}
@@ -118,20 +126,23 @@ function CasesPageInner() {
 
   const fetchAccountsAndContacts = async () => {
     try {
-      const accRes = await fetch(`/api/crm/accounts?limit=100`);
+      const accRes = await cachedFetch(`/api/crm/accounts?limit=100`);
       const accData = await accRes.json();
       if (accData.success) setAccounts(accData.data.accounts);
 
-      const conRes = await fetch(`/api/crm/contacts?limit=100`);
+      const conRes = await cachedFetch(`/api/crm/contacts?limit=100`);
       const conData = await conRes.json();
       if (conData.success) setContacts(conData.data.contacts);
     } catch {}
   };
 
   useEffect(() => {
+    if (sheetOpen && accounts.length === 0) void fetchAccountsAndContacts();
+  }, [sheetOpen]);
+
+  useEffect(() => {
     fetchKPIs();
-    fetchAccountsAndContacts();
-  }, []);
+  }, [view, debouncedSearch, dateFrom, dateTo, statusFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 400);
@@ -140,11 +151,11 @@ function CasesPageInner() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, dateFrom, dateTo, statusFilter]);
+  }, [debouncedSearch, dateFrom, dateTo, statusFilter, view]);
 
   useEffect(() => {
     fetchCases(page, debouncedSearch);
-  }, [page, debouncedSearch, dateFrom, dateTo, statusFilter]);
+  }, [page, debouncedSearch, dateFrom, dateTo, statusFilter, view]);
 
   const setField = (field: string, value: any) => setForm(p => ({ ...p, [field]: value }));
 
@@ -164,6 +175,7 @@ function CasesPageInner() {
       const data = await res.json();
       if (data.success) {
         toast.success("Case created successfully!");
+        invalidateCache("/api/crm/cases");
         setSheetOpen(false);
         setForm(EMPTY_FORM);
         fetchCases();
@@ -199,7 +211,8 @@ function CasesPageInner() {
       </div>
 
       {/* KPI Section */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-3 sm:gap-4">
+        <KPICard title="Total Cases" value={stats.totalCases} />
         <KPICard title="Open Cases" value={stats.openCases} />
         <KPICard title="Overdue" value={stats.overdueCases} />
         <KPICard title="SLA Breaches" value={stats.slaBreaches} />
@@ -217,11 +230,22 @@ function CasesPageInner() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="shrink-0">
               <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em]">
-                All Cases
+                {statusFilter === "resolved_closed"
+                  ? "Resolved / Closed Cases"
+                  : statusFilter === "open"
+                    ? "Open Cases"
+                    : statusFilter
+                      ? `${statusFilter} Cases`
+                      : view === "my" ? "My Cases" : "All Cases"}
               </h2>
 
               <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                {total} {total === 1 ? "Case" : "Cases"}
+                {total} {total === 1 ? "Total Case" : "Total Cases"}
+                {stats.totalCases === total && (
+                  <span className="ml-2 normal-case tracking-normal text-muted-foreground/70">
+                    · {stats.openCases} open · {Math.max(0, total - stats.openCases)} resolved/closed
+                  </span>
+                )}
               </p>
             </div>
 
@@ -235,6 +259,31 @@ function CasesPageInner() {
                 />
               </div>
 
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[11px] text-muted-foreground">Status:</span>
+                <Select
+                  value={statusFilter || "all"}
+                  onValueChange={(value) => setStatusFilter(value === "all" ? "" : value)}
+                >
+                  <SelectTrigger className="w-full sm:w-[175px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="open">Open Cases</SelectItem>
+                    <SelectItem value="resolved_closed">Resolved / Closed</SelectItem>
+                    <SelectItem value="New">New</SelectItem>
+                    <SelectItem value="Open">Open</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Waiting on Customer">Waiting on Customer</SelectItem>
+                    <SelectItem value="Waiting on Internal Team">Waiting on Internal Team</SelectItem>
+                    <SelectItem value="Resolved">Resolved</SelectItem>
+                    <SelectItem value="Closed">Closed</SelectItem>
+                    <SelectItem value="Reopened">Reopened</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <DateRangeFilter
                 dateFrom={dateFrom}
                 dateTo={dateTo}
@@ -245,7 +294,7 @@ function CasesPageInner() {
               {/* Saved Views Dropdown */}
               <div className="flex items-center gap-1">
                 <span className="font-mono text-[11px] text-muted-foreground">View:</span>
-                <Select defaultValue="all">
+                <Select value={view} onValueChange={setView}>
                   <SelectTrigger className="w-full sm:w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue placeholder="Saved Views" />
                   </SelectTrigger>

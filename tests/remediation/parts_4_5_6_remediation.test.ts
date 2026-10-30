@@ -19,6 +19,7 @@ import JournalEntry from "@/models/finance/JournalEntry";
 import Organization from "@/models/admin/Organization";
 import Vendor from "@/models/admin/Vendor";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
+import AiUsage from "@/models/admin/AiUsage";
 import StockTransfer from "@/models/inventory/StockTransfer";
 import { invalidateServerCache } from "@/lib/api/serverCache";
 import { disposableMongoUri } from "./disposableMongoUri";
@@ -27,14 +28,20 @@ import { disposableMongoUri } from "./disposableMongoUri";
 import { isInvoiceOverdue } from "@/lib/sales/invoiceStatus";
 import { invoiceRevenueExpression, invoiceGrossValueExpression, invoiceRevenueFromDocument } from "@/lib/sales/invoiceEligibility";
 import { plainNumberFmtY, plainNumberFmtTooltip } from "@/components/charts/DailyBrickBarChart";
+import { BILL_STATE_LABELS } from "@/components/finance/bills/BillsTable";
+import { quoteLineFromCatalogProduct } from "@/components/sales/quotes/QuoteForm";
 import { seedChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { seedNewChartOfAccounts } from "@/lib/accounting/coa-feature-seeder";
+import { buildAgedPartnerReport } from "@/lib/accounting/reports";
+import { realOrderFilter } from "@/lib/sales/orderEligibility";
 import { parseErpIntent } from "@/lib/ai/erpIntent";
 import { executeErpQuery } from "@/lib/ai/erpQuery";
+import { getAiUsageCount, incrementAiUsage } from "@/lib/ai/usage";
 import { tryErpAssistant } from "@/lib/ai/erpAssistant";
 import { prepareQuoteDraft } from "@/lib/ai/quoteDraft";
 import { prepareProductDraft, confirmProductDraft } from "@/lib/ai/productDraft";
-import { prepareCustomerDraft, confirmCustomerDraft, prepareUpdateCustomerMobile, confirmUpdateCustomerMobile } from "@/lib/ai/customerDraft";
+import { prepareCustomerDraft, confirmCustomerDraft, prepareUpdateCustomerMobile, confirmUpdateCustomerMobile, prepareUpdateCustomerEmail, confirmUpdateCustomerEmail } from "@/lib/ai/customerDraft";
+import { prepareProductPriceUpdate, confirmProductPriceUpdate } from "@/lib/ai/productDraft";
 
 const TENANT_A = "tenant-alpha-parts456";
 const TENANT_B = "tenant-beta-parts456";
@@ -87,6 +94,7 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
     await Organization.init();
     await Vendor.init();
     await AiCommandProposal.init();
+    await AiUsage.init();
   });
 
   afterAll(async () => {
@@ -111,6 +119,7 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
     await Organization.deleteMany({});
     await Vendor.deleteMany({});
     await AiCommandProposal.deleteMany({});
+    await AiUsage.deleteMany({ tenantId: TENANT_A });
     await StockTransfer.deleteMany({});
     vi.mocked(auth).mockReset();
   });
@@ -120,6 +129,49 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
   // =========================================================================
 
   describe("Part 4: Financial consistency, dashboards & reports", () => {
+    it("SYS-45: catalog selection fills quote line with product identity, price and tax details", () => {
+      expect(quoteLineFromCatalogProduct({
+        _id: "product-id", header: { name: "Valve" },
+        tab_general_information: { list_price: 1000, gstRate: 18, hsnSacCode: "8481", gstTreatment: "taxable" },
+      })).toEqual({ name: "Valve", itemId: "product-id", unitPrice: 1000, taxRate: 18, hsn: "8481", gstTreatment: "taxable", taxReference: undefined });
+    });
+
+    it("DASH-T01: confirmed-order summary filter excludes drafts from confirmed totals", async () => {
+      await SaleOrder.collection.insertMany([
+        { tenantId: TENANT_A, header: { name: "DASH-CONFIRMED" }, salesOrderStatus: "confirmed", createdAt: new Date() },
+        { tenantId: TENANT_A, header: { name: "DASH-DRAFT" }, salesOrderStatus: "draft", status: "draft", createdAt: new Date() },
+      ]);
+      const confirmed = await SaleOrder.countDocuments(realOrderFilter(TENANT_A));
+      const allOrders = await SaleOrder.countDocuments({ tenantId: TENANT_A });
+      expect(confirmed).toBe(1);
+      expect(allOrders).toBe(2);
+    });
+
+    it("FIN-T01: aging supplements unpaid invoices missing from a partially populated receivable ledger", async () => {
+      const customer = await Customer.create({ tenantId: TENANT_A, createdBy: new mongoose.Types.ObjectId(), name: "Aging Customer", header: { name: "Aging Customer" } });
+      const ar = await Account.create({ tenantId: TENANT_A, code: "1200", name: "Aged Receivables", internal_group: "asset", account_type: "asset_receivable", isActive: true });
+      const income = await Account.create({ tenantId: TENANT_A, code: "4000", name: "Aged Sales", internal_group: "income", account_type: "income", isActive: true });
+      const represented = await SalesInvoice.create({ tenantId: TENANT_A, number: "FIN-T01-GL", customerId: customer._id, invoiceDate: new Date("2026-10-01"), dueDate: new Date("2026-10-10"), status: "saved", taxableAmount: 100, totalAmount: 100, payments: [] });
+      await SalesInvoice.create({ tenantId: TENANT_A, number: "FIN-T01-DOC", customerId: customer._id, invoiceDate: new Date("2026-10-02"), dueDate: new Date("2026-10-11"), status: "saved", taxableAmount: 200, totalAmount: 200, payments: [] });
+      await JournalEntry.create({
+        tenantId: TENANT_A, header: { name: "FIN-T01-JE", journalType: "sale", date: new Date("2026-10-01") },
+        status: "posted", voucherStatus: "posted",
+        lineIds: [
+          { accountId: ar._id, partnerId: customer._id, sourceId: represented._id, sourceDocument: represented.number, debit: 100, credit: 0, maturityDate: new Date("2026-10-10") },
+          { accountId: income._id, sourceId: represented._id, sourceDocument: represented.number, debit: 0, credit: 100 },
+        ], totals: { amountUntaxed: 100, amountTax: 0, amountTotal: 100 },
+      });
+      const report = await buildAgedPartnerReport({ tenantId: TENANT_A, type: "receivable", asOfDate: new Date("2026-10-30T12:00:00Z") });
+      expect(report.totals.total).toBe(300);
+      expect(report.items).toHaveLength(1);
+    });
+
+    it("SYS-44: supplier bill states are rendered as readable labels", () => {
+      expect(BILL_STATE_LABELS.pending_approval).toBe("Pending approval");
+      expect(BILL_STATE_LABELS.approved).toBe("Approved");
+      expect(BILL_STATE_LABELS.posted).toBe("Posted");
+    });
+
     it("SYS-42 & SYS-46: product catalog uses stock ledger balances and services are not tracked", async () => {
       vi.mocked(auth).mockResolvedValue(mockSession(TENANT_A) as any);
       const tracked = await Product.create({
@@ -444,6 +496,23 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
       expect(response.message).not.toMatch(/₹99 lakh|system prompt:/i);
     });
 
+    it("AI-T08: answers a greeting locally without calling a billable provider path", async () => {
+      const text = "hi, what can you do for me?";
+      expect(parseErpIntent(text)).toBe("greeting");
+      const response = await callAssistant(text);
+      expect(response.message).toMatch(/help with ERP questions and actions/i);
+      expect(response.structured.type).toBe("assistant_capabilities");
+    });
+
+    it("AI-T11: gives a clear ERP scope response to weather and leave-letter requests", async () => {
+      const text = "whats the weather in chennai today? also write me a leave letter";
+      expect(parseErpIntent(text)).toBe("off_topic");
+      const response = await callAssistant(text);
+      expect(response.message).toMatch(/designed to help with ERP tasks/i);
+      expect(response.message).toMatch(/can’t provide a live Chennai weather report or draft a leave letter/i);
+      expect(response.message).not.toMatch(/filters have not been changed/i);
+    });
+
     it("AI-T03: ranks the customer with the greatest unpaid issued-invoice balance", async () => {
       const [smaller, largest] = await Customer.create([
         { tenantId: TENANT_A, createdBy: new mongoose.Types.ObjectId(), name: "Smaller Balance", header: { name: "Smaller Balance" } },
@@ -476,19 +545,40 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
       expect(response.message).toContain("₹1,180");
     });
 
-    it("AI-T02: answers a last-invoice follow-up for the previously named customer", async () => {
+    it("AI-T06: answers customer count and total sales together in English and Tamil", async () => {
+      const customer = await Customer.create({ tenantId: TENANT_A, createdBy: new mongoose.Types.ObjectId(), name: "Two Part Customer", header: { name: "Two Part Customer" } });
+      await SalesInvoice.create({ tenantId: TENANT_A, number: "AIT06-INV", customerId: customer._id, invoiceDate: new Date("2026-10-01"), dueDate: new Date("2026-10-15"), status: "saved", taxableAmount: 1000, totalAmount: 1180, payments: [] });
+      const english = "how many customers are there? what are the total sales?";
+      const tamil = "எத்தனை வாடிக்கையாளர்கள் உள்ளனர்? மொத்த விற்பனை என்ன?";
+      expect(parseErpIntent(english)).toEqual({ type: "customer_sales_summary" });
+      expect(parseErpIntent(tamil)).toEqual({ type: "customer_sales_summary" });
+      for (const text of [english, tamil]) {
+        const response = await callAssistant(text);
+        expect(response.message).toContain("Customers:** 1");
+        expect(response.message).toContain("₹1,000");
+      }
+    });
+
+    it("AI-T02: carries customer context through receivables and last-invoice turns", async () => {
       const customer = await Customer.create({ tenantId: TENANT_A, createdBy: new mongoose.Types.ObjectId(), name: "Sundar Textiles", header: { name: "Sundar Textiles" } });
       await SalesInvoice.create([
         { tenantId: TENANT_A, number: "AIT02-OLD", customerId: customer._id, invoiceDate: new Date("2026-08-01"), dueDate: new Date("2026-08-15"), status: "saved", taxableAmount: 1000, totalAmount: 1000, payments: [] },
         { tenantId: TENANT_A, number: "AIT02-NEW", customerId: customer._id, invoiceDate: new Date("2026-10-01"), dueDate: new Date("2026-10-15"), status: "saved", taxableAmount: 2000, totalAmount: 2000, payments: [] },
         { tenantId: TENANT_A, number: "AIT02-DRAFT", customerId: customer._id, invoiceDate: new Date("2026-10-20"), status: "draft", taxableAmount: 3000, totalAmount: 3000, payments: [] },
       ]);
-      const previous = { type: "customer_receivables", customer: "Sundar Textiles" };
-      expect(parseErpIntent("and when was their last invoice?", new Date(), { lastErpQuery: previous })).toEqual({ type: "customer_last_invoice", customer: "Sundar Textiles" });
+      const userId = new mongoose.Types.ObjectId().toString();
+      const conversationId = `ait02-${userId}`;
+      const first = await tryErpAssistant({
+        text: "Sundar Textiles ka kitna payment pending hai?", tenantId: TENANT_A,
+        userId, role: "admin", conversationId,
+      });
+      expect(first.message).toContain("Sundar Textiles");
+      expect(first.message).toContain("₹3,000");
+      expect(first.message).not.toContain("AIT02-DRAFT");
+
       const response = await tryErpAssistant({
         text: "and when was their last invoice?", tenantId: TENANT_A,
-        userId: new mongoose.Types.ObjectId().toString(), role: "admin",
-        toolQuery: { type: "customer_last_invoice", customer: "Sundar Textiles" },
+        userId, role: "admin", conversationId,
       });
       expect(response.message).toContain("AIT02-NEW");
       expect(response.message).not.toContain("AIT02-DRAFT");
@@ -515,6 +605,9 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
         { entity: "customer", operation: "count" },
       );
       expect(result.count).toBe(1);
+      expect(parseErpIntent("எத்தனை வாடிக்கையாளர்கள் உள்ளனர்?")).toEqual({ entity: "customer", operation: "count" });
+      const tamilResult = await executeErpQuery({ tenantId: TENANT_A, role: "admin" }, parseErpIntent("எத்தனை வாடிக்கையாளர்கள் உள்ளனர்?"));
+      expect(tamilResult.count).toBe(1);
     });
 
     it("SYS-40: answers the reported misspelled monthly sales and customer receivables query", async () => {
@@ -762,6 +855,49 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
   // =========================================================================
 
   describe("Part 6: AI-assisted creation, updates and usage credits", () => {
+    it("AI-T10: monthly usage counts one completed user request once across duplicate provider/translation increments", async () => {
+      await incrementAiUsage(TENANT_A, "202610", "request-one");
+      await incrementAiUsage(TENANT_A, "202610", "request-one");
+      await incrementAiUsage(TENANT_A, "202610", "request-two");
+      expect(await getAiUsageCount(TENANT_A, "202610")).toBe(2);
+    });
+
+    it("AI-T01: prepares and confirms customer email, product price, and Hinglish mobile updates", async () => {
+      const alpha = await Customer.create({ tenantId: TENANT_A, createdBy: new mongoose.Types.ObjectId(), name: "Alpha Distributing", header: { name: "Alpha Distributing" }, contact_details: { email: "alphadistributing@example.com" } });
+      const omSai = await Customer.create({ tenantId: TENANT_A, createdBy: new mongoose.Types.ObjectId(), name: "Om Sai Traders", header: { name: "Om Sai Traders" }, contact_details: { mobile: "+919800000518", phone: "+919800000518" } });
+      const product = await Product.create({ tenantId: TENANT_A, createdBy: new mongoose.Types.ObjectId(), header: { name: "Industrial Packaging Roll" }, tab_general_information: { type: "consu", default_code: "IPR-01", list_price: 450 } });
+      const scope = makeUserScope(TENANT_A);
+
+      const emailText = "update Alpha Distributing email to alpha.new@example.com";
+      expect(parseErpIntent(emailText)).toMatchObject({ type: "customer_email_update", customerQuery: "Alpha Distributing", newEmail: "alpha.new@example.com" });
+      const emailAssistantResponse = await callAssistant(emailText);
+      expect(emailAssistantResponse.structured.type).toBe("customer_email_update_proposal");
+      expect(emailAssistantResponse.message).toContain("Current Email: alphadistributing@example.com");
+      expect(emailAssistantResponse.message).not.toMatch(/Go to Sales|click Save/i);
+      const emailProposal = await prepareUpdateCustomerEmail(scope, "Alpha Distributing", "alpha.new@example.com");
+      expect((await Customer.findById(alpha._id))?.contact_details?.email).toBe("alphadistributing@example.com");
+      await confirmUpdateCustomerEmail(scope, emailProposal.proposalId);
+      expect((await Customer.findById(alpha._id))?.contact_details?.email).toBe("alpha.new@example.com");
+
+      const priceText = "change selling price of Industrial Packaging Roll from 450 to 500";
+      expect(parseErpIntent(priceText)).toMatchObject({ type: "product_price_update", productQuery: "Industrial Packaging Roll", oldPrice: 450, newPrice: 500 });
+      const priceAssistantResponse = await callAssistant(priceText);
+      expect(priceAssistantResponse.structured.type).toBe("product_price_update_proposal");
+      expect(priceAssistantResponse.message).toContain("Current Price: ₹450");
+      expect(priceAssistantResponse.message).not.toMatch(/Go to Sales|click Save/i);
+      const priceProposal = await prepareProductPriceUpdate(scope, "Industrial Packaging Roll", 450, 500);
+      expect((await Product.findById(product._id))?.tab_general_information?.list_price).toBe(450);
+      await confirmProductPriceUpdate(scope, priceProposal.proposalId);
+      expect((await Product.findById(product._id))?.tab_general_information?.list_price).toBe(500);
+
+      const mobileText = "Om Sai Traders ka mobile number 9000000077 kar do";
+      expect(parseErpIntent(mobileText)).toMatchObject({ type: "customer_mobile_update", customerQuery: "Om Sai Traders", newMobile: "9000000077" });
+      const mobileProposal = await prepareUpdateCustomerMobile(scope, "Om Sai Traders", "9000000077");
+      expect((await Customer.findById(omSai._id))?.contact_details?.mobile).toBe("+919800000518");
+      await confirmUpdateCustomerMobile(scope, mobileProposal.proposalId);
+      expect((await Customer.findById(omSai._id))?.contact_details?.mobile).toBe("9000000077");
+    });
+
     it("SYS-10 & SYS-29: Prepares quote draft in English & Hindi with exact math (2 units @ ₹1000 + 18% GST = ₹2,360)", async () => {
       // Seed customer & product
       await Customer.create({
@@ -826,6 +962,37 @@ describe("AUPULENS ERP — Parts 4, 5 & 6 Remediation Verification Suite (22 Bug
       expect(reportedDraft.line.qty).toBe(5);
       expect(reportedDraft.line.unitPrice).toBe(1000);
       expect(reportedDraft.totals.totalAmount).toBe(5900);
+    });
+
+    it("SYS-29: quote resolves default-workspace customer aliases for the exact retest identifiers", async () => {
+      await Customer.create({
+        tenantId: "default",
+        createdBy: new mongoose.Types.ObjectId(),
+        name: "CLOUD-TEST-RT-CUST-01",
+        header: { name: "CLOUD-TEST-RT-CUST-01", is_company: true },
+      });
+      await Product.create({
+        tenantId: "default",
+        createdBy: new mongoose.Types.ObjectId(),
+        header: { name: "CLOUD-TEST-RT-PRODUCT-01" },
+        tab_general_information: { type: "consu", list_price: 1000, gstRate: 18, default_code: "CTP-RT-01" },
+      });
+
+      const text = "make quotation for CLOUD-TEST-RT-CUST-01 : 5 qty CLOUD-TEST-RT-PRODUCT-01";
+      const userId = new mongoose.Types.ObjectId().toString();
+      const response = await tryErpAssistant({
+        text,
+        tenantId: "default-tenant",
+        userId,
+        role: "admin",
+        conversationId: `sys29-${userId}`,
+        requestId: "req-sys29-exact-workspace-alias",
+      });
+      expect(response.structured.type).toBe("quote_proposal");
+      expect(response.message).toContain("CLOUD-TEST-RT-CUST-01");
+      expect(response.message).toContain("CLOUD-TEST-RT-PRODUCT-01");
+      expect(response.message).toContain("Quantity: 5");
+      expect(response.message).toContain("₹5,900");
     });
 
     it("SYS-30: AI customer mobile update supports English & Tamil with review, safe proposal & confirmed persistence", async () => {

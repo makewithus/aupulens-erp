@@ -5,6 +5,7 @@ import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 type GstHead = "cgst" | "sgst" | "igst";
 type GstBalances = Record<GstHead, number>;
@@ -44,8 +45,8 @@ export default function GstPage() {
   const load = useCallback(async () => {
     setData(null);
     const [ledgerRes, reportRes] = await Promise.all([
-      fetch(`/api/finance/gst?period=${period}`),
-      fetch(`/api/finance/reports/gst?dateFrom=${period}-01&dateTo=${period}-31`),
+      cachedFetch(`/api/finance/gst?period=${period}`),
+      cachedFetch(`/api/finance/reports/gst?dateFrom=${period}-01&dateTo=${period}-31`),
     ]);
     const [ledgerJson, reportJson] = await Promise.all([ledgerRes.json(), reportRes.json()]);
     if (!ledgerRes.ok) throw new Error(ledgerJson.error);
@@ -59,7 +60,7 @@ export default function GstPage() {
     if (busy || !data) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/finance/gst", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ period, expected: JSON.stringify(data) }) });
+      const res = await cachedFetch("/api/finance/gst", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ period, expected: JSON.stringify(data) }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       toast.success("GST input credit adjustment posted"); await load();

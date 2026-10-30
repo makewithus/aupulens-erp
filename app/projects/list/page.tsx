@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { Plus, Loader2, FolderKanban } from "lucide-react";
 import { getTodayLocalDateString } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const STATUS_LABELS: Record<string, string> = {
   planning: "Planning", active: "Active", in_progress: "In Progress", on_hold: "On Hold", completed: "Completed", cancelled: "Cancelled",
@@ -55,7 +56,7 @@ export default function ProjectsListPage() {
   });
 
   const fetchProjects = () => {
-    fetch("/api/projects")
+    cachedFetch("/api/projects")
       .then((res) => res.json())
       .then((data) => { if (data.success) setProjects(data.data); setLoading(false); });
   };
@@ -66,7 +67,7 @@ export default function ProjectsListPage() {
     if (!form.name.trim()) { toast.error("Project name is required"); return; }
     setSaving(true);
     try {
-      const res = await fetch("/api/projects", {
+      const res = await cachedFetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

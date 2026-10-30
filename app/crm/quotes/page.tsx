@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
 import { Plus, AlertCircle, FolderKanban } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // âââ Status colour map ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -93,7 +94,7 @@ export default function QuotesPage() {
     if (minAmount) params.set("minAmount", minAmount);
     if (maxAmount) params.set("maxAmount", maxAmount);
     try {
-      const res = await fetch(`/api/crm/quotes?${params}`, { cache: "no-store" });
+      const res = await cachedFetch(`/api/crm/quotes?${params}`);
       const data = await res.json();
       const rows = data.data?.quotes || [];
       if (data.success) {
@@ -118,8 +119,8 @@ export default function QuotesPage() {
     // endpoints — not by fetching every quote just to read the account/owner
     // it happens to reference.
     Promise.all([
-      fetch("/api/crm/accounts", { cache: "no-store" }).then((res) => res.json()),
-      fetch("/api/users", { cache: "no-store" }).then((res) => res.json()),
+      cachedFetch("/api/crm/accounts").then((res) => res.json()),
+      cachedFetch("/api/users").then((res) => res.json()),
     ]).then(([accountsData, usersData]) => {
       const accts = (accountsData.data?.accounts || []) as any[];
       setAccountOptions(

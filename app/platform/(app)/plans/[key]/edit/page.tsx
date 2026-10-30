@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PLAN_SEAT_BANDS, type SeatBandPlanKey } from "@/lib/billing/seatBands";
 
 const ALL_MODULES = ["admin", "finance", "sales", "inventory", "hr", "manufacturing", "crm"];
 
@@ -20,6 +21,11 @@ interface PlanDetail {
   priceMonthly: number;
   priceYearly: number;
   active: boolean;
+  availableForPurchase: boolean;
+  meteredUsers: boolean;
+  includedUsers: number;
+  additionalUserPriceMonthly: number;
+  additionalUserPriceYearly: number;
   features: {
     modules: string[];
     maxUsers: number;
@@ -77,6 +83,9 @@ export default function EditPlanPage() {
   }
 
   const totalImpact = plan ? plan.impact.explicitlyAssigned + plan.impact.implicitlyBridged : 0;
+  const isStarter = plan?.key === "starter";
+  const seatBand = plan && plan.key in PLAN_SEAT_BANDS ? PLAN_SEAT_BANDS[plan.key as SeatBandPlanKey] : undefined;
+  const isFixedSeatPlan = Boolean(seatBand);
 
   async function handleSave() {
     if (!plan || !reason.trim() || (totalImpact > 0 && !confirmed)) return;
@@ -92,6 +101,11 @@ export default function EditPlanPage() {
           priceMonthly: plan.priceMonthly,
           priceYearly: plan.priceYearly,
           active: plan.active,
+          availableForPurchase: plan.availableForPurchase ?? false,
+          meteredUsers: plan.meteredUsers ?? false,
+          includedUsers: plan.includedUsers ?? plan.features.maxUsers,
+          additionalUserPriceMonthly: plan.additionalUserPriceMonthly ?? 0,
+          additionalUserPriceYearly: plan.additionalUserPriceYearly ?? 0,
           features: plan.features,
           reason,
         }),
@@ -147,11 +161,11 @@ export default function EditPlanPage() {
         <CardContent className="space-y-4">
           <div>
             <Label>Name</Label>
-            <Input value={plan.name} onChange={(e) => updateField("name", e.target.value)} />
+            <Input value={plan.name} disabled={isFixedSeatPlan} onChange={(e) => updateField("name", e.target.value)} />
           </div>
           <div>
             <Label>Description</Label>
-            <Textarea value={plan.description} onChange={(e) => updateField("description", e.target.value)} />
+            <Textarea value={plan.description} disabled={isFixedSeatPlan} onChange={(e) => updateField("description", e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -159,6 +173,7 @@ export default function EditPlanPage() {
               <Input
                 type="number"
                 value={plan.priceMonthly}
+                disabled={isFixedSeatPlan}
                 onChange={(e) => updateField("priceMonthly", Number(e.target.value))}
               />
             </div>
@@ -167,6 +182,7 @@ export default function EditPlanPage() {
               <Input
                 type="number"
                 value={plan.priceYearly}
+                disabled={isFixedSeatPlan}
                 onChange={(e) => updateField("priceYearly", Number(e.target.value))}
               />
             </div>
@@ -175,6 +191,21 @@ export default function EditPlanPage() {
             <Checkbox checked={plan.active} onCheckedChange={(v) => updateField("active", Boolean(v))} />
             <Label className="font-normal">Active (assignable to an organisation)</Label>
           </div>
+          <div className="flex items-center gap-2">
+            <Checkbox checked={plan.availableForPurchase ?? false} onCheckedChange={(v) => updateField("availableForPurchase", Boolean(v))} />
+            <Label className="font-normal">Available in the customer billing portal</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox checked={plan.meteredUsers ?? false} disabled={isFixedSeatPlan} onCheckedChange={(v) => updateField("meteredUsers", Boolean(v))} />
+            <Label className="font-normal">Meter additional seats above the included user count{isStarter ? " (Starter is fixed at 5 users)" : isFixedSeatPlan ? " (plan seat range and rates are fixed)" : ""}</Label>
+          </div>
+          {plan.meteredUsers && (
+            <div className="grid grid-cols-3 gap-4">
+              <NumField label="Included users" value={seatBand?.minimum ?? plan.includedUsers} disabled={isFixedSeatPlan} onChange={(v) => updateField("includedUsers", v)} />
+              <NumField label="Monthly price / extra user (₹)" value={plan.additionalUserPriceMonthly} disabled={isFixedSeatPlan} onChange={(v) => updateField("additionalUserPriceMonthly", v)} />
+              <NumField label="Annual price / extra user (₹)" value={plan.additionalUserPriceYearly} disabled={isFixedSeatPlan} onChange={(v) => updateField("additionalUserPriceYearly", v)} />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -184,7 +215,7 @@ export default function EditPlanPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <NumField label="Max users" value={plan.features.maxUsers} onChange={(v) => updateFeature("maxUsers", v)} />
+            <NumField label="Max users" value={seatBand?.maximum ?? plan.features.maxUsers} disabled={isFixedSeatPlan} onChange={(v) => updateFeature("maxUsers", v)} />
             <NumField
               label="Max companies"
               value={plan.features.maxCompanies}
@@ -280,15 +311,17 @@ function NumField({
   label,
   value,
   onChange,
+  disabled = false,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
       <Label>{label}</Label>
-      <Input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <Input type="number" value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} />
     </div>
   );
 }

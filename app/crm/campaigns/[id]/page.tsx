@@ -8,6 +8,7 @@ import {
   Megaphone, DollarSign, Target, TrendingUp, Users, Activity, ExternalLink, Loader2
 } from "lucide-react";
 import Link from "next/link";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "bg-accent text-foreground",
@@ -25,13 +26,13 @@ export default function CampaignDetailPage(props: { params: Promise<{ id: string
   const [loading, setLoading] = useState(true);
 
   const fetchCampaign = async () => {
-    const res = await fetch(`/api/crm/campaigns/${params.id}`);
+    const res = await cachedFetch(`/api/crm/campaigns/${params.id}`);
     const d = await res.json();
     if (d.success) setData(d.data);
   };
 
   const fetchMetrics = async () => {
-    const res = await fetch(`/api/crm/reports/roi?campaign_id=${params.id}`);
+    const res = await cachedFetch(`/api/crm/reports/roi?campaign_id=${params.id}`);
     const d = await res.json();
     if (d.success) setMetrics(d.data);
   };

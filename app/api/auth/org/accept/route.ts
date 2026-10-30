@@ -6,7 +6,7 @@ import Organization from "@/models/admin/Organization";
 import OrgInvite from "@/models/auth/OrgInvite";
 import User from "@/models/auth/User";
 import { ENTITY_STATUS, INVITE_STATUS } from "@/lib/constants/statuses";
-import { getTierLimits } from "@/lib/constants/tiers";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import { buildTenantUrl } from "@/lib/config";
 
 export async function POST(req: NextRequest) {
@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Tier-derived cap — single source of truth (lib/constants/tiers.ts).
-    const { maxUsers } = getTierLimits(org.tier);
+    // Use the same effective seat limit that billing writes to entitlements.
+    const { limits: { maxUsers } } = await resolveEntitlements(targetTenantId);
     const memberCount = await User.countDocuments({ tenantId: targetTenantId });
     if (memberCount >= maxUsers) {
       return NextResponse.json(

@@ -6,6 +6,8 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Department from "@/models/hr/Department";
 import Employee from "@/models/hr/Employee";
+import { validateObjectId } from "@/lib/api/validateId";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 // Default departments matching existing CRM modules
 const DEFAULT_DEPARTMENTS = [
@@ -17,6 +19,10 @@ const DEFAULT_DEPARTMENTS = [
   { name: "Manufacturing", code: "MFG", description: "Manufacturing & Production department", costCenter: "CC-MFG" },
   { name: "Projects", code: "PROJ", description: "Project management department", costCenter: "CC-PROJ" },
 ];
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -51,7 +57,7 @@ export async function GET(req: NextRequest) {
     // Add employee count per department
     const deptIds = departments.map((d: any) => d._id);
     const employeeCounts = await Employee.aggregate([
-      { $match: { tenantId, departmentId: { $in: deptIds }, lifecycleStatus: { $ne: "exited" } } },
+      { $match: { ...applyDemoScope(session, { tenantId }), departmentId: { $in: deptIds }, lifecycleStatus: { $ne: "exited" } } },
       { $group: { _id: "$departmentId", count: { $sum: 1 } } },
     ]);
     const countMap: Record<string, number> = {};
@@ -83,17 +89,36 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
 
-if (!body.name || !body.code) {
+    body.name = typeof body.name === "string" ? body.name.trim() : "";
+    body.code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
+    if (!body.name || !body.code) {
       return NextResponse.json(
         { error: "Name and code are required" },
         { status: 400 },
       );
     }
 
-    const existing = await Department.findOne({ tenantId, code: body.code });
+    if (body.name.length > 100 || !/^[A-Z0-9][A-Z0-9_-]{1,19}$/.test(body.code)) {
+      return NextResponse.json({ error: "Enter a department name (100 characters max) and a code with 2–20 letters, numbers, hyphens or underscores." }, { status: 400 });
+    }
+    for (const [field, Model, label] of [
+      ["headOfDepartment", Employee, "department head"],
+      ["parentDepartmentId", Department, "parent department"],
+    ] as const) {
+      if (!body[field]) continue;
+      const idError = validateObjectId(String(body[field]));
+      if (idError) return NextResponse.json({ error: `Choose a valid ${label}.` }, { status: 400 });
+      if (!await Model.exists({ _id: body[field], tenantId })) return NextResponse.json({ error: `The selected ${label} does not belong to this organization.` }, { status: 400 });
+    }
+
+    const [existingCode, existingName] = await Promise.all([
+      Department.findOne({ tenantId, code: body.code }),
+      Department.findOne({ tenantId, name: new RegExp(`^${escapeRegex(body.name)}$`, "i") }),
+    ]);
+    const existing = existingCode || existingName;
     if (existing) {
       return NextResponse.json(
-        { error: "Department with this code already exists" },
+        { error: existingCode ? "Department with this code already exists" : "A department with this name already exists" },
         { status: 409 },
       );
     }

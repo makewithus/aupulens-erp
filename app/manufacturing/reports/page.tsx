@@ -83,7 +83,7 @@ export default function ReportsPage() {
 
   const loadStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/manufacturing/shipments');
+      const res = await cachedFetch('/api/manufacturing/shipments');
       const data = await res.json();
       const shipments: any[] = data.shipments || [];
 
@@ -118,14 +118,14 @@ export default function ReportsPage() {
     setIsGenerating(true);
     try {
       if (selectedReport === 'customs') {
-        const res = await fetch('/api/manufacturing/customs-clearance');
+        const res = await cachedFetch('/api/manufacturing/customs-clearance');
         const data = await res.json();
         const rows = (data.clearances || []).map((c: any) => [
           c.clearanceNumber, c.status, c.customsStatus || '', new Date(c.createdAt).toISOString().split('T')[0],
         ]);
         setPendingReport({ title: 'customs-report', headers: ['Clearance Number', 'Status', 'Customs Status', 'Date'], rows });
       } else {
-        const res = await fetch('/api/manufacturing/shipments');
+        const res = await cachedFetch('/api/manufacturing/shipments');
         const data = await res.json();
         const rows = (data.shipments || []).map((s: any) => [
           s.shipmentNumber, s.customerName, s.origin, s.destination, s.shipmentType, s.status, s.totalValue,

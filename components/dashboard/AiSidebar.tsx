@@ -55,11 +55,12 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const messages = useAiChatStore((s) => s.messages);
   const setMessages = useAiChatStore((s) => s.setMessages);
   const conversationId = useAiChatStore((s) => s.conversationId);
+  const input = useAiChatStore((s) => s.draft);
+  const setInput = useAiChatStore((s) => s.setDraft);
   const setConversationId = useAiChatStore((s) => s.setConversationId);
   const newChat = useAiChatStore((s) => s.newChat);
   const pendingNavigation = useRef<{ route: string; openingText: string; completedText: string } | null>(null);
   const previousIdentity = useRef<string | null>(null);
-  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
   useEffect(() => {
@@ -375,6 +376,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const NAV_RX = NAV_TRIGGER_RX;
 
   const updatePendingAssistant = (update: Partial<Message>) => {
+    const safeUpdate = {
+      ...update,
+      text: update.text?.trim() || "I couldn't prepare a response for that request. Please try again or rephrase it.",
+    };
     setMessages((prev) => {
       const next = [...prev];
       const lastIndex = next.length - 1;
@@ -382,14 +387,14 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         next[lastIndex] = {
           role: "assistant",
           text: "",
-          ...update,
+          ...safeUpdate,
           isLoading: false,
         };
       } else {
         next.push({
           role: "assistant",
           text: "",
-          ...update,
+          ...safeUpdate,
           isLoading: false,
         });
       }
@@ -562,7 +567,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       if (erp.handled) {
         setIsLoading(false);
         updatePendingAssistant({
-          text: erp.message || "",
+          text: erp.message?.trim() || "I couldn't prepare a response for that question. Please try asking it another way.",
           structured: erp.structured,
           quickReplies: erp.actions?.map((a) => ({ ...a, kind: "action" as const })),
         });
@@ -1034,19 +1039,19 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       className={cn(
         "flex flex-col flex-shrink-0 animate-in slide-in-from-right duration-200 transition-all ease-in-out",
         isDark ? "shadow-2xl" : "shadow-none",
-        "absolute inset-y-0 right-0 z-50 w-full max-w-[460px] sm:relative sm:w-[450px] sm:max-w-none h-full border-l",
+        "absolute inset-y-0 right-0 z-50 h-full w-full max-w-[min(100vw,460px)] border-l xl:relative xl:w-[450px] xl:max-w-none",
         isDark ? "bg-neutral-950 border-neutral-800" : "bg-white border-neutral-200"
       )}
     >
       {/* Header */}
       <div className={cn(
-        "h-14 flex items-center justify-between px-4 border-b backdrop-blur-xl shrink-0 font-mono",
+        "flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-y-1 px-2 py-2 font-mono border-b backdrop-blur-xl sm:px-4",
         isDark ? "border-neutral-900 bg-neutral-950/80 text-neutral-400" : "border-neutral-200 bg-white/80 text-neutral-600"
       )}>
         <div className="flex items-center gap-2">
           <h2 className={cn("font-semibold text-xs tracking-wider uppercase", isDark ? "text-neutral-400" : "text-neutral-600")}>Aupulens AI</h2>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
           <button
             onClick={handleNewChat}
             className={cn(

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FolderKanban, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 const TASK_CATEGORIES = ['Call Back', 'Send Proposal', 'Schedule Demo', 'Follow Up on Quote', 'Collect Documents', 'Renew Contract', 'Resolve Issue', 'Prepare Meeting', 'Follow Up', 'Prepare Quote', 'Onboarding', 'Other'];
 
@@ -206,32 +207,35 @@ export default function TasksPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const fetchSequence = useRef(0);
 
-  const fetchTasks = () => {
+  const fetchTasks = async () => {
+    const requestId = ++fetchSequence.current;
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     params.set('view', view);
     if (statusFilter) params.set('status', statusFilter);
     if (priorityFilter) params.set('priority', priorityFilter);
-    fetch(`/api/crm/tasks?${params}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          setTasks(d.data);
-          setTotal(d.total ?? 0);
-          setTotalPages(d.totalPages ?? 1);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    setLoading(true);
+    try {
+      const res = await cachedFetch(`/api/crm/tasks?${params}`);
+      const d = await res.json();
+      // A slower response for an earlier filter must not replace the latest view.
+      if (requestId !== fetchSequence.current) return;
+      if (d.success) {
+        setTasks(d.data);
+        setTotal(d.total ?? 0);
+        setTotalPages(d.totalPages ?? 1);
+      }
+    } catch {
+      if (requestId === fetchSequence.current) toast.error("Failed to load tasks.");
+    } finally {
+      if (requestId === fetchSequence.current) setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchTasks();
   }, [view, statusFilter, priorityFilter, page]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [view, statusFilter, priorityFilter]);
 
   // AI-native: extract the task's details → open New Task pre-filled.
   useAiPrefill("task", (p) => {
@@ -273,7 +277,7 @@ export default function TasksPage() {
               {/* View Filter */}
               <div className="flex items-center gap-1">
                 <span className="font-mono text-[11px] text-muted-foreground">View:</span>
-                <Select value={view} onValueChange={setView}>
+                <Select value={view} onValueChange={(value) => { setPage(1); setView(value); }}>
                   <SelectTrigger className="w-full sm:w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue />
                   </SelectTrigger>
@@ -287,7 +291,7 @@ export default function TasksPage() {
               {/* Status Filter */}
               <div className="flex items-center gap-1">
                 <span className="font-mono text-[11px] text-muted-foreground">Status:</span>
-                <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
+                <Select value={statusFilter || "all"} onValueChange={(v) => { setPage(1); setStatusFilter(v === "all" ? "" : v); }}>
                   <SelectTrigger className="w-full sm:w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
@@ -305,7 +309,7 @@ export default function TasksPage() {
               {/* Priority Filter */}
               <div className="flex items-center gap-1">
                 <span className="font-mono text-[11px] text-muted-foreground">Priority:</span>
-                <Select value={priorityFilter || "all"} onValueChange={(v) => setPriorityFilter(v === "all" ? "" : v)}>
+                <Select value={priorityFilter || "all"} onValueChange={(v) => { setPage(1); setPriorityFilter(v === "all" ? "" : v); }}>
                   <SelectTrigger className="w-full sm:w-[140px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
@@ -478,7 +482,7 @@ export default function TasksPage() {
       <NewTaskModal
         open={showModal}
         onClose={() => { setShowModal(false); setAiTaskData(undefined); }}
-        onCreated={() => { setShowModal(false); setAiTaskData(undefined); fetchTasks(); }}
+        onCreated={() => { setShowModal(false); setAiTaskData(undefined); invalidateCache("/api/crm/tasks"); fetchTasks(); }}
         initialData={aiTaskData}
       />
     </div>

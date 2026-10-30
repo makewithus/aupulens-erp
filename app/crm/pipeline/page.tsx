@@ -10,6 +10,8 @@ import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { formatOpportunityDate } from "@/lib/crm/opportunityDisplay";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 const STAGES = ['Prospecting','Discovery','Requirement Gathering','Solution Fit','Proposal Sent','Negotiation','Approval', 'Closed Won', 'Closed Lost'];
 const PAGE_SIZE = 5;
@@ -27,6 +29,7 @@ export default function PipelinePage() {
   const [columns, setColumns] = useState<any>({});
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   // Per-column reveal count — every stage starts collapsed to the top 5 deals;
   // "Show more" reveals another page at a time for just that one column.
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
@@ -39,8 +42,13 @@ export default function PipelinePage() {
   };
 
   const fetchPipeline = async () => {
-    const res = await fetch('/api/crm/pipeline');
-    const data = await res.json();
+    const [res, anRes] = await Promise.all([
+      cachedFetch('/api/crm/pipeline', undefined, { force: true }),
+      cachedFetch('/api/crm/pipeline/analytics', undefined, { force: true }),
+    ]);
+    if (!res.ok || !anRes.ok) throw new Error("Could not refresh the opportunity pipeline");
+    const [data, anData] = await Promise.all([res.json(), anRes.json()]);
+    if (!data.success) throw new Error(data.message || "Could not load the opportunity pipeline");
     if (data.success) {
       const cols: any = {};
       STAGES.forEach(s => cols[s] = { items: [], total: 0, count: 0 });
@@ -62,36 +70,66 @@ export default function PipelinePage() {
       setColumns(cols);
     }
     
-    const anRes = await fetch('/api/crm/pipeline/analytics');
-    const anData = await anRes.json();
     if (anData.success) setAnalytics(anData.data);
     
     setLoading(false);
   };
 
-  useEffect(() => { fetchPipeline(); }, []);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void fetchPipeline().catch((error) => {
+        if (active) {
+          console.error("Pipeline refresh failed:", error);
+          setLoading(false);
+        }
+      });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 10_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
 
   const onDragEnd = async (result: any) => {
     if (!result.destination) return;
     const { source, destination, draggableId } = result;
     if (source.droppableId === destination.droppableId) return;
+    if (updatingIds.has(draggableId)) return;
 
     // Optimistic UI update
     const sourceCol = columns[source.droppableId];
     const destCol = columns[destination.droppableId];
     const sourceItems = [...sourceCol.items];
     const destItems = [...destCol.items];
-    const [movedItem] = sourceItems.splice(source.index, 1);
+    const [removedItem] = sourceItems.splice(source.index, 1);
+    const movedItem = { ...removedItem };
     movedItem.stage = destination.droppableId;
     destItems.splice(destination.index, 0, movedItem);
 
     setColumns({
       ...columns,
-      [source.droppableId]: { ...sourceCol, items: sourceItems },
-      [destination.droppableId]: { ...destCol, items: destItems }
+      [source.droppableId]: {
+        ...sourceCol,
+        items: sourceItems,
+        count: Math.max(0, sourceCol.count - 1),
+        total: Math.max(0, Number(sourceCol.total || 0) - Number(movedItem.amount || 0)),
+      },
+      [destination.droppableId]: {
+        ...destCol,
+        items: destItems,
+        count: destCol.count + 1,
+        total: Number(destCol.total || 0) + Number(movedItem.amount || 0),
+      }
     });
 
     // API Call
+    setUpdatingIds((current) => new Set(current).add(draggableId));
     try {
       const res = await fetch(`/api/crm/opportunities/${draggableId}`, {
         method: 'PUT',
@@ -99,13 +137,22 @@ export default function PipelinePage() {
         headers: { 'Content-Type': 'application/json' }
       });
       const resData = await res.json();
-      if (!res.ok) throw new Error(resData.message || "Failed to update stage");
+      if (!res.ok || !resData.success) throw new Error(resData.message || "Failed to update stage");
       toast.success("Deal stage updated");
-      // Refetch analytics
-      fetch('/api/crm/pipeline/analytics').then(r => r.json()).then(d => d.success && setAnalytics(d.data));
+      // Reconcile the optimistic move, counts, and KPIs from the saved records.
+      invalidateCache("/api/crm/pipeline");
+      invalidateCache("/api/crm/opportunities");
+      await fetchPipeline();
     } catch (e: any) {
       toast.error(e.message || "Failed to update stage, reverting");
-      fetchPipeline(); // Revert
+      invalidateCache("/api/crm/pipeline");
+      await fetchPipeline().catch((refreshError) => console.error("Pipeline refresh failed:", refreshError));
+    } finally {
+      setUpdatingIds((current) => {
+        const next = new Set(current);
+        next.delete(draggableId);
+        return next;
+      });
     }
   };
 
@@ -196,10 +243,10 @@ export default function PipelinePage() {
                               {...provided.dragHandleProps}
                               className={`border border-border/30 bg-white/[0.02] p-4 transition-colors hover:border-border/60 hover:bg-white/[0.04] ${snapshot.isDragging ? "border-border/70 bg-background shadow-lg" : ""}`}
                             >
-                              <div className="truncate text-sm font-semibold" title={item.deal_name}>{item.deal_name}</div>
+                              <div className="truncate text-sm font-semibold" title={item.deal_name || item.name}>{item.deal_name || item.name || "Untitled Opportunity"}</div>
                               <div className="mt-1.5 font-sans text-sm font-bold tabular-nums">₹{Number(item.amount || 0).toLocaleString("en-IN")}</div>
                               <div className="mt-3 flex items-center justify-between font-mono text-[10px] text-muted-foreground/70">
-                                <span>{new Date(item.expected_close_date || Date.now()).toLocaleDateString("en-GB")}</span>
+                                <span>{formatOpportunityDate(item.expected_close_date)}</span>
                                 <span className="tabular-nums">{item.probability}%</span>
                               </div>
                             </div>

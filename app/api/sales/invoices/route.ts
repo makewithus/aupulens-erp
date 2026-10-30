@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Customer from "@/models/sales/Customer";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
 import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
@@ -43,12 +44,36 @@ export async function GET(request: NextRequest) {
 
     const search = searchParams.get("search");
     if (search) {
-      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      query.$and = words.map(word => ({
-        $or: [
-          { number: { $regex: word, $options: "i" } }
-        ]
-      }));
+      const words = search.trim().split(/\s+/).filter(Boolean).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      if (words.length) {
+        // Resolve matching customers first so invoice search can match either
+        // the document number or a customer's display/company/person name.
+        // Each word must match, which keeps multi-word names useful while
+        // allowing partial input such as "Raj" or "Rajesh Ku".
+        const matchingCustomers = await Customer.find({
+          tenantId: session.user.tenantId,
+          $and: words.map((word) => ({
+            $or: [
+              { "header.displayName": { $regex: word, $options: "i" } },
+              { "header.companyName": { $regex: word, $options: "i" } },
+              { "header.name": { $regex: word, $options: "i" } },
+              { name: { $regex: word, $options: "i" } },
+              { "header.firstName": { $regex: word, $options: "i" } },
+              { "header.lastName": { $regex: word, $options: "i" } },
+            ],
+          })),
+        }).select("_id").limit(100).lean();
+        const customerIds = matchingCustomers.map((customer: any) => customer._id);
+        query.$and = [
+          ...(query.$and || []),
+          ...words.map((word) => ({
+            $or: [
+              { number: { $regex: word, $options: "i" } },
+              ...(customerIds.length ? [{ customerId: { $in: customerIds } }] : []),
+            ],
+          })),
+        ];
+      }
     }
 
     const status = searchParams.get("status");

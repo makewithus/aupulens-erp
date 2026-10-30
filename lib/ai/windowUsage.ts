@@ -15,12 +15,13 @@ export async function getWindowUsage(tenantId: string, policy: AiWindowPolicy | 
  * Windows use request admission time, matching the existing monthly accounting policy.
  * Atomic $inc on the existing compound-unique tenant/period counter preserves concurrent calls.
  */
-export async function incrementWindowUsage(tenantId: string, policy: AiWindowPolicy | undefined, admittedAt: Date): Promise<void> {
+export async function incrementWindowUsage(tenantId: string, policy: AiWindowPolicy | undefined, admittedAt: Date, requestId?: string): Promise<void> {
   await Promise.all((["session", "weekly"] as const).map(async kind => {
     const window = quotaWindow(policy, kind, admittedAt);
     if (typeof window !== "string") {
       try {
-        await incrementAiUsage(tenantId, window.period);
+        if (requestId) await incrementAiUsage(tenantId, window.period, requestId);
+        else await incrementAiUsage(tenantId, window.period);
       } catch (error) {
         console.error("[ai-usage] window counter write failed", { tenantId, kind, period: window.period, error: error instanceof Error ? error.message : String(error) });
         throw error;

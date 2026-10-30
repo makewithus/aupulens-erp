@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { cachedFetch, getInstantCachedData, invalidateCache } from "@/lib/api/cachedFetch";
-import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,15 +13,10 @@ import {
   UserPlus,
   Calendar,
   DollarSign,
-  Building2,
   Clock,
   TrendingUp,
   ArrowRight,
   CheckCircle2,
-  AlertCircle,
-  FileCheck,
-  Briefcase,
-  ShieldCheck,
   CalendarCheck,
   BarChart3,
   RefreshCw,
@@ -30,8 +24,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
+import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 import { useThemeStore } from "@/store/themeStore";
-import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
+import { BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
 
 export default function HRDashboardPage() {
@@ -39,33 +34,24 @@ export default function HRDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [summaryData, setSummaryData] = useState<any>(() => {
-    if (typeof window !== "undefined") {
-      return getInstantCachedData<any>("/api/hr/summary", { allowPreHydration: true }) || null;
-    }
-    return null;
-  });
-  const [pendingLeavesList, setPendingLeavesList] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      const ld = getInstantCachedData<any>("/api/hr/leave?status=pending&limit=5", { allowPreHydration: true });
-      return ld?.items || ld?.leaveRequests || ld?.leaves || [];
-    }
-    return [];
-  });
+  // Start from identical server/client state; cached values are applied in the
+  // effect below after hydration so the dashboard never hydrates different KPI
+  // values or approval rows from browser-only cache data.
+  const [summaryData, setSummaryData] = useState<any>(null);
+  const [pendingLeavesList, setPendingLeavesList] = useState<any[]>([]);
   const [processingLeaveId, setProcessingLeaveId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return !getInstantCachedData<any>("/api/hr/summary", { allowPreHydration: true });
-    }
-    return true;
-  });
+  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const cachedHR = getInstantCachedData<any>("/api/hr/summary", { allowPreHydration: true });
+    const cachedLeaves = getInstantCachedData<any>("/api/hr/leave?status=pending&limit=5", { allowPreHydration: true });
     if (cachedHR) {
       setSummaryData(cachedHR);
       setIsLoading(false);
+    }
+    if (cachedLeaves) {
+      setPendingLeavesList(cachedLeaves.items || cachedLeaves.leaveRequests || cachedLeaves.leaves || []);
     }
   }, []);
 
@@ -125,11 +111,11 @@ export default function HRDashboardPage() {
     }
   }, [fetchHRData]);
 
-  const totalEmployees = summaryData?.stats?.totalEmployees || 0;
   const activeEmployees = summaryData?.stats?.activeEmployees || 0;
   const onboardingEmployees = summaryData?.stats?.onboardingEmployees || 0;
+  const totalEmployees = activeEmployees + onboardingEmployees;
   const presentToday = summaryData?.todayAttendance?.present || 0;
-  const onLeaveToday = summaryData?.todayAttendance?.on_leave || 0;
+  const onLeaveToday = summaryData?.todayAttendance?.onLeave || 0;
   const todayAttendanceRate = activeEmployees > 0 ? Number(((presentToday / activeEmployees) * 100).toFixed(1)) : 0;
   const pendingLeavesCount = summaryData?.stats?.pendingLeaves ?? summaryData?.leaveStats?.pending ?? 0;
   const totalLeavesCount = summaryData?.stats?.totalLeaves ?? summaryData?.leaveStats?.total ?? 0;
@@ -148,7 +134,7 @@ export default function HRDashboardPage() {
     totalLeavesCount,
     monthlyGrossPayroll,
     monthlyNetPayroll,
-    attritionRate: 0,
+    exitedLast30Days: summaryData?.stats?.exitedLast30Days || 0,
     totalDepartments,
     openJobRequisitions: 0,
   };
@@ -247,7 +233,7 @@ export default function HRDashboardPage() {
       code: h.employeeCode || "EMP",
       name: `${h.firstName || ""} ${h.lastName || ""}`.trim() || "Employee",
       designation: h.designation || "Staff",
-      department: h.department || "General",
+      department: h.departmentId?.name || "Unassigned",
       joiningDate: h.dateOfJoining ? new Date(h.dateOfJoining).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Recent",
       status: h.lifecycleStatus === "active" ? "Active (Onboarded)" : (h.lifecycleStatus || "Active"),
     }));
@@ -269,7 +255,7 @@ export default function HRDashboardPage() {
         emp?.departmentId?.name ||
         emp?.department?.name ||
         req.department ||
-        "Staff";
+        "Unassigned";
 
       return {
         id: req._id || req.id,
@@ -406,7 +392,7 @@ export default function HRDashboardPage() {
                 </div>
                 <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
                   <TrendingUp className="w-3.5 h-3.5" />
-                  <span>{hrStats.onboardingEmployees} currently onboarding</span>
+                  <span>{hrStats.activeEmployees} active · {hrStats.onboardingEmployees} onboarding</span>
                 </div>
               </>
             )}
@@ -470,7 +456,7 @@ export default function HRDashboardPage() {
                   {formatCurrency(hrStats.monthlyNetPayroll)}
                 </div>
                 <div className="flex items-center gap-1.5 mt-2 text-[11px] text-purple-400 font-semibold">
-                  <span>Gross: {formatCurrency(hrStats.monthlyGrossPayroll)}</span>
+                <span>Gross disbursed: {formatCurrency(hrStats.monthlyGrossPayroll)}</span>
                 </div>
               </>
             )}
@@ -510,7 +496,7 @@ export default function HRDashboardPage() {
                     {hrStats.pendingLeavesCount > 0 ? "Requires manager sign-off" : "All approvals cleared"}
                   </span>
                   <span className="text-muted-foreground font-mono">
-                    {hrStats.attritionRate}% attrition
+                    {hrStats.exitedLast30Days} exits in 30d
                   </span>
                 </div>
               </>
@@ -520,12 +506,12 @@ export default function HRDashboardPage() {
       </div>
 
       {/* Section 2: Operational Flow & Headcount by Department */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="space-y-6">
         {/* Quick Actions & Operational Controls */}
-        <div className="lg:col-span-7">
+        <div>
           <Card
             className={cn(
-              "border border-border/60 shadow-sm h-full flex flex-col justify-between",
+              "border border-border/60 shadow-sm",
               isDark ? "bg-[#161616]" : "bg-card"
             )}
           >
@@ -536,7 +522,7 @@ export default function HRDashboardPage() {
               </p>
             </CardHeader>
             <CardContent className="p-5 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 <Link
                   href="/hr/onboarding"
                   className="p-3 border border-border/40 hover:bg-muted/30 transition-colors group flex items-center justify-between"
@@ -623,6 +609,7 @@ export default function HRDashboardPage() {
           </Card>
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Headcount by Department Donut (CanvasPieChart with Top 5 Pagination) */}
         <div className="lg:col-span-5">
           <Card
@@ -637,7 +624,7 @@ export default function HRDashboardPage() {
                   Headcount by Department
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Top 5 teams displayed by default with pagination.
+                  Workforce across departments, including onboarding employees.
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-[10px] px-2 py-0.5">
@@ -653,7 +640,7 @@ export default function HRDashboardPage() {
               ) : departmentDistribution.length > 0 ? (
                 <CanvasPieChart
                   data={departmentDistribution}
-                  title="Staff"
+                  title="Workforce"
                   pageSize={5}
                   colors={BRAND_ACCENT_PALETTE}
                 />
@@ -664,6 +651,37 @@ export default function HRDashboardPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        <div className="lg:col-span-7">
+          <Card className={cn("h-full border border-border/60 shadow-sm", isDark ? "bg-[#161616]" : "bg-card")}>
+            <CardHeader className="p-5 border-b border-border/60">
+              <CardTitle className="text-base font-bold">Daily Attendance Trend</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Present and half-day check-ins over the last 30 days.</p>
+            </CardHeader>
+            <CardContent className="p-5">
+              {isLoading ? (
+                <Skeleton className="h-[250px] w-full" />
+              ) : dailyAttendance.length > 0 ? (
+                <DailyBrickBarChart
+                  data={dailyAttendance}
+                  dateKey="date"
+                  valueKey="count"
+                  height={250}
+                  colorTheme="emerald"
+                  metricLabel="Present staff"
+                  unit="number"
+                  showToolbar={false}
+                  isDark={isDark}
+                />
+              ) : (
+                <div className="flex h-[250px] items-center justify-center text-xs font-mono text-muted-foreground">
+                  No attendance records in the last 30 days
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
         </div>
       </div>
 
@@ -683,7 +701,7 @@ export default function HRDashboardPage() {
                   <Calendar className="w-4 h-4 text-yellow-500" /> Pending Leave Approvals Queue
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Awaiting manager sign-off for upcoming scheduled time off.
+                  Latest five requests awaiting manager sign-off for scheduled time off.
                 </p>
               </div>
               <Button
@@ -697,7 +715,7 @@ export default function HRDashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-mono min-w-[500px] whitespace-nowrap">
+                <table className="w-full text-left text-xs font-mono min-w-[760px] whitespace-nowrap">
                   <thead className="border-b border-border/60 text-muted-foreground bg-muted/20 whitespace-nowrap">
                     <tr>
                       <th className="p-3 pl-5">Employee / Dept</th>
@@ -751,12 +769,12 @@ export default function HRDashboardPage() {
                             </div>
                           </td>
                           <td className="p-3 pr-5 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex flex-nowrap items-center justify-end gap-1.5">
                               <Button
                                 size="sm"
-                                disabled={processingLeaveId === req.id}
+                                disabled={Boolean(processingLeaveId)}
                                 onClick={() => handleApproveLeave(req.id)}
-                                className="h-7 px-2.5 text-[10px] font-mono bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                className="h-7 shrink-0 px-2.5 text-[10px] font-mono bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
                                 title="Approve Leave Request"
                               >
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -765,9 +783,9 @@ export default function HRDashboardPage() {
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                disabled={processingLeaveId === req.id}
+                                disabled={Boolean(processingLeaveId)}
                                 onClick={() => handleRejectLeave(req.id)}
-                                className="h-7 px-2.5 text-[10px] font-mono cursor-pointer"
+                                className="h-7 shrink-0 px-2.5 text-[10px] font-mono cursor-pointer"
                                 title="Reject Leave Request"
                               >
                                 <XCircle className="w-3 h-3 mr-1" />
@@ -776,7 +794,7 @@ export default function HRDashboardPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
                                 asChild
                                 title="View Details in Leave Module"
                               >

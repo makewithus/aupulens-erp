@@ -207,7 +207,11 @@ export function DashboardHeader({
   const { user } = useAuthStore();
   
   const activeUserRole = userRole || user?.role;
-  const shouldFilterModules = activeUserRole === "admin";
+  // Some older pages pass the display label (`Master Admin`) while the
+  // session and authorization layer use the canonical `master-admin` role.
+  // Normalize it before deciding whether to render the desktop module bar.
+  const normalizedUserRole = activeUserRole?.trim().toLowerCase().replace(/[\s_]+/g, "-");
+  const shouldFilterModules = normalizedUserRole === "admin";
   const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(shouldFilterModules);
 
   const handleSignOut = async () => {
@@ -323,7 +327,7 @@ export function DashboardHeader({
 
   // Initialize preview module based on dashboardTitle or pathname
   useEffect(() => {
-    if (activeUserRole === "master-admin" || activeUserRole === "admin") {
+    if (normalizedUserRole === "master-admin" || normalizedUserRole === "admin") {
       const availableModules = visibleMasterModules.length ? visibleMasterModules : MASTER_MODULES;
       const currentMod = availableModules.find(
         (m) =>
@@ -332,14 +336,14 @@ export function DashboardHeader({
       );
       setPreviewModuleId(currentMod?.id || availableModules[0]?.id || "admin");
     }
-  }, [activeUserRole, dashboardTitle, pathname, visibleMasterModules]);
+  }, [normalizedUserRole, dashboardTitle, pathname, visibleMasterModules]);
 
   useEffect(() => {
-    if (activeUserRole !== "admin" || !previewModuleId || !visibleMasterModules.length) return;
+    if (normalizedUserRole !== "admin" || !previewModuleId || !visibleMasterModules.length) return;
     if (!visibleMasterModules.some((module) => module.id === previewModuleId)) {
       setPreviewModuleId(visibleMasterModules[0].id);
     }
-  }, [activeUserRole, previewModuleId, visibleMasterModules]);
+  }, [normalizedUserRole, previewModuleId, visibleMasterModules]);
 
   const currentPreviewConfig =
     visibleMasterModules.find((m) => m.id === previewModuleId)?.config ||
@@ -417,7 +421,7 @@ export function DashboardHeader({
 
             {/* Module Dropdown and Top-Links (desktop) - superseded by ModuleTabs below */}
             {/* <div className="hidden lg:flex items-center gap-1">
-              {(activeUserRole === "master-admin" || activeUserRole === "admin") ? (
+              {(normalizedUserRole === "master-admin" || normalizedUserRole === "admin") ? (
                 MASTER_MODULES.map((m, index) => {
                   const isDropdownActive = activeDropdown === index;
                   return (
@@ -528,13 +532,12 @@ export function DashboardHeader({
               )}
             </div> */}
 
-            {(activeUserRole === "master-admin" ||
-              activeUserRole === "admin") && (
+            {(normalizedUserRole === "master-admin" ||
+              normalizedUserRole === "admin") && (
               <ModuleTabs
                 modules={visibleModules}
                 activeModule={activeModule}
                 isLoading={shouldFilterModules && !enabledModulesLoaded}
-                onNavigate={(href) => router.push(href)}
               />
             )}
           </div>
@@ -591,7 +594,7 @@ export function DashboardHeader({
           <div className="mb-3 sm:hidden">
             <WorkspaceSwitcher mobileFullWidth />
           </div>
-          {(activeUserRole === "master-admin" || activeUserRole === "admin") && (
+          {(normalizedUserRole === "master-admin" || normalizedUserRole === "admin") && (
             <div className="mb-4 pb-4 border-b border-border/50">
               <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2 px-2">
                 Modules
@@ -622,7 +625,7 @@ export function DashboardHeader({
             </div>
           )}
 
-          {(activeUserRole === "master-admin" || activeUserRole === "admin"
+          {(normalizedUserRole === "master-admin" || normalizedUserRole === "admin"
             ? currentPreviewConfig
             : sidebarConfig
           ).map((section, si) => (

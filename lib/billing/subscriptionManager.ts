@@ -20,7 +20,6 @@ import {
   SUBSCRIPTION_EVENT_TYPE,
   type OrganizationTier,
 } from "@/lib/constants/statuses";
-import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
 import {
   bridgeTierToPlanKey,
   invalidateEntitlementsCache,
@@ -31,6 +30,8 @@ import { generateBillingInvoice } from "./invoiceGenerator";
 import { validateSubscriptionTransition } from "./stateMachine";
 import { enqueueBillingNotification } from "./notifications";
 import { calculateRenewalTax } from "./renewalPricing";
+import { normalizeSelectedAddOns, priceWithAddOns } from "./planPricing";
+import { PLAN_SEAT_BANDS, type SeatBandPlanKey } from "./seatBands";
 
 function mapPlanKeyToTier(planKey: PlanKeyType): OrganizationTier {
   switch (planKey) {
@@ -59,7 +60,9 @@ export class SubscriptionManager {
     if (!subscription) {
       const org = await Organization.findOne({ subdomain: tenantId });
       const planKey = org?.tier ? bridgeTierToPlanKey(org.tier) : PLAN_KEY.STARTER;
-      const planDef = PLAN_DEFINITIONS[planKey] || PLAN_DEFINITIONS[PLAN_KEY.STARTER];
+      const planDef = await Plan.findOne({ key: planKey }).lean();
+      if (!planDef) throw new Error(`Plan ${planKey} is missing from the database catalogue.`);
+      const seatBand = planKey in PLAN_SEAT_BANDS ? PLAN_SEAT_BANDS[planKey as SeatBandPlanKey] : undefined;
 
       const now = new Date();
       const periodEnd = new Date(now);
@@ -74,7 +77,8 @@ export class SubscriptionManager {
             ? SAAS_SUBSCRIPTION_STATUS.ACTIVE
             : SAAS_SUBSCRIPTION_STATUS.TRIAL,
         billingCycle: "monthly",
-        currentPrice: planDef.priceMonthly,
+        currentPrice: seatBand?.baseMonthly ?? planDef.priceMonthly,
+        userCount: seatBand?.minimum ?? planDef.features.maxUsers,
         currency: "INR",
         startDate: org?.createdAt || now,
         currentPeriodStart: now,
@@ -103,6 +107,8 @@ export class SubscriptionManager {
     tenantId: string;
     targetPlanKey: PlanKeyType;
     billingCycle?: "monthly" | "yearly";
+    userCount?: number;
+    addOns?: string[];
   }) {
     await connectDB();
     if (params.billingCycle && params.billingCycle !== "monthly" && params.billingCycle !== "yearly") {
@@ -111,13 +117,12 @@ export class SubscriptionManager {
     const subscription = await this.getOrCreateSubscription(params.tenantId);
     const org = await Organization.findOne({ subdomain: params.tenantId });
 
-    const targetDef = PLAN_DEFINITIONS[params.targetPlanKey];
-    if (!Object.hasOwn(PLAN_DEFINITIONS, params.targetPlanKey) || !targetDef) {
-      throw new Error(`Target plan ${params.targetPlanKey} not found in catalog.`);
-    }
+    const targetDef = await Plan.findOne({ key: params.targetPlanKey, active: true, availableForPurchase: true }).lean();
+    if (!targetDef) throw new Error(`Target plan ${params.targetPlanKey} is unavailable.`);
 
     const cycle = params.billingCycle || subscription.billingCycle || "monthly";
-    const targetPrice = cycle === "yearly" ? targetDef.priceYearly : targetDef.priceMonthly;
+    const selectedAddOns = normalizeSelectedAddOns(params.targetPlanKey, params.addOns || []);
+    const { price: targetPrice, userCount } = priceWithAddOns({ ...targetDef, key: targetDef.key }, cycle, params.userCount, selectedAddOns);
 
     // Proration calculation
     const proration = calculateProration({
@@ -139,6 +144,8 @@ export class SubscriptionManager {
       notes: {
         tenantId: params.tenantId,
         targetPlanKey: params.targetPlanKey,
+        userCount: String(userCount),
+        addOns: selectedAddOns.join(","),
         type: BILLING_PAYMENT_TYPE.UPGRADE,
       },
     });
@@ -165,11 +172,14 @@ export class SubscriptionManager {
       upgradeDetails: {
         fromPlan: subscription.planKey,
         toPlan: params.targetPlanKey,
+        userCount,
+        selectedAddOns,
         proratedAmount: proration.proratedAmount,
         daysRemaining: proration.daysRemaining,
         totalDaysInCycle: proration.totalDaysInCycle,
         prorationFraction: proration.prorationFraction,
       },
+      metadata: { selectedAddOns },
       idempotencyKey,
     });
 
@@ -301,14 +311,17 @@ export class SubscriptionManager {
     // Authoritative subscription update
     const subscription = await this.getOrCreateSubscription(tenantId);
     const targetPlanKey = (payment.upgradeDetails?.toPlan as PlanKeyType) || subscription.planKey;
-    const targetDef = PLAN_DEFINITIONS[targetPlanKey];
+    const targetDef = await Plan.findOne({ key: targetPlanKey }).lean();
 
     validateSubscriptionTransition(subscription.status, SAAS_SUBSCRIPTION_STATUS.ACTIVE);
     subscription.status = SAAS_SUBSCRIPTION_STATUS.ACTIVE;
     subscription.planKey = targetPlanKey;
+    subscription.billingCycle = payment.billingCycle;
     if (targetDef) {
-      subscription.currentPrice =
-        payment.billingCycle === "yearly" ? targetDef.priceYearly : targetDef.priceMonthly;
+      const { price, userCount, selectedAddOns } = priceWithAddOns({ ...targetDef, key: targetDef.key }, payment.billingCycle, payment.upgradeDetails?.userCount, (payment.metadata?.selectedAddOns as string[]) || []);
+      subscription.currentPrice = price;
+      subscription.userCount = userCount;
+      subscription.metadata = { ...(subscription.metadata || {}), selectedAddOns };
     }
     subscription.lastPaymentId = razorpayPaymentId;
 
@@ -324,10 +337,10 @@ export class SubscriptionManager {
       {
         $set: {
           planKey: targetPlanKey,
+          overrides: { maxUsers: subscription.userCount },
           assignedAt: new Date(),
           effectiveFrom: new Date(),
         },
-        $unset: { overrides: "" },
       },
       { upsert: true }
     );
@@ -340,7 +353,7 @@ export class SubscriptionManager {
       org.tier = newTier;
       org.subscriptionStatus = "active";
       if (targetDef?.features) {
-        org.maxUsers = targetDef.features.maxUsers;
+        org.maxUsers = subscription.userCount;
         org.aiCallsPerMonth = targetDef.features.aiCreditsPerMonth;
       }
       await org.save();
@@ -385,16 +398,23 @@ export class SubscriptionManager {
   public async scheduleDowngrade(params: {
     tenantId: string;
     targetPlanKey: PlanKeyType;
+    userCount?: number;
+    addOns?: string[];
+    billingCycle?: "monthly" | "yearly";
     reason?: string;
   }): Promise<ISaaSSubscription> {
     await connectDB();
-    if (!Object.hasOwn(PLAN_DEFINITIONS, params.targetPlanKey)) {
-      throw new Error("Target plan is unavailable.");
-    }
+    const targetPlan = await Plan.findOne({ key: params.targetPlanKey, active: true, availableForPurchase: true }).lean();
+    if (!targetPlan) throw new Error("Target plan is unavailable.");
     const subscription = await this.getOrCreateSubscription(params.tenantId);
+    const addOns = normalizeSelectedAddOns(params.targetPlanKey, params.addOns || []);
+    const priced = priceWithAddOns(targetPlan, params.billingCycle || subscription.billingCycle, params.userCount, addOns);
 
     subscription.scheduledChange = {
       planKey: params.targetPlanKey,
+      userCount: priced.userCount,
+      addOns,
+      billingCycle: params.billingCycle || subscription.billingCycle,
       effectiveDate: subscription.nextRenewalDate,
       requestedAt: new Date(),
       reason: params.reason,

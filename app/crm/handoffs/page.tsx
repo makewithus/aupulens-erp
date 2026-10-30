@@ -1,22 +1,82 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { ArrowRightLeft, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type RecordOption = { id: string; label: string; detail: string };
+
+const RECORD_ENDPOINTS: Record<string, string> = {
+  Opportunity: "/api/crm/opportunities?page=1&limit=100",
+  Case: "/api/crm/cases?view=all&page=1&limit=100",
+  Quote: "/api/crm/quotes?page=1&limit=100",
+  Account: "/api/crm/accounts?page=1&limit=100",
+};
 
 export default function HandoffCenterPage() {
   const [handoffs, setHandoffs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
+  const [records, setRecords] = useState<RecordOption[]>([]);
+  const [recordsLoading, setRecordsLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ recordType: "Opportunity", recordId: "", handoffType: "Sales → Operations", toOwner: "", priority: "Medium", notes: "" });
 
   useEffect(() => {
     fetchHandoffs();
   }, []);
 
+  useEffect(() => {
+    if (!createOpen) return;
+    let cancelled = false;
+    const loadRecords = async () => {
+      setRecords([]);
+      setRecordsLoading(true);
+      try {
+        const res = await fetch(RECORD_ENDPOINTS[form.recordType], { cache: "no-store" });
+        const body = await res.json();
+        if (!res.ok || !body.success) throw new Error(body.message || `Could not load ${form.recordType.toLowerCase()} records.`);
+
+        const rows = form.recordType === "Opportunity" ? body.data
+          : form.recordType === "Case" ? body.data?.cases
+          : form.recordType === "Quote" ? body.data?.quotes
+          : body.data?.accounts;
+
+        const options: RecordOption[] = (Array.isArray(rows) ? rows : []).map((record: any) => {
+          const label = form.recordType === "Opportunity" ? record.deal_name || record.name || "Untitled opportunity"
+            : form.recordType === "Case" ? record.title || record.case_number || "Untitled case"
+            : form.recordType === "Quote" ? record.quote_number || "Untitled quote"
+            : record.company_name || "Untitled account";
+          const detail = form.recordType === "Opportunity" ? record.stage || "Opportunity"
+            : form.recordType === "Case" ? record.status || "Case"
+            : form.recordType === "Quote" ? record.status || "Quote"
+            : record.industry || "Account";
+          return { id: String(record._id), label, detail };
+        }).filter((record: RecordOption) => /^[a-fA-F0-9]{24}$/.test(record.id));
+
+        if (!cancelled) setRecords(options);
+      } catch (error) {
+        if (!cancelled) toast.error(error instanceof Error ? error.message : "Could not load CRM records.");
+      } finally {
+        if (!cancelled) setRecordsLoading(false);
+      }
+    };
+    void loadRecords();
+    return () => { cancelled = true; };
+  }, [createOpen, form.recordType]);
+
   const fetchHandoffs = async () => {
     // For demo purposes, we fetch all handoffs. In a real app we'd filter by incoming/outgoing
-    const res = await fetch("/api/crm/handoffs");
+    const res = await cachedFetch("/api/crm/handoffs");
     const data = await res.json();
     if (data.success) {
       setHandoffs(data.data);
@@ -30,7 +90,58 @@ export default function HandoffCenterPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status })
     });
-    if (res.ok) fetchHandoffs();
+    if (res.ok) {
+      invalidateCache("/api/crm/handoffs");
+      fetchHandoffs();
+    }
+  };
+
+  const openCreate = async () => {
+    setCreateOpen(true);
+    try {
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.users)) setUsers(data.users);
+    } catch { /* the form remains usable if the owner list request fails */ }
+  };
+
+  const createHandoff = async (event: FormEvent) => {
+    event.preventDefault();
+    const recordId = form.recordId.trim();
+    if (!recordId) {
+      toast.error("Enter the CRM record ID.", { id: "handoff-create-validation" });
+      return;
+    }
+    if (!/^[a-fA-F0-9]{24}$/.test(recordId)) {
+      toast.error("Enter a valid 24-character CRM record ID.", { id: "handoff-create-validation" });
+      return;
+    }
+    if (!form.toOwner) {
+      toast.error("Choose a receiving teammate.", { id: "handoff-create-validation" });
+      return;
+    }
+    if (!form.handoffType.trim()) {
+      toast.error("Enter the handoff type.", { id: "handoff-create-validation" });
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await fetch("/api/crm/handoffs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, recordId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.message || data.error || "Could not create handoff. Please try again.");
+      toast.dismiss("handoff-create-validation");
+      toast.success("Handoff created successfully.");
+      invalidateCache("/api/crm/handoffs");
+      setCreateOpen(false);
+      setForm({ recordType: "Opportunity", recordId: "", handoffType: "Sales → Operations", toOwner: "", priority: "Medium", notes: "" });
+      await fetchHandoffs();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not create handoff", { id: "handoff-create-validation" });
+    } finally { setCreating(false); }
   };
 
   return (
@@ -45,8 +156,30 @@ export default function HandoffCenterPage() {
             Manage seamless transitions between Sales, Operations, Support, and Finance.
           </p>
         </div>
-        <Button className="bg-primary text-xs h-8">New Handoff</Button>
+        <Button className="bg-primary text-xs h-8" onClick={openCreate}>New Handoff</Button>
       </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create handoff</DialogTitle>
+            <DialogDescription>Choose the CRM record and teammate who should receive it.</DialogDescription>
+          </DialogHeader>
+      <form noValidate onSubmit={createHandoff} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label>Record type</Label><Select value={form.recordType} onValueChange={(recordType) => setForm({ ...form, recordType, recordId: "" })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Opportunity", "Case", "Quote", "Account"].map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent></Select></div>
+              <div className="min-w-0 space-y-2"><Label>CRM record</Label><Select value={form.recordId} onValueChange={(recordId) => setForm({ ...form, recordId })} disabled={recordsLoading}><SelectTrigger className="min-w-0"><SelectValue placeholder={recordsLoading ? "Loading records…" : `Choose ${form.recordType.toLowerCase()}`}>{form.recordId || undefined}</SelectValue></SelectTrigger><SelectContent>{records.length ? records.map((record) => <SelectItem key={record.id} value={record.id}><span className="flex min-w-0 flex-col"><span className="truncate">{record.label}</span><span className="text-xs text-muted-foreground">{record.detail} · {record.id}</span></span></SelectItem>) : <SelectItem value="__no_records" disabled>No records found for this type.</SelectItem>}</SelectContent></Select></div>
+            </div>
+            <div className="space-y-2"><Label>Handoff type</Label><Input required value={form.handoffType} onChange={(e) => setForm({ ...form, handoffType: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label>Receiving teammate</Label><Select required value={form.toOwner} onValueChange={(toOwner) => setForm({ ...form, toOwner })}><SelectTrigger><SelectValue placeholder="Choose teammate" /></SelectTrigger><SelectContent>{users.map((user) => <SelectItem key={user._id} value={user._id}>{user.name || user.email}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2"><Label>Priority</Label><Select value={form.priority} onValueChange={(priority) => setForm({ ...form, priority })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Low", "Medium", "High", "Critical"].map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></div>
+            </div>
+            <div className="space-y-2"><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+            <DialogFooter><Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={creating || !form.toOwner}>{creating ? "Creating…" : "Create handoff"}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <Table>

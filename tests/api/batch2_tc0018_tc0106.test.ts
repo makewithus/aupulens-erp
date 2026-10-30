@@ -713,17 +713,26 @@ describe("Batch 2: TC-0018 to TC-0106 Comprehensive Security & API Audit Suite",
 
     it("TC-0044: Authenticated user calculates tenant-scoped case KPIs", async () => {
       authMock.mockResolvedValue({
-        user: { id: "u-1", tenantId: "tenant-crm", role: "sales" },
+        user: { id: "507f1f77bcf86cd799439011", tenantId: "tenant-crm", role: "sales" },
       });
       caseCountDocumentsMock.mockResolvedValue(5);
       caseAggregateMock.mockResolvedValue([]);
+      caseFindMock.mockReturnValue(mockQueryChain([]));
 
       const req = new NextRequest("http://localhost:3000/api/crm/cases/kpi");
       const res = await getCrmCasesKpi(req);
       expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.data.recentCases).toEqual([]);
       expect(caseCountDocumentsMock).toHaveBeenCalledWith(
         expect.objectContaining({ tenantId: "tenant-crm" })
       );
+      const aggregateOwnerId = caseAggregateMock.mock.calls[0][0][0].$match.$and[0].owner_id;
+      expect(aggregateOwnerId.toHexString()).toBe("507f1f77bcf86cd799439011");
+      expect(caseFindMock).toHaveBeenCalledWith(expect.objectContaining({
+        tenantId: "tenant-crm",
+        owner_id: expect.objectContaining({ _bsontype: "ObjectId" }),
+      }));
     });
 
     it("TC-0046: Unauthenticated request to /api/crm/cases returns HTTP 401", async () => {

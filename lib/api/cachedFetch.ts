@@ -41,10 +41,14 @@ export function getInstantCachedData<T = any>(
   if (!hasHydrated) return null;
 
   const baseUrl = url.split("?")[0];
-  const mem = cache.get(url) || cache.get(baseUrl);
+  const hasQuery = url.includes("?");
+  // A collection-level entry is only safe for an unfiltered request. Sharing
+  // it with query variants makes one filter (or page) briefly show another's
+  // results while the correct request is loading.
+  const mem = cache.get(url) || (!hasQuery ? cache.get(baseUrl) : undefined);
   if (mem?.json) return mem.json as T;
 
-  const sess = getSessionCached(url) || getSessionCached(baseUrl);
+  const sess = getSessionCached(url) || (!hasQuery ? getSessionCached(baseUrl) : null);
   if (sess?.body) {
     try {
       const parsed = JSON.parse(sess.body);
@@ -57,7 +61,7 @@ export function getInstantCachedData<T = any>(
         ts: sess.ts,
       };
       cache.set(url, entry);
-      if (url !== baseUrl) cache.set(baseUrl, entry);
+      if (!hasQuery && url !== baseUrl) cache.set(baseUrl, entry);
       return parsed as T;
     } catch {
       return null;
@@ -208,7 +212,8 @@ export async function cachedFetch(
   // 2. Check browser sessionStorage for instant render across page reloads
   if (!cached) {
     const baseUrl = url.split("?")[0];
-    const stored = getSessionCached(url) || getSessionCached(baseUrl);
+    const hasQuery = url.includes("?");
+    const stored = getSessionCached(url) || (!hasQuery ? getSessionCached(baseUrl) : null);
     if (stored) {
       let parsedJson: any = null;
       try { parsedJson = JSON.parse(stored.body); } catch {}
@@ -221,7 +226,7 @@ export async function cachedFetch(
         ts: stored.ts,
       };
       cache.set(url, cached);
-      if (url !== baseUrl) cache.set(baseUrl, cached);
+      if (!hasQuery && url !== baseUrl) cache.set(baseUrl, cached);
     }
   }
 

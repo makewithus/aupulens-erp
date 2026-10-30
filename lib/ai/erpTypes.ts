@@ -53,6 +53,36 @@ export type ErpStructuredResponse =
       notes?: string;
     }
   | {
+      type: "overdue_invoice_summary";
+      count: number;
+      amount: number;
+    }
+  | {
+      type: "customer_receivables_summary";
+      customerName: string;
+      customerId: string;
+      totalRevenue: number;
+      totalInvoiced: number;
+      totalPaid: number;
+      totalOutstanding: number;
+      invoices: Array<{
+        number: string;
+        totalAmount: number;
+        taxableAmount?: number;
+        paid: number;
+        outstanding: number;
+        status: string;
+      }>;
+    }
+  | {
+      type: "receivables_portfolio_summary";
+      totalRevenue: number;
+      totalInvoiced: number;
+      totalPaid: number;
+      totalOutstanding: number;
+      invoiceCount: number;
+    }
+  | {
       type: "safety_refusal";
       title: string;
       message: string;

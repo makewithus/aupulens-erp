@@ -31,12 +31,15 @@ type Updater = AiChatMessage[] | ((prev: AiChatMessage[]) => AiChatMessage[]);
 interface AiChatStore {
   isOpen: boolean;
   messages: AiChatMessage[];
+  /** Unsent composer text, preserved across assistant panel remounts and reloads. */
+  draft: string;
   /** Server conversation id — keeps multi-turn memory tied to one thread. */
   conversationId: string | null;
   open: () => void;
   close: () => void;
   toggle: () => void;
   setMessages: (updater: Updater) => void;
+  setDraft: (draft: string) => void;
   setConversationId: (id: string | null) => void;
   newChat: () => void;
 }
@@ -46,14 +49,16 @@ export const useAiChatStore = create<AiChatStore>()(
     (set) => ({
       isOpen: false,
       messages: [],
+      draft: "",
       conversationId: null,
       open: () => set({ isOpen: true }),
       close: () => set({ isOpen: false }),
       toggle: () => set((s) => ({ isOpen: !s.isOpen })),
       setMessages: (updater) =>
         set((s) => ({ messages: typeof updater === "function" ? (updater as (p: AiChatMessage[]) => AiChatMessage[])(s.messages) : updater })),
+      setDraft: (draft) => set({ draft }),
       setConversationId: (id) => set({ conversationId: id }),
-      newChat: () => set({ messages: [], conversationId: null }),
+      newChat: () => set({ messages: [], conversationId: null, draft: "" }),
     }),
     {
       name: "aupulens-ai-chat",
@@ -62,6 +67,7 @@ export const useAiChatStore = create<AiChatStore>()(
       // attachment data URLs (keep name/type so chips still render after reload).
       partialize: (s) => ({
         conversationId: s.conversationId,
+        draft: s.draft,
         messages: s.messages
           .filter((m) => !m.isLoading && !(m.role === "assistant" && !m.text))
           .map((m) => (m.attachments ? { ...m, attachments: m.attachments.map((a) => ({ name: a.name, type: a.type, dataUrl: "" })) } : m)),

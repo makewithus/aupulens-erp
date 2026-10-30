@@ -10,6 +10,7 @@ import QuoteBuilder from "@/components/crm/QuoteBuilder";
 import ApprovalTimeline from "@/components/crm/ApprovalTimeline";
 import DocumentManager from "@/components/crm/DocumentManager";
 import Link from "next/link";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import {
   ChevronLeft,
   Download,
@@ -118,7 +119,7 @@ export default function QuoteDetailPage(props: {
 
   const fetchQuote = async () => {
     try {
-      const res = await fetch(`/api/crm/quotes/${id}`, { cache: "no-store" });
+      const res = await cachedFetch(`/api/crm/quotes/${id}`);
       // Never call res.json() blindly — a 5xx can return an empty body, which
       // throws "Unexpected end of JSON input" as an uncaught promise rejection.
       const d = await res.json().catch(() => null);

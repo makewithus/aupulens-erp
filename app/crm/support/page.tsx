@@ -12,26 +12,25 @@ export default function SupportDashboard() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    // KPI cards come from the same dedicated aggregate endpoint the Cases
-    // page uses; the table below only needs a handful of recent cases, not
-    // the entire tenant case history.
-    Promise.all([
-      fetch('/api/crm/cases/kpi').then(res => res.json()),
-      fetch('/api/crm/cases?page=1&limit=10').then(res => res.json()),
-    ]).then(([kpi, recent]) => {
-      if (kpi.success && recent.success) {
-        setData({
-          cases: recent.data.cases,
-          openCount: kpi.data.openCases,
-          breachedCount: kpi.data.breachedOpenCases,
-          avgSat: kpi.data.avgSatScore,
-          avgResTime: kpi.data.avgResTime,
-          escalationsToday: kpi.data.escalationsToday,
-        });
-      } else {
-        setFailed(true);
-      }
-    }).catch(() => setFailed(true)).finally(() => setLoading(false));
+    // One backend response supplies KPIs and recent cases under the same scope.
+    fetch('/api/crm/cases/kpi', { cache: "no-store" })
+      .then(res => res.json())
+      .then((kpi) => {
+        if (kpi.success && Array.isArray(kpi.data?.recentCases)) {
+          setData({
+            cases: kpi.data.recentCases,
+            openCount: kpi.data.openCases,
+            breachedCount: kpi.data.breachedOpenCases,
+            avgSat: kpi.data.avgSatScore,
+            avgResTime: kpi.data.avgResTime,
+            escalationsToday: kpi.data.escalationsToday,
+          });
+        } else {
+          setFailed(true);
+        }
+      })
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -67,7 +66,7 @@ export default function SupportDashboard() {
         </div>
         <div className="bg-card border border-border p-4 rounded-lg">
           <p className="text-muted-foreground text-sm">CSAT Score</p>
-          <p className="text-3xl font-bold font-sans tabular-nums text-green-500">{data.avgSat}</p>
+          <p className="text-3xl font-bold font-sans tabular-nums text-green-500">{data.avgSat ?? "N/A"}</p>
         </div>
         <div className="bg-card border border-orange-800 p-4 rounded-lg">
           <p className="text-orange-500 text-sm">Escalations Today</p>
@@ -75,8 +74,13 @@ export default function SupportDashboard() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-md">
-        <Table>
+      <div className="space-y-2">
+        <div>
+          <h2 className="text-base font-semibold">Recent Cases</h2>
+          <p className="text-xs text-muted-foreground">Latest 10 cases across all statuses. KPI cards above summarize the full selected case scope.</p>
+        </div>
+        <div className="bg-card border border-border rounded-md">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Case</TableHead>
@@ -103,7 +107,8 @@ export default function SupportDashboard() {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </div>
     </div>
   );

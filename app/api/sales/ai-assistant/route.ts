@@ -8,6 +8,7 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import { randomUUID } from 'crypto';
 import SaleOrder from '@/models/sales/SaleOrder';
+import Customer from '@/models/sales/Customer';
 import SalesQuotation from '@/models/sales/SalesQuotation';
 import DeliveryChallan from '@/models/sales/DeliveryChallan';
 import Organization from '@/models/admin/Organization';
@@ -18,6 +19,7 @@ import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
 import { isMongoStorageLimitError, MONGO_STORAGE_LIMIT_MESSAGE } from '@/lib/db/mongoStorageError';
+import { realOrderFilter } from '@/lib/sales/orderEligibility';
 
 export async function POST(request: NextRequest) {
   try {
@@ -159,13 +161,19 @@ let conversationId: string = incomingConversationId || randomUUID();
 
 async function fetchSalesData(tenantId: string) {
   const orders = await (SaleOrder as any)
-    .find({ tenantId })
+    .find(realOrderFilter(tenantId))
     .sort({ createdAt: -1 })
     .limit(20)
     .lean();
 
-  const [totalOrders, issued, org] = await Promise.all([
-    SaleOrder.countDocuments({ tenantId }),
+  const now = new Date();
+  const monthParts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" }).formatToParts(now);
+  const year = monthParts.find((part) => part.type === "year")?.value;
+  const month = monthParts.find((part) => part.type === "month")?.value;
+  const monthStart = new Date(`${year}-${month}-01T00:00:00+05:30`);
+  const nextMonthStart = new Date(Date.UTC(Number(year), Number(month), 1) - 330 * 60 * 1000);
+  const [totalOrders, issued, org, totalCustomers, currentMonthSales] = await Promise.all([
+    SaleOrder.countDocuments(realOrderFilter(tenantId)),
     SalesInvoice.aggregate([
       { $match: { tenantId, ...issuedInvoiceFilter() } },
       { $group: { _id: null, total: { $sum: invoiceRevenueExpression } } },
@@ -176,6 +184,11 @@ async function fetchSalesData(tenantId: string) {
         ...(mongoose.isValidObjectId(tenantId) ? [{ _id: tenantId }] : []),
       ],
     }).select("name subdomain tier subscriptionStatus").lean(),
+    Customer.countDocuments({ tenantId, isCustomer: { $ne: false } }),
+    SalesInvoice.aggregate([
+      { $match: { tenantId, ...issuedInvoiceFilter(), invoiceDate: { $gte: monthStart, $lt: nextMonthStart } } },
+      { $group: { _id: null, total: { $sum: invoiceRevenueExpression } } },
+    ]).exec(),
   ]);
   const totalRevenue = issued[0]?.total || 0;
   const productCounts: { [key: string]: number } = {};
@@ -191,7 +204,6 @@ async function fetchSalesData(tenantId: string) {
     .slice(0, 5)
     .map(([name, count]) => ({ name, count }));
 
-  const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
   const monthlyAgg = await (SalesInvoice as any)
@@ -214,6 +226,8 @@ async function fetchSalesData(tenantId: string) {
     organization: org ? { name: org.name, subdomain: org.subdomain } : null,
     summary: {
       totalOrders,
+      totalCustomers,
+      currentMonthRevenue: currentMonthSales[0]?.total || 0,
       totalRevenue,
       revenueBasis: "Issued invoice taxable value excluding GST, excluding drafts/cancellations",
       averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,

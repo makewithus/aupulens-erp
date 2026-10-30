@@ -3,6 +3,7 @@ import JournalEntry from "@/models/finance/JournalEntry";
 import AccountType from "@/models/finance/AccountType";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { toDateEndInTimeZone, toDateStartInTimeZone } from "@/lib/accounting/reportDate";
+import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
 
 export { toDateEndInTimeZone, toDateStartInTimeZone } from "@/lib/accounting/reportDate";
 
@@ -1087,11 +1088,13 @@ export async function buildAgedPartnerReport({
 
   const partners: Record<string, PartnerAgingBucket> = {};
   let postedLineCount = 0;
+  const receivableSourceIds = new Set<string>();
 
   for (const entry of entries) {
     for (const line of entry.lineIds || []) {
       const account = line.accountId as any;
       if (!account || account.account_type !== accountType) continue;
+      if (type === "receivable" && line.sourceId) receivableSourceIds.add(String(line.sourceId));
 
       const debit = Number(line.debit) || 0;
       const credit = Number(line.credit) || 0;
@@ -1124,37 +1127,34 @@ export async function buildAgedPartnerReport({
     }
   }
 
-  // If no partner-tagged journal lines were found (e.g. standard COA where receivables/payables
-  // are tracked at document level or under broader current asset/liability accounts),
-  // aggregate real aging from unpaid operational documents so reports and ratios are authentic.
-  if (postedLineCount === 0) {
-    if (type === "receivable") {
-      const { SalesInvoice } = await import("@/models/sales/SalesInvoice");
-      const unpaidSalesInvoices = await SalesInvoice.find({
-        tenantId,
-        paymentStatus: { $ne: "paid" },
-        status: { $nin: ["cancelled", "draft"] },
-      }).populate("customerId").lean();
+  // Supplement invoices that have no posted receivable journal line. Older or
+  // unposted invoices can coexist with posted partner balances; falling back
+  // only when the entire ledger is empty silently omitted those documents.
+  if (type === "receivable") {
+    const { SalesInvoice } = await import("@/models/sales/SalesInvoice");
+    const unpaidSalesInvoices = await SalesInvoice.find({
+      tenantId,
+      ...issuedInvoiceFilter(),
+      invoiceDate: { $lte: toDateEndInTimeZone(asOfDate, "UTC") },
+    }).populate("customerId").lean();
 
-      for (const inv of unpaidSalesInvoices as any[]) {
-        const due = inv.amountDue !== undefined ? inv.amountDue : (inv.totalAmount - (inv.amountPaid || 0));
-        if (due <= 0.005) continue;
-        const customerRef = inv.customerId as any;
-        const partnerId = customerRef?._id?.toString() || inv.customer || "unknown";
-        const partnerName = customerRef?.name || customerRef?.companyName || inv.customer || "Customer";
-        if (!partners[partnerId]) {
-          partners[partnerId] = {
-            partnerId,
-            partnerName,
-            openItems: [],
-            unappliedCredits: 0,
-          };
-        }
-        postedLineCount += 1;
-        const maturityDate = inv.dueDate ? new Date(inv.dueDate) : new Date(inv.invoiceDate || inv.createdAt);
-        partners[partnerId].openItems.push({ maturityDate, amount: due });
+    for (const inv of unpaidSalesInvoices as any[]) {
+      if (receivableSourceIds.has(String(inv._id))) continue;
+      const paidFromRows = (inv.payments || []).reduce((sum: number, payment: any) => sum + (Number(payment.amount) || 0), 0);
+      const paid = Math.max(paidFromRows, Number(inv.amountPaid) || 0);
+      const due = inv.markedFullyPaid ? 0 : Math.max(0, Number(inv.amountDue ?? (Number(inv.totalAmount) - paid)) || 0);
+      if (due <= 0.005) continue;
+      const customerRef = inv.customerId as any;
+      const partnerId = customerRef?._id?.toString() || inv.customer || "unknown";
+      const partnerName = customerRef?.header?.displayName || customerRef?.header?.companyName || customerRef?.header?.name || customerRef?.name || inv.customer || "Customer";
+      if (!partners[partnerId]) {
+        partners[partnerId] = { partnerId, partnerName, openItems: [], unappliedCredits: 0 };
       }
-    } else {
+      postedLineCount += 1;
+      const maturityDate = inv.dueDate ? new Date(inv.dueDate) : new Date(inv.invoiceDate || inv.createdAt);
+      partners[partnerId].openItems.push({ maturityDate, amount: due });
+    }
+  } else if (postedLineCount === 0) {
       const Invoice = (await import("@/models/finance/Invoice")).default;
       const unpaidBills = await Invoice.find({
         tenantId,
@@ -1180,7 +1180,6 @@ export async function buildAgedPartnerReport({
         const maturityDate = bill.invoiceDateDue ? new Date(bill.invoiceDateDue) : new Date(bill.invoiceDate || bill.createdAt);
         partners[partnerId].openItems.push({ maturityDate, amount: due });
       }
-    }
   }
 
   const totals = {

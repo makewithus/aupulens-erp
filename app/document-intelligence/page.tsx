@@ -15,6 +15,7 @@ import {
   Trash2,
   FileText,
 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 /**
  * Document Intelligence (vNext Expansion Module 12).
@@ -44,7 +45,7 @@ export default function DocIntelPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/document-intelligence");
+      const res = await cachedFetch("/api/document-intelligence");
       const json = await res.json();
       if (json.success) setDocs(json.data);
     } finally {
@@ -61,7 +62,7 @@ export default function DocIntelPage() {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("docType", "vendor_bill");
-      const res = await fetch("/api/document-intelligence/extract", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/document-intelligence/extract", { method: "POST", body: fd });
       const json = await res.json();
       if (!json.success) return toast.error(json.message || "Extraction failed");
       toast.success(`Extracted with ${json.data.extraction.confidence}% confidence`);
@@ -74,7 +75,7 @@ export default function DocIntelPage() {
   };
 
   const open = async (id: string) => {
-    const res = await fetch(`/api/document-intelligence/${id}`);
+    const res = await cachedFetch(`/api/document-intelligence/${id}`);
     const json = await res.json();
     if (!json.success) return toast.error("Failed to open");
     setActive({ id, ext: { ...empty, ...json.data.extraction }, dups: json.data.duplicates || [], status: json.data.status });
@@ -89,7 +90,7 @@ export default function DocIntelPage() {
     if (!active) return;
     setBusy("save");
     try {
-      const res = await fetch(`/api/document-intelligence/${active.id}`, {
+      const res = await cachedFetch(`/api/document-intelligence/${active.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ extraction: active.ext }),
       });
       const json = await res.json();
@@ -103,7 +104,7 @@ export default function DocIntelPage() {
     await save();
     setBusy("confirm");
     try {
-      const res = await fetch(`/api/document-intelligence/${active.id}/confirm`, { method: "POST" });
+      const res = await cachedFetch(`/api/document-intelligence/${active.id}/confirm`, { method: "POST" });
       const json = await res.json();
       if (!json.success) return toast.error(json.message || "Confirm failed");
       toast.success(json.data.message);
@@ -114,7 +115,7 @@ export default function DocIntelPage() {
 
   const del = async (id: string) => {
     if (!window.confirm("Delete this extracted document?")) return;
-    await fetch(`/api/document-intelligence/${id}`, { method: "DELETE" });
+    await cachedFetch(`/api/document-intelligence/${id}`, { method: "DELETE" });
     if (active?.id === id) setActive(null);
     await load();
   };

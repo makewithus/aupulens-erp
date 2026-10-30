@@ -2230,7 +2230,7 @@ export const PLAN_KEY_LABELS: Record<PlanKeyType, string> = {
   [PLAN_KEY.FREE]: "Free / Trial",
   [PLAN_KEY.STARTER]: "Starter",
   [PLAN_KEY.GROWTH]: "Growth",
-  [PLAN_KEY.PRO]: "Pro",
+  [PLAN_KEY.PRO]: "Scale",
   [PLAN_KEY.BUSINESS]: "Business",
   [PLAN_KEY.ENTERPRISE]: "Enterprise",
   [PLAN_KEY.CUSTOM]: "Custom",

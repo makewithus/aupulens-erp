@@ -301,7 +301,7 @@ export default function ManufacturingPage() {
   const fetchResources = async () => {
     try {
       const [pRes, uRes] = await Promise.all([
-        fetch("/api/sales/products?limit=100"),
+        cachedFetch("/api/sales/products?limit=100"),
         fetch("/api/users"),
       ]);
       if (pRes.ok) {
@@ -363,7 +363,7 @@ export default function ManufacturingPage() {
         ? `/api/inventory/operations/manufacturing/${formData._id}`
         : "/api/inventory/operations/manufacturing";
       const method = formData._id ? "PATCH" : "POST";
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -386,7 +386,7 @@ export default function ManufacturingPage() {
     extra?: any,
   ) => {
     try {
-      const res = await fetch(
+      const res = await cachedFetch(
         `/api/inventory/operations/manufacturing/${id}`,
         {
           method: "PATCH",

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { NewAutomationRuleModal } from "@/components/crm/NewAutomationRuleModal";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 export default function AutomationsPage() {
   const [rules, setRules] = useState<any[]>([]);
@@ -17,7 +18,7 @@ export default function AutomationsPage() {
   }, []);
 
   const fetchRules = async () => {
-    const res = await fetch("/api/crm/automations");
+    const res = await cachedFetch("/api/crm/automations");
     const data = await res.json();
     if (data.success) {
       setRules(data.data);
@@ -31,7 +32,10 @@ export default function AutomationsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: !currentState })
     });
-    if (res.ok) fetchRules();
+    if (res.ok) {
+      invalidateCache("/api/crm/automations");
+      fetchRules();
+    }
   };
 
   return (

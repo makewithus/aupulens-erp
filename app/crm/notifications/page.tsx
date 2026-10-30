@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Bell, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 export default function NotificationCenter() {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -13,7 +14,7 @@ export default function NotificationCenter() {
   }, []);
 
   const fetchNotifications = () => {
-    fetch("/api/crm/notifications").then(r => r.json()).then(d => {
+    cachedFetch("/api/crm/notifications").then(r => r.json()).then(d => {
       if (d.success) setNotifications(d.data);
       setLoading(false);
     });
@@ -25,6 +26,7 @@ export default function NotificationCenter() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ markAllRead: true })
     });
+    invalidateCache("/api/crm/notifications");
     fetchNotifications();
   };
 

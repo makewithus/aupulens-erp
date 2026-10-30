@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Activity, Search, FileText, Package } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface ActivityLog {
   id: string;
@@ -35,7 +36,7 @@ export default function ActivityLogsPage() {
   // own timestamps), not a hardcoded placeholder list.
   const fetchActivities = useCallback(async () => {
     try {
-      const res = await fetch('/api/manufacturing/activity-logs');
+      const res = await cachedFetch('/api/manufacturing/activity-logs');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setActivities(data.activities || []);

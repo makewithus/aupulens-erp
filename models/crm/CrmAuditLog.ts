@@ -18,6 +18,7 @@ const ALLOWED_ACTIONS = [
   "created",
   "updated",
   "deleted",
+  "imported",
   // Status transitions
   "status_changed",
   "assigned",

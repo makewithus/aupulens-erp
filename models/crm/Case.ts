@@ -14,6 +14,7 @@ export interface ICase extends Document {
   status: string;
   sla_target_at?: Date;
   sla_breached: boolean;
+  resolvedAt?: Date;
   escalation_level: number;
   resolution_summary?: string;
   closure_reason?: string;
@@ -22,6 +23,8 @@ export interface ICase extends Document {
   escalation_history?: { level: number; previous_level: number; trigger: string; user_id: mongoose.Types.ObjectId; timestamp: Date }[];
   satisfaction_comment?: string;
   satisfaction_submitted_at?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const CaseSchema = new Schema<ICase>({
@@ -38,6 +41,7 @@ const CaseSchema = new Schema<ICase>({
   status: { type: String, enum: ['New','Open','In Progress','Waiting on Customer','Waiting on Internal Team','Resolved','Closed','Reopened'], default: 'New' },
   sla_target_at: { type: Date },
   sla_breached: { type: Boolean, default: false },
+  resolvedAt: { type: Date },
   escalation_level: { type: Number, default: 0, min: 0, max: 4 },
   escalation_history: [{
     level: { type: Number },

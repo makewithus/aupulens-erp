@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
   }
 
   const tenantId = session.user.tenantId;
+  const fresh = req.nextUrl.searchParams.get("fresh") === "true";
   const cacheKey = `crm-reports-campaigns:${tenantId}`;
-  const cached = getCachedData<any>(cacheKey);
+  const cached = fresh ? null : getCachedData<any>(cacheKey);
   if (cached) {
     return NextResponse.json(cached);
   }

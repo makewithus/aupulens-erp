@@ -92,7 +92,7 @@ export function StockTable({
             <TableCell className="text-right font-mono text-sm font-bold text-foreground">
               {p.tab_general_information?.type === "service"
                 ? "—"
-                : (stockMap[p._id] ?? 0)}
+                : (p.inventoryQty ?? stockMap[p._id] ?? 0)}
             </TableCell>
 
             {/* Actions */}

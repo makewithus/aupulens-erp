@@ -33,7 +33,7 @@ export function DashboardCharts({
   if (!hasFinance && !hasSales) return null;
 
   return (
-    <div className="grid grid-cols-1 gap-1 lg:grid-cols-3">
+    <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 2xl:grid-cols-3">
       {hasFinance && <ChartCard
         title="Financial Health"
         subtitle="All time · Posted revenue, costs & net income"

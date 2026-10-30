@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const SOURCE_SYSTEMS = [
   { value: "tally", label: "Tally Prime" },
@@ -76,7 +77,7 @@ export default function MigrationCenterPage() {
   const loadBatches = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/migration/batches");
+      const res = await cachedFetch("/api/migration/batches");
       const json = await res.json();
       if (json.success) setBatches(json.data);
     } catch {

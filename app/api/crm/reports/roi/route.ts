@@ -18,10 +18,11 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const campaignId = url.searchParams.get("campaign_id");
+  const fresh = url.searchParams.get("fresh") === "true";
   const tenantId = session.user.tenantId;
 
   const cacheKey = `crm-reports-roi:${tenantId}:${campaignId || "global"}`;
-  const cached = getCachedData<any>(cacheKey);
+  const cached = fresh ? null : getCachedData<any>(cacheKey);
   if (cached) {
     return NextResponse.json(cached);
   }

@@ -18,6 +18,7 @@ import { canAccessDemoDoc } from "@/lib/auth/scopeFilter";
 import "@/models/crm/Contact";
 import "@/models/crm/Account";
 import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
+import { invalidateServerCache } from "@/lib/api/serverCache";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   try {
@@ -33,21 +34,35 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     const opp = await CrmOpportunity.findOne({ _id: params.id, tenantId: session.user.tenantId })
           .populate('account_id', 'company_name')
           .populate('owner_id', 'name')
-          .populate('stakeholders.contact_id', 'first_name last_name email mobile').lean();
+          .lean();
     
   if (!opp || !canAccessDemoDoc(session, opp)) return NextResponse.json({ success: false, message: "Opportunity not found" }, { status: 404 });
 
-  // Calculate dynamic risk
-  const lastActivity = await CrmActivity.findOne({ linked_opportunity_id: params.id }).sort({ activity_date: -1 }).lean();
-  
-  const health = evaluateOpportunityHealth(
-    opp as any,
-    lastActivity ? lastActivity.activity_date : null,
-    0, // Mock closeDateChangesCount
-    50 // Mock engagementScore
-  );
-  
-  const dynamicRisk = health.level;
+  const includeInsights = req.nextUrl.searchParams.get("insights") === "true";
+  // Keep the first detail response to the opportunity and its two visible
+  // header relationships. Activity history, stakeholder population, and
+  // health evaluation are only needed for the deferred enrichment request.
+  let dynamicRisk: string = (opp as any).is_at_risk || (opp as any).risk_level === "High"
+    ? "At Risk"
+    : (opp as any).risk_level === "Medium" ? "Warning" : "Healthy";
+  let healthFlags: string[] = [];
+  let lastActivity: any = null;
+  if (includeInsights) {
+    const [activity, populatedOpportunity] = await Promise.all([
+      CrmActivity.findOne({ linked_opportunity_id: params.id }).sort({ activity_date: -1 }).lean(),
+      CrmOpportunity.populate(opp, { path: "stakeholders.contact_id", select: "first_name last_name email mobile" }),
+    ]);
+    lastActivity = activity;
+    Object.assign(opp as any, populatedOpportunity);
+    const health = evaluateOpportunityHealth(
+      opp as any,
+      lastActivity ? lastActivity.activity_date : null,
+      0,
+      50,
+    );
+    dynamicRisk = health.level;
+    healthFlags = health.flags;
+  }
 
   // Real AI deal-risk assessment (Phase 2): only called when the rule-based
   // health check already flagged concern, so a healthy deal never incurs AI
@@ -55,10 +70,10 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   // for *whether* something's wrong (deterministic, predictable); the LLM's
   // job is explaining *why* in plain language and suggesting a next action.
   let aiAssessment: { summary: string; reasoning: string; suggestedAction?: string; confidence: number } | null = null;
-  if (dynamicRisk !== "Healthy") {
+  if (includeInsights && dynamicRisk !== "Healthy") {
     const insight = await getLlmCrmInsight(
       session.user.tenantId,
-      "Assess this sales opportunity's deal risk. A rule-based health check already flagged concerns (see ruleBasedFlags) — explain in plain language why this deal is at risk and suggest one concrete next action to save or advance it.",
+      "Assess this specific sales opportunity using its current stage and the supplied facts. Explain only risks supported by ruleBasedFlags. Name the current stage accurately; never refer to a different stage. Make the next action appropriate for the current stage and deal name.",
       JSON.stringify({
         deal_name: (opp as any).deal_name,
         stage: (opp as any).stage,
@@ -67,16 +82,26 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
         expected_close_date: (opp as any).expected_close_date,
         stage_entered_at: (opp as any).stage_entered_at,
         ruleBasedRiskLevel: dynamicRisk,
-        ruleBasedFlags: health.flags,
+        ruleBasedFlags: healthFlags,
         lastActivityDate: lastActivity ? (lastActivity as any).activity_date : null,
         stakeholderCount: (opp as any).stakeholders?.length || 0,
       })
     );
     if (insight.ok) {
+      const dealName = (opp as any).deal_name || (opp as any).name || "This opportunity";
+      const stageActions: Record<string, string> = {
+        Prospecting: "qualify the business need and identify the decision maker",
+        Discovery: "confirm requirements, decision process, and success criteria",
+        "Requirement Gathering": "validate scope, budget, and timeline with the customer",
+        "Solution Fit": "review the proposed solution against confirmed requirements",
+        "Proposal Sent": "confirm proposal receipt and schedule a review with the decision maker",
+        Negotiation: "resolve remaining commercial or legal terms and agree on a decision date",
+        Approval: "confirm the approval owner and follow up on final sign-off",
+      };
       aiAssessment = {
-        summary: insight.summary,
-        reasoning: insight.reasoning,
-        suggestedAction: insight.suggestedAction,
+        summary: `${dealName} · ${(opp as any).stage}: ${insight.summary}`,
+        reasoning: `Current stage: ${(opp as any).stage}. Rule-based factors: ${healthFlags.join("; ")}. ${(opp as any).expected_close_date ? `Expected close: ${new Date((opp as any).expected_close_date).toLocaleDateString("en-GB")}. ` : ""}${insight.reasoning}`,
+        suggestedAction: `For ${dealName}: ${stageActions[(opp as any).stage] || `review the flagged items in the ${(opp as any).stage} stage`}.`,
         confidence: insight.confidence,
       };
       if (dynamicRisk === "Critical" || dynamicRisk === "At Risk") {
@@ -99,7 +124,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const deterministicWinProb = calculateWinProbability(opp as any);
   let winProbability = deterministicWinProb;
   let winProbabilityAiUsed = false;
-  if (dynamicRisk !== "Healthy") {
+  if (includeInsights && dynamicRisk !== "Healthy") {
     const wp = await estimateWinProbabilityWithAi(session.user.tenantId, opp as any);
     winProbability = wp.probability;
     winProbabilityAiUsed = wp.insight.ok;
@@ -110,7 +135,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       data: {
         ...(opp as any),
         dynamicRisk,
-        healthFlags: health.flags,
+        healthFlags,
         aiAssessment,
         winProbability,
         winProbabilityAiUsed,
@@ -142,13 +167,26 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   if (body.stage && body.stage !== oldStage) {
     const { valid, message } = await validateOpportunityStage(opp, body.stage);
     if (!valid) return NextResponse.json({ success: false, message: message }, { status: 422 });
+    if (body.stage === 'Closed Won') {
+      const closeCheck = requireRole(session, ['opportunity.close']);
+      if (closeCheck) return closeCheck;
+    }
+
+    // Persist the stage alongside its history; previously only the history
+    // changed, so the board showed the optimistic move until the next fetch.
+    opp.stage = body.stage;
 
     // Update history
-    const history = opp.stage_history || [];
-    if (history.length > 0) history[history.length - 1].exited_at = new Date();
-    history.push({ stage: body.stage, entered_at: new Date() });
+    const history = (opp.stage_history || []).filter((entry: any, index: number, entries: any[]) =>
+      index === 0 || entries[index - 1]?.stage !== entry.stage,
+    );
+    const transitionAt = new Date();
+    if (history[history.length - 1]?.stage !== body.stage) {
+      if (history.length > 0) history[history.length - 1].exited_at = transitionAt;
+      history.push({ stage: body.stage, entered_at: transitionAt });
+    }
     opp.stage_history = history;
-    opp.stage_entered_at = new Date();
+    opp.stage_entered_at = transitionAt;
 
     // Automations
     await CrmActivity.create({
@@ -165,8 +203,6 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     } else if (body.stage === 'Negotiation') {
       await CrmTask.create({ tenantId: session.user.tenantId, title: "Prepare Approval Document", category: 'Prepare Quote', due_date: new Date(Date.now() + 86400000 * 2), assigned_to_id: opp.owner_id, linked_opportunity_id: opp._id, status: 'Pending', createdBy: session.user.id });
     } else if (body.stage === 'Closed Won') {
-      const closeCheck = requireRole(session, ['opportunity.close']);
-      if (closeCheck) return closeCheck;
       await CrmTask.create({ tenantId: session.user.tenantId, title: "Initiate Onboarding", category: 'Onboarding', due_date: new Date(Date.now() + 86400000 * 1), assigned_to_id: opp.owner_id, linked_opportunity_id: opp._id, status: 'Pending', createdBy: session.user.id });
     }
 
@@ -198,7 +234,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   };
 
   if (body.stage && body.stage !== oldStage && body.probability === undefined) {
-    opp.probability = PROBABILITY_MAP[body.stage] || opp.probability;
+    opp.probability = PROBABILITY_MAP[body.stage] ?? opp.probability;
   }
 
   // Update other fields safely
@@ -215,13 +251,14 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   });
 
   // Calculate forecast
-  if (body.amount !== undefined || body.probability !== undefined) {
+  if (body.amount !== undefined || body.probability !== undefined || body.stage !== undefined) {
     const amt = opp.amount || 0;
     const prob = opp.probability || 0;
     opp.weighted_value = amt * (prob / 100);
   }
 
   await opp.save();
+  invalidateServerCache(`crm-analytics-live:${session.user.tenantId}:`);
 
   await CrmAuditLog.create({
     tenantId: session.user.tenantId, user_id: session.user.id, action: 'updated', record_type: 'Opportunity', record_id: opp._id, timestamp: new Date()

@@ -15,6 +15,8 @@ import { safeContextJson } from "@/lib/ai/sanitizeContext";
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
 import { isMongoStorageLimitError, MONGO_STORAGE_LIMIT_MESSAGE } from "@/lib/db/mongoStorageError";
+import { isCurrentEmployee } from "@/lib/hr/employeeLifecycle";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,7 +56,7 @@ let conversationId: string = incomingConversationId || randomUUID();
     const completedRetry = await getCompletedExchange({ tenantId, userId, module: "hr", conversationId, requestId });
     if (completedRetry) return NextResponse.json({ response: completedRetry, conversationId });
 
-    const data = await fetchHRData(tenantId);
+    const data = await fetchHRData(tenantId, session);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
     const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts, requestId, userId);
     // strictNullChecks is off project-wide, which breaks discriminated-union
@@ -87,18 +89,16 @@ let conversationId: string = incomingConversationId || randomUUID();
   }
 }
 
-async function fetchHRData(tenantId: string) {
+async function fetchHRData(tenantId: string, session: any) {
   const [employees, departments, pendingLeaves, recentPayroll] =
     await Promise.all([
-      Employee.find({ tenantId }).lean(),
+      Employee.find(applyDemoScope(session, { tenantId })).lean(),
       Department.find({ tenantId }).lean(),
       LeaveRequest.find({ tenantId, status: "pending" }).lean(),
       Payroll.find({ tenantId }).sort({ createdAt: -1 }).limit(3).lean(),
     ]);
 
-  const activeEmployees = employees.filter(
-    (e) => e.lifecycleStatus === "active",
-  );
+  const activeEmployees = employees.filter(isCurrentEmployee);
 
   const totalSalaryBill = activeEmployees.reduce(
     (sum, e: any) => sum + (e.salary?.grossSalary || 0),
@@ -121,7 +121,8 @@ async function fetchHRData(tenantId: string) {
     })),
     lifecycleBreakdown: employees.reduce(
       (acc: Record<string, number>, e: any) => {
-        acc[e.lifecycleStatus] = (acc[e.lifecycleStatus] || 0) + 1;
+        const lifecycle = e.lifecycleStatus || (e.status === "active" ? "active" : "candidate");
+        acc[lifecycle] = (acc[lifecycle] || 0) + 1;
         return acc;
       },
       {},

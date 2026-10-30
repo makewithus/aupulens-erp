@@ -39,15 +39,24 @@ export function Logo({
   }
 
   return (
-    <Image
-      src={logoSrc}
-      alt="Aupulens"
-      width={width}
-      height={height}
-      priority={priority}
-      unoptimized
-      onError={() => setHasError(true)}
-      className={className}
-    />
+    <>
+      <Image
+        src={logoSrc}
+        alt="Aupulens"
+        width={width}
+        height={height}
+        priority={priority}
+        unoptimized
+        onError={() => setHasError(true)}
+        className={`${className || ""} print:hidden`}
+      />
+      <img
+        src="/logo-dark.png"
+        alt="Aupulens"
+        width={width}
+        height={height}
+        className={`${className || ""} hidden print:block`}
+      />
+    </>
   );
 }

@@ -30,7 +30,9 @@ export async function GET() {
     CrmCase.countDocuments({ ...base, status: { $nin: ["Resolved", "Closed"] } }),
     CrmCase.countDocuments({ ...base, severity: { $in: ["High", "Critical"] }, status: { $nin: ["Resolved", "Closed"] } }),
     CrmCase.find({ ...base, satisfaction_score: { $gte: 1, $lte: 5 } }).select("satisfaction_score").lean(),
-    CrmCase.countDocuments({ ...base, sla_breached: true, status: { $nin: ["Resolved", "Closed"] } }),
+    // Derive the live breach count from the deadline. The stored flag can go
+    // stale while a case remains open, so it must not drive dashboard KPIs.
+    CrmCase.countDocuments({ ...base, sla_target_at: { $lt: now }, status: { $nin: ["Resolved", "Closed"] } }),
     CrmContract.countDocuments({ ...base, renewal_status: "Renewed" }),
     CrmContract.countDocuments({ ...base, renewal_status: { $in: ["Renewed", "Lost"] } }),
   ]);

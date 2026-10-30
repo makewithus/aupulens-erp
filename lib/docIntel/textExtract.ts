@@ -10,6 +10,7 @@
  * that honestly so the user can upload an image page instead, rather than
  * silently feeding an empty string to the LLM.
  */
+import { installPdfCanvasGlobals } from "@/lib/pdf/nodeCanvas";
 
 const IMAGE_EXT: Record<string, string> = {
   png: "image/png",
@@ -37,6 +38,7 @@ export function validateDocument(fileName: string): string | null {
 }
 
 async function extractPdf(buffer: Buffer): Promise<string> {
+  await installPdfCanvasGlobals();
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {

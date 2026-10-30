@@ -32,7 +32,7 @@ export function DashboardStats({
   const has = (module: string) => enabledModules.includes(module);
 
   return (
-    <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 2xl:grid-cols-3">
       {has("finance") && <StatCard
         title="Revenue · Posted"
         value={formatCurrency(summary.finance.totalRevenue)}

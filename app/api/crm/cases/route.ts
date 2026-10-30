@@ -6,7 +6,7 @@ import dbConnect from "@/lib/db";
 import CrmCase from "@/models/crm/Case";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import CrmTask from "@/models/crm/Task";
-import { calculateSlaTarget } from "@/lib/crm/slaEngine";
+import { calculateSlaTarget, isSlaCurrentlyBreached } from "@/lib/crm/slaEngine";
 import { logSystemActivity } from "@/lib/crm/activityLogger";
 import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
 
@@ -18,7 +18,14 @@ async function GET_handler(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const query: any = { tenantId: session.user.tenantId };
 
-  if (searchParams.get('status')) query.status = searchParams.get('status');
+  // Saved view controls whether users see cases assigned to them or the
+  // tenant-wide case list. The UI sends this explicitly for every request.
+  if (searchParams.get('view') !== 'all') query.owner_id = session.user.id;
+
+  const status = searchParams.get('status');
+  if (status === 'open') query.status = { $nin: ['Resolved', 'Closed'] };
+  else if (status === 'resolved_closed') query.status = { $in: ['Resolved', 'Closed'] };
+  else if (status) query.status = status;
   if (searchParams.get('severity')) query.severity = searchParams.get('severity');
   const search = searchParams.get('search');
   if (search) {
@@ -54,7 +61,11 @@ async function GET_handler(req: NextRequest) {
   // matching the convention used across the rest of this codebase.
   const pageParam = searchParams.get('page');
   if (!pageParam) {
-    const cases = await baseQuery.lean();
+    const rows = await baseQuery.lean();
+    const cases = rows.map((crmCase: any) => ({
+      ...crmCase,
+      sla_breached: isSlaCurrentlyBreached(crmCase),
+    }));
     return NextResponse.json({ success: true, data: { cases, total: cases.length, page: 1, totalPages: 1 } });
   }
 
@@ -62,10 +73,14 @@ async function GET_handler(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
   const skip = (page - 1) * limit;
 
-  const [total, cases] = await Promise.all([
+  const [total, rows] = await Promise.all([
     CrmCase.countDocuments(query),
     baseQuery.skip(skip).limit(limit).lean(),
   ]);
+  const cases = rows.map((crmCase: any) => ({
+    ...crmCase,
+    sla_breached: isSlaCurrentlyBreached(crmCase),
+  }));
 
   return NextResponse.json({ success: true, data: { cases, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) } });
 }

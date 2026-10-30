@@ -2,6 +2,7 @@ import connectDB from "@/lib/db";
 import SaaSSubscription, { SAAS_SUBSCRIPTION_STATUS } from "@/models/billing/SaaSSubscription";
 import Organization from "@/models/admin/Organization";
 import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
+import Plan from "@/models/platform/Plan";
 import { appendSubscriptionEvent } from "@/lib/billing/appendSubscriptionEvent";
 import {
   ORGANIZATION_TIER,
@@ -10,11 +11,11 @@ import {
   SUBSCRIPTION_EVENT_TYPE,
   type OrganizationTier,
 } from "@/lib/constants/statuses";
-import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
 import { invalidateEntitlementsCache } from "@/lib/platform/entitlements/resolve";
 import { enqueueBillingNotification } from "@/lib/billing/notifications";
 import { razorpayService } from "@/lib/billing/razorpayClient";
 import { subscriptionManager } from "@/lib/billing/subscriptionManager";
+import { priceWithAddOns } from "@/lib/billing/planPricing";
 
 function mapPlanKeyToTier(planKey: PlanKeyType): OrganizationTier {
   switch (planKey) {
@@ -46,12 +47,18 @@ export async function runScheduledDowngradesSweep(): Promise<{ processed: number
   for (const sub of dueDowngrades) {
     if (!sub.scheduledChange) continue;
     const targetPlanKey = sub.scheduledChange.planKey;
-    const targetDef = PLAN_DEFINITIONS[targetPlanKey];
+    const requestedUsers = sub.scheduledChange.userCount;
+    const selectedAddOns = sub.scheduledChange.addOns || [];
+    const requestedCycle = sub.scheduledChange.billingCycle || sub.billingCycle;
+    const targetDef = await Plan.findOne({ key: targetPlanKey }).lean();
 
     sub.planKey = targetPlanKey;
     if (targetDef) {
-      sub.currentPrice =
-        sub.billingCycle === "yearly" ? targetDef.priceYearly : targetDef.priceMonthly;
+      const priced = priceWithAddOns(targetDef, requestedCycle, requestedUsers, selectedAddOns);
+      sub.currentPrice = priced.price;
+      sub.userCount = priced.userCount;
+      sub.billingCycle = requestedCycle;
+      sub.metadata = { ...(sub.metadata || {}), selectedAddOns };
     }
     sub.set("scheduledChange", undefined);
     await sub.save();
@@ -61,6 +68,7 @@ export async function runScheduledDowngradesSweep(): Promise<{ processed: number
       {
         $set: {
           planKey: targetPlanKey,
+          "overrides.maxUsers": sub.userCount,
           assignedAt: now,
           effectiveFrom: now,
         },
@@ -74,7 +82,7 @@ export async function runScheduledDowngradesSweep(): Promise<{ processed: number
     if (org) {
       org.tier = newTier;
       if (targetDef?.features) {
-        org.maxUsers = targetDef.features.maxUsers;
+        org.maxUsers = sub.userCount;
         org.aiCallsPerMonth = targetDef.features.aiCreditsPerMonth;
       }
       await org.save();

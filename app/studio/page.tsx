@@ -18,6 +18,7 @@ import {
   XCircle,
   MinusCircle,
 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 /**
  * Aupulens Studio (vNext Expansion Module 5 — Visual ERP Builder).
@@ -59,8 +60,8 @@ export default function StudioPage() {
     setLoading(true);
     try {
       const [cat, wfs] = await Promise.all([
-        fetch("/api/studio/catalog").then((r) => r.json()),
-        fetch("/api/studio/workflows").then((r) => r.json()),
+        cachedFetch("/api/studio/catalog").then((r) => r.json()),
+        cachedFetch("/api/studio/workflows").then((r) => r.json()),
       ]);
       if (cat.success) setCatalog(cat.data);
       if (wfs.success) setList(wfs.data);
@@ -72,7 +73,7 @@ export default function StudioPage() {
   useEffect(() => { load(); }, [load]);
 
   const openRuns = async (id: string) => {
-    const res = await fetch(`/api/studio/workflows/${id}/runs`);
+    const res = await cachedFetch(`/api/studio/workflows/${id}/runs`);
     const json = await res.json();
     if (json.success) setRuns(json.data);
   };
@@ -88,7 +89,7 @@ export default function StudioPage() {
     setBusy("save");
     try {
       const isNew = !draft._id;
-      const res = await fetch(isNew ? "/api/studio/workflows" : `/api/studio/workflows/${draft._id}`, {
+      const res = await cachedFetch(isNew ? "/api/studio/workflows" : `/api/studio/workflows/${draft._id}`, {
         method: isNew ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
@@ -102,7 +103,7 @@ export default function StudioPage() {
   };
 
   const toggle = async (wf: WF) => {
-    const res = await fetch(`/api/studio/workflows/${wf._id}`, {
+    const res = await cachedFetch(`/api/studio/workflows/${wf._id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: !wf.enabled }),
     });
     const json = await res.json();
@@ -111,7 +112,7 @@ export default function StudioPage() {
 
   const del = async (id: string) => {
     if (!window.confirm("Delete this workflow and its run history?")) return;
-    await fetch(`/api/studio/workflows/${id}`, { method: "DELETE" });
+    await cachedFetch(`/api/studio/workflows/${id}`, { method: "DELETE" });
     if (draft?._id === id) setDraft(null);
     await load();
   };
@@ -122,7 +123,7 @@ export default function StudioPage() {
     try { payload = JSON.parse(samplePayload); } catch { return toast.error("Sample payload is not valid JSON"); }
     setBusy("run");
     try {
-      const res = await fetch(`/api/studio/workflows/${draft._id}/run`, {
+      const res = await cachedFetch(`/api/studio/workflows/${draft._id}/run`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload }),
       });
       const json = await res.json();

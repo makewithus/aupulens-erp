@@ -27,11 +27,34 @@ export const currency = (n: number) => `₹${Number(n).toLocaleString("en-IN", {
 export const customerName = (c: any) => c?.header?.displayName || c?.header?.companyName || c?.header?.name || "Unnamed customer";
 export const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export const flexibleNameRegex = (s: string) => new RegExp(escapeRegex(s.trim()).replace(/\s+/g, "[\\s._-]+"), "i");
+function tenantScope(tenantId: string) {
+  return tenantId === "default" || tenantId === "default-tenant"
+    ? { $in: ["default", "default-tenant"] }
+    : tenantId;
+}
 export function requireSalesAccess(role: string) {
   if (!["sales", "admin", "master-admin"].includes(role)) throw new ErpToolError("PERMISSION_DENIED", "You don't have permission to access Sales records.", 403);
 }
 export async function resolveCustomer(tenantId: string, name: string) {
-  const search = (exact: boolean) => Customer.find({ tenantId, $or: ["header.displayName", "header.companyName", "header.name"].map(field => ({ [field]: exact ? { $regex: `^${escapeRegex(name)}$`, $options: "i" } : flexibleNameRegex(name) })) }).select("header").limit(6).maxTimeMS(5000).lean();
+  // Older/imported customer rows may keep the searchable name at the document
+  // root. Include it alongside the current header fields so AI quote lookup
+  // works for both legacy and current customer records.
+  const fields = ["header.displayName", "header.companyName", "header.name", "name"];
+  const search = (exact: boolean) => {
+    const tenantFilter = { tenantId: tenantScope(tenantId) };
+    if (exact) {
+      return Customer.find({ ...tenantFilter, $or: fields.map(field => ({ [field]: { $regex: `^${escapeRegex(name)}$`, $options: "i" } })) })
+        .select("header name contact_details.email contact_details.mobile contact_details.phone").limit(6).maxTimeMS(5000).lean();
+    }
+    // Match each part of a person's name across the stored name fields. Some
+    // imported contacts store first and last names separately, while others
+    // keep the complete name in header.name or displayName.
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    return Customer.find({
+      ...tenantFilter,
+      $and: words.map(word => ({ $or: [...fields, "header.firstName", "header.lastName"].map(field => ({ [field]: { $regex: escapeRegex(word), $options: "i" } })) })),
+    }).select("header name contact_details.email contact_details.mobile contact_details.phone").limit(6).maxTimeMS(5000).lean();
+  };
   let matches = await search(true);
   if (!matches.length) matches = await search(false);
   if (!matches.length) throw new ErpToolError("NOT_FOUND", `No customer matching “${name}” was found in your accessible records.`, 404);

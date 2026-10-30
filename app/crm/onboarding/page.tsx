@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { Rocket, Clock, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function OnboardingDashboard() {
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/crm/onboarding").then(r => r.json()).then(d => {
+    cachedFetch("/api/crm/onboarding").then(r => r.json()).then(d => {
       if (d.success) setPlans(d.data);
       setLoading(false);
     });

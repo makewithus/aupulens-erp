@@ -34,7 +34,7 @@ export function AiMarkdown({
   if (structuredData) {
     return (
       <div className={cn("w-full my-1", className)}>
-        <StructuredErpView data={structuredData} onAction={onAction} />
+        <StructuredErpView data={structuredData} fallbackText={content} onAction={onAction} />
       </div>
     );
   }

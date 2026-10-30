@@ -17,6 +17,7 @@ import {
   RefreshCw, TrendingUp, Loader2,
 } from "lucide-react";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 // âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -247,7 +248,7 @@ function ContractsPageInner() {
       if (dateTo) params.set("dateTo", dateTo);
     }
     try {
-      const res = await fetch(`/api/crm/contracts?${params}`);
+      const res = await cachedFetch(`/api/crm/contracts?${params}`);
       const data = await res.json();
       if (data.success) {
         setContracts(data.data.contracts || []);
@@ -266,7 +267,7 @@ function ContractsPageInner() {
 
   const fetchSummary = useCallback(async () => {
     try {
-      const res = await fetch("/api/crm/renewals");
+      const res = await cachedFetch("/api/crm/renewals");
       const data = await res.json();
       if (data.success) setRenewalSummary(data.data);
     } catch {
@@ -293,6 +294,8 @@ function ContractsPageInner() {
     if (data.success) {
       const r = data.data;
       toast.success(`Engine ran: ${r.tasksCreated} tasks, ${r.activitiesCreated} activities, ${r.expired} expired.`);
+      invalidateCache("/api/crm/contracts");
+      invalidateCache("/api/crm/renewals");
       fetchContracts();
       fetchSummary();
     } else {
@@ -310,7 +313,7 @@ function ContractsPageInner() {
       <NewContractModal
         open={showModal}
         onClose={() => setShowModal(false)}
-        onCreated={() => { setShowModal(false); fetchContracts(); }}
+        onCreated={() => { setShowModal(false); invalidateCache("/api/crm/contracts"); fetchContracts(); }}
       />
 
       {/* Header */}

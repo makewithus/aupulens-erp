@@ -8,7 +8,7 @@ import OrgInvite from "@/models/auth/OrgInvite";
 import User from "@/models/auth/User";
 import { INVITE_STATUS } from "@/lib/constants/statuses";
 import { requireOrgAdmin } from "@/lib/org/rbac";
-import { getTierLimits } from "@/lib/constants/tiers";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import { buildTenantUrl } from "@/lib/config";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
     }
 
-    // Tier-derived cap — single source of truth (lib/constants/tiers.ts).
-    const { maxUsers } = getTierLimits(org.tier);
+    // Use the same effective seat limit that billing writes to entitlements.
+    const { limits: { maxUsers } } = await resolveEntitlements(tenantId);
 
     const memberCount = await User.countDocuments({ tenantId });
 

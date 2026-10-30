@@ -12,6 +12,11 @@ export const GENDERS = ["male", "female", "other"] as const;
 export const EMPLOYMENT_TYPES = ["full-time", "part-time", "contract", "intern"] as const;
 export const OBJECT_ID_RE = /^[a-f\d]{24}$/i;
 
+export function isValidEmployeeCode(value: unknown): value is string {
+  const code = String(value ?? "").trim();
+  return code.length >= 2 && code.length <= 20 && CODE_RE.test(code);
+}
+
 /** Normalises an Indian mobile / international number to digits (with optional leading +). */
 export function normalizePhone(raw: string): string {
   const s = String(raw || "").replace(/[\s()-]/g, "");

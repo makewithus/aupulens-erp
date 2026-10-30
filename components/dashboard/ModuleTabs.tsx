@@ -1,6 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 interface Module {
@@ -12,16 +14,15 @@ interface Module {
 interface ModuleTabsProps {
   modules: Module[];
   activeModule: string;
-  onNavigate: (href: string) => void;
   isLoading?: boolean;
 }
 
 export function ModuleTabs({
   modules,
   activeModule,
-  onNavigate,
   isLoading = false,
 }: ModuleTabsProps) {
+  const router = useRouter();
   return (
     <nav aria-label="Modules" aria-busy={isLoading} className="hidden lg:flex items-center gap-4 xl:gap-6 lg:ml-4 xl:ml-8 shrink-0 min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {isLoading ? (
@@ -32,9 +33,12 @@ export function ModuleTabs({
         const isActive = module.id === activeModule;
 
         return (
-          <button
+          <Link
             key={module.id}
-            onClick={() => onNavigate(module.href)}
+            href={module.href}
+            prefetch={false}
+            onPointerEnter={() => router.prefetch(module.href)}
+            onFocus={() => router.prefetch(module.href)}
             className={cn(
               "group relative flex items-center py-3 transition-all duration-300",
               isActive
@@ -65,7 +69,7 @@ export function ModuleTabs({
                 }}
               />
             )}
-          </button>
+          </Link>
         );
       })}
     </nav>

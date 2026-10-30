@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Download, Users, Star, UserCheck, Calendar, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
 const EMPTY_FORM = {
   first_name: "", last_name: "", email: "", mobile: "", designation: "", department: "",
@@ -57,7 +58,7 @@ export default function ContactsPage() {
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (currentSearch) params.set("search", currentSearch);
-      const res = await fetch(`/api/crm/contacts?${params.toString()}`);
+      const res = await cachedFetch(`/api/crm/contacts?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setContacts(data.data.contacts);
@@ -76,15 +77,15 @@ export default function ContactsPage() {
 
   const fetchAccounts = async () => {
     try {
-      const res = await fetch(`/api/crm/accounts?limit=100`);
+      const res = await cachedFetch(`/api/crm/accounts?limit=100`);
       const data = await res.json();
       if (data.success) setAccounts(data.data.accounts);
     } catch {}
   };
 
   useEffect(() => {
-    fetchAccounts();
-  }, []);
+    if (sheetOpen && accounts.length === 0) void fetchAccounts();
+  }, [sheetOpen]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 400);
@@ -110,6 +111,7 @@ export default function ContactsPage() {
     try {
       const created = await submitContact(false);
       if (created) {
+        invalidateCache("/api/crm/contacts");
         toast.success("Contact created successfully!");
         setSheetOpen(false);
         setForm(EMPTY_FORM);

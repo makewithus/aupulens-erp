@@ -5,7 +5,7 @@ import User, { type IUser } from "@/models/auth/User";
 import Organization from "@/models/admin/Organization";
 import OrgInvite from "@/models/auth/OrgInvite";
 import { ENTITY_STATUS, INVITE_STATUS } from "@/lib/constants/statuses";
-import { getTierLimits } from "@/lib/constants/tiers";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import { getTenantFromHost } from "@/lib/tenant/resolution";
 
 // Injected dependency — allows tests to supply a fake hostname without touching
@@ -118,7 +118,7 @@ export async function resolveOAuthSignIn(
     return "/auth/admin?error=OAuthOrgSuspended";
   }
 
-  const { maxUsers } = getTierLimits(org.tier);
+  const { limits: { maxUsers } } = await resolveEntitlements(tenantId);
   const memberCount = await User.countDocuments({ tenantId });
   if (memberCount >= maxUsers) {
     return "/auth/admin?error=OAuthSeatCapReached";

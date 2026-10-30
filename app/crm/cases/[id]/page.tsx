@@ -10,6 +10,7 @@ import CommunicationCenter from "@/components/crm/CommunicationCenter";
 import DocumentManager from "@/components/crm/DocumentManager";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { Clock, AlertTriangle, CheckCircle2, User, Building, Loader2 } from "lucide-react";
 
 export default function CaseDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -21,7 +22,7 @@ export default function CaseDetailPage(props: { params: Promise<{ id: string }> 
   const [statusInput, setStatusInput] = useState("");
 
   const fetchCase = async () => {
-    const res = await fetch(`/api/crm/cases/${params.id}`);
+    const res = await cachedFetch(`/api/crm/cases/${params.id}`);
     const d = await res.json();
     if (d.success) {
       setData(d.data);
@@ -33,7 +34,7 @@ export default function CaseDetailPage(props: { params: Promise<{ id: string }> 
   useEffect(() => { fetchCase(); }, [params.id]);
 
   const escalate = async () => {
-    const res = await fetch(`/api/crm/cases/${params.id}/escalate`, { method: 'POST' });
+    const res = await cachedFetch(`/api/crm/cases/${params.id}/escalate`, { method: 'POST' });
     if (res.ok) { toast.success("Case escalated"); fetchCase(); }
   };
 
@@ -48,7 +49,7 @@ export default function CaseDetailPage(props: { params: Promise<{ id: string }> 
       payload.resolution_summary = summary;
     }
 
-    const res = await fetch(`/api/crm/cases/${params.id}`, {
+    const res = await cachedFetch(`/api/crm/cases/${params.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -65,14 +66,14 @@ export default function CaseDetailPage(props: { params: Promise<{ id: string }> 
   };
 
   const reopen = async () => {
-    const res = await fetch(`/api/crm/cases/${params.id}/reopen`, { method: 'POST' });
+    const res = await cachedFetch(`/api/crm/cases/${params.id}/reopen`, { method: 'POST' });
     const d = await res.json();
     if (d.success) { toast.success("Case reopened"); fetchCase(); }
     else toast.error(d.message);
   };
 
   const resolveCase = async () => {
-    const res = await fetch(`/api/crm/cases/${params.id}`, {
+    const res = await cachedFetch(`/api/crm/cases/${params.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Resolved', resolution_summary: "Resolved standard procedure applied." })
@@ -82,7 +83,7 @@ export default function CaseDetailPage(props: { params: Promise<{ id: string }> 
   };
 
   const submitSatisfaction = async () => {
-    const res = await fetch(`/api/crm/cases/${params.id}/satisfaction`, {
+    const res = await cachedFetch(`/api/crm/cases/${params.id}/satisfaction`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rating: satScore, comment: satComment })
@@ -248,7 +249,7 @@ function CaseTasks({ caseId }: { caseId: string }) {
   const [tasks, setTasks] = useState<any[]>([]);
   
   useEffect(() => {
-    fetch(`/api/crm/tasks?case_id=${caseId}`)
+    cachedFetch(`/api/crm/tasks?case_id=${caseId}`)
       .then(res => res.json())
       .then(d => d.success && setTasks(d.data.tasks));
   }, [caseId]);

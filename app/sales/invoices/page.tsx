@@ -215,7 +215,8 @@ function SalesInvoicesLandingPageInner() {
                   <div className="relative flex-1 min-w-[180px] sm:min-w-[220px]">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35" />
                     <Input
-                      placeholder="Search invoices..."
+                      placeholder="Search invoice number or customer name..."
+                      aria-label="Search invoices by invoice number or customer name"
                       className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:ring-0 w-full text-foreground"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}

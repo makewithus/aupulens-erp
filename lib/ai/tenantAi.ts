@@ -367,9 +367,10 @@ export async function callClaudeForTenant(
   // (e) Increment ONLY after a successful response — both the per-tenant
   // counter and the platform-wide counter that backs the global ceiling.
   if (countUsage && !isSafetyRefusal) {
-    await incrementAiUsage(tenantId, period);
-    await incrementGlobalAiUsage(period);
-    await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);
+    await incrementAiUsage(tenantId, period, idempotencyKey);
+    await incrementGlobalAiUsage(period, idempotencyKey);
+    const nextCount = await getAiUsageCount(tenantId, period);
+    if (nextCount > currentCount) await checkAiUsageThresholdCrossing(tenantId, currentCount, nextCount, cap);
   }
   await recordAiUsage({
     requestId,
@@ -394,7 +395,7 @@ export async function callClaudeForTenant(
       toolCalls: isSafetyRefusal ? 0 : toolCalls,
     });
   }
-  if (countUsage && !isSafetyRefusal) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
+  if (countUsage && !isSafetyRefusal) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt, idempotencyKey);
 
   if (language && langTrace) {
     let extra: ProviderCall[] = [];
@@ -596,9 +597,10 @@ export async function callClaudeForTenantStream(
     }
     const isSafetyRefusal = Boolean(opts?.isRefusal) || /Bulk record deletion|destructive deletion|refused to execute|not supported for safety/i.test(translatedAnswer);
     if (countUsage && !isSafetyRefusal) {
-      await incrementAiUsage(tenantId, period);
-      await incrementGlobalAiUsage(period);
-      await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);
+      await incrementAiUsage(tenantId, period, idempotencyKey);
+      await incrementGlobalAiUsage(period, idempotencyKey);
+      const nextCount = await getAiUsageCount(tenantId, period);
+      if (nextCount > currentCount) await checkAiUsageThresholdCrossing(tenantId, currentCount, nextCount, cap);
     }
     await recordAiUsage({
       requestId,
@@ -623,7 +625,7 @@ export async function callClaudeForTenantStream(
         toolCalls: isSafetyRefusal ? 0 : toolCalls,
       });
     }
-    if (countUsage && !isSafetyRefusal) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
+    if (countUsage && !isSafetyRefusal) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt, idempotencyKey);
   }
 
   return { gated: false, stream: gatedStream() };

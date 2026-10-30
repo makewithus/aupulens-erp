@@ -1,24 +1,34 @@
 import CrmCase from "@/models/crm/Case";
 
 export async function getCaseMetrics(tenantId: string) {
-  const [openCases, breachedCases, metrics] = await Promise.all([
+  const now = new Date();
+  const [openCases, breachedCases, resolutionMetrics, satisfactionMetrics] = await Promise.all([
     CrmCase.countDocuments({ tenantId, status: { $nin: ['Resolved', 'Closed'] } }),
-    CrmCase.countDocuments({ tenantId, sla_breached: true, status: { $nin: ['Resolved', 'Closed'] } }),
+    CrmCase.countDocuments({ tenantId, status: { $nin: ['Resolved', 'Closed'] }, sla_target_at: { $lt: now } }),
     CrmCase.aggregate([
-      { $match: { tenantId, status: { $in: ['Resolved', 'Closed'] } } },
+      { $match: {
+          tenantId,
+          status: { $in: ['Resolved', 'Closed'] },
+          resolvedAt: { $type: 'date' },
+          createdAt: { $type: 'date' },
+          $expr: { $gte: ['$resolvedAt', '$createdAt'] },
+        } },
       { $group: {
           _id: null,
-          avgSatisfaction: { $avg: '$satisfaction_score' },
-          avgResolutionTime: { $avg: { $subtract: ['$updatedAt', '$createdAt'] } }
+          avgResolutionTime: { $avg: { $subtract: ['$resolvedAt', '$createdAt'] } }
         }
       }
+    ]),
+    CrmCase.aggregate([
+      { $match: { tenantId, satisfaction_score: { $gte: 1, $lte: 5 } } },
+      { $group: { _id: null, avgSatisfaction: { $avg: '$satisfaction_score' } } },
     ])
   ]);
   
   return {
     openCases,
     breachedCases,
-    avgSatisfaction: metrics[0]?.avgSatisfaction || 0,
-    avgResolutionTimeMs: metrics[0]?.avgResolutionTime || 0
+    avgSatisfaction: satisfactionMetrics[0]?.avgSatisfaction ?? null,
+    avgResolutionTimeMs: resolutionMetrics[0]?.avgResolutionTime ?? null
   };
 }

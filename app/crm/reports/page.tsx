@@ -12,6 +12,7 @@ import { ChurnRiskChart } from "@/components/crm/ChurnRiskChart";
 import { UpcomingRenewalsChart } from "@/components/crm/UpcomingRenewalsChart";
 import { SupportPerformanceChart } from "@/components/crm/SupportPerformanceChart";
 import { useThemeStore } from "@/store/themeStore";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // Report types with a real data source wired up. "campaign" (ROI) and
 // "support" (case performance) have no aggregation endpoint built yet —
@@ -79,7 +80,7 @@ export default function ReportsBuilderPage() {
         const blob = await res.blob();
         downloadBlob(blob, `${reportType === "pipeline" ? "Pipeline" : "Revenue"}_Report_${new Date().toISOString().split("T")[0]}.${format}`);
       } else if (reportType === "churn") {
-        const res = await fetch("/api/crm/churn");
+        const res = await cachedFetch("/api/crm/churn");
         const json = await res.json();
         const summary = json.data;
         const rows = [
@@ -94,7 +95,7 @@ export default function ReportsBuilderPage() {
         ];
         await rowsToFile(rows, `Churn_Risk_Report_${new Date().toISOString().split("T")[0]}`, format);
       } else if (reportType === "renewals") {
-        const res = await fetch("/api/crm/renewals");
+        const res = await cachedFetch("/api/crm/renewals");
         const json = await res.json();
         const summary = json.data;
         const rows = [

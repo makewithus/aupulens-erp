@@ -20,6 +20,7 @@ import { Loader2, FileText, Plus, BarChart3, Edit, Trash2 } from 'lucide-react';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface CustomsClearance {
   _id: string;
@@ -68,7 +69,7 @@ export default function CustomsClearancePage() {
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);
       const qs = params.toString();
-      const res = await fetch(`/api/manufacturing/customs-clearance${qs ? `?${qs}` : ''}`);
+      const res = await cachedFetch(`/api/manufacturing/customs-clearance${qs ? `?${qs}` : ''}`);
       const data = await res.json();
       setClearances(data.clearances || []);
     } catch (err) {
@@ -85,7 +86,7 @@ export default function CustomsClearancePage() {
 
   const fetchShipments = useCallback(async () => {
     try {
-      const response = await fetch('/api/manufacturing/shipments');
+      const response = await cachedFetch('/api/manufacturing/shipments');
       if (response.ok) {
         const data = await response.json();
         setShipments(data.shipments || []);
@@ -97,7 +98,7 @@ export default function CustomsClearancePage() {
 
   const fetchHsCodes = useCallback(async () => {
     try {
-      const response = await fetch('/api/manufacturing/hs-codes');
+      const response = await cachedFetch('/api/manufacturing/hs-codes');
       if (response.ok) {
         const data = await response.json();
         setHsCodes(Array.isArray(data) ? data : []);
@@ -138,7 +139,7 @@ export default function CustomsClearancePage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/manufacturing/customs-clearance', {
+      const res = await cachedFetch('/api/manufacturing/customs-clearance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -181,7 +182,7 @@ export default function CustomsClearancePage() {
     if (!await confirmDialog({ title: 'Are you sure you want to delete this customs clearance?' })) return;
     
     try {
-      const res = await fetch(`/api/manufacturing/customs-clearance/${id}`, {
+      const res = await cachedFetch(`/api/manufacturing/customs-clearance/${id}`, {
         method: 'DELETE',
       });
 

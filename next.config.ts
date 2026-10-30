@@ -50,11 +50,12 @@ const nextConfig: NextConfig = {
     cpus: Number(process.env.AUP_BUILD_CPUS) || 2,
   },
 
-  // Keep these Node-only document parsers OUT of the webpack server bundle.
+  // Keep these Node-only document parsers and their native canvas dependency
+  // OUT of the webpack server bundle.
   // Bundling pdf-parse (pdf.js) / mammoth mangles their module init and throws
   // "Object.defineProperty called on non-object" at runtime — reading a PDF/DOCX
   // then fails. Marking them external makes them load as normal Node modules.
-  serverExternalPackages: ["pdf-parse", "mammoth"],
+  serverExternalPackages: ["pdf-parse", "mammoth", "@napi-rs/canvas"],
 
   images: {
     unoptimized: true,

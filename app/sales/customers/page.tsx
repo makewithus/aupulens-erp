@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -128,6 +128,7 @@ function CustomersPageInner() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const latestLoadId = useRef(0);
 
   const activeView = views.find((v) => v._id === activeViewId);
   const activeColumns: string[] =
@@ -148,6 +149,8 @@ function CustomersPageInner() {
   }, []);
 
   const load = useCallback(async () => {
+    const loadId = ++latestLoadId.current;
+    setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       params.set("excludeSupplierPartners", "true");
@@ -158,16 +161,20 @@ function CustomersPageInner() {
       if (dateTo) params.set("dateTo", dateTo);
       if (amountMin) params.set("amountMin", amountMin);
       if (amountMax) params.set("amountMax", amountMax);
-      const res = await cachedFetch(`/api/sales/customers?${params.toString()}`);
+      // Filters must always be evaluated against the server's current result;
+      // a cached response for a previously-used URL can otherwise hide changes.
+      const res = await cachedFetch(`/api/sales/customers?${params.toString()}`, undefined, { force: true });
       const json = await res.json();
+      if (loadId !== latestLoadId.current) return;
       setCustomers(json.items || []);
       setTotal(json.total ?? 0);
       setTotalPages(json.totalPages ?? 1);
     } catch (error) {
+      if (loadId !== latestLoadId.current) return;
       console.error("Error loading customers:", error);
       toast.error("Failed to load customers");
     } finally {
-      setLoading(false);
+      if (loadId === latestLoadId.current) setLoading(false);
     }
   }, [activeViewId, sortField, page, debouncedQuery, dateFrom, dateTo, amountMin, amountMax]);
 
@@ -227,10 +234,10 @@ function CustomersPageInner() {
       <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <SalesTabNav />
 
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-6 min-w-0">
+        <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-3 ${SALES_PAGE_TITLE_CLASS} max-w-full truncate text-2xl sm:text-3xl`}>
+              <button className={`flex max-w-full min-w-0 items-center gap-2 truncate ${SALES_PAGE_TITLE_CLASS} text-xl sm:gap-3 sm:text-2xl lg:text-3xl`}>
                 {activeView?.name || "All Customers"} <ChevronDown className="w-8 h-8 opacity-50 transition-transform duration-200" />
               </button>
             </DropdownMenuTrigger>
@@ -268,8 +275,8 @@ function CustomersPageInner() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full lg:w-auto">
-            <div className="relative flex-1 sm:flex-initial min-w-[160px]">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+            <div className="relative min-w-[160px] flex-1 xl:flex-initial">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search customers..."
@@ -334,6 +341,15 @@ function CustomersPageInner() {
           </div>
         </div>
 
+        {(dateFrom || dateTo) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-sm border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+            <span className="font-medium text-foreground">Customer creation date:</span>
+            <span>{dateFrom || "Any date"} – {dateTo || "Any date"}</span>
+            <span className="text-muted-foreground/70">·</span>
+            <span>{loading ? "Updating results…" : `${total} ${total === 1 ? "customer" : "customers"}`}</span>
+          </div>
+        )}
+
         {!loading && customers.length === 0 && (debouncedQuery || dateFrom || dateTo || amountMin || amountMax) ? (
           <div className="flex flex-col items-center py-16 px-4 text-center">
             <Users2 className="w-12 h-12 mb-6 text-muted-foreground/30" />
@@ -383,7 +399,8 @@ function CustomersPageInner() {
         ) : (
           <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none w-full max-w-full min-w-0">
             <CardContent className="p-0">
-              <Table>
+              <div className="w-full max-w-full overflow-x-auto">
+              <Table className="min-w-[720px]">
                 <TableHeader className="border-border/40">
                   <TableRow>
                     <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Name</TableHead>
@@ -427,8 +444,9 @@ function CustomersPageInner() {
                   )}
                 </TableBody>
               </Table>
+              </div>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">
+                <div className="flex flex-col gap-3 border-t border-border/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
                     Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                   </p>

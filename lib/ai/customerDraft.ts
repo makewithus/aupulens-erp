@@ -564,3 +564,43 @@ export async function cancelUpdateCustomerMobile(scope: Scope, proposalId: strin
   );
   return "Customer update cancelled. The customer record remains unchanged.";
 }
+
+export async function prepareUpdateCustomerEmail(scope: Scope, customerQuery: string, newEmail: string) {
+  requireSalesAccess(scope.role);
+  const customer = await resolveCustomer(scope.tenantId, customerQuery.trim());
+  const cleanEmail = newEmail.trim().toLowerCase();
+  if (!isValidEmail(cleanEmail)) throw new ErpToolError("BUSINESS_RULE", `Email "${newEmail}" is invalid. Please supply a valid email address.`);
+  const oldEmail = customer.contact_details?.email || "Not set";
+  const name = customerName(customer);
+  const summary = `Update Customer Email — not saved:\n\nCustomer: ${name}\nCurrent Email: ${oldEmail}\nNew Email: ${cleanEmail}\n\nConfirm to apply this update, or cancel to discard.`;
+  const proposal = await AiCommandProposal.create({
+    tenantId: scope.tenantId, userId: scope.userId, module: "sales", actionType: "update_customer_email",
+    destructive: false,
+    params: { customerId: String(customer._id), customerName: name, oldEmail, newEmail: cleanEmail, conversationId: scope.conversationId },
+    preview: { customerId: String(customer._id), customerName: name, oldEmail, newEmail: cleanEmail },
+    summary, status: A.PROPOSED, expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+  });
+  return { proposalId: String(proposal._id), customerId: String(customer._id), customerName: name, oldEmail, newEmail: cleanEmail, message: summary };
+}
+
+export async function confirmUpdateCustomerEmail(scope: Scope, proposalId: string) {
+  requireSalesAccess(scope.role);
+  const proposal = await AiCommandProposal.findOne({ _id: proposalId, tenantId: scope.tenantId, userId: scope.userId, actionType: "update_customer_email" });
+  if (!proposal) throw new ErpToolError("NOT_FOUND", "Customer email update proposal not found.");
+  if (proposal.status !== A.PROPOSED) throw new ErpToolError("BUSINESS_RULE", `This update proposal is ${proposal.status} and cannot be executed.`);
+  const locked = await AiCommandProposal.findOneAndUpdate({ _id: proposalId, status: A.PROPOSED, "params.executing": { $ne: true } }, { $set: { "params.executing": true } }, { new: true });
+  if (!locked) throw new ErpToolError("BUSINESS_RULE", "This update is already being processed.");
+  const params = locked.params as any;
+  const current = await Customer.findOne({ _id: params.customerId, tenantId: scope.tenantId });
+  if (!current) throw new ErpToolError("NOT_FOUND", "Customer no longer exists.");
+  const currentEmail = current.contact_details?.email || "Not set";
+  if (currentEmail !== params.oldEmail) throw new ErpToolError("BUSINESS_RULE", "The customer email changed after this preview. Prepare the update again to review the latest value.");
+  current.contact_details.email = params.newEmail;
+  await current.save();
+  await CrmAuditLog.create({ tenantId: scope.tenantId, user_id: scope.userId, action: "updated", record_type: "Customer", record_id: current._id, old_value: params.oldEmail, new_value: params.newEmail });
+  locked.status = A.EXECUTED;
+  locked.resultRef = String(current._id);
+  locked.executedAt = new Date();
+  await locked.save();
+  return { customerId: String(current._id), customerName: customerName(current), email: params.newEmail, message: `Customer "${params.customerName}" email updated to ${params.newEmail}.` };
+}

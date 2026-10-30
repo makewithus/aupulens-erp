@@ -24,6 +24,7 @@ export interface TaskFlowInput {
   userId: string;
   role: string;
   text: string;
+  requestId?: string;
   /** client believes a draft is open (used only to say "it expired" cleanly) */
   expectSession?: boolean;
   aiSettings: { disabled?: boolean; multilingualDisabled?: boolean; autoCreateEnabled?: boolean };
@@ -37,12 +38,12 @@ export interface TaskFlowDeps {
   /** true when the tenant may still spend AI/translation calls this month */
   aiAllowed(tenantId: string): Promise<boolean>;
   /** count a translated turn against the tenant's AI quota (combined-usage rule) */
-  chargeTranslation(tenantId: string): Promise<void>;
+  chargeTranslation(tenantId: string, requestId?: string): Promise<void>;
   /**
    * LLM fallback for phrasing the deterministic classifier is unsure about ("raise a bill for Acme",
    * "acme invoice pls"). Returns null on any failure — the message then just takes the legacy path, it is never lost.
    */
-  classify?(tenantId: string, english: string): Promise<"create" | "explain" | "other" | null>;
+  classify?(tenantId: string, english: string, requestId?: string): Promise<"create" | "explain" | "other" | null>;
   lookups?: Lookups;
   now?: () => Date;
 }
@@ -95,7 +96,7 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
     const allowReplyProvider = (!trace.locallyMapped || !session) && (!wantsRegionalReply(trace) || await providerAllowed());
     const r = reply.kind === "not_handled" ? { text: "", calls: [] } : await respondInLanguage(reply.message, trace, { allowProvider: allowReplyProvider });
     const calls = r.calls;
-    if (trace.providerCalls.length || calls.length) await deps.chargeTranslation(inp.tenantId);
+    if (trace.providerCalls.length || calls.length) await deps.chargeTranslation(inp.tenantId, inp.requestId);
     await finaliseLanguage(inp.tenantId, "task_flow", trace, calls, inp.userId);
     return {
       handled: reply.kind !== "not_handled",
@@ -158,7 +159,7 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
       let intent = picked.intent;
       if (intent === "uncertain") {
         // Rules can't tell. Ask an LLM rather than ignore a clear instruction; on any failure fall through to legacy.
-        const verdict = deps.classify && (await providerAllowed()) ? await deps.classify(inp.tenantId, english).catch(() => null) : null;
+        const verdict = deps.classify && (await providerAllowed()) ? await deps.classify(inp.tenantId, english, inp.requestId).catch(() => null) : null;
         if (verdict === "create") intent = "do";
         else if (verdict === "explain") intent = "explain";
         else return await respond({ kind: "not_handled", message: "" });

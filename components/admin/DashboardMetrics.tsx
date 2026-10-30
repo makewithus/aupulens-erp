@@ -16,7 +16,7 @@ export function DashboardMetrics({
   const has = (module: string) => enabledModules.includes(module);
 
   return (
-    <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 2xl:grid-cols-4">
       {has("finance") && <StatCard
         title="Net Income · Posted"
         value={summary.finance.profitAvailable ? formatCurrency(summary.finance.netIncome) : "Review ledger"}

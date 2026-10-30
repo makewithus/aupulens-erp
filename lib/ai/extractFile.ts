@@ -10,6 +10,8 @@
  * images (the route forwards the data URL to the model), or `{ kind:
  * "unsupported" }`. Text is truncated so a huge document can't blow the prompt.
  */
+import { installPdfCanvasGlobals } from "@/lib/pdf/nodeCanvas";
+
 export type ExtractResult =
   | { kind: "text"; text: string }
   | { kind: "image" }
@@ -37,6 +39,7 @@ export async function extractAttachment(buffer: Buffer, mime: string, filename =
 
   if (lower === "application/pdf" || filename.toLowerCase().endsWith(".pdf")) {
     try {
+      await installPdfCanvasGlobals();
       const { PDFParse } = await import("pdf-parse");
       const parser = new PDFParse({ data: new Uint8Array(buffer) });
       const result = await parser.getText();

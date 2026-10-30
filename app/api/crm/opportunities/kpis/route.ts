@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmOpportunity from "@/models/crm/Opportunity";
 import { requireRole } from "@/lib/crm/rbac";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +21,11 @@ export async function GET(req: NextRequest) {
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const [summary] = await CrmOpportunity.aggregate([
-      { $match: { tenantId } },
+      { $match: applyDemoScope(session, { tenantId }) },
+      { $set: {
+        amountNumber: { $convert: { input: "$amount", to: "double", onError: 0, onNull: 0 } },
+        probabilityNumber: { $convert: { input: "$probability", to: "double", onError: 0, onNull: 0 } },
+      } },
       {
         $group: {
           _id: null,
@@ -28,7 +33,7 @@ export async function GET(req: NextRequest) {
             $sum: {
               $cond: [
                 { $not: [{ $in: ["$stage", ["Closed Won", "Closed Lost"]] }] },
-                { $ifNull: ["$amount", 0] },
+                "$amountNumber",
                 0,
               ],
             },
@@ -39,8 +44,8 @@ export async function GET(req: NextRequest) {
                 { $not: [{ $in: ["$stage", ["Closed Won", "Closed Lost"]] }] },
                 {
                   $multiply: [
-                    { $ifNull: ["$amount", 0] },
-                    { $divide: [{ $ifNull: ["$probability", 0] }, 100] },
+                    "$amountNumber",
+                    { $divide: ["$probabilityNumber", 100] },
                   ],
                 },
                 0,

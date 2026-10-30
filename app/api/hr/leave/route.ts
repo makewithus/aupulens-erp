@@ -7,6 +7,9 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import LeaveRequest from "@/models/hr/LeaveRequest";
 import Employee from "@/models/hr/Employee";
+import { validateObjectId } from "@/lib/api/validateId";
+
+const LEAVE_TYPES = new Set(["casual", "sick", "earned", "unpaid"]);
 
 export async function GET(req: NextRequest) {
   try {
@@ -130,19 +133,24 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
 
-if (!body.employeeId || !body.leaveType || !body.startDate || !body.endDate || !body.reason) {
+    if (!body.employeeId || !body.leaveType || !body.startDate || !body.endDate || !body.reason) {
       return NextResponse.json(
         { error: "Employee, leave type, dates, and reason are required" },
         { status: 400 },
       );
     }
 
+    if (validateObjectId(String(body.employeeId)) || !LEAVE_TYPES.has(body.leaveType)) {
+      return NextResponse.json({ error: "Choose a valid employee and leave type." }, { status: 400 });
+    }
+
     // Calculate total days
     const start = new Date(body.startDate);
     const end = new Date(body.endDate);
-    const totalDays = Math.ceil(
-      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-    ) + 1;
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+      return NextResponse.json({ error: "End date must be on or after the start date." }, { status: 400 });
+    }
+    const totalDays = Math.floor((Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()) - Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate())) / 86_400_000) + 1;
 
     // Check leave balance
     const employee = await Employee.findOne({
@@ -154,6 +162,10 @@ if (!body.employeeId || !body.leaveType || !body.startDate || !body.endDate || !
         { error: "Employee not found" },
         { status: 404 },
       );
+    }
+
+    if (employee.lifecycleStatus === "exited") {
+      return NextResponse.json({ error: "Leave cannot be requested for an exited employee." }, { status: 400 });
     }
 
     const balanceKey = body.leaveType as keyof typeof employee.leaveBalance;

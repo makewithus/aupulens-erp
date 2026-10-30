@@ -19,6 +19,10 @@ import { applyDemoScope, isAdminSession } from "@/lib/auth/scopeFilter";
 const departmentSyncLastRun = new Map<string, number>();
 const DEPARTMENT_SYNC_INTERVAL_MS = 60_000;
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function scheduleDepartmentSync(tenantId: string, userId?: string) {
   const lastRun = departmentSyncLastRun.get(tenantId) || 0;
   if (Date.now() - lastRun < DEPARTMENT_SYNC_INTERVAL_MS) return;
@@ -67,8 +71,8 @@ export async function GET(req: NextRequest) {
       const deptIds = await Department.find({
         tenantId,
         $or: [
-          { name: { $regex: search.trim().split(/\s+/).join(".*"), $options: "i" } },
-          { code: { $regex: search.trim().split(/\s+/).join(".*"), $options: "i" } },
+          { name: { $regex: escapeRegex(search.trim()).replace(/\s+/g, ".*"), $options: "i" } },
+          { code: { $regex: escapeRegex(search.trim()).replace(/\s+/g, ".*"), $options: "i" } },
         ],
       }).select("_id").lean();
 
@@ -119,7 +123,7 @@ export async function GET(req: NextRequest) {
       { $group: {
         _id: null,
         total: { $sum: 1 },
-        active: { $sum: { $cond: [{ $eq: ["$lifecycleStatus", "active"] }, 1, 0] } },
+        active: { $sum: { $cond: [{ $or: [{ $in: ["$lifecycleStatus", ["active", "on_notice"]] }, { $and: [{ $eq: [{ $type: "$lifecycleStatus" }, "missing"] }, { $eq: ["$status", "active"] }] }] }, 1, 0] } },
         linked: { $sum: { $cond: [{ $and: [{ $ne: ["$userId", null] }, { $ne: [{ $type: "$userId" }, "missing"] }] }, 1, 0] } },
         unlinked: { $sum: { $cond: [{ $or: [{ $eq: ["$userId", null] }, { $eq: [{ $type: "$userId" }, "missing"] }] }, 1, 0] } },
       }}
@@ -198,6 +202,9 @@ const fieldErrors = validateEmployee(body);
         { status: 409 },
       );
     }
+    if (await Employee.exists({ tenantId, email: body.email.toLowerCase() })) {
+      return NextResponse.json({ error: "An employee with this email already exists in this organization.", fieldErrors: { email: "This email is already linked to an employee." } }, { status: 409 });
+    }
 
     // Calculate salary fields
     if (body.salary) {
@@ -209,6 +216,31 @@ const fieldErrors = validateEmployee(body);
       s.netSalary = s.grossSalary - totalDeductions;
     }
 
+    // Resolve one tenant-owned department before syncing the linked User, so
+    // Employee.departmentId and User.department are derived from the same row.
+    let departmentName: string | undefined;
+    if (body.departmentId) {
+      const dept = await Department.findOne({ _id: body.departmentId, tenantId });
+      if (!dept) {
+        return NextResponse.json({ error: "The selected department does not exist in this organization.", fieldErrors: { departmentId: "Select a department from this organization." } }, { status: 400 });
+      }
+      departmentName = dept.name;
+    } else if (typeof body.department === "string" && body.department.trim()) {
+      departmentName = body.department.trim();
+      let dept = await Department.findOne({ tenantId, name: new RegExp(`^${escapeRegex(departmentName)}$`, "i") });
+      if (!dept) {
+        const baseCode = departmentName.replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase() || "DEPT";
+        let code = baseCode;
+        let suffix = 2;
+        while (await Department.exists({ tenantId, code })) {
+          code = `${baseCode.slice(0, 14)}_${suffix++}`;
+        }
+        dept = await Department.create({ tenantId, name: departmentName, code, isActive: true, createdBy: session.user.id });
+      }
+      body.departmentId = dept._id;
+      departmentName = dept.name;
+    }
+
     // ── User ↔ Employee Sync ──
     // Check if a User with the same email already exists in this tenant
     let linkedUserId = body.userId || null;
@@ -217,56 +249,7 @@ const fieldErrors = validateEmployee(body);
       tenantId,
     });
 
-    if (existingUser) {
-      // Link to existing user
-      linkedUserId = existingUser._id;
-      // Sync employeeId on the user record
-      await User.findOneAndUpdate(
-        { _id: existingUser._id, tenantId },
-        {
-          $set: {
-            employeeId: body.employeeCode,
-            designation: body.designation || existingUser.designation,
-            department: body.department || existingUser.department,
-          },
-        },
-      );
-    } else if (body.createUserAccount) {
-      // Optionally create a new User account for this employee
-      const defaultPassword = body.userPassword || "Aupulens@123";
-      const hashedPassword = await bcrypt.hash(defaultPassword, 12);
-      const newUser = await User.create({
-        tenantId,
-        name: `${body.firstName} ${body.lastName}`,
-        email: body.email.toLowerCase(),
-        phone: body.phone,
-        password: hashedPassword,
-        role: body.userRole || "hr",
-        department: body.department || "",
-        employeeId: body.employeeCode,
-        designation: body.designation || "",
-        status: ENTITY_STATUS.ACTIVE,
-        dateOfJoining: body.dateOfJoining ? new Date(body.dateOfJoining) : new Date(),
-        createdBy: session.user.id,
-      });
-      linkedUserId = newUser._id;
-    }
-
-    // Resolve departmentId from department name if not already set
-    if (!body.departmentId && body.department) {
-      let dept = await Department.findOne({
-        tenantId,
-        name: new RegExp(`^${body.department.trim()}$`, "i"),
-      });
-      if (!dept) {
-        dept = await Department.create({
-          tenantId,
-          name: body.department.trim(),
-          code: body.department.trim().slice(0, 4).toUpperCase(),
-        });
-      }
-      body.departmentId = dept._id;
-    }
+    if (existingUser) linkedUserId = existingUser._id;
 
     const employee = new Employee({
       ...body,
@@ -277,6 +260,44 @@ const fieldErrors = validateEmployee(body);
     });
 
     await employee.save();
+
+    // Create/link the user only after the employee row is durable. If account
+    // creation fails, remove the just-created employee so neither side remains
+    // with a dangling employee code/reference.
+    if (existingUser) {
+      await User.findOneAndUpdate(
+        { _id: existingUser._id, tenantId },
+        { $set: {
+          employeeId: body.employeeCode,
+          designation: body.designation || existingUser.designation,
+          department: departmentName || existingUser.department || "",
+        } },
+      );
+    } else if (body.createUserAccount) {
+      try {
+        const defaultPassword = body.userPassword || "Aupulens@123";
+        const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+        const newUser = await User.create({
+          tenantId,
+          name: `${body.firstName} ${body.lastName}`,
+          email: body.email.toLowerCase(),
+          phone: body.phone,
+          password: hashedPassword,
+          role: body.userRole || "hr",
+          department: departmentName || "",
+          employeeId: body.employeeCode,
+          designation: body.designation || "",
+          status: ENTITY_STATUS.ACTIVE,
+          dateOfJoining: body.dateOfJoining ? new Date(body.dateOfJoining) : new Date(),
+          createdBy: session.user.id,
+        });
+        employee.userId = newUser._id;
+        await employee.save();
+      } catch (error) {
+        await Employee.deleteOne({ _id: employee._id, tenantId });
+        throw error;
+      }
+    }
 
     // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
     await safeEmitEvent(tenantId, "master_data.changed", { model: "Employee", id: String(employee._id), tenantId });

@@ -23,6 +23,19 @@ beforeEach(() => {
 afterEach(async () => { cleanup?.(); await settle(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 function HookHarness() { useAiUsageSummary(); cleanup = m.effect!() || undefined; }
 describe("usage countdown and invalidation lifecycle", () => {
+  it("keeps the last known credit windows when a refresh omits credit-window data", async () => {
+    const windows = {
+      session: { used: 6.38, reserved: 0, limit: 500, remaining: 493.62, startsAt: timestamp, resetsAt: "2026-10-15T05:00:00Z", unit: "credits" as const },
+      weekly: { used: 6.38, reserved: 0, limit: 3000, remaining: 2993.62, startsAt: timestamp, resetsAt: "2026-10-19T00:00:00Z", unit: "credits" as const },
+    };
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: { ...summary(), credits: { planKey: "pro", windows }, serverTime: timestamp } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: { ...summary(), serverTime: timestamp } }) });
+    HookHarness(); await settle();
+    refreshAiUsage(); await settle();
+    expect(m.state.mock.lastCall?.[0].data.credits.windows).toEqual(windows);
+  });
+
   it("refreshes on request completion, reconnect and visibility, then cleans up all listeners", async () => {
     HookHarness(); await settle();
     expect(fetchMock).toHaveBeenCalledTimes(1);

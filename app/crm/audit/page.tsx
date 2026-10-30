@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, FileText, Download, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function AuditCenterPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -22,7 +23,7 @@ export default function AuditCenterPage() {
     if (recordTypeFilter) params.set("record_type", recordTypeFilter);
     if (actionFilter) params.set("action", actionFilter);
     
-    const res = await fetch(`/api/crm/audit?${params}`);
+    const res = await cachedFetch(`/api/crm/audit?${params}`);
     const data = await res.json();
     if (data.success) {
       setLogs(data.data.logs || []);

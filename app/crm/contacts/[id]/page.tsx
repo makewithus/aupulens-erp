@@ -11,6 +11,7 @@ import { Loader2, Mail, Phone, MessageSquare, Trash2, Edit2 } from "lucide-react
 import ActivityTimeline from "@/components/crm/ActivityTimeline";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function ContactDetailsPage(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
@@ -21,7 +22,7 @@ export default function ContactDetailsPage(props: { params: Promise<{ id: string
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/crm/contacts/${params.id}`)
+    cachedFetch(`/api/crm/contacts/${params.id}`)
       .then(res => res.json())
       .then(d => { setData(d.data); setLoading(false); });
   }, [params.id]);

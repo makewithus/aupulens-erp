@@ -77,8 +77,17 @@ export function evaluateOpportunityHealth(
   }
 
   // 7. Expected close date is in the past
-  if (opp.expected_close_date && new Date(opp.expected_close_date) < now && !['Closed Won', 'Closed Lost'].includes(opp.stage)) {
-    flags.push("Expected close date has passed");
+  if (opp.expected_close_date && !['Closed Won', 'Closed Lost'].includes(opp.stage)) {
+    const closeDate = new Date(opp.expected_close_date);
+    if (!Number.isNaN(closeDate.getTime())) {
+      const dateKey = (date: Date) => new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(date);
+      if (dateKey(closeDate) < dateKey(now)) flags.push("Expected close date has passed");
+    }
   }
 
   // Determine Overall Risk Level based on flags weight

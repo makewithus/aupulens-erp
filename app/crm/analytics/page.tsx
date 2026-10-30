@@ -14,8 +14,8 @@ import {
   CanvasPieChart,
   CanvasComposedChart,
 } from "@/components/inventory/CanvasCharts";
-import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { toast } from "sonner";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import {
   BarChart3,
   TrendingUp,
@@ -76,7 +76,7 @@ function formatCurrency(val: number) {
 }
 
 export default function CrmAnalyticsPage() {
-  const [timeRange, setTimeRange] = useState<string>("30d");
+  const [timeRange, setTimeRange] = useState<string>("all");
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -86,10 +86,8 @@ export default function CrmAnalyticsPage() {
     try {
       setLoadError(false);
       if (fresh) setIsRefreshing(true);
-      const url = `/api/crm/analytics?range=${timeRange}${fresh ? "&fresh=true" : ""}`;
-      const res = await cachedFetch(url, {
-        cache: fresh ? "no-store" : "default",
-      });
+      const url = `/api/crm/analytics?range=${timeRange}`;
+      const res = await cachedFetch(url, undefined, { force: fresh });
       if (!res.ok) throw new Error("CRM analytics request failed");
       const json = await res.json();
       setData(json);
@@ -106,11 +104,6 @@ export default function CrmAnalyticsPage() {
   }, [timeRange]);
 
   useEffect(() => {
-    const cached = getInstantCachedData<any>(`/api/crm/analytics?range=${timeRange}`, { allowPreHydration: true });
-    if (cached) {
-      setData(cached);
-      setIsLoading(false);
-    }
     loadData(false);
     const handleRevalidated = (e: any) => {
       if (e?.detail?.url?.includes("/api/crm")) {
@@ -125,6 +118,7 @@ export default function CrmAnalyticsPage() {
     totalPipelineValue: 0,
     activeDeals: 0,
     wonDeals: 0,
+    wonValue: 0,
     lostDeals: 0,
     winRate: 0,
     avgSalesCycleDays: null,
@@ -153,8 +147,9 @@ export default function CrmAnalyticsPage() {
     return monthlyVelocity.map((v: any) => ({
       name: String(v.month).split(" ")[0],
       period: v.month,
-      "New Pipeline": Number((v.newPipeline / 100000).toFixed(1)), // in Lakhs
-      "Closed Won": Number((v.closedWon / 100000).toFixed(1)),
+      "New Pipeline": Number((v.newPipeline / 10000000).toFixed(2)), // in Crores
+      "Closed Won": Number((v.closedWon / 10000000).toFixed(2)),
+      "Closed Won Deals": Number(v.closedWonCount) || 0,
     }));
   }, [monthlyVelocity]);
 
@@ -162,7 +157,7 @@ export default function CrmAnalyticsPage() {
   const stageAgingChartData = useMemo(() => {
     return stageAgingDays.map((s: any) => ({
       name: s.stage,
-      "Actual Days": s.days,
+      Deals: Number(s.count) || 0,
     }));
   }, [stageAgingDays]);
 
@@ -231,13 +226,13 @@ export default function CrmAnalyticsPage() {
             CRM Analytics & Pipeline Visualizations
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground max-w-3xl leading-relaxed">
-            Current pipeline KPIs with lead, funnel, and velocity charts for the selected period.
+            Current pipeline KPIs with monthly trends for the selected period. All-time history is selected by default.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <div className="flex items-center bg-muted/30 border border-border/60 rounded-lg p-1 text-xs font-mono">
-            {(["30d", "90d", "1y"] as const).map((r) => (
+            {(["all", "30d", "90d", "1y"] as const).map((r) => (
               <button
                 key={r}
                 onClick={() => setTimeRange(r)}
@@ -247,7 +242,7 @@ export default function CrmAnalyticsPage() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {r}
+                {r === "all" ? "All" : r}
               </button>
             ))}
           </div>
@@ -297,7 +292,7 @@ export default function CrmAnalyticsPage() {
             title="Win Ratio"
             value={`${summary.winRate}%`}
             visual={<ActivePulse className="opacity-15" />}
-            subtitle={`${summary.wonDeals} Won / ${summary.lostDeals} Lost`}
+            subtitle={`${summary.wonDeals} Won / ${summary.lostDeals} Lost · ${formatCurrency(summary.wonValue)} booked all-time`}
           />
         </div>
         <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all min-w-0">
@@ -403,14 +398,14 @@ export default function CrmAnalyticsPage() {
               <div>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-blue-400" />
-                  Monthly Pipeline Velocity & Closed Won (in ₹ Lakhs)
+                  Monthly Pipeline Velocity & Closed Won Revenue (₹ Crore)
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  New pipeline is grouped by opportunity creation month; Closed Won is grouped by the date it entered that stage. Hover for values.
+                  Pipeline Added is opportunities created in the selected period; the KPI above is all currently open pipeline. Both are shown in ₹ crore. Closed Won is grouped by won date; hover for revenue and deal count.
                 </p>
               </div>
-              <Badge variant="outline" className="font-mono text-[10px] text-blue-400 bg-blue-500/10 border-blue-500/20 shrink-0 self-start sm:self-auto">
-                Historical Run-Rate
+              <Badge variant="outline" className="font-mono text-[10px] text-emerald-400 bg-emerald-500/10 border-emerald-500/20 shrink-0 self-start sm:self-auto">
+                All-Time Won: {formatCurrency(summary.wonValue)}
               </Badge>
             </div>
           </CardHeader>
@@ -428,6 +423,7 @@ export default function CrmAnalyticsPage() {
                   barSeries={[{ key: "New Pipeline", color: "#4f6df5", name: "Pipeline Added" }]}
                   lineSeries={{ key: "Closed Won", color: "#10b981", name: "Closed Won" }}
                   tooltipLabelKey="period"
+                  tooltipAdditionalRows={[{ key: "Closed Won Deals", name: "Closed Won Deals" }]}
                 />
               )}
             </div>
@@ -503,16 +499,22 @@ export default function CrmAnalyticsPage() {
               <div>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <Clock className="w-4 h-4 text-amber-400" />
-                  Stage Duration & Bottleneck Radar
+                  Deals by Pipeline Stage
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Average days deals spend in each pipeline stage.
+                  Live opportunity counts by current stage. Bar totals match the Opportunities stage filter.
                 </p>
               </div>
-              <div className="flex items-center gap-2.5 text-xs font-mono shrink-0">
-                <span className="flex items-center gap-1.5 text-purple-400">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-[#8b5cf6]" /> Actual
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                <span className="flex items-center gap-1.5 text-xs font-mono text-amber-400">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-[#eab308]" /> Deals
                 </span>
+                <Link
+                  href="/crm/opportunities?stage=Prospecting"
+                  className="text-[10px] font-mono text-primary underline-offset-4 hover:underline"
+                >
+                  Verify Prospecting
+                </Link>
               </div>
             </div>
           </CardHeader>
@@ -520,7 +522,7 @@ export default function CrmAnalyticsPage() {
             {stageAgingDays.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground text-xs font-mono">
                 <Clock className="w-8 h-8 opacity-30 mb-2" />
-                <span>No stage aging records found</span>
+                <span>No opportunity stage data found</span>
               </div>
             ) : (
               <>
@@ -528,7 +530,7 @@ export default function CrmAnalyticsPage() {
                   <CanvasBarChart
                     data={stageAgingChartData}
                     xAxisKey="name"
-                    series={[{ key: "Actual Days", color: "#eab308", name: "Average Stage Age" }]}
+                    series={[{ key: "Deals", color: "#eab308", name: "Deals" }]}
                   />
                 </div>
                 <div className="mt-3 p-3 rounded-lg border border-border/40 bg-muted/10 font-mono text-xs space-y-1.5">
@@ -559,7 +561,7 @@ export default function CrmAnalyticsPage() {
                   Account Executive Leaderboard
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Closed bookings and active opportunities by owner.
+                  Won revenue for the selected date range; active opportunities are a current snapshot.
                 </p>
               </div>
               <Badge variant="outline" className="text-xs font-mono bg-primary/10 text-primary border-primary/20">
@@ -608,7 +610,7 @@ export default function CrmAnalyticsPage() {
                       </div>
 
                       <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5 font-mono">
-                        <span>Closed Won: {formatCurrency(rep.closed)}</span>
+                        <span>Closed Won ({timeRange === "all" ? "all time" : timeRange}): {formatCurrency(rep.closed)}</span>
                         <span>{rep.activeDeals} active opportunities</span>
                       </div>
                     </div>

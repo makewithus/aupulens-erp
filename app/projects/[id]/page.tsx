@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { toLocalDateString } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const STATUS_OPTIONS = [
   { value: "planning", label: "Planning" },
@@ -41,7 +42,7 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
   const [form, setForm] = useState<any>({});
 
   useEffect(() => {
-    fetch(`/api/projects/${params.id}`)
+    cachedFetch(`/api/projects/${params.id}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -63,7 +64,7 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${params.id}`, {
+      const res = await cachedFetch(`/api/projects/${params.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -82,7 +83,7 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
 
   const handleDelete = async () => {
     if (!confirm("Delete this project? This cannot be undone.")) return;
-    const res = await fetch(`/api/projects/${params.id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/projects/${params.id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) { toast.success("Deleted"); router.push("/projects/list"); }
     else toast.error(data.message || "Failed to delete");

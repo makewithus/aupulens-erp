@@ -32,7 +32,7 @@ export function PosBillingDialog({
   const [products, setProducts] = useState<any[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [items, setItems] = useState<PosItem[]>([
-    { id: "1", name: "", qty: 1, unitPrice: 0, taxRate: 0 },
+    { id: crypto.randomUUID(), name: "", qty: 1, unitPrice: 0, taxRate: 0 },
   ]);
   const [paymentMode, setPaymentMode] = useState<string>("cash");
   const [receivedAmount, setReceivedAmount] = useState<string>("");
@@ -80,16 +80,15 @@ export function PosBillingDialog({
   const addItem = () => {
     setItems((prev) => [
       ...prev,
-      { id: String(Date.now()), name: "", qty: 1, unitPrice: 0, taxRate: 0 },
+      { id: crypto.randomUUID(), name: "", qty: 1, unitPrice: 0, taxRate: 0 },
     ]);
   };
 
-  const removeItem = (index: number) => {
-    if (items.length <= 1) return;
-    setItems((prev) => prev.filter((_, i) => i !== index));
+  const removeItem = (lineId: string) => {
+    setItems((prev) => prev.length <= 1 ? prev : prev.filter((item) => item.id !== lineId));
   };
 
-  const handleProductSelect = (index: number, productId: string) => {
+  const handleProductSelect = (lineId: string, productId: string) => {
     const prod = products.find((p) => p._id === productId);
     if (!prod) return;
     const name = prod.header?.name || "Product";
@@ -97,7 +96,7 @@ export function PosBillingDialog({
     const taxRate = Number(prod.tab_general_information?.customer_taxes) || 0;
     setItems((prev) =>
       prev.map((item, i) =>
-        i === index
+        item.id === lineId
           ? { ...item, itemId: prod._id, name, unitPrice, taxRate }
           : item,
       ),
@@ -198,14 +197,14 @@ export function PosBillingDialog({
             </div>
 
             <div className="border border-border/40 divide-y divide-border/20">
-              {items.map((item, index) => (
+              {items.map((item) => (
                 <div key={item.id} className="p-3 flex flex-wrap items-center gap-3 bg-card/40">
                   <div className="flex-1 min-w-[200px]">
                     <select
                       aria-label="Select catalog product"
                       className="w-full h-9 px-2 bg-background border border-border text-xs rounded-none"
                       value={item.itemId || ""}
-                      onChange={(e) => handleProductSelect(index, e.target.value)}
+                      onChange={(e) => handleProductSelect(item.id, e.target.value)}
                     >
                       <option value="">Custom Item / Select Product...</option>
                       {products.map((p) => (
@@ -222,7 +221,7 @@ export function PosBillingDialog({
                         value={item.name}
                         onChange={(e) =>
                           setItems((prev) =>
-                            prev.map((it, i) => (i === index ? { ...it, name: e.target.value } : it)),
+                            prev.map((it) => (it.id === item.id ? { ...it, name: e.target.value } : it)),
                           )
                         }
                       />
@@ -239,8 +238,8 @@ export function PosBillingDialog({
                       value={item.qty}
                       onChange={(e) =>
                         setItems((prev) =>
-                          prev.map((it, i) =>
-                            i === index ? { ...it, qty: Math.max(1, Number(e.target.value) || 1) } : it,
+                          prev.map((it) =>
+                            it.id === item.id ? { ...it, qty: Math.max(1, Number(e.target.value) || 1) } : it,
                           ),
                         )
                       }
@@ -257,8 +256,8 @@ export function PosBillingDialog({
                       value={item.unitPrice}
                       onChange={(e) =>
                         setItems((prev) =>
-                          prev.map((it, i) =>
-                            i === index ? { ...it, unitPrice: Number(e.target.value) || 0 } : it,
+                          prev.map((it) =>
+                            it.id === item.id ? { ...it, unitPrice: Number(e.target.value) || 0 } : it,
                           ),
                         )
                       }
@@ -275,7 +274,7 @@ export function PosBillingDialog({
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeItem(index)}
+                      onClick={() => removeItem(item.id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

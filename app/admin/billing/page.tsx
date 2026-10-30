@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   CreditCard,
   CheckCircle2,
@@ -24,6 +25,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PLAN_ADD_ONS, priceWithAddOns } from "@/lib/billing/planPricing";
+import { PLAN_SEAT_BANDS, normalizePlanUserCount, type SeatBandPlanKey } from "@/lib/billing/seatBands";
 
 interface SubscriptionDetails {
   tenantId: string;
@@ -31,6 +34,8 @@ interface SubscriptionDetails {
   status: string;
   billingCycle: "monthly" | "yearly";
   currentPrice: number;
+  userCount?: number;
+  metadata?: Record<string, unknown>;
   currency: string;
   startDate: string;
   currentPeriodStart: string;
@@ -65,8 +70,15 @@ interface SubscriptionDetails {
 interface PlanCatalogItem {
   key: string;
   name: string;
+  description?: string;
+  note?: string;
   priceMonthly: number;
   priceYearly: number;
+  meteredUsers?: boolean;
+  availableForPurchase?: boolean;
+  includedUsers?: number;
+  additionalUserPriceMonthly?: number;
+  additionalUserPriceYearly?: number;
   currency: string;
   features: {
     modules: string[];
@@ -110,6 +122,10 @@ export default function CustomerBillingPortal() {
   const [subscription, setSubscription] = useState<SubscriptionDetails | null>(null);
   const [entitlements, setEntitlements] = useState<any>(null);
   const [plans, setPlans] = useState<PlanCatalogItem[]>([]);
+  const [plansLoadError, setPlansLoadError] = useState<string | null>(null);
+  const [planUserCounts, setPlanUserCounts] = useState<Record<string, number>>({});
+  const [planAddOns, setPlanAddOns] = useState<Record<string, string[]>>({});
+  const [selectedPlanUserCount, setSelectedPlanUserCount] = useState(1);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [creditNotes, setCreditNotes] = useState<CreditNoteRow[]>([]);
   const [selectedCycle, setSelectedCycle] = useState<"monthly" | "yearly">("monthly");
@@ -132,40 +148,54 @@ export default function CustomerBillingPortal() {
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRow | null>(null);
 
   const loadBillingData = async () => {
-    try {
-      const [subRes, plansRes, invRes, creditRes] = await Promise.all([
-        fetch("/api/billing/subscription"),
-        fetch("/api/billing/plans"),
-        fetch("/api/billing/invoices"),
-        fetch("/api/billing/credit-notes"),
-      ]);
+    setLoading(true);
+    const loadJson = async (url: string) => {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Request failed: ${url}`);
+      return response.json();
+    };
 
-      const [subData, plansData, invData, creditData] = await Promise.all([
-        subRes.json(),
-        plansRes.json(),
-        invRes.json(),
-        creditRes.json(),
-      ]);
-
-      if (subData.success) {
-        setSubscription(subData.data.subscription);
-        setEntitlements(subData.data.entitlements);
-        if (subData.data.subscription?.billingCycle) {
-          setSelectedCycle(subData.data.subscription.billingCycle);
+    const subscriptionTask = loadJson("/api/billing/subscription")
+      .then((data) => {
+        if (!data.success) return;
+        setSubscription(data.data.subscription);
+        setEntitlements(data.data.entitlements);
+        const currentPlanKey = data.data.subscription?.planKey;
+        const currentAddOns = data.data.subscription?.metadata?.selectedAddOns;
+        if (currentPlanKey && Array.isArray(currentAddOns)) {
+          setPlanAddOns((existing) => ({ ...existing, [currentPlanKey]: currentAddOns.filter((key: unknown): key is string => typeof key === "string") }));
         }
-      }
-      if (plansData.success) {
-        setPlans(plansData.data);
-      }
-      if (invData.success) {
-        setInvoices(invData.data);
-      }
-      if (creditData.success) setCreditNotes(creditData.data);
-    } catch {
-      toast.error("Failed to load billing portal information.");
-    } finally {
-      setLoading(false);
-    }
+        if (data.data.subscription?.billingCycle) setSelectedCycle(data.data.subscription.billingCycle);
+      })
+      .catch(() => toast.error("Could not load subscription details."))
+      .finally(() => setLoading(false));
+
+    const plansTask = loadJson("/api/billing/plans")
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length) {
+          setPlans(data.data.filter((plan: PlanCatalogItem) => plan.key !== "free"));
+          setPlansLoadError(null);
+        } else if (data.success) {
+          setPlans([]);
+          setPlansLoadError("No active subscription plans are configured. Ask your platform administrator to activate plans in Plan Settings.");
+        } else {
+          setPlansLoadError(data.error || "Could not load the configured plan catalogue.");
+        }
+      })
+      .catch(() => {
+        setPlans([]);
+        setPlansLoadError("Could not load the configured plan catalogue. Please refresh and try again.");
+        toast.error("Could not load the configured plan catalogue.");
+      });
+
+    const invoicesTask = loadJson("/api/billing/invoices")
+      .then((data) => { if (data.success) setInvoices(data.data); })
+      .catch(() => {});
+    const creditNotesTask = loadJson("/api/billing/credit-notes")
+      .then((data) => { if (data.success) setCreditNotes(data.data); })
+      .catch(() => {});
+
+    await Promise.all([subscriptionTask, plansTask, invoicesTask, creditNotesTask]);
   };
 
   useEffect(() => {
@@ -197,8 +227,9 @@ export default function CustomerBillingPortal() {
   };
 
   // Proration preview when customer selects an upgrade plan
-  const handleSelectUpgrade = async (plan: PlanCatalogItem) => {
+  const handleSelectUpgrade = async (plan: PlanCatalogItem, userCount: number, selectedAddOns: string[]) => {
     setPreviewPlan(plan);
+    setSelectedPlanUserCount(userCount);
     setPreviewLoading(true);
     try {
       const res = await fetch("/api/billing/upgrade/preview", {
@@ -207,6 +238,8 @@ export default function CustomerBillingPortal() {
         body: JSON.stringify({
           targetPlanKey: plan.key,
           billingCycle: selectedCycle,
+          userCount,
+          addOns: selectedAddOns,
         }),
       });
       const data = await res.json();
@@ -236,6 +269,8 @@ export default function CustomerBillingPortal() {
         body: JSON.stringify({
           targetPlanKey: previewPlan.key,
           billingCycle: selectedCycle,
+          userCount: previewData?.userCount ?? selectedPlanUserCount,
+          addOns: previewData?.addOns ?? (planAddOns[previewPlan.key] ?? []),
         }),
       });
       const initData = await initRes.json();
@@ -324,7 +359,7 @@ export default function CustomerBillingPortal() {
       const res = await fetch("/api/billing/downgrade/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetPlanKey: downgradeTarget.key }),
+        body: JSON.stringify({ targetPlanKey: downgradeTarget.key, userCount: planUserCounts[downgradeTarget.key] ?? downgradeTarget.includedUsers ?? downgradeTarget.features.maxUsers, addOns: planAddOns[downgradeTarget.key] ?? [], billingCycle: selectedCycle }),
       });
       const data = await res.json();
       if (data.success) {
@@ -407,7 +442,10 @@ export default function CustomerBillingPortal() {
   const handleRetryPayment = () => {
     const currentPlanItem = plans.find((p) => p.key === subscription?.planKey);
     if (currentPlanItem) {
-      handleSelectUpgrade(currentPlanItem);
+      const retryAddOns = Array.isArray(subscription?.metadata?.selectedAddOns)
+        ? subscription.metadata.selectedAddOns.filter((key): key is string => typeof key === "string")
+        : [];
+      handleSelectUpgrade(currentPlanItem, subscription?.userCount ?? currentPlanItem.includedUsers ?? currentPlanItem.features.maxUsers, retryAddOns);
     } else {
       toast.info("Please select a plan below to renew your subscription.");
     }
@@ -421,7 +459,7 @@ export default function CustomerBillingPortal() {
       pageName="Plan & Billing"
       breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Billing" }]}
     >
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-[1440px] mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -631,7 +669,7 @@ export default function CustomerBillingPortal() {
                   <div className="bg-muted/30 p-2.5 rounded-lg border">
                     <span className="text-muted-foreground block text-[11px]">User Limit</span>
                     <strong className="text-sm font-bold text-foreground">
-                      {entitlements?.limits?.maxUsers ?? 5} Users
+                      {entitlements?.limits?.maxUsers ?? "—"}{entitlements?.limits?.maxUsers != null ? " Users" : ""}
                     </strong>
                   </div>
                   <div className="bg-muted/30 p-2.5 rounded-lg border">
@@ -662,9 +700,9 @@ export default function CustomerBillingPortal() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold tracking-tight">Available Subscription Plans</h2>
+              <h2 className="text-xl font-bold tracking-tight">Subscription Plans</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Upgrades take effect immediately upon payment with automatic proration. Downgrades take effect on your next renewal date.
+                Compare active plans. Purchase-enabled plans can be selected; upgrades take effect immediately with proration, and downgrades take effect on your next renewal date.
               </p>
             </div>
 
@@ -686,75 +724,64 @@ export default function CustomerBillingPortal() {
                   selectedCycle === "yearly" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
                 }`}
               >
-                Annual <span className="text-[10px] text-primary font-bold">Save ~15%</span>
+                Annual
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {plans
               .filter((p) => p.key !== "free")
-              .map((p) => {
+              .map((p, index) => {
                 const currentKey = (subscription?.planKey || entitlements?.planKey || entitlements?.tier || "starter").toLowerCase();
                 const isCurrent = currentKey === p.key.toLowerCase();
-                const price = selectedCycle === "yearly" ? p.priceYearly : p.priceMonthly;
-
+                const seatBand = p.key in PLAN_SEAT_BANDS ? PLAN_SEAT_BANDS[p.key as SeatBandPlanKey] : undefined;
+                const isFixedStarter = p.key.toLowerCase() === "starter";
+                const includedUsers = seatBand?.minimum ?? Math.min(p.features.maxUsers, Math.max(1, p.includedUsers ?? p.features.maxUsers));
+                const requestedUsers = isFixedStarter ? (seatBand?.minimum ?? 5) : p.meteredUsers
+                  ? Math.min(p.features.maxUsers, Math.max(includedUsers, planUserCounts[p.key] ?? (isCurrent ? subscription?.userCount ?? includedUsers : includedUsers)))
+                  : p.features.maxUsers;
+                const users = normalizePlanUserCount(p.key, requestedUsers);
+                const currentAddOns = Array.isArray(subscription?.metadata?.selectedAddOns) ? subscription.metadata.selectedAddOns as string[] : [];
+                const addOns = PLAN_ADD_ONS[p.key] || [];
+                const defaultAddOns = p.key === "growth" || p.key === "pro" ? ["ai_assistant"] : [];
+                const selectedAddOns = planAddOns[p.key] ?? (isCurrent ? currentAddOns : defaultAddOns);
+                const actionLabel = isCurrent ? "CURRENT PLAN" : index === 0 ? "GET STARTED" : index === 1 ? "START SCALING" : "SELECT PLAN";
                 return (
-                  <Card
+                  <BillingPlanCard
                     key={p.key}
-                    className={`border flex flex-col justify-between transition-all ${
-                      isCurrent ? "border-primary/60 ring-2 ring-primary/20 bg-primary/5" : "hover:border-primary/40"
-                    }`}
-                  >
-                    <CardHeader className="p-4 pb-2">
-                      <div className="flex min-w-0 flex-col items-start gap-2">
-                        <CardTitle className="min-w-0 break-words text-base font-bold uppercase leading-tight">{p.name}</CardTitle>
-                        {isCurrent && <Badge className="shrink-0 whitespace-nowrap text-[10px] bg-primary text-primary-foreground font-semibold">Current</Badge>}
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-2xl font-bold">₹{price.toLocaleString()}</span>
-                        <span className="text-xs text-muted-foreground">/{selectedCycle === "yearly" ? "yr" : "mo"}</span>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="p-4 pt-2 text-xs space-y-3">
-                      <div className="border-t pt-2 space-y-1.5 text-muted-foreground">
-                        <div><strong className="text-foreground">{p.features.maxUsers}</strong> Users included</div>
-                        <div><strong className="text-foreground">{p.features.aiCreditsPerMonth}</strong> AI Credits/mo</div>
-                        <div><strong className="text-foreground">{p.features.storageGb} GB</strong> Storage</div>
-                        <div>Modules: <strong className="text-foreground uppercase">{p.features.modules.join(", ")}</strong></div>
-                      </div>
-
-                      <div className="pt-2">
-                        {isCurrent ? (
-                          <Button disabled variant="outline" className="w-full text-xs border-primary/40 text-primary font-semibold" size="sm">
-                            Current Plan
-                          </Button>
-                        ) : (
-                          <Button
-                            className="w-full text-xs"
-                            size="sm"
-                            variant="default"
-                            onClick={() => {
-                              // If target plan price is higher, it's an upgrade; else downgrade
-                              const currentPrice = subscription?.currentPrice || 0;
-                              if (price > currentPrice) {
-                                handleSelectUpgrade(p);
-                              } else {
-                                setDowngradeTarget(p);
-                                setShowDowngradeModal(true);
-                              }
-                            }}
-                          >
-                            {price > (subscription?.currentPrice || 0) ? "Upgrade" : "Downgrade"}
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                    plan={p}
+                    index={index}
+                    selectedCycle={selectedCycle}
+                    users={users}
+                    selectedAddOns={selectedAddOns}
+                    currentAddOns={currentAddOns}
+                    isCurrent={isCurrent}
+                    currentUserCount={subscription?.userCount ?? p.features.maxUsers}
+                    onUserCountCommit={(userCount) => setPlanUserCounts((counts) => ({ ...counts, [p.key]: userCount }))}
+                    onAddOnChange={(addOnKey, checked) => setPlanAddOns((current) => {
+                      const active = current[p.key] ?? (isCurrent ? currentAddOns : defaultAddOns);
+                      return { ...current, [p.key]: checked ? [...active.filter((key) => key !== addOnKey), addOnKey] : active.filter((key) => key !== addOnKey) };
+                    })}
+                    onSelect={(userCount, addOnsSelected) => {
+                      const selectedPrice = priceWithAddOns({ ...p, key: p.key }, selectedCycle, userCount, addOnsSelected).price;
+                      if (selectedPrice > (subscription?.currentPrice || 0)) handleSelectUpgrade(p, userCount, addOnsSelected);
+                      else {
+                        setDowngradeTarget(p);
+                        setPlanUserCounts((counts) => ({ ...counts, [p.key]: userCount }));
+                        setPlanAddOns((current) => ({ ...current, [p.key]: addOnsSelected }));
+                        setShowDowngradeModal(true);
+                      }
+                    }}
+                  />
                 );
               })}
           </div>
+          {plans.length === 0 && (
+            <div role="status" className="mt-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              {plansLoadError || "Loading configured subscription plans…"}
+            </div>
+          )}
         </div>
 
         {/* 6. Invoices & Billing History Section */}
@@ -1160,5 +1187,144 @@ export default function CustomerBillingPortal() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+const PLAN_HIGHLIGHTS: Record<string, string[]> = {
+  starter: ["Basic ERP workflows", "Invoicing & expense tracking", "Simple finance dashboard"],
+  growth: ["Full accounting ERP", "Reconciliation & approval systems", "Multi-user collaboration & integrations"],
+  pro: ["Advanced AI & custom workflows", "Higher volume & deeper integrations", "Dedicated onboarding & support"],
+};
+
+/** Keeps range dragging local to one plan card so the full billing page does
+ * not rerender for every pointer movement. Price feedback remains immediate. */
+function BillingPlanCard({
+  plan,
+  index,
+  selectedCycle,
+  users: initialUsers,
+  selectedAddOns,
+  currentAddOns,
+  isCurrent,
+  currentUserCount,
+  onUserCountCommit,
+  onAddOnChange,
+  onSelect,
+}: {
+  plan: PlanCatalogItem;
+  index: number;
+  selectedCycle: "monthly" | "yearly";
+  users: number;
+  selectedAddOns: string[];
+  currentAddOns: string[];
+  isCurrent: boolean;
+  currentUserCount: number;
+  onUserCountCommit: (users: number) => void;
+  onAddOnChange: (key: string, checked: boolean) => void;
+  onSelect: (users: number, addOns: string[]) => void;
+}) {
+  const [users, setUsers] = useState(initialUsers);
+  useEffect(() => setUsers(initialUsers), [initialUsers]);
+
+  const seatBand = plan.key in PLAN_SEAT_BANDS ? PLAN_SEAT_BANDS[plan.key as SeatBandPlanKey] : undefined;
+  const isFixedStarter = plan.key.toLowerCase() === "starter";
+  const minimumUsers = seatBand?.minimum ?? Math.min(plan.features.maxUsers, Math.max(1, plan.includedUsers ?? plan.features.maxUsers));
+  const maximumUsers = seatBand?.maximum ?? Math.max(minimumUsers, plan.features.maxUsers);
+  const addOns = PLAN_ADD_ONS[plan.key] || [];
+  const highlights = PLAN_HIGHLIGHTS[plan.key] || plan.features.modules;
+  const price = priceWithAddOns({ ...plan, key: plan.key }, selectedCycle, users, selectedAddOns).price;
+  const currencySymbol = plan.currency === "INR" ? "₹" : `${plan.currency} `;
+  const sameAddOns = selectedAddOns.length === currentAddOns.length && selectedAddOns.every((key) => currentAddOns.includes(key));
+  const matchesCurrentAddOns = isCurrent && sameAddOns;
+  const isCurrentSeatConfiguration = matchesCurrentAddOns && (!plan.meteredUsers || users === currentUserCount);
+  const actionLabel = isCurrent ? "CURRENT PLAN" : index === 0 ? "GET STARTED" : index === 1 ? "START SCALING" : "SELECT PLAN";
+  const isScaleAtMaximum = plan.key.toLowerCase() === "pro" && users >= maximumUsers;
+
+  const commitUserCount = (target: HTMLInputElement) => {
+    const nextUsers = Number(target.value);
+    setUsers(nextUsers);
+    onUserCountCommit(nextUsers);
+  };
+
+  return (
+    <Card className={`min-h-[620px] rounded-none border bg-[#151515] text-[#f2f2f2] flex flex-col ${index === 1 ? "border-[#555]" : "border-[#252525]"}`}>
+      <CardHeader className="p-6 pb-4">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-[10px] font-normal tracking-wide text-[#8290a0] uppercase">{plan.name}</CardTitle>
+          {index === 1 && <span className="border border-[#292929] px-2 py-1 text-[9px] text-[#8290a0] font-mono">MOST POPULAR</span>}
+        </div>
+        <div className="mt-3 flex items-baseline gap-2 font-mono">
+          <span className="text-[36px] leading-none tracking-[-0.06em] text-white">{currencySymbol}{price.toLocaleString("en-IN")}{isScaleAtMaximum ? "+" : ""}</span>
+          <span className="text-[11px] text-[#8290a0]">/ {selectedCycle === "yearly" ? "yr" : "mo"}</span>
+        </div>
+        <p className="mt-2 min-h-4 font-mono text-[10px] text-[#60656b]">* {plan.note || "Price varies by users and selected add-ons"}</p>
+        <p className="mt-4 min-h-[42px] font-mono text-[12px] leading-5 text-[#85898e]">{plan.description || "Configured for your business operations."}</p>
+      </CardHeader>
+
+      <CardContent className="px-6 pb-6 pt-0 flex flex-1 flex-col font-mono text-[11px]">
+        <div className="border-t border-[#292929] pt-4">
+          <label className="block text-[#7b8795]">
+            <span className="flex items-center justify-between text-[10px] uppercase tracking-wide">
+              <span>Users</span><span className="text-white">{isScaleAtMaximum ? "500+ users" : `${users} users`}</span>
+            </span>
+            <input
+              aria-label={`${plan.name} user count`}
+              type="range"
+              min={isFixedStarter ? 1 : minimumUsers}
+              max={maximumUsers}
+              step={plan.key.toLowerCase() === "pro" ? 10 : 1}
+              value={users}
+              disabled={isFixedStarter || !plan.meteredUsers}
+              onChange={(event) => setUsers(Number(event.currentTarget.value))}
+              onPointerUp={(event) => commitUserCount(event.currentTarget)}
+              onKeyUp={(event) => commitUserCount(event.currentTarget)}
+              onBlur={(event) => commitUserCount(event.currentTarget)}
+              className="mt-4 h-1 w-full cursor-pointer accent-[#dedee2] disabled:cursor-default disabled:opacity-100 [touch-action:pan-y]"
+            />
+          </label>
+        </div>
+
+        <div className="mt-6 border-b border-[#292929] pb-4">
+          <p className="mb-2 text-[10px] uppercase text-[#7b8795]">Add-ons</p>
+          <div className="space-y-2">
+            {addOns.map((addOn) => (
+              <label key={addOn.key} className="flex cursor-pointer items-center justify-between gap-3 text-[#85898e]">
+                <span>{addOn.label}</span>
+                <Switch
+                  checked={selectedAddOns.includes(addOn.key)}
+                  aria-label={`${plan.name}: ${addOn.label}`}
+                  onCheckedChange={(checked) => onAddOnChange(addOn.key, checked)}
+                  className="data-[state=checked]:bg-[#dedee2] data-[state=unchecked]:bg-[#292929]"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 space-y-5 border-t border-[#292929] mt-6 py-5 text-[#85898e]">
+          {highlights.map((highlight) => (
+            <div key={highlight} className="flex gap-3 leading-4">
+              <span className="text-white">+</span>
+              <span>{highlight}</span>
+            </div>
+          ))}
+        </div>
+
+        {!plan.availableForPurchase ? (
+          <Button disabled variant="outline" className="h-11 rounded-none border-[#292929] bg-transparent px-4 text-left font-mono text-[10px] text-[#6c7075]" size="sm">NOT AVAILABLE FOR PURCHASE</Button>
+        ) : isCurrentSeatConfiguration ? (
+          <Button disabled variant="outline" className="h-11 rounded-none border-[#292929] bg-transparent px-4 text-left font-mono text-[10px] text-white" size="sm">CURRENT PLAN</Button>
+        ) : (
+          <Button
+            className={`h-11 justify-between rounded-none px-4 font-mono text-[10px] ${index === 1 ? "bg-[#f1f1f1] text-black hover:bg-white" : "border border-[#292929] bg-transparent text-white hover:bg-[#202020]"}`}
+            size="sm"
+            variant="default"
+            onClick={() => onSelect(users, selectedAddOns)}
+          >
+            {isCurrent ? "UPDATE USERS" : actionLabel}<ArrowRight className="h-3.5 w-3.5 -rotate-45" />
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }

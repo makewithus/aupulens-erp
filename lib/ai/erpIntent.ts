@@ -4,7 +4,8 @@ import { extractCustomerFields } from "./customerDraft";
 /** Only ordinary words are normalized; document identifiers retain their bytes. */
 export function normalizeErpText(text: string) {
   return text
-    .replace(/\b(invocies|invoce|invioce)\b/gi, "invoices")
+    .replace(/\b(invocies|inovices|invoicse|invoce|invioce)\b/gi, "invoices")
+    .replace(/\b(overdu|overduee|ovrdue)\b/gi, "overdue")
     .replace(/\bwat\b/gi, "what")
     .replace(/\bwats\b/gi, "what's")
     .replace(/\btotel\b/gi, "total")
@@ -39,6 +40,8 @@ export type ErpIntent =
   | "organization_info"
   | "total"
   | "refuse"
+  | "off_topic"
+  | "greeting"
   | "quote_draft"
   | "quote_confirm"
   | "quote_cancel"
@@ -48,6 +51,10 @@ export type ErpIntent =
   | "customer_update"
   | "customer_mobile_confirm"
   | "customer_mobile_cancel"
+  | "customer_email_confirm"
+  | "customer_email_cancel"
+  | "product_price_confirm"
+  | "product_price_cancel"
   | "product_draft"
   | "product_confirm"
   | "product_cancel"
@@ -55,6 +62,8 @@ export type ErpIntent =
   | "role_cancel"
   | "validate_values"
   | { type: "customer_mobile_update"; customerQuery: string; newMobile: string }
+  | { type: "customer_email_update"; customerQuery: string; newEmail: string }
+  | { type: "product_price_update"; productQuery: string; oldPrice: number; newPrice: number }
   | { type: "product_draft" }
   | { type: "customer_receivables"; customer?: string }
   | { type: "customer_last_invoice"; customer: string }
@@ -63,6 +72,7 @@ export type ErpIntent =
   | { type: "bill_calculation"; quantity: number; unitPrice: number; gstRate: number; discountRate: number }
   | { type: "vendor_bill_query"; supplier?: string; billReference?: string; status?: string }
   | { type: "sales_period_summary"; period: "this_month" | "last_month" | "this_year" | "last_30_days"; wantsReceivables?: boolean }
+  | { type: "customer_sales_summary" }
   | { type: "plan"; feature?: string }
   | { type: "organization_info" }
   | {
@@ -81,7 +91,7 @@ export type ErpIntent =
       basis?: string;
     }
   | { type: "role_change"; userName: string; role: string; fromRole?: string }
-  | { type: "employee_lookup"; name?: string; department?: string; employeeCode?: string }
+  | { type: "employee_lookup"; name?: string; department?: string; employeeCode?: string; attribute?: string }
   | {
       type: "employee_count";
       scope: "total" | "active" | "linked" | "unlinked" | "department";
@@ -263,6 +273,9 @@ function cleanName(raw: string): string {
   let cleaned = raw.trim();
   cleaned = cleaned.replace(/^(?:existing\s+)?(?:employee|user|staff|member)\s+/i, "");
   cleaned = cleaned.replace(/'s$/i, "");
+  // Names are often pasted into chat with smart quotes or a final sentence mark.
+  // Keep internal punctuation (for names such as O'Neil) but remove wrapping noise.
+  cleaned = cleaned.replace(/^[\s\"'“”‘’]+|[\s\"'“”‘’.,!?;:]+$/g, "");
   return cleaned.trim();
 }
 
@@ -340,6 +353,14 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   // matching. Keeping this normalization here also covers translated inputs.
   const q = normalizeErpText(text).trim().replace(/\bquotations?\b/gi, "quote");
 
+  if (/\bweather\b/i.test(q) && /\b(?:leave\s+letter|write\s+me\s+a\s+letter)\b/i.test(q)) return "off_topic";
+  if (/^(?:hi|hello|hey|good morning|good afternoon|good evening)[,!. ]*(?:what can you do for me|what do you do|how can you help me|help)?[?.!]*$/i.test(q)) return "greeting";
+  if (
+    (/\bhow\s+many\s+customers?\b/i.test(q) && /\b(?:total\s+)?(?:sales|revenue)\b/i.test(q)) ||
+    (/வாடிக்கையாள/u.test(q) && /(?:எத்தனை|எவ்வளவு)/u.test(q) && /விற்பனை/u.test(q) && /(?:மொத்த|எவ்வளவு)/u.test(q))
+  ) return { type: "customer_sales_summary" };
+  if (/வாடிக்கையாள/u.test(q) && /(?:எத்தனை|எவ்வளவு)/u.test(q)) return { entity: "customer", operation: "count" };
+
   // Safety refusals
   if (/\b(?:delete|remove|erase)\b.*\b(?:invoices?|quotes?|customers?|orders?|ledgers?|users?)\b/i.test(q) ||
       (/\b(?:ignore|override|bypass)\b/i.test(q) && /\b(?:system\s+prompt|other\s+companies|other\s+tenants|all\s+customers)\b/i.test(q)) ||
@@ -372,6 +393,14 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   if (/^(?:yes[, ]*)?(?:confirm|save)(?: the)? customer(?: draft)?[.!]?$/i.test(q)) return "customer_confirm";
 
   // Customer mobile update controls (SYS-30)
+  if (/^(?:yes[, ]*)?(?:confirm|save)(?: the)? customer email update[.!]?$/i.test(q)) return "customer_email_confirm";
+  if (/^cancel(?: the)? customer email update[.!]?$/i.test(q)) return "customer_email_cancel";
+  if (/^(?:yes[, ]*)?(?:confirm|save)(?: the)? product price update[.!]?$/i.test(q)) return "product_price_confirm";
+  if (/^cancel(?: the)? product price update[.!]?$/i.test(q)) return "product_price_cancel";
+  const emailUpdate = q.match(/\b(?:update|change|set)\s+(.+?)\s+(?:customer\s+)?email\s+(?:to|as)\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/i);
+  if (emailUpdate) return { type: "customer_email_update", customerQuery: emailUpdate[1].trim().replace(/^customer\s+/i, ""), newEmail: emailUpdate[2].toLowerCase() };
+  const productPriceUpdate = q.match(/\b(?:change|update|set)\s+(?:the\s+)?(?:selling\s+)?price\s+of\s+(.+?)\s+from\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s+to\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)/i);
+  if (productPriceUpdate) return { type: "product_price_update", productQuery: productPriceUpdate[1].trim(), oldPrice: Number(productPriceUpdate[2]), newPrice: Number(productPriceUpdate[3]) };
   if (
     /^(?:yes[, ]*)?(?:confirm|save)(?: the)? (?:customer )?mobile(?: update)?[.!]?$/i.test(q) ||
     (context?.pendingCustomerMobileProposalId && /^(?:yes[, ]*)?(?:confirm|save|proceed)[.!]?$/i.test(q))
@@ -411,6 +440,8 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
       return { type: "customer_mobile_update", customerQuery: custMatch[1].trim(), newMobile: phoneMatch[1].trim() };
     }
   }
+  const hinglishMobile = q.match(/\b(.+?)\s+ka\s+(?:mobile|phone)\s+number\s+([+]?[0-9]{7,15})\s+kar\s+do\b/i);
+  if (hinglishMobile) return { type: "customer_mobile_update", customerQuery: hinglishMobile[1].trim().replace(/^customer\s+/i, ""), newMobile: hinglishMobile[2] };
 
   // Product workflow controls (SYS-31)
   if (
@@ -459,6 +490,9 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   const previousCustomerForFollowUp = (context?.lastErpQuery as any)?.type === "customer_receivables"
     ? (context?.lastErpQuery as any)?.customer
     : undefined;
+  const hinglishCustomerPaymentPending = q.match(/^(.+?)\s+ka\s+kitna\s+(?:payment|bhugtan)\s+(?:pending|baki|baaki)\s+hai[?!.]?$/i);
+  const hindiCustomerPaymentPending = q.match(/^(.+?)\s+का\s+कितना\s+(?:पेमेंट|भुगतान)\s+(?:पेंडिंग|बाकी|बकाया)\s+है[?।!]?$/u);
+  const customerPaymentPending = hinglishCustomerPaymentPending || hindiCustomerPaymentPending;
   if (lastInvoiceFollowUp && previousCustomerForFollowUp) {
     return { type: "customer_last_invoice", customer: previousCustomerForFollowUp };
   }
@@ -482,9 +516,11 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   }
   if (
     /\b(?:how\s+much\s+does|how\s+much\s+(?:do\s+)?(?:my\s+)?customers?\s+(?:still\s+)?owe|amount\s+owed|outstanding\s+balance|total\s+sales\s+and\s+(?:outstanding\s+)?receivables|receivables\s+and\s+sales)\b/i.test(q) ||
+    Boolean(customerPaymentPending) ||
     (/\b(?:owe|owed|outstanding|receivables?)\b/i.test(q) && /\b(?:customer|sales?|balance)\b/i.test(q))
   ) {
-    const custMatch = q.match(/\b(?:customer|for|does)\s+([A-Za-z0-9_-]+)(?:\s+owe|\s+balance|\s*$)/i) ||
+    const custMatch = customerPaymentPending ||
+                      q.match(/\b(?:customer|for|does)\s+([A-Za-z0-9_-]+)(?:\s+owe|\s+balance|\s*$)/i) ||
                       q.match(/\b([A-Z0-9]+-[A-Z0-9_-]+)\b/i);
     const asksAboutPreviousCustomer = /\b(?:that|this)\s+customer\b/i.test(q);
     const previousCustomer = (context?.lastErpQuery as any)?.type === "customer_receivables"
@@ -530,6 +566,23 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   const hasEmployeeKeyword = /\b(?:employees?|staff|team\s+members?)\b/i.test(q);
   const isNotCreation = !/\b(?:create|new|add|onboard|draft|register)\s+(?:an?\s+)?(?:new\s+)?(?:employee|staff)\b/i.test(q)
     || /\b(?:do\s+not|don'?t|never)\s+(?:create|modify|add)\b/i.test(q);
+
+  // Direct attribute questions often omit a lookup verb (for example,
+  // "employee code of Sharath Sri Ram"). Route these to the same
+  // tenant-scoped employee lookup instead of the employee-count fallback.
+  const employeeAttributeMatch = q.match(
+    /\b(?:employee|staff)\s+(?:code|id|email|phone|mobile|designation|department|role)\s+(?:of|for)\s+(.+?)[?.!]*$/i,
+  );
+  const possessiveEmployeeAttributeMatch = q.match(
+    /\b(.+?)['’]s\s+(?:employee\s+)?(?:code|id|email|phone|mobile|designation|department|role)\b[?.!]*$/i,
+  );
+  const employeeAttributeName = employeeAttributeMatch?.[1] || possessiveEmployeeAttributeMatch?.[1];
+  if (employeeAttributeName && isNotCreation) {
+    const name = cleanName(employeeAttributeName.replace(/^(?:what(?:'s|\s+is)|tell\s+me)\s+/i, "").trim());
+    const attribute = (employeeAttributeMatch?.[0] || possessiveEmployeeAttributeMatch?.[0])
+      .match(/\b(code|id|email|phone|mobile|designation|department|role)\b/i)?.[1]?.toLowerCase();
+    if (name) return { type: "employee_lookup", name, attribute };
+  }
 
   if (isLookupVerb && hasEmployeeKeyword && isNotCreation) {
     let name: string | undefined;

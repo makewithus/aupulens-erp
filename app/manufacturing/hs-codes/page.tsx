@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface HSCode {
   _id: string;
@@ -58,7 +59,7 @@ export default function HSCodesPage() {
 
   const fetchHSCodes = useCallback(async () => {
     try {
-      const res = await fetch('/api/manufacturing/hs-codes');
+      const res = await cachedFetch('/api/manufacturing/hs-codes');
       const data = await res.json();
       setHsCodes(data.hsCodes || []);
       setFilteredCodes(data.hsCodes || []);
@@ -98,7 +99,7 @@ export default function HSCodesPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/manufacturing/hs-codes', {
+      const res = await cachedFetch('/api/manufacturing/hs-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -134,7 +135,7 @@ export default function HSCodesPage() {
     if (!await confirmDialog({ title: 'Are you sure you want to delete this HS code?' })) return;
     
     try {
-      const res = await fetch(`/api/manufacturing/hs-codes/${id}`, {
+      const res = await cachedFetch(`/api/manufacturing/hs-codes/${id}`, {
         method: 'DELETE',
       });
 

@@ -25,6 +25,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Plus, Truck, X } from 'lucide-react';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface Shipment {
   _id: string;
@@ -123,7 +124,7 @@ export default function ShipmentsPage() {
       if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);
-      const res = await fetch(`/api/manufacturing/shipments?${params.toString()}`);
+      const res = await cachedFetch(`/api/manufacturing/shipments?${params.toString()}`);
       const json = await res.json();
       setData(json.shipments || []);
       setTotal(json.total || 0);
@@ -137,7 +138,7 @@ export default function ShipmentsPage() {
 
   const fetchFreightProviders = useCallback(async () => {
     try {
-      const response = await fetch('/api/manufacturing/freight-providers');
+      const response = await cachedFetch('/api/manufacturing/freight-providers');
       if (response.ok) {
         const data = await response.json();
         setFreightProviders(data.providers || []);
@@ -149,7 +150,7 @@ export default function ShipmentsPage() {
 
   const fetchHsCodes = useCallback(async () => {
     try {
-      const response = await fetch('/api/manufacturing/hs-codes');
+      const response = await cachedFetch('/api/manufacturing/hs-codes');
       if (response.ok) {
         const data = await response.json();
         setHsCodes(Array.isArray(data) ? data : []);
@@ -261,7 +262,7 @@ export default function ShipmentsPage() {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/manufacturing/shipments', {
+      const res = await cachedFetch('/api/manufacturing/shipments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newShipment),

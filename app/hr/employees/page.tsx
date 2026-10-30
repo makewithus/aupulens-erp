@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
-import { sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
+import { isValidEmployeeCode, sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
@@ -244,10 +244,11 @@ export default function EmployeesPage() {
   useAiPrefill("employee", (p) => {
     handleOpenCreate();
     const d: any = p.data || {};
+    const suggestedCode = isValidEmployeeCode(d.employeeCode) ? String(d.employeeCode).trim() : "";
     const num = (v: any) => (v !== undefined && v !== null && v !== "" ? Number(v) : 0);
     setFormData((prev: any) => ({
       ...prev,
-      employeeCode: d.employeeCode || prev.employeeCode,
+      employeeCode: suggestedCode || prev.employeeCode,
       firstName: d.firstName || prev.firstName,
       lastName: d.lastName || prev.lastName,
       email: d.email || prev.email,
@@ -272,7 +273,9 @@ export default function EmployeesPage() {
         },
       },
     }));
-    setAiNotice(p.suggestions && p.suggestions.length ? p.suggestions : null);
+    const suggestions = [...(p.suggestions || [])];
+    if (d.employeeCode && !suggestedCode) suggestions.push("The suggested employee code did not match the employee-code format, so it was cleared. Enter a valid code before saving.");
+    setAiNotice(suggestions.length ? suggestions : null);
   });
 
   const FieldError = ({ name }: { name: string }) =>

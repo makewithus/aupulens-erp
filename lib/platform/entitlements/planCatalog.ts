@@ -1,5 +1,6 @@
 import Plan, { type IPlanFeatures } from "@/models/platform/Plan";
 import { PLAN_KEY, PLAN_KEY_LABELS, SUPPORT_LEVEL } from "@/lib/constants/statuses";
+import { PLAN_SEAT_BANDS } from "@/lib/billing/seatBands";
 
 /**
  * Source doc §8's plan catalogue — the single source of truth read by both
@@ -11,7 +12,7 @@ import { PLAN_KEY, PLAN_KEY_LABELS, SUPPORT_LEVEL } from "@/lib/constants/status
  */
 export const PLAN_DEFINITIONS: Record<
   string,
-  { priceMonthly: number; priceYearly: number; isCustom?: boolean; basedOnPlanKey?: string; features: IPlanFeatures }
+  { name?: string; priceMonthly: number; priceYearly: number; isCustom?: boolean; availableForPurchase?: boolean; meteredUsers?: boolean; includedUsers?: number; additionalUserPriceMonthly?: number; additionalUserPriceYearly?: number; basedOnPlanKey?: string; description?: string; features: IPlanFeatures }
 > = {
   [PLAN_KEY.FREE]: {
     priceMonthly: 0,
@@ -32,29 +33,25 @@ export const PLAN_DEFINITIONS: Record<
       featureFlags: {},
     },
   },
-  // STARTER/PRO/ENTERPRISE modules and (maxUsers, AI call count) are corrected
-  // to be BYTE-FOR-BYTE identical to the pre-existing, tested, live
-  // lib/constants/tiers.ts values for the legacy tier of the same name
-  // (docs/admin/BRIEF-PHASE-9a-ADDENDUM.md Part 1.1) — tiers.ts describes
-  // what real tenants can do TODAY; this catalogue was a seeded default
-  // invented during this project with no tenant attached to it, and its
-  // original numbers here were unreviewed SaaS-pricing-page guesses that
-  // silently diverged from production reality (STARTER's module SET was
-  // completely different; PRO/ENTERPRISE kept the right module set but the
-  // wrong maxUsers/AI-call ceiling). Fields tiers.ts does not define
-  // (maxCompanies, storageGb, apiRequestsPerMonth, automationRunsPerMonth,
-  // documentLimitPerMonth, supportLevel) are unaffected by this correction —
-  // there is nothing in tiers.ts to contradict them.
+  // Module sets and AI limits remain aligned with the legacy tier catalogue.
+  // Customer-facing seat capacities and incremental rates are defined in
+  // seatBands.ts; Scale intentionally supports up to 500 users even though
+  // the older tier table has a lower professional-tier cap.
   [PLAN_KEY.STARTER]: {
-    priceMonthly: 999,
-    priceYearly: 9990,
+    name: PLAN_SEAT_BANDS.starter.displayName,
+    priceMonthly: PLAN_SEAT_BANDS.starter.baseMonthly,
+    priceYearly: PLAN_SEAT_BANDS.starter.baseYearly,
+    availableForPurchase: true,
+    meteredUsers: true,
+    includedUsers: PLAN_SEAT_BANDS.starter.minimum,
+    description: PLAN_SEAT_BANDS.starter.description,
     features: {
       modules: ["admin", "hr", "inventory"],
-      maxUsers: 5,
+      maxUsers: PLAN_SEAT_BANDS.starter.maximum,
       maxCompanies: 1,
       storageGb: 5,
       apiRequestsPerMonth: 1000,
-      aiCreditsPerMonth: 1000,
+      aiCreditsPerMonth: 100,
       aiCreditsPerSession: 20,
       aiCreditsPerWeek: 100,
       aiRequestsPerMonth: 100,
@@ -65,15 +62,22 @@ export const PLAN_DEFINITIONS: Record<
     },
   },
   [PLAN_KEY.GROWTH]: {
-    priceMonthly: 2999,
-    priceYearly: 29990,
+    name: PLAN_SEAT_BANDS.growth.displayName,
+    priceMonthly: PLAN_SEAT_BANDS.growth.baseMonthly,
+    priceYearly: PLAN_SEAT_BANDS.growth.baseYearly,
+    availableForPurchase: true,
+    meteredUsers: true,
+    includedUsers: PLAN_SEAT_BANDS.growth.minimum,
+    additionalUserPriceMonthly: PLAN_SEAT_BANDS.growth.extraMonthly,
+    additionalUserPriceYearly: PLAN_SEAT_BANDS.growth.extraYearly,
+    description: PLAN_SEAT_BANDS.growth.description,
     features: {
       modules: ["admin", "finance", "sales", "inventory", "crm", "manufacturing", "hr", "project"],
-      maxUsers: 15,
+      maxUsers: PLAN_SEAT_BANDS.growth.maximum,
       maxCompanies: 1,
       storageGb: 25,
       apiRequestsPerMonth: 5000,
-      aiCreditsPerMonth: 1500,
+      aiCreditsPerMonth: 500,
       aiCreditsPerSession: 50,
       aiCreditsPerWeek: 250,
       aiRequestsPerMonth: 500,
@@ -84,15 +88,22 @@ export const PLAN_DEFINITIONS: Record<
     },
   },
   [PLAN_KEY.PRO]: {
-    priceMonthly: 7999,
-    priceYearly: 79990,
+    name: PLAN_SEAT_BANDS.pro.displayName,
+    priceMonthly: PLAN_SEAT_BANDS.pro.baseMonthly,
+    priceYearly: PLAN_SEAT_BANDS.pro.baseYearly,
+    availableForPurchase: true,
+    meteredUsers: true,
+    includedUsers: PLAN_SEAT_BANDS.pro.minimum,
+    additionalUserPriceMonthly: PLAN_SEAT_BANDS.pro.extraMonthly,
+    additionalUserPriceYearly: PLAN_SEAT_BANDS.pro.extraYearly,
+    description: PLAN_SEAT_BANDS.pro.description,
     features: {
       modules: ["admin", "hr", "inventory", "finance", "sales", "crm"],
-      maxUsers: 25,
+      maxUsers: PLAN_SEAT_BANDS.pro.maximum,
       maxCompanies: 3,
       storageGb: 100,
       apiRequestsPerMonth: 25000,
-      aiCreditsPerMonth: 2500,
+      aiCreditsPerMonth: 1000,
       aiCreditsPerSession: 100,
       aiCreditsPerWeek: 500,
       aiRequestsPerMonth: 1000,
@@ -173,14 +184,20 @@ export async function seedPlans(): Promise<void> {
       {
         $set: {
           key,
-          name: PLAN_KEY_LABELS[key as keyof typeof PLAN_KEY_LABELS],
+          name: plan.name ?? PLAN_KEY_LABELS[key as keyof typeof PLAN_KEY_LABELS],
           priceMonthly: plan.priceMonthly,
           priceYearly: plan.priceYearly,
           billingCycleOptions: ["monthly", "yearly"],
           isCustom: plan.isCustom ?? false,
           basedOnPlanKey: plan.basedOnPlanKey,
+          description: plan.description ?? "",
           features: plan.features,
           active: true,
+          availableForPurchase: plan.availableForPurchase ?? false,
+          meteredUsers: plan.meteredUsers ?? false,
+          includedUsers: plan.includedUsers ?? plan.features.maxUsers,
+          additionalUserPriceMonthly: plan.additionalUserPriceMonthly ?? 0,
+          additionalUserPriceYearly: plan.additionalUserPriceYearly ?? 0,
         },
       },
       { upsert: true, new: true },

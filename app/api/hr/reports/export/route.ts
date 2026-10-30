@@ -9,6 +9,7 @@ import Payroll from "@/models/hr/Payroll";
 import LeaveRequest from "@/models/hr/LeaveRequest";
 import Attendance from "@/models/hr/Attendance";
 import { buildStyledXlsx, XLSX_MIME, type ReportColumn } from "@/lib/export/styledWorkbook";
+import { applyDemoScope } from "@/lib/auth/scopeFilter";
 
 // Excel exports for HR > Reports. Every report reads the database directly
 // (not the dashboard summary payload) so the numbers in the file always match
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
 
     if (type === "headcount") {
       title = "Headcount Report";
-      const groups = await Employee.aggregate([{ $match: { tenantId } }, { $group: { _id: "$lifecycleStatus", count: { $sum: 1 } } }]);
+      const groups = await Employee.aggregate([{ $match: applyDemoScope(session, { tenantId }) }, { $group: { _id: "$lifecycleStatus", count: { $sum: 1 } } }]);
       const total = groups.reduce((s, g) => s + g.count, 0);
       columns = [
         { header: "Lifecycle Status", width: 24 },
@@ -58,8 +59,8 @@ export async function GET(req: NextRequest) {
     } else if (type === "departments") {
       title = "Department Distribution";
       const groups = await Employee.aggregate([
-        { $match: { tenantId } },
-        { $group: { _id: "$departmentId", total: { $sum: 1 }, active: { $sum: { $cond: [{ $eq: ["$lifecycleStatus", "active"] }, 1, 0] } } } },
+        { $match: applyDemoScope(session, { tenantId }) },
+        { $group: { _id: "$departmentId", total: { $sum: 1 }, active: { $sum: { $cond: [{ $or: [{ $in: ["$lifecycleStatus", ["active", "on_notice"]] }, { $and: [{ $eq: [{ $type: "$lifecycleStatus" }, "missing"] }, { $eq: ["$status", "active"] }] }] }, 1, 0] } } } },
       ]);
       const depts = await Department.find({ tenantId }).select("name code").lean();
       const byId = new Map(depts.map((d: any) => [String(d._id), d]));
@@ -135,7 +136,7 @@ export async function GET(req: NextRequest) {
     } else if (type === "hires") {
       title = "Recent Hires (last 90 days)";
       const since = new Date(now.getTime() - 90 * 86400000);
-      const list = await Employee.find({ tenantId, dateOfJoining: { $gte: since } })
+      const list = await Employee.find({ ...applyDemoScope(session, { tenantId }), dateOfJoining: { $gte: since } })
         .populate("departmentId", "name")
         .sort({ dateOfJoining: -1 })
         .lean();
@@ -150,7 +151,7 @@ export async function GET(req: NextRequest) {
       rows = (list as any[]).map((e) => [e.employeeCode, `${e.firstName} ${e.lastName}`.trim(), e.designation || "", e.departmentId?.name || "Unassigned", e.dateOfJoining, cap(e.lifecycleStatus)]);
     } else {
       title = "Employee Directory";
-      const list = await Employee.find({ tenantId }).populate("departmentId", "name").sort({ employeeCode: 1 }).lean();
+      const list = await Employee.find(applyDemoScope(session, { tenantId })).populate("departmentId", "name").sort({ employeeCode: 1 }).lean();
       columns = [
         { header: "Employee Code", width: 16 },
         { header: "Name", width: 26 },

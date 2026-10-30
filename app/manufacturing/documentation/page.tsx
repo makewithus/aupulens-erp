@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { confirmDialog } from '@/components/providers/ConfirmRoot';
 import { uploadToCloudinary } from '@/lib/upload';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface DocumentRow {
   _id: string;
@@ -57,7 +58,7 @@ export default function DocumentationPage() {
 
   const fetchDocuments = useCallback(async () => {
     try {
-      const res = await fetch('/api/manufacturing/documents');
+      const res = await cachedFetch('/api/manufacturing/documents');
       if (!res.ok) throw new Error('Failed to fetch documents');
       const data = await res.json();
       setDocuments(data.documents || []);
@@ -83,7 +84,7 @@ export default function DocumentationPage() {
     setUploading(true);
     try {
       const url = await uploadToCloudinary(file);
-      const res = await fetch('/api/manufacturing/documents', {
+      const res = await cachedFetch('/api/manufacturing/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: file.name, file_url: url, file_type: file.type, size: file.size }),
@@ -137,7 +138,7 @@ export default function DocumentationPage() {
   const handleDelete = async (doc: DocumentRow) => {
     if (!(await confirmDialog({ title: `Delete "${doc.name}"?` }))) return;
     try {
-      const res = await fetch(`/api/manufacturing/documents/${doc._id}`, { method: 'DELETE' });
+      const res = await cachedFetch(`/api/manufacturing/documents/${doc._id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete document');
       toast({ title: 'Deleted', description: doc.name });
       fetchDocuments();

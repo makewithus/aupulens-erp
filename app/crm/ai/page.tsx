@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { Sparkles, AlertTriangle, Lightbulb, UserCheck, Activity } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function AIInsightsPage() {
   const [insights, setInsights] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/crm/ai/insights")
+    cachedFetch("/api/crm/ai/insights")
       .then(res => res.json())
       .then(data => {
         if (data.success) setInsights(data.data);

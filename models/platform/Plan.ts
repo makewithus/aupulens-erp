@@ -45,6 +45,11 @@ export interface IPlan extends Document {
   basedOnPlanKey?: PlanKeyType;
   features: IPlanFeatures;
   active: boolean;
+  availableForPurchase: boolean;
+  meteredUsers?: boolean;
+  includedUsers?: number;
+  additionalUserPriceMonthly?: number;
+  additionalUserPriceYearly?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +85,11 @@ const PlanSchema = new Schema<IPlan>(
     basedOnPlanKey: { type: String, enum: PLAN_KEY_VALUES },
     features: { type: PlanFeaturesSchema, required: true },
     active: { type: Boolean, default: true },
+    availableForPurchase: { type: Boolean, default: false },
+    meteredUsers: { type: Boolean, default: false },
+    includedUsers: { type: Number, min: 1 },
+    additionalUserPriceMonthly: { type: Number, min: 0, default: 0 },
+    additionalUserPriceYearly: { type: Number, min: 0, default: 0 },
   },
   { timestamps: true },
 );

@@ -16,7 +16,7 @@ const STATE_COLORS: Record<string, string> = {
   posted: "text-[#8AE06C]",
   cancel: "text-[#F56868]",
 };
-const STATE_LABELS: Record<string, string> = {
+export const BILL_STATE_LABELS: Record<string, string> = {
   draft: "Draft",
   pending_approval: "Pending approval",
   approved: "Approved",
@@ -102,7 +102,7 @@ export function BillsTable({
                     ${STATE_COLORS[bill.state] ?? "text-muted-foreground"}
                   `}
                 >
-                  {STATE_LABELS[String(bill.state || "").toLowerCase()] || String(bill.state || "Unknown").replace(/_/g, " ")}
+                  {BILL_STATE_LABELS[String(bill.state || "").toLowerCase()] || String(bill.state || "Unknown").replace(/_/g, " ")}
                 </Badge>
                 {bill.manualReviewRequired && (
                   <span className="text-[9px] font-mono font-bold uppercase tracking-tight text-[#F56868]">

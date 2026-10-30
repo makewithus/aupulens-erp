@@ -36,6 +36,8 @@ import {
   RefreshCw,
   Columns,
   ShoppingCart,
+  Search,
+  X,
   User,
   FileCheck2,
   ClipboardList,
@@ -181,7 +183,8 @@ function SalesOrdersPageInner() {
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
       params.set("sortDir", sortDir);
-      if (search) params.set("search", search);
+      const activeSearch = search.trim();
+      if (activeSearch.length >= 3) params.set("search", activeSearch);
       if (statusFilter) params.set("status", statusFilter);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
@@ -241,12 +244,12 @@ function SalesOrdersPageInner() {
       <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <SalesTabNav />
 
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">
+        <div className="flex min-w-0 flex-col gap-4 sm:gap-5 2xl:flex-row 2xl:items-end 2xl:justify-between">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS} max-w-full truncate text-2xl sm:text-3xl`}>
-                {activeView?.name === "All" ? "All Sales Orders" : activeView?.name || "All Sales Orders"}{" "}
-                <ChevronDown className="w-8 h-8 mb-2" />
+              <button className={`max-w-full text-left ${SALES_PAGE_TITLE_CLASS} text-2xl sm:text-3xl`}>
+                <span className="break-words">{activeView?.name === "All" ? "All Sales Orders" : activeView?.name || "All Sales Orders"}</span>{" "}
+                <ChevronDown className="inline-block h-5 w-5 align-middle sm:h-6 sm:w-6" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-72 rounded-none">
@@ -286,7 +289,27 @@ function SalesOrdersPageInner() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 2xl:w-auto 2xl:justify-end">
+            <div className="relative w-full min-w-0 2xl:w-[260px] 2xl:flex-none">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search order ID or customer name..."
+                aria-label="Search sales orders by order ID or customer name"
+                className="h-11 w-full rounded-none border-border/40 bg-transparent pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-0"
+              />
+              {search && (
+                <button
+                  type="button"
+                  aria-label="Clear sales order search"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <DateRangeFilter
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -343,9 +366,14 @@ function SalesOrdersPageInner() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          {search.trim().length > 0 && search.trim().length < 3 && (
+            <p className="w-full text-xs text-muted-foreground" aria-live="polite">
+              Type {3 - search.trim().length} more {3 - search.trim().length === 1 ? "character" : "characters"} to search.
+            </p>
+          )}
         </div>
 
-        {!loading && orders.length === 0 ? (
+        {!loading && orders.length === 0 && search.trim().length < 3 && !statusFilter && !dateFrom && !dateTo && !customerId && !amountMin && !amountMax ? (
           <div className="space-y-6">
             <div className="flex flex-col items-center py-16 px-4 text-center">
               <ShoppingCart className="w-12 h-12 mb-6 text-muted-foreground/30" />
@@ -368,9 +396,10 @@ function SalesOrdersPageInner() {
             <LifecycleDiagram />
           </div>
         ) : (
-          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none w-full max-w-full min-w-0">
+          <Card className="w-full min-w-0 max-w-full overflow-hidden rounded-none border border-border/40 bg-background shadow-none">
             <CardContent className="p-0">
-              <Table>
+              <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain">
+              <Table className="min-w-[760px]">
                 <TableHeader className="border-border/40">
                   <TableRow>
                     <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Date</TableHead>
@@ -397,7 +426,13 @@ function SalesOrdersPageInner() {
                       </TableRow>
                     ))
                   ) : (
-                    orders.map((o: any) => (
+                    orders.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5 + extraColumns.length} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                          No sales orders match your search or filters.
+                        </TableCell>
+                      </TableRow>
+                    ) : orders.map((o: any) => (
                       <TableRow
                         key={o._id}
                         className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
@@ -433,6 +468,7 @@ function SalesOrdersPageInner() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         )}

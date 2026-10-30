@@ -6,9 +6,11 @@ export interface IAiUsage extends Document {
   // Optional session/weekly counters use namespaced keys from lib/ai/usagePolicy.ts.
   // Counters roll over when the UTC month changes — each period starts from 0.
   period: string;
-  // Number of successful AI call responses in this period for this tenant.
-  // Incremented ONLY on success, never on Claude errors or gated requests.
+  // Number of completed user requests in this period for this tenant.
+  // Failed/gated requests and safety refusals are excluded.
   count: number;
+  /** Request IDs already counted in this tenant/period; makes retries and multi-call turns idempotent. */
+  requestIds?: string[];
 }
 
 const AiUsageSchema: Schema<IAiUsage> = new Schema(
@@ -16,6 +18,7 @@ const AiUsageSchema: Schema<IAiUsage> = new Schema(
     tenantId: { type: String, required: true, immutable: true },
     period:   { type: String, required: true },
     count:    { type: Number, required: true, default: 0, min: 0 },
+    requestIds: { type: [String], default: [] },
   },
   { timestamps: false }
 );

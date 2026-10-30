@@ -391,17 +391,17 @@ function StockMovesPageInner() {
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none flex flex-col min-h-[600px]">
           {/* Card Toolbar */}
           <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h3 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">Stock Moves</h3>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="shrink-0">
+                <h3 className="whitespace-nowrap text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">Stock Moves</h3>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
                   {total} {total === 1 ? "Move" : "Moves"} Total
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto xl:flex-nowrap">
                 {/* Search input */}
-                <div className="w-full sm:w-64">
+                <div className="w-full shrink-0 sm:w-64 xl:w-52">
                   <SearchInput
                     value={query}
                     onChange={(val) => {
@@ -415,7 +415,7 @@ function StockMovesPageInner() {
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-2">
                   <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
-                    <SelectTrigger className="w-full sm:w-40 h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectTrigger className="h-10 w-full rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0 sm:w-40 xl:w-36">
                       <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none border-border/40">
@@ -429,7 +429,7 @@ function StockMovesPageInner() {
                   </Select>
 
                   <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v)}>
-                    <SelectTrigger className="w-full sm:w-36 h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectTrigger className="h-10 w-full rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0 sm:w-36 xl:w-32">
                       <SelectValue placeholder="All Types" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none border-border/40">
@@ -446,12 +446,13 @@ function StockMovesPageInner() {
                     dateTo={dateTo}
                     onDateFromChange={setDateFrom}
                     onDateToChange={setDateTo}
+                    inputClassName="!w-[120px] !min-w-[120px] sm:!w-[120px] md:!w-[120px]"
                   />
                 </div>
 
                 <Button
                   onClick={handleCreate}
-                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none w-full sm:w-auto"
+                  className="h-10 shrink-0 px-4 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none w-full sm:w-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" /> New Move
                 </Button>

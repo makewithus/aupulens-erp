@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LucideIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -38,6 +38,7 @@ export function DashboardSidebar({
   onToggleCollapse,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   return (
     <aside
       className={cn(
@@ -95,11 +96,15 @@ export function DashboardSidebar({
               const isActive = pathname === item.href;
               const Icon = item.icon;
 
+              // Warm a route only when it is approached; eager prefetch across
+              // a large sidebar competes with the page the user opens.
               return (
                 <Link
                   key={item.href}
                   href={item.disabled ? "#" : item.href}
-                  prefetch={true}
+                  prefetch={false}
+                  onPointerEnter={() => !item.disabled && router.prefetch(item.href)}
+                  onFocus={() => !item.disabled && router.prefetch(item.href)}
                   className={cn(
                     "group flex items-center transition-all duration-300",
                     isCollapsed ? "justify-center py-3" : "gap-3 px-6 py-2.5",

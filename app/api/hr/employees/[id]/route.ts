@@ -6,6 +6,11 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Employee from "@/models/hr/Employee";
 import User from "@/models/auth/User";
+import Department from "@/models/hr/Department";
+import Attendance from "@/models/hr/Attendance";
+import LeaveRequest from "@/models/hr/LeaveRequest";
+import Payroll from "@/models/hr/Payroll";
+import PerformanceReview from "@/models/hr/PerformanceReview";
 import "@/models/hr/Department";
 import bcrypt from "bcryptjs";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
@@ -70,7 +75,9 @@ export async function PATCH(
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = sanitizeEmployeePayload(await req.json());
+    const rawBody = await req.json();
+    const clearDepartment = rawBody.departmentId === "" || rawBody.departmentId === null;
+    const body = sanitizeEmployeePayload(rawBody);
     await connectDB();
 
 
@@ -82,6 +89,23 @@ const existing = await Employee.findOne({ _id: id, tenantId });
     const fieldErrors = validateEmployee(body, { partial: true });
     if (Object.keys(fieldErrors).length > 0) {
       return NextResponse.json({ error: Object.values(fieldErrors)[0], fieldErrors }, { status: 400 });
+    }
+
+    if (body.employeeCode && body.employeeCode !== existing.employeeCode && await Employee.exists({ tenantId, _id: { $ne: id }, employeeCode: body.employeeCode })) {
+      return NextResponse.json({ error: "Employee code already exists. Please use a different code.", fieldErrors: { employeeCode: "Employee code already exists." } }, { status: 409 });
+    }
+    if (body.email && body.email.toLowerCase() !== existing.email && await Employee.exists({ tenantId, _id: { $ne: id }, email: body.email.toLowerCase() })) {
+      return NextResponse.json({ error: "An employee with this email already exists in this organization.", fieldErrors: { email: "This email is already linked to an employee." } }, { status: 409 });
+    }
+
+    const departmentChanged = Object.prototype.hasOwnProperty.call(rawBody, "departmentId");
+    let departmentName: string | undefined;
+    if (departmentChanged && !clearDepartment) {
+      const department = await Department.findOne({ _id: body.departmentId, tenantId }).select("name").lean();
+      if (!department) {
+        return NextResponse.json({ error: "The selected department does not exist in this organization.", fieldErrors: { departmentId: "Select a department from this organization." } }, { status: 400 });
+      }
+      departmentName = department.name;
     }
 
     // Recalculate salary if salary fields are provided
@@ -122,7 +146,7 @@ const existing = await Employee.findOne({ _id: id, tenantId });
           phone: body.phone || currentEmp?.phone || "",
           password: hashedPassword,
           role: body.userRole || "hr",
-          department: body.department || "",
+          department: departmentName || body.department || "",
           employeeId: body.employeeCode || currentEmp?.employeeCode || "",
           designation: body.designation || currentEmp?.designation || "",
           status: ENTITY_STATUS.ACTIVE,
@@ -139,9 +163,11 @@ const existing = await Employee.findOne({ _id: id, tenantId });
 
     const safeBody = stripProtectedFields(body);
 
+    const update: Record<string, any> = { $set: safeBody };
+    if (clearDepartment) update.$unset = { departmentId: "" };
     const employee = await Employee.findOneAndUpdate(
       { _id: id, tenantId },
-      { $set: safeBody },
+      update,
       { new: true },
     )
       .populate("departmentId", "name code")
@@ -167,6 +193,7 @@ const existing = await Employee.findOne({ _id: id, tenantId });
       if (body.phone) userUpdate.phone = employee.phone;
       if (body.designation) userUpdate.designation = employee.designation;
       if (body.employeeCode) userUpdate.employeeId = employee.employeeCode;
+      if (departmentChanged) userUpdate.department = departmentName || "";
 
       if (Object.keys(userUpdate).length > 0) {
         const userId = typeof employee.userId === "object" && "_id" in employee.userId
@@ -214,13 +241,28 @@ const existing = await Employee.findOne({ _id: id, tenantId });
       );
     }
 
+    const [attendanceCount, leaveCount, payrollCount, reviewCount] = await Promise.all([
+      Attendance.countDocuments({ tenantId, employeeId: id }),
+      LeaveRequest.countDocuments({ tenantId, employeeId: id }),
+      Payroll.countDocuments({ tenantId, "lineItems.employeeId": id }),
+      PerformanceReview.countDocuments({ tenantId, employeeId: id }),
+    ]);
+    if (attendanceCount + leaveCount + payrollCount + reviewCount > 0) {
+      return NextResponse.json({ error: "This employee has HR history. Mark the employee as exited instead of deleting the record." }, { status: 409 });
+    }
+
     const employee = await Employee.findOneAndDelete({ _id: id, tenantId });
+
+    await Promise.all([
+      Department.updateMany({ tenantId, headOfDepartment: id }, { $unset: { headOfDepartment: "" } }),
+      Employee.updateMany({ tenantId, reportingManagerId: id }, { $unset: { reportingManagerId: "" } }),
+    ]);
 
     // ── Unlink from User ──
     if (employee.userId) {
       await User.findOneAndUpdate(
         { _id: employee.userId, tenantId },
-        { $unset: { employeeId: "" } },
+        { $unset: { employeeId: "", designation: "" }, $set: { department: "" } },
       );
     }
 

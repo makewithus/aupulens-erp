@@ -51,6 +51,7 @@ const TARGETS: Record<string, { route: string; label: string; spec: string }> = 
     route: "/hr/employees",
     label: "employee",
     spec: `Fields (JSON keys): firstName (REQUIRED), lastName (REQUIRED), email (REQUIRED), phone (REQUIRED), employeeCode, designation, department_name, gender, dateOfJoining, employmentType, basic (number), hra (number), da (number), specialAllowance (number), pf (number), esi (number), professionalTax (number), tds (number).
+- "employeeCode" is an existing code only when the user explicitly supplies one. Never derive it from nearby labels, form text, or a document field list; otherwise return an empty string. Use at most 20 letters, numbers, hyphens, or underscores.
 - "gender" MUST be one of: male, female, other (lowercase) — or "".
 - "employmentType" MUST be one of: full-time, part-time, contract, intern. Default "full-time".
 - "dateOfJoining" as YYYY-MM-DD.

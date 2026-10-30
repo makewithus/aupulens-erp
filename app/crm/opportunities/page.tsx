@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import { toast } from "sonner";
 import { Loader2, Plus, Download, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
+import { formatOpportunityDate } from "@/lib/crm/opportunityDisplay";
+import { cachedFetch, getInstantCachedData, invalidateCache } from "@/lib/api/cachedFetch";
 
 const FORECAST_CATEGORIES = ["Omitted", "Pipeline", "Best Case", "Commit", "Closed"];
 const STAGES = ['Prospecting', 'Discovery', 'Requirement Gathering', 'Solution Fit', 'Proposal Sent', 'Negotiation', 'Approval', 'Closed Won', 'Closed Lost'];
@@ -59,6 +61,7 @@ function OpportunitiesPageInner() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const latestRequest = useRef(0);
   const LIMIT = 25;
 
   // Toolbar state
@@ -114,6 +117,7 @@ function OpportunitiesPageInner() {
   const [accounts, setAccounts] = useState<any[]>([]);
 
   const fetchOpportunities = async (currentPage = page) => {
+    const requestId = ++latestRequest.current;
     const params = new URLSearchParams();
     params.set('page', String(currentPage));
     params.set('limit', String(LIMIT));
@@ -123,18 +127,30 @@ function OpportunitiesPageInner() {
     if (dateFrom) params.set('dateFrom', dateFrom);
     if (dateTo) params.set('dateTo', dateTo);
 
+    const url = `/api/crm/opportunities?${params.toString()}`;
+    const cached = getInstantCachedData<any>(url, { allowPreHydration: true });
+    if (cached?.success && Array.isArray(cached.data)) {
+      setOpportunities(cached.data);
+      setTotal(cached.total ?? 0);
+      setTotalPages(cached.totalPages ?? 1);
+      setLoading(false);
+    }
+
     try {
-      const res = await fetch(`/api/crm/opportunities?${params.toString()}`);
+      const res = await cachedFetch(url);
       const data = await res.json();
-      if (data.success) {
+      if (requestId === latestRequest.current && data.success) {
         setOpportunities(data.data);
+        try {
+          sessionStorage.setItem("crm-opportunity-detail-cache", JSON.stringify(data.data));
+        } catch { /* cache is an optimization; the server remains authoritative */ }
         setTotal(data.total ?? 0);
         setTotalPages(data.totalPages ?? 1);
       }
     } catch (err) {
-      toast.error("Failed to load opportunities.");
+      if (requestId === latestRequest.current) toast.error("Failed to load opportunities.");
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
   };
 
@@ -148,7 +164,8 @@ function OpportunitiesPageInner() {
       });
       const data = await res.json();
       if (data.success) {
-        setOpportunities(opportunities.map(o => o._id === opportunityId ? { ...o, stage: newStage } : o));
+        invalidateCache();
+        await fetchOpportunities(page);
         toast.success(`Opportunity stage updated to ${newStage}`);
         fetchKpis();
       } else {
@@ -161,7 +178,9 @@ function OpportunitiesPageInner() {
 
   const fetchKpis = async () => {
     try {
-      const res = await fetch("/api/crm/opportunities/kpis");
+      const cached = getInstantCachedData<any>("/api/crm/opportunities/kpis", { allowPreHydration: true });
+      if (cached?.success && cached.kpis) setKpis(cached.kpis);
+      const res = await cachedFetch("/api/crm/opportunities/kpis");
       const data = await res.json();
       if (data.success) setKpis(data.kpis);
     } catch {
@@ -170,8 +189,9 @@ function OpportunitiesPageInner() {
   };
 
   const fetchLookups = async () => {
+    if (accounts.length > 0) return;
     try {
-      const res = await fetch("/api/crm/accounts");
+      const res = await cachedFetch("/api/crm/accounts");
       const data = await res.json();
       if (data.success) setAccounts(data.data.accounts || []);
     } catch (err) {
@@ -179,23 +199,40 @@ function OpportunitiesPageInner() {
     }
   };
 
-  useEffect(() => {
-    fetchLookups();
-    fetchKpis();
-  }, []);
+  const openCreateModal = () => {
+    setIsCreateModalOpen(true);
+  };
 
   useEffect(() => {
+    if (isCreateModalOpen) void fetchLookups();
+  }, [isCreateModalOpen]);
+
+  useEffect(() => {
+    setPage(1);
+    // Keep the table in its loading state while a new filter is being applied,
+    // and prevent an older in-flight response from replacing newer results.
+    latestRequest.current += 1;
+    setLoading(true);
     const delayDebounce = setTimeout(() => {
-      setPage(1);
-      fetchOpportunities(1);
-      fetchKpis();
-    }, 300);
+      void fetchOpportunities(1);
+      void fetchKpis();
+    }, search || stageFilter !== "all" || riskFilter !== "all" || dateFrom || dateTo ? 250 : 0);
     return () => clearTimeout(delayDebounce);
   }, [search, stageFilter, riskFilter, dateFrom, dateTo]);
 
   useEffect(() => {
-    fetchOpportunities(page);
+    if (page > 1) void fetchOpportunities(page);
   }, [page]);
+
+  useEffect(() => {
+    const refreshCachedCrmData = (event: Event) => {
+      const url = (event as CustomEvent)?.detail?.url || "";
+      if (url.includes("/api/crm/opportunities/kpis")) void fetchKpis();
+      else if (url.includes("/api/crm/opportunities?")) void fetchOpportunities(page);
+    };
+    window.addEventListener("aup:revalidated", refreshCachedCrmData);
+    return () => window.removeEventListener("aup:revalidated", refreshCachedCrmData);
+  }, [page, search, stageFilter, riskFilter, dateFrom, dateTo]);
 
   const handleCreateOpportunity = async () => {
     if (!formData.deal_name || !formData.account_id || !formData.amount || !formData.expected_close_date) {
@@ -216,13 +253,16 @@ function OpportunitiesPageInner() {
       const data = await res.json();
       if (data.success) {
         toast.success("Opportunity created successfully!");
+        invalidateCache();
         setIsCreateModalOpen(false);
         setFormData({
           deal_name: "", account_id: "", amount: "", expected_close_date: "",
           stage: "Prospecting", priority: "Medium", forecast_category: "Pipeline",
           source: "", product_service_line: "", next_action: ""
         });
-        fetchOpportunities();
+        setPage(1);
+        fetchOpportunities(1);
+        fetchKpis();
       } else {
         toast.error(data.message || "Failed to create opportunity.");
       }
@@ -278,7 +318,7 @@ function OpportunitiesPageInner() {
 
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Button
-            onClick={() => setIsCreateModalOpen(true)}
+        onClick={openCreateModal}
             className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -354,10 +394,9 @@ function OpportunitiesPageInner() {
                 </SelectTrigger>
                 <SelectContent className="rounded-none border-border/40">
                   <SelectItem value="all">All Risks</SelectItem>
-                  <SelectItem value="Healthy">Healthy</SelectItem>
-                  <SelectItem value="Warning">Warning</SelectItem>
-                  <SelectItem value="At Risk">At Risk</SelectItem>
-                  <SelectItem value="Critical">Critical</SelectItem>
+                  <SelectItem value="Low">Low</SelectItem>
+                  <SelectItem value="Medium">Medium</SelectItem>
+                  <SelectItem value="High">High</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -469,7 +508,7 @@ function OpportunitiesPageInner() {
                           href={`/crm/opportunities/${opp._id}`}
                           className="hover:underline hover:text-primary transition-colors text-[18px] font-medium tracking-[-0.03em] text-foreground"
                         >
-                          {opp.deal_name || opp.name}
+                          {opp.deal_name || opp.name || "Untitled Opportunity"}
                         </Link>
                         {opp.risk_level === 'High' && (
                           <Badge
@@ -532,7 +571,7 @@ function OpportunitiesPageInner() {
                     {/* Close Date */}
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        {opp.expected_close_date ? new Date(opp.expected_close_date).toLocaleDateString() : "—"}
+                        {formatOpportunityDate(opp.expected_close_date)}
                       </span>
                     </TableCell>
 

@@ -15,6 +15,7 @@ import { CustomerInfo } from '@/components/manufacturing/tracking/CustomerInfo';
 import { DeliveryInfo } from '@/components/manufacturing/tracking/DeliveryInfo';
 import { ShipmentDetails } from '@/components/manufacturing/tracking/ShipmentDetails';
 import type { TrackingData, ShipmentOption, SearchMode } from '@/components/manufacturing/tracking/types';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function TrackingPage() {
   const { data: session, status } = useSession();
@@ -39,7 +40,7 @@ export default function TrackingPage() {
 
   const fetchAllShipments = async () => {
     try {
-      const res = await fetch('/api/manufacturing/shipments');
+      const res = await cachedFetch('/api/manufacturing/shipments');
       const data = await res.json();
       setAllShipments(data.shipments || []);
     } catch (err) {
@@ -53,7 +54,7 @@ export default function TrackingPage() {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/manufacturing/shipments?trackingNumber=${trackingNumber}`);
+      const res = await cachedFetch(`/api/manufacturing/shipments?trackingNumber=${trackingNumber}`);
       const data = await res.json();
       
       if (data.shipments && data.shipments.length > 0) {
@@ -88,7 +89,7 @@ export default function TrackingPage() {
       setIsLoading(true);
       try {
         // Fetch the full shipment data
-        const res = await fetch(`/api/manufacturing/shipments?id=${shipmentId}`);
+        const res = await cachedFetch(`/api/manufacturing/shipments?id=${shipmentId}`);
         if (!res.ok) throw new Error('Failed to fetch shipment details');
         
         const fullShipmentData = await res.json();

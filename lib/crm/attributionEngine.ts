@@ -66,28 +66,38 @@ export async function getAttributionBreakdownByChannel(tenantId: string) {
     { $group: { _id: "$campaign.channel", count: { $sum: 1 } } }
   ]);
 
-  // Aggregate revenue by campaign channel via contracts
-  const contractRevenueAggregation = await CrmContract.aggregate([
-    { 
-      $match: { 
-        tenantId, 
-        campaign_id: { $exists: true, $ne: null },
-        status: { $in: ["Active", "Renewal Due", "Expiring", "Renewed"] }
-      } 
-    },
-    { $lookup: { from: 'crmcampaigns', localField: 'campaign_id', foreignField: '_id', as: 'campaign' } },
-    { $unwind: "$campaign" },
-    { $group: { _id: "$campaign.channel", revenue: { $sum: "$contract_value" } } }
+  const [campaigns, contractRevenueAggregation] = await Promise.all([
+    CrmCampaign.find({ tenantId }).select("_id channel actual_revenue attributed_revenue").lean(),
+    CrmContract.aggregate([
+      {
+        $match: {
+          tenantId,
+          campaign_id: { $exists: true, $ne: null },
+          status: { $in: ["Active", "Renewal Due", "Expiring", "Renewed"] },
+        },
+      },
+      { $group: { _id: "$campaign_id", revenue: { $sum: { $convert: { input: "$contract_value", to: "double", onError: 0, onNull: 0 } } } } },
+    ]),
   ]);
 
-  const channels = Array.from(new Set([
-    ...leadSourceAggregation.map(r => r._id),
-    ...contractRevenueAggregation.map(r => r._id)
-  ]));
+  const liveRevenueByCampaign = new Map(contractRevenueAggregation.map((row: any) => [String(row._id), Number(row.revenue) || 0]));
+  const channelTotals = new Map<string, { leads: number; revenue: number }>();
+  for (const campaign of campaigns as any[]) {
+    const channel = campaign.channel || "Unspecified";
+    const totals = channelTotals.get(channel) || { leads: 0, revenue: 0 };
+    const liveRevenue = liveRevenueByCampaign.get(String(campaign._id)) || 0;
+    totals.revenue += liveRevenue || Math.max(
+      Number(campaign.attributed_revenue) || 0,
+      Number(campaign.actual_revenue) || 0,
+    );
+    channelTotals.set(channel, totals);
+  }
+  for (const row of leadSourceAggregation as any[]) {
+    const channel = row._id || "Unspecified";
+    const totals = channelTotals.get(channel) || { leads: 0, revenue: 0 };
+    totals.leads += Number(row.count) || 0;
+    channelTotals.set(channel, totals);
+  }
 
-  return channels.map(channel => ({
-    channel,
-    leads: leadSourceAggregation.find(r => r._id === channel)?.count || 0,
-    revenue: contractRevenueAggregation.find(r => r._id === channel)?.revenue || 0,
-  }));
+  return Array.from(channelTotals, ([channel, totals]) => ({ channel, ...totals }));
 }

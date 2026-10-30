@@ -23,6 +23,7 @@ import {
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // ─── Linked record types ──────────────────────────────────────────────────────
 
@@ -118,7 +119,7 @@ export default function DocumentsPage() {
     if (recordFilter !== "All") params.set("linked_record_type", recordFilter);
     if (showArchived) params.set("include_archived", "true");
 
-    const res = await fetch(`/api/crm/documents?${params}`);
+    const res = await cachedFetch(`/api/crm/documents?${params}`);
     const data = await res.json();
     if (data.success) setDocs(data.data.documents || []);
     setLoading(false);

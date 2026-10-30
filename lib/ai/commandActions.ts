@@ -21,6 +21,7 @@ import CrmTask from "@/models/crm/Task";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import Customer from "@/models/sales/Customer";
 import Employee from "@/models/hr/Employee";
+import { isValidEmployeeCode } from "@/lib/hr/employeeValidation";
 import "@/models/hr/Department";
 import Account from "@/models/finance/Account";
 import JournalEntry from "@/models/finance/JournalEntry";
@@ -353,9 +354,22 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
       const email = String(params?.email || "").trim();
       const phone = String(params?.phone || params?.mobile || "").trim();
       if (!firstName || !lastName || !email || !phone) throw new CommandActionError("First name, last name, email and phone are all required.");
-      // Auto-generate a unique-ish employee code (EMP-<count+1>) if not supplied.
-      const count = await Employee.countDocuments({ tenantId });
-      const employeeCode = String(params?.employeeCode || `EMP-${String(count + 1).padStart(4, "0")}`);
+      // Generate from existing EMP sequence values, not total row count (which
+      // drifts when records are removed or custom codes are used).
+      const suppliedCode = isValidEmployeeCode(params?.employeeCode) ? String(params.employeeCode).trim() : "";
+      let employeeCode = suppliedCode;
+      if (!employeeCode) {
+        const existingCodes: string[] = await Employee.find({ tenantId, employeeCode: /^EMP-\d+$/i })
+          .distinct("employeeCode");
+        const highest = existingCodes.reduce((max, code) => {
+          const match = String(code).match(/^EMP-(\d+)$/i);
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        let sequence = highest + 1;
+        do {
+          employeeCode = `EMP-${String(sequence++).padStart(4, "0")}`;
+        } while (await Employee.exists({ tenantId, employeeCode }));
+      }
       const doc = await Employee.create({
         tenantId,
         employeeCode,
@@ -589,7 +603,7 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
 
         if (employeeMatches.length > 1) {
           const disambig = employeeMatches
-            .map((e: any) => `"${e.firstName} ${e.lastName}" (Code: ${e.employeeCode}, Current: ${e.designation || "None"}, Dept: ${e.departmentId?.name || "General"})`)
+            .map((e: any) => `"${e.firstName} ${e.lastName}" (Code: ${e.employeeCode}, Current: ${e.designation || "None"}, Dept: ${e.departmentId?.name || "Unassigned"})`)
             .join("; ");
           throw new CommandActionError(`Multiple employees match "${userName}": ${disambig}. Please specify the employee code or full name to disambiguate.`);
         }
@@ -633,7 +647,7 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
       const targetEmail = employee ? employee.email : user.email;
       const employeeId = employee ? String(employee._id) : undefined;
       const employeeCode = employee ? employee.employeeCode : undefined;
-      const departmentName = employee?.departmentId?.name || (user?.department || "General");
+      const departmentName = employee?.departmentId?.name || (user?.department || "Unassigned");
 
       // Current role / designation
       const currentRoleKey = employee?.designation || user?.userRole || user?.role || "Employee";
