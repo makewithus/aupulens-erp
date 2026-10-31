@@ -353,6 +353,14 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
   // matching. Keeping this normalization here also covers translated inputs.
   const q = normalizeErpText(text).trim().replace(/\bquotations?\b/gi, "quote");
 
+  // A bare numeric reply belongs to an open quote draft (typically the
+  // requested selling price). Resolve this before the general numeric/query
+  // classifiers below, which can otherwise treat it as a new ERP lookup and
+  // lose the quote context.
+  if (context?.pendingQuoteProposalId && /^₹?\s*[0-9][0-9,]*(?:\.\d{1,2})?\s*(?:rs\.?|inr)?$/i.test(q)) {
+    return "validate_values";
+  }
+
   if (/\bweather\b/i.test(q) && /\b(?:leave\s+letter|write\s+me\s+a\s+letter)\b/i.test(q)) return "off_topic";
   if (/^(?:hi|hello|hey|good morning|good afternoon|good evening)[,!. ]*(?:what can you do for me|what do you do|how can you help me|help)?[?.!]*$/i.test(q)) return "greeting";
   if (
@@ -673,13 +681,6 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
     if (context?.pendingCustomerProposalId) return "customer_cancel";
     if (context?.pendingRoleProposalId) return "role_cancel";
     if (context?.pendingQuoteProposalId) return "quote_cancel";
-  }
-
-  // A bare amount is a common reply when the assistant asks for a quote's
-  // selling price. Keep it attached to the pending quote instead of routing
-  // it as a fresh ERP search.
-  if (context?.pendingQuoteProposalId && /^₹?\s*[0-9][0-9,]*(?:\.\d{1,2})?\s*(?:rs\.?|inr)?$/i.test(q)) {
-    return "validate_values";
   }
 
   // Customer draft ongoing multi-turn inputs

@@ -102,7 +102,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   // server, and appends the recognised text to the prompt for the user to review
   // and send. Works in Electron + all browsers (unlike the old browser API).
   const { supported: micSupported, listening, transcribing, audioLevels, interim, toggle: toggleMic } = useSpeechToText({
-    onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
+    onFinalText: (t) => {
+      const currentDraft = useAiChatStore.getState().draft;
+      setInput(currentDraft ? `${currentDraft} ${t}` : t);
+    },
     onError: (m) => toast.error(m),
   });
 
