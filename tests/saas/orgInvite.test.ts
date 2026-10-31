@@ -7,6 +7,7 @@ const {
   mockAuth,
   mockConnectDB,
   mockRequireOrgAdmin,
+  mockResolveEntitlements,
   // Organization
   mockOrgFindOne,
   mockOrgFindOneLean,
@@ -27,6 +28,7 @@ const {
   mockAuth: vi.fn(),
   mockConnectDB: vi.fn(),
   mockRequireOrgAdmin: vi.fn(),
+  mockResolveEntitlements: vi.fn(),
   mockOrgFindOne: vi.fn(),
   mockOrgFindOneLean: vi.fn(),
   mockInviteFindOne: vi.fn(),
@@ -45,6 +47,7 @@ const {
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 vi.mock("@/lib/org/rbac", () => ({ requireOrgAdmin: mockRequireOrgAdmin }));
+vi.mock("@/lib/platform/entitlements/resolve", () => ({ resolveEntitlements: mockResolveEntitlements }));
 
 vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
@@ -82,21 +85,22 @@ vi.mock("@/models/auth/User", () => {
   return { default: User };
 });
 
-vi.mock("@/lib/constants/statuses", () => ({
-  ENTITY_STATUS: { ACTIVE: "active" },
-  ENTITY_STATUS_VALUES: ["active", "inactive"],
-  INVITE_STATUS: {
-    PENDING:  "pending",
-    ACCEPTED: "accepted",
-    EXPIRED:  "expired",
-    REVOKED:  "revoked",
-  },
-  INVITE_STATUS_VALUES: ["pending", "accepted", "expired", "revoked"],
-  ORGANIZATION_TIER: { STARTER: "starter", PROFESSIONAL: "professional", ENTERPRISE: "enterprise" },
-  ORGANIZATION_TIER_VALUES: ["starter", "professional", "enterprise"],
-  SUBSCRIPTION_STATUS: { TRIAL: "trial" },
-  SUBSCRIPTION_STATUS_VALUES: ["trial", "active", "suspended", "cancelled"],
-}));
+vi.mock("@/lib/constants/statuses", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/constants/statuses")>();
+  return {
+    ...actual,
+    ENTITY_STATUS: { ...actual.ENTITY_STATUS, ACTIVE: "active" },
+    INVITE_STATUS: {
+      ...actual.INVITE_STATUS,
+      PENDING: "pending",
+      ACCEPTED: "accepted",
+      EXPIRED: "expired",
+      REVOKED: "revoked",
+    },
+    ORGANIZATION_TIER: { ...actual.ORGANIZATION_TIER, STARTER: "starter", PROFESSIONAL: "professional", ENTERPRISE: "enterprise" },
+    SUBSCRIPTION_STATUS: { ...actual.SUBSCRIPTION_STATUS, TRIAL: "trial" },
+  };
+});
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 function adminSession(overrides: object = {}) {
@@ -162,6 +166,7 @@ beforeEach(async () => {
   vi.resetAllMocks();
   mockConnectDB.mockResolvedValue(undefined);
   mockRequireOrgAdmin.mockReturnValue(undefined); // default: allow
+  mockResolveEntitlements.mockResolvedValue({ limits: { maxUsers: 5 } });
   mockOrgFindOneLean.mockResolvedValue(fakeOrg);
   mockUserCountDocuments.mockResolvedValue(2);        // 2 existing members
   mockInviteCountDocuments.mockResolvedValue(1);      // 1 other pending invite

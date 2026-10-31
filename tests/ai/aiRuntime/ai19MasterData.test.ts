@@ -37,8 +37,9 @@ async function makeVendorWithBill(name: string, gstin?: string) {
 }
 
 async function makeEmployee(firstName: string, lastName: string, email: string, bankName?: string, accountNumber?: string) {
+  const employeeCode = `EMP-${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
   const emp = await Employee.create({
-    tenantId: TENANT, firstName, lastName, email, employeeCode: `EMP-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    tenantId: TENANT, firstName, lastName, email, employeeCode,
     phone: "9999999999", dateOfJoining: new Date("2020-01-01"), status: "active",
     bankDetails: bankName ? { bankName, accountNumber, ifscCode: "HDFC0000001" } : undefined,
   });
