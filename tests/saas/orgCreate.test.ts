@@ -50,16 +50,21 @@ vi.mock("@/models/auth/User", () => {
   return { default: User };
 });
 
-vi.mock("@/lib/constants/statuses", () => ({
-  ENTITY_STATUS: { ACTIVE: "active" },
-  ENTITY_STATUS_VALUES: ["active", "inactive"],
-  SUBSCRIPTION_STATUS: { TRIAL: "trial" },
-  SUBSCRIPTION_STATUS_VALUES: ["trial", "active", "suspended", "cancelled"],
-  ORGANIZATION_TIER: { STARTER: "starter", PROFESSIONAL: "professional", ENTERPRISE: "enterprise" },
-  ORGANIZATION_TIER_VALUES: ["starter", "professional", "enterprise"],
-  SUBSCRIPTION_EVENT_TYPE: { CREATED: "created", UPGRADED: "upgraded", DOWNGRADED: "downgraded" },
-  SUBSCRIPTION_EVENT_TYPE_VALUES: ["created", "upgraded", "downgraded", "renewed", "payment_succeeded", "payment_failed", "canceled"],
-}));
+vi.mock("@/lib/constants/statuses", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/constants/statuses")>();
+  return {
+    ...actual,
+    ENTITY_STATUS: { ...actual.ENTITY_STATUS, ACTIVE: "active" },
+    SUBSCRIPTION_STATUS: { ...actual.SUBSCRIPTION_STATUS, TRIAL: "trial" },
+    ORGANIZATION_TIER: { ...actual.ORGANIZATION_TIER, STARTER: "starter", PROFESSIONAL: "professional", ENTERPRISE: "enterprise" },
+    SUBSCRIPTION_EVENT_TYPE: {
+      ...actual.SUBSCRIPTION_EVENT_TYPE,
+      CREATED: "created",
+      UPGRADED: "upgraded",
+      DOWNGRADED: "downgraded",
+    },
+  };
+});
 
 // Phase 3: org/create now logs a real billing event on success — irrelevant
 // to what this suite is testing (org/user creation + tenant isolation), so

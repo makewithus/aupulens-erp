@@ -33,19 +33,23 @@ vi.mock("@/models/admin/SubscriptionEvent", () => {
   return { default: SubscriptionEvent };
 });
 
-vi.mock("@/lib/constants/statuses", () => ({
-  ENTITY_STATUS: { ACTIVE: "active" },
-  SUBSCRIPTION_EVENT_TYPE: {
-    CREATED: "created", UPGRADED: "upgraded", DOWNGRADED: "downgraded",
-    RENEWED: "renewed", PAYMENT_SUCCEEDED: "payment_succeeded",
-    PAYMENT_FAILED: "payment_failed", CANCELED: "canceled",
-  },
-  SUBSCRIPTION_EVENT_TYPE_VALUES: [
-    "created", "upgraded", "downgraded", "renewed",
-    "payment_succeeded", "payment_failed", "canceled",
-  ],
-  ORGANIZATION_TIER_VALUES: ["starter", "professional", "enterprise"],
-}));
+vi.mock("@/lib/constants/statuses", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/constants/statuses")>();
+  return {
+    ...actual,
+    ENTITY_STATUS: { ...actual.ENTITY_STATUS, ACTIVE: "active" },
+    SUBSCRIPTION_EVENT_TYPE: {
+      ...actual.SUBSCRIPTION_EVENT_TYPE,
+      CREATED: "created",
+      UPGRADED: "upgraded",
+      DOWNGRADED: "downgraded",
+      RENEWED: "renewed",
+      PAYMENT_SUCCEEDED: "payment_succeeded",
+      PAYMENT_FAILED: "payment_failed",
+      CANCELED: "canceled",
+    },
+  };
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function makeRequest() {
