@@ -83,6 +83,15 @@ export type ErpStructuredResponse =
       invoiceCount: number;
     }
   | {
+      type: "sales_period_summary";
+      period: string;
+      revenue: number;
+      invoiceCount: number;
+      paymentsReceived: number;
+      paymentCount: number;
+      receivables?: number;
+    }
+  | {
       type: "safety_refusal";
       title: string;
       message: string;

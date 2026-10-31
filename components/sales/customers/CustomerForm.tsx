@@ -202,6 +202,22 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
       gstin: d.gstin || f.gstin,
       pan: d.pan || f.pan,
       currency: d.currency || f.currency,
+      addresses: (() => {
+        const source = d.address || d.billingAddress || d;
+        const billing = f.addresses.find((a) => a.type === "billing") || { type: "billing" as const };
+        const hasAddress = ["street", "street2", "city", "state_name", "state", "zip", "pinCode", "country"].some((key) => source[key]);
+        if (!hasAddress) return f.addresses;
+        const others = f.addresses.filter((a) => a.type !== "billing");
+        return [...others, {
+          ...billing,
+          street: source.street || source.addressLine1 || billing.street,
+          street2: source.street2 || source.addressLine2 || billing.street2,
+          city: source.city || billing.city,
+          state_name: source.state_name || source.state || billing.state_name,
+          zip: source.zip || source.pinCode || source.pincode || billing.zip,
+          country: source.country || billing.country || "India",
+        }];
+      })(),
     }));
     if (d.gstin) setGstinInput(String(d.gstin).toUpperCase());
     if (p.suggestions && p.suggestions.length) {

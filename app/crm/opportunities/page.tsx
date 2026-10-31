@@ -70,7 +70,7 @@ function OpportunitiesPageInner() {
   // already uses them. This page's fetch is already debounced as a whole
   // (see the effect below), so no separate `debouncedSearch` seed is needed.
   const [search, setSearch] = useState(() => searchParams.get("search") || "");
-  const [stageFilter, setStageFilter] = useState(() => searchParams.get("stage") || "all");
+  const [stageFilter, setStageFilter] = useState(() => searchParams.get("stage") || "open");
   const [riskFilter, setRiskFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
@@ -80,7 +80,7 @@ function OpportunitiesPageInner() {
   // own doc for why the useState initializers alone aren't enough.
   useSyncStateFromSearchParams({
     search: () => setSearch(searchParams.get("search") || ""),
-    stageFilter: () => setStageFilter(searchParams.get("stage") || "all"),
+    stageFilter: () => setStageFilter(searchParams.get("stage") || "open"),
     dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
     dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
   });
@@ -104,6 +104,10 @@ function OpportunitiesPageInner() {
     product_service_line: "",
     next_action: ""
   });
+  const [validationErrors, setValidationErrors] = useState<Partial<Record<
+    "deal_name" | "account_id" | "amount" | "expected_close_date",
+    string
+  >>>({});
 
   // AI-native pre-fill (sweep): open the create dialog with AI-extracted fields.
   // Fires whether we navigated here or were already on this page.
@@ -200,6 +204,7 @@ function OpportunitiesPageInner() {
   };
 
   const openCreateModal = () => {
+    setValidationErrors({});
     setIsCreateModalOpen(true);
   };
 
@@ -235,11 +240,22 @@ function OpportunitiesPageInner() {
   }, [page, search, stageFilter, riskFilter, dateFrom, dateTo]);
 
   const handleCreateOpportunity = async () => {
-    if (!formData.deal_name || !formData.account_id || !formData.amount || !formData.expected_close_date) {
-      toast.error("Please fill in all required fields (Deal Name, Account, Amount, Close Date).");
+    const errors: typeof validationErrors = {};
+    if (!formData.deal_name.trim()) errors.deal_name = "Enter a deal name.";
+    if (!formData.account_id) errors.account_id = "Select an account.";
+    if (!formData.amount.trim() || !Number.isFinite(Number(formData.amount)) || Number(formData.amount) <= 0) {
+      errors.amount = "Enter an amount greater than 0.";
+    }
+    if (!formData.expected_close_date) errors.expected_close_date = "Choose an expected close date.";
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      const firstInvalidField = Object.keys(errors)[0];
+      document.getElementById(firstInvalidField)?.focus();
       return;
     }
 
+    setValidationErrors({});
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/crm/opportunities", {
@@ -377,10 +393,11 @@ function OpportunitiesPageInner() {
             <div className="flex items-center gap-2">
               <Select value={stageFilter} onValueChange={setStageFilter}>
                 <SelectTrigger className="w-full sm:w-[160px] md:w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
-                  <SelectValue placeholder="All Stages" />
+                  <SelectValue placeholder="Open Deals" />
                 </SelectTrigger>
                 <SelectContent className="rounded-none border-border/40">
                   <SelectItem value="all">All Stages</SelectItem>
+                  <SelectItem value="open">Open Deals</SelectItem>
                   {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -637,7 +654,10 @@ function OpportunitiesPageInner() {
       </Card>
 
       {/* Create Opportunity Modal */}
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+      <Dialog open={isCreateModalOpen} onOpenChange={(open) => {
+        setIsCreateModalOpen(open);
+        if (!open) setValidationErrors({});
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create New Opportunity</DialogTitle>
@@ -651,15 +671,25 @@ function OpportunitiesPageInner() {
                 id="deal_name"
                 placeholder="e.g. Acme Corp - Enterprise License" 
                 value={formData.deal_name}
-                onChange={e => setFormData({...formData, deal_name: e.target.value})}
+                aria-invalid={!!validationErrors.deal_name}
+                aria-describedby={validationErrors.deal_name ? "deal_name-error" : undefined}
+                className={validationErrors.deal_name ? "border-destructive focus-visible:ring-destructive" : undefined}
+                onChange={e => {
+                  setFormData({...formData, deal_name: e.target.value});
+                  if (validationErrors.deal_name) setValidationErrors((current) => ({ ...current, deal_name: undefined }));
+                }}
                 disabled={isSubmitting}
               />
+              {validationErrors.deal_name && <p id="deal_name-error" role="alert" className="text-xs text-destructive">{validationErrors.deal_name}</p>}
             </div>
             
             <div className="space-y-1.5">
               <Label>Account <span className="text-red-500">*</span></Label>
-              <Select value={formData.account_id} onValueChange={v => setFormData({...formData, account_id: v})} disabled={isSubmitting}>
-                <SelectTrigger>
+              <Select value={formData.account_id} onValueChange={v => {
+                setFormData({...formData, account_id: v});
+                setValidationErrors((current) => ({ ...current, account_id: undefined }));
+              }} disabled={isSubmitting}>
+                <SelectTrigger id="account_id" aria-invalid={!!validationErrors.account_id} aria-describedby={validationErrors.account_id ? "account_id-error" : undefined} className={validationErrors.account_id ? "border-destructive focus:ring-destructive" : undefined}>
                   <SelectValue placeholder="Select Account" />
                 </SelectTrigger>
                 <SelectContent>
@@ -668,6 +698,7 @@ function OpportunitiesPageInner() {
                   ))}
                 </SelectContent>
               </Select>
+              {validationErrors.account_id && <p id="account_id-error" role="alert" className="text-xs text-destructive">{validationErrors.account_id}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -677,9 +708,16 @@ function OpportunitiesPageInner() {
                 type="number"
                 placeholder="0.00" 
                 value={formData.amount}
-                onChange={e => setFormData({...formData, amount: e.target.value})}
+                aria-invalid={!!validationErrors.amount}
+                aria-describedby={validationErrors.amount ? "amount-error" : undefined}
+                className={validationErrors.amount ? "border-destructive focus-visible:ring-destructive" : undefined}
+                onChange={e => {
+                  setFormData({...formData, amount: e.target.value});
+                  if (validationErrors.amount) setValidationErrors((current) => ({ ...current, amount: undefined }));
+                }}
                 disabled={isSubmitting}
               />
+              {validationErrors.amount && <p id="amount-error" role="alert" className="text-xs text-destructive">{validationErrors.amount}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -688,9 +726,16 @@ function OpportunitiesPageInner() {
                 id="expected_close_date"
                 type="date"
                 value={formData.expected_close_date}
-                onChange={e => setFormData({...formData, expected_close_date: e.target.value})}
+                aria-invalid={!!validationErrors.expected_close_date}
+                aria-describedby={validationErrors.expected_close_date ? "expected_close_date-error" : undefined}
+                className={validationErrors.expected_close_date ? "border-destructive focus-visible:ring-destructive" : undefined}
+                onChange={e => {
+                  setFormData({...formData, expected_close_date: e.target.value});
+                  if (validationErrors.expected_close_date) setValidationErrors((current) => ({ ...current, expected_close_date: undefined }));
+                }}
                 disabled={isSubmitting}
               />
+              {validationErrors.expected_close_date && <p id="expected_close_date-error" role="alert" className="text-xs text-destructive">{validationErrors.expected_close_date}</p>}
             </div>
 
             <div className="space-y-1.5">

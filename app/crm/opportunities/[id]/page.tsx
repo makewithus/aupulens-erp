@@ -10,11 +10,17 @@ import QuoteBuilder from "@/components/crm/QuoteBuilder";
 import { formatOpportunityDate } from "@/lib/crm/opportunityDisplay";
 import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 
+const OPPORTUNITY_STAGES = [
+  "Prospecting", "Discovery", "Requirement Gathering", "Solution Fit",
+  "Proposal Sent", "Negotiation", "Approval", "Closed Won", "Closed Lost",
+];
+
 export default function OpportunityDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
   const [opp, setOpp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updatingStage, setUpdatingStage] = useState<string | null>(null);
+  const [selectedStage, setSelectedStage] = useState("");
   const [conversationSummaries, setConversationSummaries] = useState<any[]>([]);
 
   const fetchOpp = async () => {
@@ -23,6 +29,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
       const data = await res.json();
       if (data.success) {
         setOpp(data.data);
+        setSelectedStage(data.data.stage || "Prospecting");
         // AI enrichments are slower than the deal details. Load the record first,
         // then fill in the assessment and AI probability without blocking the page.
         void fetch(`/api/crm/opportunities/${params.id}?insights=true`, { cache: "no-store" })
@@ -88,6 +95,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
         stage_history: result.data.stage_history,
         stage_entered_at: result.data.stage_entered_at,
       }) : result.data);
+      setSelectedStage(result.data.stage);
       toast.success(newStage === "Proposal Sent" ? "Moved to Proposal" : `Stage moved to ${newStage}`);
       void fetchOpp().catch(() => {});
     } catch {
@@ -102,10 +110,18 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
 
   const weightedValue = opp.amount * (opp.probability / 100);
   const proposalReached = ["Proposal Sent", "Negotiation", "Approval", "Closed Won"].includes(opp.stage);
-  const stageHistory = (opp.stage_history || []).reduce((history: any[], entry: any) => {
-    if (history[history.length - 1]?.stage !== entry.stage) history.push(entry);
-    return history;
-  }, []);
+  const stageHistory = (opp.stage_history || [])
+    .filter((entry: any) => entry?.stage)
+    .map((entry: any, index: number) => ({ ...entry, __index: index }))
+    .sort((a: any, b: any) => {
+      const aTime = new Date(a.enteredAt || a.entered_at || 0).getTime();
+      const bTime = new Date(b.enteredAt || b.entered_at || 0).getTime();
+      return aTime - bTime || a.__index - b.__index;
+    })
+    .reduce((history: any[], entry: any) => {
+      if (history[history.length - 1]?.stage !== entry.stage) history.push(entry);
+      return history;
+    }, []);
   if (opp.stage && stageHistory[stageHistory.length - 1]?.stage !== opp.stage) {
     stageHistory.push({ stage: opp.stage, entered_at: opp.stage_entered_at || opp.updatedAt });
   }
@@ -128,6 +144,22 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
           </p>
         </div>
         <div className="flex gap-2">
+          <label className="sr-only" htmlFor="opportunity-stage">Opportunity stage</label>
+          <select
+            id="opportunity-stage"
+            value={selectedStage || opp.stage}
+            onChange={(event) => setSelectedStage(event.target.value)}
+            disabled={Boolean(updatingStage)}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          >
+            {OPPORTUNITY_STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+          </select>
+          {selectedStage !== opp.stage && (
+            <Button onClick={() => updateStage(selectedStage)} disabled={Boolean(updatingStage)}>
+              {updatingStage === selectedStage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Stage
+            </Button>
+          )}
           {opp.stage !== 'Closed Won' && opp.stage !== 'Closed Lost' && (
             <>
               <Button
@@ -264,8 +296,17 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
                   {stageHistory.map((sh: any, i: number) => (
                     <div key={i} className="pl-6 relative">
                       <div className="absolute w-3 h-3 bg-primary rounded-full -left-1.5 top-1 border-2 border-border" />
-                      <p className="font-bold text-sm">{sh.stage}</p>
-                      <p className="text-xs text-muted-foreground">Entered: {(sh.enteredAt || sh.entered_at) ? new Date(sh.enteredAt || sh.entered_at).toLocaleString("en-GB") : "—"}</p>
+                      <p className="font-bold text-sm">
+                        {sh.stage}{sh.stage === opp.stage ? <span className="ml-2 text-xs font-normal text-primary">Current</span> : null}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Entered: {(sh.enteredAt || sh.entered_at) ? new Date(sh.enteredAt || sh.entered_at).toLocaleString("en-GB") : "—"}
+                      </p>
+                      {(sh.exitedAt || sh.exited_at) && (
+                        <p className="text-xs text-muted-foreground">
+                          Exited: {new Date(sh.exitedAt || sh.exited_at).toLocaleString("en-GB")}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

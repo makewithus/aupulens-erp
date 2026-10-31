@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { Children, ReactNode, useMemo, useState, useRef, useEffect } from "react";
+import { Children, Fragment, ReactNode, useMemo, useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { DashboardHeader, BreadcrumbItem } from "./DashboardHeader";
@@ -245,7 +245,9 @@ export function DashboardLayout({
             ref={contentRef}
             className="min-w-0 w-full p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 md:p-6 lg:p-8"
           >
-            {Children.toArray(children)}
+            {Children.map(children, (child, index) => (
+              <Fragment key={`dashboard-content-${index}`}>{child}</Fragment>
+            ))}
           </div>
         </main>
 

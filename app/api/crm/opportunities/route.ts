@@ -28,7 +28,13 @@ export async function GET(req: NextRequest) {
 
     const query: any = { tenantId };
     if (searchParams.get('account_id')) query.account_id = searchParams.get('account_id');
-    if (searchParams.get('stage')) query.stage = searchParams.get('stage');
+    const stageFilter = searchParams.get('stage');
+    if (stageFilter === "open") {
+      // Match the Open Deals KPI: won and lost opportunities are excluded.
+      query.stage = { $nin: ["Closed Won", "Closed Lost"] };
+    } else if (stageFilter && stageFilter !== "all") {
+      query.stage = stageFilter;
+    }
     if (searchParams.get('owner_id')) query.owner_id = searchParams.get('owner_id');
     if (searchParams.get('source')) query.source = searchParams.get('source');
     if (searchParams.get('priority')) query.priority = searchParams.get('priority');

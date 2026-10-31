@@ -7,6 +7,12 @@ export async function validateOpportunityStage(opportunity: any, newStage: strin
 
   if (newIndex === -1) return { valid: false, message: "Invalid stage." };
 
+  // Closed deals may be reopened when circumstances change. The caller still
+  // enforces the separate permission required to mark a deal as won.
+  if (currentIndex === stages.indexOf("Closed Won") || currentIndex === stages.indexOf("Closed Lost")) {
+    return { valid: true };
+  }
+
   // Cannot jump backwards unless to Closed Lost or Prospecting
   if (newIndex < currentIndex && newStage !== 'Closed Lost' && newStage !== 'Prospecting') {
     return { valid: false, message: "Cannot move backward in the pipeline unless marking as Closed Lost or Prospecting." };

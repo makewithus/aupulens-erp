@@ -33,7 +33,18 @@ export default function EditCustomerPage() {
           sales_purchase_tab: {
             property_payment_term_id: c.sales_purchase_tab?.property_payment_term_id,
           },
-          addresses: c.addresses?.length ? c.addresses : EMPTY_CUSTOMER.addresses,
+          addresses: c.addresses?.length ? c.addresses : [
+            {
+              type: "billing" as const,
+              street: c.address_tab?.street || c.shipping_address?.street,
+              street2: c.address_tab?.street2 || c.shipping_address?.street2,
+              city: c.address_tab?.city || c.shipping_address?.city,
+              state_name: c.address_tab?.state_name || c.shipping_address?.state_name,
+              zip: c.address_tab?.zip || c.shipping_address?.zip,
+              country: "India",
+            },
+            ...EMPTY_CUSTOMER.addresses.filter((address) => address.type === "shipping"),
+          ],
           contactPersons: c.contactPersons || [],
           customFields: c.customFields || {},
           reportingTags: c.reportingTags || [],

@@ -45,6 +45,44 @@ export async function GET(req: NextRequest) {
     const tenantMatch = { tenantId };
     const employeeTenantMatch = applyDemoScope(session, tenantMatch);
 
+    // Empty workspaces are common during onboarding. Avoid launching the full
+    // set of grouping/bucketing aggregations when there are no HR records at
+    // all; indexed existence checks return as soon as they find one document.
+    const employeeExists = await Employee.exists(employeeTenantMatch);
+    if (!employeeExists) {
+      const [departmentExists, attendanceExists, payrollExists, leaveExists, reviewExists] = await Promise.all([
+        Department.exists({ tenantId }),
+        Attendance.exists(tenantMatch),
+        Payroll.exists(tenantMatch),
+        LeaveRequest.exists(tenantMatch),
+        PerformanceReview.exists(tenantMatch),
+      ]);
+      if (!departmentExists && !attendanceExists && !payrollExists && !leaveExists && !reviewExists) {
+        const emptyPayload = {
+          kpis: {
+            totalHeadcount: 0,
+            activeHeadcount: 0,
+            onboardingCount: 0,
+            periodExitRate: 0,
+            attendanceCompliance: 0,
+            avgTenureYears: 0,
+            monthlyGrossPayroll: 0,
+            openRequisitions: null,
+            totalDepartments: 0,
+          },
+          headcountTrajectory: [],
+          departmentDistribution: [],
+          attendanceTrends: [],
+          leaveTypeDistribution: [],
+          payrollAllocation: [],
+          tenureDistribution: [],
+          performanceDistribution: [],
+        };
+        setCachedData(cacheKey, emptyPayload, 30_000);
+        return NextResponse.json(emptyPayload);
+      }
+    }
+
     // 1. Live Core Aggregations from Database
     const [
       activeEmployees,
@@ -431,7 +469,9 @@ export async function GET(req: NextRequest) {
     };
 
     // Store in server cache with 5s freshness
-    setCachedData(cacheKey, responsePayload, 5_000);
+    // Analytics are expensive to aggregate and explicit Live Sync bypasses
+    // this cache, so keep routine page loads responsive between syncs.
+    setCachedData(cacheKey, responsePayload, 30_000);
 
     return NextResponse.json(responsePayload);
   } catch (error: any) {

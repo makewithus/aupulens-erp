@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import {
   AlertDialog,
@@ -20,6 +20,27 @@ export function SessionTimeout() {
   const [showWarning, setShowWarning] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [lastActivity, setLastActivity] = useState(Date.now());
+  const wasAuthenticated = useRef(status === 'authenticated');
+
+  // Keep every tab aligned with the shared cookie. NextAuth broadcasts logout
+  // events across tabs; when a tab receives the resulting unauthenticated
+  // state, replace the protected screen with the login page immediately.
+  useEffect(() => {
+    if (status === 'authenticated') {
+      wasAuthenticated.current = true;
+      if (session?.user?.sessionStale) {
+        void signOut({ callbackUrl: '/auth' });
+      }
+      return;
+    }
+
+    if (status === 'unauthenticated' && wasAuthenticated.current) {
+      wasAuthenticated.current = false;
+      if (!window.location.pathname.startsWith('/auth')) {
+        window.location.replace('/auth');
+      }
+    }
+  }, [session?.user?.sessionStale, status]);
 
   useEffect(() => {
     // Browsers can restore protected pages from the back/forward cache without

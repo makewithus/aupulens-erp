@@ -1,4 +1,4 @@
-import { sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
+import { employeeCodeForDisplay, sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
 import { friendlyError } from "@/lib/errors/friendlyError";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -52,7 +52,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ employee });
+    return NextResponse.json({ employee: { ...employee, employeeCode: employeeCodeForDisplay(employee) } });
   } catch (error: any) {
     return handleRouteError(error);
   }

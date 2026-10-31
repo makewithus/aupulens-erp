@@ -1,3 +1,37 @@
+function normalizeText(value: unknown): string {
+  return String(value ?? "").normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " ");
+}
+
+function normalizePhone(value: unknown): string {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
+/** Natural identity tokens used for both within-file and existing-record checks. */
+export function getImportDuplicateKeys(record: Record<string, any>, entityType: string): string[] {
+  if (entityType === "Lead") {
+    return [
+      normalizeText(record.email) && `email:${normalizeText(record.email)}`,
+      normalizePhone(record.phone) && `phone:${normalizePhone(record.phone)}`,
+    ].filter(Boolean) as string[];
+  }
+  if (entityType === "Contact") {
+    return [
+      normalizeText(record.email) && `email:${normalizeText(record.email)}`,
+      normalizePhone(record.mobile ?? record.phone) && `phone:${normalizePhone(record.mobile ?? record.phone)}`,
+    ].filter(Boolean) as string[];
+  }
+  if (entityType === "Account") {
+    const name = normalizeText(record.company_name);
+    return name ? [`account:${name}`] : [];
+  }
+  if (entityType === "Opportunity") {
+    const name = normalizeText(record.deal_name);
+    const account = normalizeText(record.account_name ?? record.account_id?.company_name ?? record.account_id);
+    return name && account ? [`opportunity:${account}:${name}`] : [];
+  }
+  return [];
+}
+
 export function validateImportPayload(records: any[], entityType: string) {
   const errors = [];
   const validRecords = [];
@@ -8,7 +42,7 @@ export function validateImportPayload(records: any[], entityType: string) {
     const rowErrors = [];
 
     if (entityType === "Lead" || entityType === "Contact") {
-      if (!r.email && !r.phone) {
+      if (!r.email && !(entityType === "Contact" ? r.mobile : r.phone)) {
         isValid = false;
         rowErrors.push("Missing email or phone");
       }
@@ -35,13 +69,17 @@ export function validateImportPayload(records: any[], entityType: string) {
     }
   }
 
-  // Duplicate detection in the batch itself
-  const emails = new Set();
+  // Deduplicate this file using every natural identifier available. For leads
+  // and contacts, either a matching email or phone identifies the same record.
+  const seenKeys = new Set<string>();
+  let duplicatesRemoved = 0;
   const dedupedRecords = validRecords.filter(r => {
-    if (r.email) {
-      if (emails.has(r.email)) return false;
-      emails.add(r.email);
+    const keys = getImportDuplicateKeys(r, entityType);
+    if (keys.some((key) => seenKeys.has(key))) {
+      duplicatesRemoved += 1;
+      return false;
     }
+    keys.forEach((key) => seenKeys.add(key));
     return true;
   });
 
@@ -49,6 +87,6 @@ export function validateImportPayload(records: any[], entityType: string) {
     success: errors.length === 0,
     validRecords: dedupedRecords,
     errors,
-    duplicatesRemoved: validRecords.length - dedupedRecords.length
+    duplicatesRemoved
   };
 }

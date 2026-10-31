@@ -40,7 +40,7 @@ export default async function RootLayout({
         />
       </head>
       <body className={`${roboto.variable} ${robotoMono.variable} font-sans antialiased`}>
-        <SessionProvider session={session} refetchOnWindowFocus={false}>
+        <SessionProvider session={session} refetchOnWindowFocus refetchInterval={60}>
           <ThemeProvider>
             <ToastRoot>
               <ConfirmRoot>

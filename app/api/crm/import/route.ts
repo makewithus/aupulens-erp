@@ -2,7 +2,7 @@ import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import { validateImportPayload } from "@/lib/crm/import/importEngine";
+import { getImportDuplicateKeys, validateImportPayload } from "@/lib/crm/import/importEngine";
 import mongoose from "mongoose";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import CrmAccount from "@/models/crm/Account";
@@ -84,6 +84,47 @@ function mapRecord(raw: Record<string, any>, entityType: string) {
     mapped[canonical] = typeof value === "string" ? value.trim() : value;
   }
   return mapped;
+}
+
+function normalizePhone(value: unknown) {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
+function normalizedTextRegex(value: unknown) {
+  const normalized = String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ");
+  const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s/g, "\\s+");
+  return new RegExp(`^${escaped}$`, "i");
+}
+
+function existingRecordQuery(entityType: string, tenantId: string, records: any[]) {
+  const query: any = { tenantId };
+  if (entityType === "Account") {
+    const names = [...new Set(records.map((r) => String(r.company_name ?? "").trim()).filter(Boolean))];
+    if (names.length) query.company_name = { $in: names.map(normalizedTextRegex) };
+  } else if (entityType === "Opportunity") {
+    const names = [...new Set(records.map((r) => String(r.deal_name ?? "").trim()).filter(Boolean))];
+    if (names.length) query.deal_name = { $in: names.map(normalizedTextRegex) };
+  } else {
+    const emailFieldValues = [...new Set(records.map((r) => r.email).filter(Boolean))];
+    const phoneField = entityType === "Contact" ? "mobile" : "phone";
+    const phonePatterns = [...new Set(records.map((r) => normalizePhone(entityType === "Contact" ? r.mobile ?? r.phone : r.phone)).filter((v) => v.length >= 7))]
+      .map((digits) => new RegExp(`^\\D*${digits.split("").join("\\D*")}\\D*$`));
+    const or: any[] = [];
+    if (emailFieldValues.length) or.push({ email: { $in: emailFieldValues } });
+    if (phonePatterns.length) or.push({ [phoneField]: { $in: phonePatterns } });
+    if (!or.length) return null;
+    query.$or = or;
+  }
+  return query;
+}
+
+function importIdentityKeys(record: any, entityType: string): string[] {
+  if (entityType === "Opportunity") {
+    const deal = String(record.deal_name ?? "").trim().toLocaleLowerCase().replace(/\s+/g, " ");
+    const accountId = String(record.account_id?._id ?? record.account_id ?? "");
+    return deal && accountId ? [`opportunity:${accountId}:${deal}`] : [];
+  }
+  return getImportDuplicateKeys(record, entityType);
 }
 
 export async function POST(req: NextRequest) {
@@ -170,6 +211,14 @@ export async function POST(req: NextRequest) {
     const r = { ...validRecords[i] };
     const doc: Record<string, any> = { ...r, tenantId, createdBy: session.user.id };
 
+    if (entityType === "Lead") {
+      doc.email = String(r.email ?? "").trim().toLowerCase() || undefined;
+      doc.phone = String(r.phone ?? "").trim() || undefined;
+      doc.emailNormalized = doc.email || undefined;
+      const phoneDigits = String(doc.phone ?? "").replace(/\D/g, "");
+      doc.phoneNormalized = phoneDigits.length >= 7 ? phoneDigits : undefined;
+    }
+
     if (entityType === "Lead" || entityType === "Opportunity") {
       doc.owner_id = session.user.id;
     }
@@ -185,7 +234,7 @@ export async function POST(req: NextRequest) {
         });
         continue;
       }
-      const account = await CrmAccount.findOne({ tenantId, company_name: accountName });
+      const account = await CrmAccount.findOne({ tenantId, company_name: normalizedTextRegex(accountName) });
       if (!account) {
         resolutionErrors.push({ row: i + 2, data: r, reasons: [`Account "${accountName}" not found — create the account first`] });
         continue;
@@ -202,7 +251,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: "No valid records to import", errors: allErrors }, { status: 422 });
   }
 
-  const inserted = await Model.insertMany(docsToInsert);
+  // Check natural keys against records already stored for this tenant too,
+  // so re-importing the same file doesn't create another copy.
+  const existingQuery = existingRecordQuery(entityType, tenantId, docsToInsert);
+  let existingRecords: any[] = [];
+  if (existingQuery) {
+    let existingQueryBuilder = Model.find(existingQuery).select(
+      entityType === "Lead" ? "email phone"
+        : entityType === "Contact" ? "email mobile"
+          : entityType === "Account" ? "company_name" : "deal_name account_id",
+    );
+    if (entityType === "Opportunity") existingQueryBuilder = existingQueryBuilder.populate("account_id", "company_name");
+    existingRecords = await existingQueryBuilder.collation({ locale: "en", strength: 2 }).lean();
+  }
+  const existingKeys = new Set<string>();
+  for (const record of existingRecords as any[]) {
+    for (const key of importIdentityKeys(record, entityType)) existingKeys.add(key);
+  }
+
+  let existingDuplicatesRemoved = 0;
+  const newRecords = docsToInsert.filter((record) => {
+    const keys = importIdentityKeys(record, entityType);
+    if (keys.some((key) => existingKeys.has(key))) {
+      existingDuplicatesRemoved += 1;
+      return false;
+    }
+    keys.forEach((key) => existingKeys.add(key));
+    return true;
+  });
+  const totalDuplicatesRemoved = duplicatesRemoved + existingDuplicatesRemoved;
+
+  if (newRecords.length === 0) {
+    return NextResponse.json({
+      success: allErrors.length === 0,
+      insertedCount: 0,
+      duplicatesRemoved: totalDuplicatesRemoved,
+      errors: allErrors,
+      warnings: [],
+    });
+  }
+
+  const inserted = await Model.insertMany(newRecords);
 
   let auditWarning: string | undefined;
   try {
@@ -212,7 +301,7 @@ export async function POST(req: NextRequest) {
       action: "imported",
       record_type: entityType,
       record_id: inserted[0]._id,
-      new_value: `Imported ${inserted.length} records. Removed ${duplicatesRemoved} duplicates.`,
+      new_value: `Imported ${inserted.length} records. Removed ${totalDuplicatesRemoved} duplicates.`,
       timestamp: new Date(),
     });
   } catch (error) {
@@ -226,7 +315,7 @@ export async function POST(req: NextRequest) {
     {
       success: allErrors.length === 0,
       insertedCount: inserted.length,
-      duplicatesRemoved,
+      duplicatesRemoved: totalDuplicatesRemoved,
       errors: allErrors,
       warnings: auditWarning ? [auditWarning] : [],
     },

@@ -41,6 +41,7 @@ declare module "@auth/core/jwt" {
     permissions?: string[];
     sessionPolicyVersion?: string;
     sessionStale?: boolean;
+    authenticatedAt?: number;
   }
 }
 

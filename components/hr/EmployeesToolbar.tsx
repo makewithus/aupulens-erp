@@ -39,9 +39,9 @@ export function EmployeeToolbar({
 }: EmployeeToolbarProps) {
   return (
     <div className="w-full">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(200px,1fr)_140px_140px_minmax(290px,330px)] xl:items-center">
         {/* Search */}
-        <div className="relative w-full xl:min-w-[360px] xl:flex-[1_1_430px]">
+        <div className="relative w-full min-w-0 sm:col-span-2 xl:col-span-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/45 transition-colors" />
 
           <Input
@@ -98,7 +98,6 @@ export function EmployeeToolbar({
               hover:border-border/40
 
               focus:ring-0
-              xl:w-[150px] 2xl:w-[170px]
             "
           >
             <SelectValue placeholder="Lifecycle" />
@@ -142,7 +141,6 @@ export function EmployeeToolbar({
               hover:border-border/40
 
               focus:ring-0
-              xl:w-[150px] 2xl:w-[170px]
             "
           >
             <SelectValue placeholder="Account" />
@@ -160,7 +158,8 @@ export function EmployeeToolbar({
           dateTo={dateTo}
           onDateFromChange={setDateFrom}
           onDateToChange={setDateTo}
-          inputClassName="xl:w-[128px] 2xl:w-[136px]"
+          className="min-w-0 sm:col-span-2 xl:col-span-1"
+          inputClassName="w-full min-w-0"
         />
       </div>
     </div>

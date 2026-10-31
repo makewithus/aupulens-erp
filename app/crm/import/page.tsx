@@ -56,8 +56,11 @@ export default function ImportCenterPage() {
       setResults(data);
       if (data.insertedCount > 0) {
         const errorCount = data.errors?.length || 0;
-        toast.success(`Imported ${data.insertedCount} record(s)${errorCount ? `; ${errorCount} row(s) need attention` : ""}`);
+        const duplicateCount = data.duplicatesRemoved || 0;
+        toast.success(`Imported ${data.insertedCount} record(s)${duplicateCount ? `; skipped ${duplicateCount} duplicate(s)` : ""}${errorCount ? `; ${errorCount} row(s) need attention` : ""}`);
         for (const warning of data.warnings || []) toast.warning(warning);
+      } else if ((data.duplicatesRemoved || 0) > 0 && (data.errors?.length || 0) === 0) {
+        toast.info(`No new records added. Skipped ${data.duplicatesRemoved} duplicate(s).`);
       } else {
         toast.error(data.message || "No records were imported.");
       }

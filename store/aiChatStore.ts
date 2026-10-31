@@ -30,6 +30,7 @@ type Updater = AiChatMessage[] | ((prev: AiChatMessage[]) => AiChatMessage[]);
 
 interface AiChatStore {
   isOpen: boolean;
+  isExpanded: boolean;
   messages: AiChatMessage[];
   /** Unsent composer text, preserved across assistant panel remounts and reloads. */
   draft: string;
@@ -38,6 +39,7 @@ interface AiChatStore {
   open: () => void;
   close: () => void;
   toggle: () => void;
+  setExpanded: (expanded: boolean) => void;
   setMessages: (updater: Updater) => void;
   setDraft: (draft: string) => void;
   setConversationId: (id: string | null) => void;
@@ -48,12 +50,14 @@ export const useAiChatStore = create<AiChatStore>()(
   persist(
     (set) => ({
       isOpen: false,
+      isExpanded: false,
       messages: [],
       draft: "",
       conversationId: null,
       open: () => set({ isOpen: true }),
-      close: () => set({ isOpen: false }),
+      close: () => set({ isOpen: false, isExpanded: false }),
       toggle: () => set((s) => ({ isOpen: !s.isOpen })),
+      setExpanded: (isExpanded) => set({ isExpanded }),
       setMessages: (updater) =>
         set((s) => ({ messages: typeof updater === "function" ? (updater as (p: AiChatMessage[]) => AiChatMessage[])(s.messages) : updater })),
       setDraft: (draft) => set({ draft }),

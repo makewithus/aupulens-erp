@@ -65,7 +65,6 @@ function retentionRateLabel(value: unknown) {
 }
 
 export default function CRMDashboardPage() {
-  const [pipelineKpis, setPipelineKpis] = useState<any>(null);
   const [pipelineData, setPipelineData] = useState<any>(() => {
     if (typeof window !== "undefined") {
       const cached = getInstantCachedData<any>("/api/crm/pipeline/analytics", { allowPreHydration: true });
@@ -106,9 +105,8 @@ export default function CRMDashboardPage() {
   const loadData = useCallback(async (fresh: boolean = false) => {
     try {
       if (fresh) setIsRefreshing(true);
-      const [pipe, kpisResponse, health, churn, renewal, exp, opps] = await Promise.all([
+      const [pipe, health, churn, renewal, exp, opps] = await Promise.all([
         fetchJson("/api/crm/pipeline/analytics", true),
-        fetch("/api/crm/opportunities/kpis", { cache: "no-store" }).then((res) => res.ok ? res.json() : null),
         fetchJson("/api/crm/health", true),
         fetchJson("/api/crm/churn", fresh),
         fetchJson("/api/crm/renewals", fresh),
@@ -117,7 +115,6 @@ export default function CRMDashboardPage() {
       ]);
 
       if (pipe?.success && pipe.data) setPipelineData(pipe.data);
-      if (kpisResponse?.success && kpisResponse.kpis) setPipelineKpis(kpisResponse.kpis);
       if (health?.success && health.data) setHealthData(health.data);
       if (churn?.success && churn.data) setChurnData(churn.data);
       if (renewal?.success && renewal.data) setRenewalData(renewal.data);
@@ -175,7 +172,7 @@ export default function CRMDashboardPage() {
   }
 
   // Use the same uncached database aggregation as the Opportunities page KPI.
-  const totalPipelineValue = Number(pipelineKpis?.totalPipelineValue) || 0;
+  const totalPipelineValue = Number(pipelineData?.totalPipelineValue) || 0;
   const activeDeals = pipelineData?.activeDeals ?? 0;
   const wonDeals = pipelineData?.wonDeals || 0;
   const lostDeals = pipelineData?.lostDeals || 0;
@@ -257,7 +254,7 @@ export default function CRMDashboardPage() {
           <StatCard
             title="Pipeline Value"
             value={formatCurrency(totalPipelineValue)}
-            isLoading={isLoading || !pipelineKpis}
+            isLoading={isLoading || !pipelineData}
             visual={<UsersGraph />}
             subtitle="Total open pipeline"
           />

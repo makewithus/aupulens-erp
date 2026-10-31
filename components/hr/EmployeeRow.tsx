@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { employeeCodeForDisplay } from "@/lib/hr/employeeValidation";
 import {
   Mail,
   Phone,
@@ -69,7 +70,7 @@ export function EmployeeRow({
             </h3>
 
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground/55">
-            {employee.employeeCode}
+            {employeeCodeForDisplay(employee)}
             {employee.designation && (
                 <>
                 {" "}

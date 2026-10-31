@@ -1,5 +1,6 @@
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
-import { sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
+import { employeeCodeForDisplay, isValidEmployeeCode, sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
+import { allocateEmployeeCode } from "@/lib/hr/employeeCode";
 import { friendlyError } from "@/lib/errors/friendlyError";
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
@@ -151,7 +152,11 @@ export async function GET(req: NextRequest) {
           .limit(limit)
           .lean(),
       ]);
-      return NextResponse.json({ items: employees, total, page, totalPages: Math.ceil(total / limit), stats });
+      const normalizedEmployees = employees.map((employee: any) => ({
+        ...employee,
+        employeeCode: employeeCodeForDisplay(employee),
+      }));
+      return NextResponse.json({ items: normalizedEmployees, total, page, totalPages: Math.ceil(total / limit), stats });
     }
 
     // No ?page= → return all (backward-compat for dropdowns and cross-module consumers)
@@ -162,7 +167,11 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ items: employees, total: employees.length, page: 1, totalPages: 1, stats });
+    const normalizedEmployees = employees.map((employee: any) => ({
+      ...employee,
+      employeeCode: employeeCodeForDisplay(employee),
+    }));
+    return NextResponse.json({ items: normalizedEmployees, total: employees.length, page: 1, totalPages: 1, stats });
   } catch (error: any) {
     console.error("Get Employees Error:", error);
     return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
@@ -181,6 +190,12 @@ export async function POST(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
     const body = sanitizeEmployeePayload(await req.json());
     await connectDB();
+
+    // Ignore malformed codes from legacy clients/AI payloads and issue a
+    // tenant-scoped ID in the canonical EMP-#### format instead.
+    if (!isValidEmployeeCode(body.employeeCode)) {
+      body.employeeCode = await allocateEmployeeCode(tenantId);
+    }
 
 
 const fieldErrors = validateEmployee(body);

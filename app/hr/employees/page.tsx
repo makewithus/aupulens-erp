@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
-import { isValidEmployeeCode, sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
+import { employeeCodeForDisplay, isValidEmployeeCode, sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
@@ -202,6 +202,7 @@ export default function EmployeesPage() {
     setAiNotice(null);
     setFormData({
       ...emp,
+      employeeCode: employeeCodeForDisplay(emp),
       _id: emp._id,
       departmentId: emp.departmentId?._id || "",
       dateOfJoining: emp.dateOfJoining
@@ -287,7 +288,9 @@ export default function EmployeesPage() {
 
   const handleSubmit = async () => {
     const payload = sanitizeEmployeePayload(formData);
-    const errors = validateEmployee(payload);
+    const errors = validateEmployee(
+      modalMode === "create" ? { ...payload, employeeCode: "EMP-000" } : payload,
+    );
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
       toast.error("Please fix the highlighted fields before saving.");
@@ -716,14 +719,17 @@ export default function EmployeesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
-                      Employee Code *
+                      Employee Code{modalMode === "edit" ? " *" : ""}
                     </label>
                     <Input
                       value={formData.employeeCode || ""}
+                      maxLength={20}
+                      aria-describedby={modalMode === "create" ? "employee-code-help" : undefined}
                       onChange={(e) =>
                         updateField("employeeCode", e.target.value)
                       }
                     />
+                    {modalMode === "create" && <p id="employee-code-help" className="mt-1 text-xs text-muted-foreground">Optional. Leave blank to assign the next EMP-#### ID automatically.</p>}
                     <FieldError name="employeeCode" />
                   </div>
                   <div>

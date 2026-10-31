@@ -32,6 +32,14 @@ function tenantScope(tenantId: string) {
     ? { $in: ["default", "default-tenant"] }
     : tenantId;
 }
+function customerTenantFilter(tenantId: string) {
+  // The built-in default workspace predates mandatory tenantId values. Keep
+  // those legacy rows visible only in that workspace; never widen a named
+  // tenant's customer lookup.
+  return tenantId === "default" || tenantId === "default-tenant"
+    ? { $or: [{ tenantId: tenantScope(tenantId) }, { tenantId: { $exists: false } }] }
+    : { tenantId };
+}
 export function requireSalesAccess(role: string) {
   if (!["sales", "admin", "master-admin"].includes(role)) throw new ErpToolError("PERMISSION_DENIED", "You don't have permission to access Sales records.", 403);
 }
@@ -41,9 +49,9 @@ export async function resolveCustomer(tenantId: string, name: string) {
   // works for both legacy and current customer records.
   const fields = ["header.displayName", "header.companyName", "header.name", "name"];
   const search = (exact: boolean) => {
-    const tenantFilter = { tenantId: tenantScope(tenantId) };
+    const tenantFilter = customerTenantFilter(tenantId);
     if (exact) {
-      return Customer.find({ ...tenantFilter, $or: fields.map(field => ({ [field]: { $regex: `^${escapeRegex(name)}$`, $options: "i" } })) })
+      return Customer.find({ $and: [tenantFilter, { $or: fields.map(field => ({ [field]: { $regex: `^${escapeRegex(name)}$`, $options: "i" } })) }] })
         .select("header name contact_details.email contact_details.mobile contact_details.phone").limit(6).maxTimeMS(5000).lean();
     }
     // Match each part of a person's name across the stored name fields. Some
@@ -51,8 +59,10 @@ export async function resolveCustomer(tenantId: string, name: string) {
     // keep the complete name in header.name or displayName.
     const words = name.trim().split(/\s+/).filter(Boolean);
     return Customer.find({
-      ...tenantFilter,
-      $and: words.map(word => ({ $or: [...fields, "header.firstName", "header.lastName"].map(field => ({ [field]: { $regex: escapeRegex(word), $options: "i" } })) })),
+      $and: [
+        tenantFilter,
+        ...words.map(word => ({ $or: [...fields, "header.firstName", "header.lastName"].map(field => ({ [field]: { $regex: escapeRegex(word), $options: "i" } })) })),
+      ],
     }).select("header name contact_details.email contact_details.mobile contact_details.phone").limit(6).maxTimeMS(5000).lean();
   };
   let matches = await search(true);

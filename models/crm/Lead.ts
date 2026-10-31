@@ -6,6 +6,8 @@ export interface ILead extends Document {
   company_name?: string;
   phone?: string;
   email?: string;
+  emailNormalized?: string;
+  phoneNormalized?: string;
   source?: string;
   owner_id: mongoose.Types.ObjectId;
   status: string;
@@ -38,6 +40,8 @@ const LeadSchema = new Schema<ILead>({
   company_name: { type: String },
   phone: { type: String },
   email: { type: String },
+  emailNormalized: { type: String, select: false },
+  phoneNormalized: { type: String, select: false },
   source: { 
     type: String, 
     enum: ['Organic Search','Paid Ads','Referral','Event','Social Media','Direct Website','Outbound Calling','Partner Channel','Repeat Customer','Website Form','WhatsApp','Email Import','CSV Import','Chatbot','Manual Entry','Other'] 
@@ -76,10 +80,25 @@ const LeadSchema = new Schema<ILead>({
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
+LeadSchema.pre("validate", function () {
+  const email = String(this.email ?? "").trim().toLowerCase();
+  const phone = String(this.phone ?? "").replace(/\D/g, "");
+  this.emailNormalized = email || undefined;
+  this.phoneNormalized = phone.length >= 7 ? phone : undefined;
+});
+
 LeadSchema.index({ tenantId: 1 });
 LeadSchema.index({ tenantId: 1, owner_id: 1 });
 LeadSchema.index({ tenantId: 1, status: 1 });
 LeadSchema.index({ tenantId: 1, createdAt: -1 });
 LeadSchema.index({ tenantId: 1, converted_account_id: 1 });
+LeadSchema.index(
+  { tenantId: 1, emailNormalized: 1 },
+  { unique: true, name: "uniq_crm_lead_tenant_email_normalized", partialFilterExpression: { emailNormalized: { $type: "string" } } },
+);
+LeadSchema.index(
+  { tenantId: 1, phoneNormalized: 1 },
+  { unique: true, name: "uniq_crm_lead_tenant_phone_normalized", partialFilterExpression: { phoneNormalized: { $type: "string" } } },
+);
 
 export default (mongoose.models.CrmLead as Model<ILead>) || mongoose.model<ILead>("CrmLead", LeadSchema);

@@ -86,13 +86,13 @@ export function DashboardSidebar({
             ))}
           </div>
         ) : sections.map((section, sectionIndex) => (
-          <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
+          <div key={`${section.title || "section"}-${sectionIndex}`} className="w-full flex flex-col gap-1 px-2">
             {section.title && !isCollapsed && (
               <div className="mb-3 mt-4 first:mt-1 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-muted-foreground">
                 {section.title}
               </div>
             )}
-            {section.items.map((item) => {
+            {section.items.map((item, itemIndex) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
 
@@ -100,7 +100,7 @@ export function DashboardSidebar({
               // a large sidebar competes with the page the user opens.
               return (
                 <Link
-                  key={item.href}
+                  key={`${item.href}-${item.title}-${itemIndex}`}
                   href={item.disabled ? "#" : item.href}
                   prefetch={false}
                   onPointerEnter={() => !item.disabled && router.prefetch(item.href)}

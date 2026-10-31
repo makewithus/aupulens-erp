@@ -601,12 +601,12 @@ export default function AIAssistant() {
       onSignOut={() => signOut({ callbackUrl: "/auth" })}
       profilePath="/admin/profile"
     >
-      <div className="flex h-[calc(100vh-8rem)] gap-0 -mx-6 -my-4 bg-background overflow-hidden">
+      <div className="flex h-[calc(100dvh-8rem)] min-h-0 min-w-0 gap-0 -mx-6 -my-4 bg-background overflow-hidden">
         {/* History Sidebar - Hidden on mobile unless toggled */}
         <div
           className={`${
             showHistory ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0 fixed md:relative z-20 w-64 h-full bg-card/95 md:bg-card/50 backdrop-blur-sm border-r border-border/50 flex flex-col transition-transform duration-300 ease-in-out`}
+          } md:translate-x-0 fixed md:relative z-20 w-64 h-full min-h-0 bg-card/95 md:bg-card/50 backdrop-blur-sm border-r border-border/50 flex flex-col transition-transform duration-300 ease-in-out`}
         >
           {/* New Chat Button */}
           <div className="p-4 border-b border-border/50 flex items-center justify-between">
@@ -769,7 +769,7 @@ export default function AIAssistant() {
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col w-full min-w-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col w-full">
           {/* Mobile Header for Sidebar Toggle */}
           <div className="md:hidden p-4 border-b border-border/50 flex items-center">
             <button
@@ -782,7 +782,7 @@ export default function AIAssistant() {
           </div>
 
           {/* Messages Container */}
-          <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 scroll-smooth">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 md:px-6 py-6 scroll-smooth">
             <div className="max-w-3xl mx-auto space-y-6">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-12">

@@ -15,7 +15,12 @@ export interface CustomerDraftParams {
   email?: string;
   phone?: string;
   mobile?: string;
+  street?: string;
+  street2?: string;
   city?: string;
+  state_name?: string;
+  zip?: string;
+  country?: string;
   gstin?: string;
   pan?: string;
   currency?: string;
@@ -130,6 +135,21 @@ export function extractCustomerFieldsWithErrors(text: string): {
     fields.city = rawCity.charAt(0).toUpperCase() + rawCity.slice(1).toLowerCase();
   }
 
+  // Capture labeled address details so they survive the proposal and are
+  // written to the same address collection the customer form displays.
+  const addressValue = (label: RegExp) => {
+    const match = q.match(label);
+    return match?.[1]?.trim().replace(/^['"]|['"]$/g, "").replace(/[.!]$/, "");
+  };
+  fields.street = addressValue(/\b(?:street\s*1|address\s*line\s*1|street|address)\s*(?:is|to|:|=)?\s*([^,;\n]+?)(?=\s*(?:,|\band\s+(?:street|address|city|state|pin|zip|country|email|phone)\b|$))/i);
+  fields.street2 = addressValue(/\b(?:street\s*2|address\s*line\s*2)\s*(?:is|to|:|=)?\s*([^,;\n]+?)(?=\s*(?:,|\band\s+(?:street|address|city|state|pin|zip|country|email|phone)\b|$))/i);
+  fields.state_name = addressValue(/\bstate\s*(?:is|to|:|=)?\s*([^,;\n]+?)(?=\s*(?:,|\band\s+(?:street|address|city|pin|zip|country|email|phone)\b|$))/i);
+  fields.zip = addressValue(/\b(?:pin\s*code|pincode|postal\s*code|zip)\s*(?:is|to|:|=)?\s*([A-Za-z0-9 -]{3,12})\b/i);
+  fields.country = addressValue(/\bcountry\s*(?:is|to|:|=)?\s*([^,;\n]+?)(?=\s*(?:,|\band\s+(?:street|address|city|state|pin|zip|email|phone)\b|$))/i);
+  for (const key of ["street", "street2", "state_name", "zip", "country"] as const) {
+    if (!fields[key]) delete fields[key];
+  }
+
   // 6. Name
   // A. 'change/update the name from X to Y'
   const changeFromTo = q.match(/\b(?:change|update)\s+(?:the\s+)?(?:customer\s+)?names?\s+from\s+[^,.\n]+?\s+to\s+([^,.\n]+?)(?=[.,;!]|\s*(?:,|\band\b|\bwith\b|\bphone\b|\bemail\b|\btype\b|$))/i);
@@ -185,6 +205,11 @@ export function customerDraftSummary(params: Partial<CustomerDraftParams>): stri
   else msg += `\nPhone: Not specified`;
   if (params.email) msg += `\nEmail: ${params.email}`;
   if (params.city) msg += `\nCity: ${params.city}`;
+  if (params.street) msg += `\nStreet: ${params.street}`;
+  if (params.street2) msg += `\nStreet 2: ${params.street2}`;
+  if (params.state_name) msg += `\nState: ${params.state_name}`;
+  if (params.zip) msg += `\nPin Code: ${params.zip}`;
+  if (params.country) msg += `\nCountry: ${params.country}`;
   if (params.gstin) msg += `\nGSTIN: ${params.gstin}`;
   if (params.pan) msg += `\nPAN: ${params.pan}`;
 
@@ -211,6 +236,11 @@ export async function prepareCustomerDraft(scope: Scope, text: string, requestId
     phone: extracted.clearPhone ? undefined : extracted.phone,
     mobile: extracted.clearPhone ? undefined : (extracted.mobile || extracted.phone),
     city: extracted.city,
+    street: extracted.street,
+    street2: extracted.street2,
+    state_name: extracted.state_name,
+    zip: extracted.zip,
+    country: extracted.country,
     gstin: extracted.gstin,
     pan: extracted.pan,
     currency: "INR",
@@ -274,6 +304,11 @@ export async function updateCustomerDraft(scope: Scope, proposalId: string, text
     ...(extracted.email ? { email: extracted.email } : {}),
     ...(extracted.phone ? { phone: extracted.phone, mobile: extracted.mobile || extracted.phone } : {}),
     ...(extracted.city ? { city: extracted.city } : {}),
+    ...(extracted.street ? { street: extracted.street } : {}),
+    ...(extracted.street2 ? { street2: extracted.street2 } : {}),
+    ...(extracted.state_name ? { state_name: extracted.state_name } : {}),
+    ...(extracted.zip ? { zip: extracted.zip } : {}),
+    ...(extracted.country ? { country: extracted.country } : {}),
     ...(extracted.gstin ? { gstin: extracted.gstin } : {}),
     ...(extracted.pan ? { pan: extracted.pan } : {}),
   };
@@ -392,10 +427,22 @@ export async function confirmCustomerDraft(scope: Scope, proposalId: string, _re
     },
     address_tab: {
       type: "contact",
+      street: params.street || undefined,
+      street2: params.street2 || undefined,
       city: params.city || undefined,
+      state_name: params.state_name || undefined,
+      zip: params.zip || undefined,
     },
-    shipping_address: params.city ? {
+    addresses: [
+      { type: "billing", street: params.street, street2: params.street2, city: params.city, state_name: params.state_name, zip: params.zip, country: params.country || "India", isPrimary: true },
+      { type: "shipping", street: params.street, street2: params.street2, city: params.city, state_name: params.state_name, zip: params.zip, country: params.country || "India" },
+    ],
+    shipping_address: params.city || params.street || params.street2 || params.state_name || params.zip ? {
+      street: params.street || undefined,
+      street2: params.street2 || undefined,
       city: params.city,
+      state_name: params.state_name,
+      zip: params.zip,
     } : undefined,
     gstin: params.gstin || undefined,
     pan: params.pan || undefined,

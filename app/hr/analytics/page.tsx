@@ -14,7 +14,7 @@ import {
   CanvasPieChart,
   CanvasComposedChart,
 } from "@/components/inventory/CanvasCharts";
-import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { AnalyticsPageSkeleton } from "@/components/ui/loading-skeletons";
 import { toast } from "sonner";
 import {
@@ -48,20 +48,31 @@ export default function HrAnalyticsPage() {
   const [timeRange, setTimeRange] = useState<string>("1y");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const loadData = useCallback(async (fresh: boolean = false) => {
     try {
       if (fresh) setIsRefreshing(true);
-      const res = await cachedFetch(`/api/hr/analytics?range=${timeRange}${fresh ? "&fresh=true" : ""}`, {
-        cache: fresh ? "no-store" : "default",
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-        if (fresh) toast.success("HR analytics updated");
+      else {
+        setIsLoading(true);
+        setLoadError(false);
       }
+      const res = await cachedFetch(
+        `/api/hr/analytics?range=${timeRange}${fresh ? "&fresh=true" : ""}`,
+        fresh ? { cache: "no-store" } : undefined,
+        // Don't render a possibly stale browser/session-cache snapshot as if it
+        // were the completed analytics response. The API keeps its own
+        // tenant-scoped short cache, so this still benefits from fast repeats.
+        { noCache: true },
+      );
+      if (!res.ok) throw new Error(`HR analytics request failed (${res.status})`);
+      const json = await res.json();
+      setData(json);
+      setLoadError(false);
+      if (fresh) toast.success("HR analytics updated");
     } catch (e) {
       console.error("Failed to load HR analytics:", e);
+      setLoadError(true);
       if (fresh) toast.error("Failed to sync HR analytics");
     } finally {
       if (fresh) setIsRefreshing(false);
@@ -70,11 +81,9 @@ export default function HrAnalyticsPage() {
   }, [timeRange]);
 
   useEffect(() => {
-    const cached = getInstantCachedData<any>(`/api/hr/analytics?range=${timeRange}`);
-    if (cached) {
-      setData(cached);
-      setIsLoading(false);
-    }
+    setData(null);
+    setLoadError(false);
+    setIsLoading(true);
     loadData(false);
   }, [loadData, timeRange]);
 
@@ -146,6 +155,15 @@ export default function HrAnalyticsPage() {
     return (
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         <AnalyticsPageSkeleton />
+      </div>
+    );
+  }
+
+  if (!data && loadError) {
+    return (
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <p className="text-sm text-muted-foreground">HR analytics could not be loaded.</p>
+        <Button className="mt-4" variant="outline" onClick={() => void loadData(false)}>Try again</Button>
       </div>
     );
   }

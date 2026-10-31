@@ -17,6 +17,7 @@ import { validateQuoteInput } from "@/lib/sales/quoteValidation";
  */
 import connectDB from "@/lib/db";
 import CrmLead from "@/models/crm/Lead";
+import { findDuplicateLead } from "@/lib/crm/leadDuplicate";
 import CrmTask from "@/models/crm/Task";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import Customer from "@/models/sales/Customer";
@@ -215,12 +216,24 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
       await connectDB();
       const name = String(params?.lead_name || params?.leadName || params?.name || "").trim();
       if (!name) throw new CommandActionError("A lead name is required.");
+      const companyName = String(params?.company_name || params?.company || "").trim();
+      const email = String(params?.email || "").trim().toLowerCase();
+      const phone = String(params?.phone || "").trim();
+      const { duplicate, matchedBy } = await findDuplicateLead(tenantId, {
+        lead_name: name,
+        company_name: companyName,
+        email,
+        phone,
+      });
+      if (duplicate) {
+        throw new CommandActionError(`A lead already exists with this ${matchedBy}. Open the existing lead instead of creating another one.`);
+      }
       const doc = await CrmLead.create({
         tenantId,
         lead_name: name,
-        company_name: params?.company_name || params?.company || undefined,
-        email: params?.email || undefined,
-        phone: params?.phone || undefined,
+        company_name: companyName || undefined,
+        email: email || undefined,
+        phone: phone || undefined,
         source: LEAD_SOURCES.includes(params?.source) ? params.source : "Manual Entry",
         status: "New",
         owner_id: userId,
@@ -367,7 +380,7 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
         }, 0);
         let sequence = highest + 1;
         do {
-          employeeCode = `EMP-${String(sequence++).padStart(4, "0")}`;
+          employeeCode = `EMP-${String(sequence++).padStart(3, "0")}`;
         } while (await Employee.exists({ tenantId, employeeCode }));
       }
       const doc = await Employee.create({

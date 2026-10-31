@@ -1029,7 +1029,23 @@ export default function TaskCalendar() {
         let y = 0;
 
         const wrapText = (text: string, font: typeof regular, maxWidth: number) => {
-          const words = text.split(/\s+/).filter(Boolean);
+          // Standard Helvetica uses WinAnsi and cannot represent symbols such
+          // as the Indian rupee sign. Normalize each dynamic value before both
+          // measuring and drawing it so a single event can never abort export.
+          const safeText = Array.from(String(text)).map((character) => {
+            if (character === "₹") return "INR";
+            try {
+              font.encodeText(character);
+              return character;
+            } catch {
+              const latinFallback = character.normalize("NFKD").replace(/\p{M}/gu, "");
+              if (latinFallback && Array.from(latinFallback).every((part) => {
+                try { font.encodeText(part); return true; } catch { return false; }
+              })) return latinFallback;
+              return "?";
+            }
+          }).join("").replace(/\s+/g, " ").trim();
+          const words = safeText.split(/\s+/).filter(Boolean);
           const lines: string[] = [];
           let line = "";
           for (const word of words) {

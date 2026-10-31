@@ -5,11 +5,10 @@ if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
   if (process.env.NODE_ENV === "production") {
     throw new Error("AUTH_SECRET or NEXTAUTH_SECRET must be set in production");
   } else {
-    // Generate a secure random secret on the fly for development so nothing is hardcoded in Git.
-    // Uses Web Crypto (available in both Node and the Edge runtime this file also loads under
-    // via middleware.ts) instead of the Node-only `crypto` module, which trips the Edge Runtime warning.
-    const bytes = crypto.getRandomValues(new Uint8Array(32));
-    process.env.AUTH_SECRET = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    // Keep this stable across Next.js route and middleware bundles. A random
+    // value per module load makes /csrf tokens unverifiable by /signout during
+    // dev/HMR, leaving users unable to log out.
+    process.env.AUTH_SECRET = "aupulens-local-development-auth-secret-v1";
   }
 } else if (!process.env.AUTH_SECRET) {
   process.env.AUTH_SECRET = process.env.NEXTAUTH_SECRET;
@@ -20,6 +19,7 @@ if (!process.env.AUTH_TRUST_HOST) {
 }
 
 const isProd = process.env.NODE_ENV === "production";
+export const AUTH_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 
 const getCookieDomain = () => {
   if (!isProd) {
@@ -74,8 +74,11 @@ export const authConfig = {
         token.permissions = user.permissions;
         token.sessionPolicyVersion = getTenantSessionPolicyVersion();
         token.sessionStale = false;
+        token.authenticatedAt = Math.floor(Date.now() / 1000);
       } else {
-        token.sessionStale = tenantSessionStaleReason(token.sessionPolicyVersion) !== null;
+        const authenticatedAt = Number(token.authenticatedAt ?? token.iat ?? 0);
+        const sessionTooOld = !authenticatedAt || Math.floor(Date.now() / 1000) - authenticatedAt >= AUTH_SESSION_MAX_AGE_SECONDS;
+        token.sessionStale = tenantSessionStaleReason(token.sessionPolicyVersion) !== null || sessionTooOld;
       }
       return token;
     },
@@ -106,24 +109,10 @@ export const authConfig = {
   },
   session: {
     strategy: "jwt",
-    // Session/cookie validity: 8 hours, matching the documented security
-    // policy (CLAUDE.md: "JWT strategy, 8h session"). If the user is active,
-    // the token is refreshed (see updateAge).
-    //
-    // Correction: a prior version of this comment claimed the session cookie
-    // had no maxAge and was a true browser-session cookie (deleted on close),
-    // "ensuring fresh opens always require login." That was never actually
-    // true for Auth.js v5's JWT strategy — @auth/core unconditionally stamps
-    // the session cookie's `expires` to `now + session.maxAge` on every
-    // login/refresh (see @auth/core/lib/actions/callback/index.js), with no
-    // config knob to opt out and make it a real session-only cookie. The
-    // previous 24h maxAge meant a browser that logged in once stayed silently
-    // signed in for a full day (longer, since updateAge re-extends it on each
-    // hour of activity) even after being closed and reopened — this is what
-    // let someone land in a module straight past the login screen with no
-    // prompt. 8h + the 1h rolling refresh below is the actual mechanism that
-    // now bounds how long a closed/reopened browser stays signed in.
-    maxAge: 8 * 60 * 60,   // 8 h server-side JWT + cookie validity
+    // Cookies may be refreshed while active, but authenticatedAt in the JWT
+    // enforces an absolute 8-hour credential lifetime in the callback above.
+    // This prevents routine session polling from extending a login forever.
+    maxAge: AUTH_SESSION_MAX_AGE_SECONDS, // 8 h absolute credential lifetime
     updateAge: 60 * 60,    // refresh every 1 h of active use
   },
   // We remove the explicit `cookies` override. NextAuth (Auth.js v5) automatically 

@@ -42,8 +42,9 @@ const TARGETS: Record<string, { route: string; label: string; spec: string }> = 
   customer: {
     route: "/sales/customers/new",
     label: "customer",
-    spec: `Fields (JSON keys): name (the customer or company name — REQUIRED), is_company (boolean: true for a business, false for an individual), salutation, companyName, firstName, lastName, email, phone, mobile, gstin, pan, currency.
+    spec: `Fields (JSON keys): name (the customer or company name — REQUIRED), is_company (boolean: true for a business, false for an individual), salutation, companyName, firstName, lastName, email, phone, mobile, gstin, pan, currency, street, street2, city, state_name, zip, country.
 - If it's clearly a company, set is_company=true and put the company name in both "name" and "companyName". If it's an individual, set is_company=false and fill firstName/lastName.
+- Extract every stated billing/address detail into street, street2, city, state_name, zip, and country; don't omit city or address details supplied in the request.
 - "gstin" is a 15-character Indian GST number (uppercase). "pan" is a 10-character Indian PAN (uppercase).
 - "currency" defaults to "INR" if not stated.`,
   },

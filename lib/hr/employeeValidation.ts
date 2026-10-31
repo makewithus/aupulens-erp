@@ -5,7 +5,7 @@
 export type EmployeeFieldErrors = Record<string, string>;
 
 const NAME_RE = /^[\p{L}][\p{L} .'-]*$/u;
-const CODE_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+const CODE_RE = /^EMP-\d{3,}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export const GENDERS = ["male", "female", "other"] as const;
@@ -14,7 +14,13 @@ export const OBJECT_ID_RE = /^[a-f\d]{24}$/i;
 
 export function isValidEmployeeCode(value: unknown): value is string {
   const code = String(value ?? "").trim();
-  return code.length >= 2 && code.length <= 20 && CODE_RE.test(code);
+  return code.length >= 7 && code.length <= 20 && CODE_RE.test(code);
+}
+
+/** Never invent an employee ID from a database object's internal ID. */
+export function employeeCodeForDisplay(employee: { _id: unknown; employeeCode?: unknown }): string {
+  const code = String(employee.employeeCode ?? "").trim();
+  return isValidEmployeeCode(code) ? code : "";
 }
 
 /** Normalises an Indian mobile / international number to digits (with optional leading +). */
@@ -68,8 +74,8 @@ export function validateEmployee(
   if (has("employeeCode")) {
     const v = str("employeeCode");
     if (!v) e.employeeCode = "Employee code is required.";
-    else if (v.length < 2 || v.length > 20) e.employeeCode = "Employee code must be 2–20 characters.";
-    else if (!CODE_RE.test(v)) e.employeeCode = "Use only letters, numbers, hyphen or underscore (no spaces).";
+    else if (v.length < 7 || v.length > 20) e.employeeCode = "Use the employee ID format EMP-001 (at least three digits).";
+    else if (!CODE_RE.test(v)) e.employeeCode = "Use the employee ID format EMP-001 (at least three digits).";
   }
   for (const [k, label] of [["firstName", "First name"], ["lastName", "Last name"]] as const) {
     if (!has(k)) continue;

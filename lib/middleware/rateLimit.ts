@@ -28,7 +28,11 @@ export const RATE_LIMIT_RULES: RateLimitRule[] = [
   { pattern: "/api/auth/register", limit: 5, windowMs: 60_000, isSensitiveAuth: true },
   { pattern: "/api/auth/password-reset/request", limit: 5, windowMs: 60_000, isSensitiveAuth: true },
   { pattern: "/api/auth/password-reset/confirm", limit: 5, windowMs: 60_000, isSensitiveAuth: true },
-  { pattern: "/api/auth/callback/credentials", limit: 10, windowMs: 60_000, isSensitiveAuth: true },
+  // Sign-in is a multi-request flow (provider discovery, CSRF initialization,
+  // then credentials callback) and shared office/NAT IPs are common. Keep a
+  // useful per-minute ceiling without locking legitimate users out after a
+  // handful of retries. Requests are counted independently by IP and account.
+  { pattern: "/api/auth/callback/credentials", limit: 30, windowMs: 60_000, isSensitiveAuth: true },
 
   // General resource endpoints
   { pattern: "/api/crm/search", limit: 30, windowMs: 60_000 },

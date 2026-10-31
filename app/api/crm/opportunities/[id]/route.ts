@@ -163,6 +163,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
 
   const body = stripProtectedFields(await req.json());
   const oldStage = opp.stage;
+  let stageTransition: { from: string; to: string; at: Date } | null = null;
 
   if (body.stage && body.stage !== oldStage) {
     const { valid, message } = await validateOpportunityStage(opp, body.stage);
@@ -181,6 +182,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
       index === 0 || entries[index - 1]?.stage !== entry.stage,
     );
     const transitionAt = new Date();
+    stageTransition = { from: oldStage, to: body.stage, at: transitionAt };
     if (history[history.length - 1]?.stage !== body.stage) {
       if (history.length > 0) history[history.length - 1].exited_at = transitionAt;
       history.push({ stage: body.stage, entered_at: transitionAt });
@@ -188,16 +190,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     opp.stage_history = history;
     opp.stage_entered_at = transitionAt;
 
-    // Automations
-    await CrmActivity.create({
-      tenantId: session.user.tenantId,
-      type: 'Note',
-      subject: `Stage moved from ${oldStage} to ${body.stage}`,
-      linked_opportunity_id: opp._id,
-      createdBy: session.user.id,
-      performed_by_id: session.user.id
-    });
-
+    // Stage-specific automations
     if (body.stage === 'Proposal Sent') {
       await CrmTask.create({ tenantId: session.user.tenantId, title: "Follow Up Proposal", category: 'Follow Up', due_date: new Date(Date.now() + 86400000 * 3), assigned_to_id: opp.owner_id, linked_opportunity_id: opp._id, status: 'Pending', createdBy: session.user.id });
     } else if (body.stage === 'Negotiation') {
@@ -221,9 +214,6 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
       }
     }
 
-    await CrmAuditLog.create({
-      tenantId: session.user.tenantId, user_id: session.user.id, action: 'status_changed', record_type: 'Opportunity', record_id: opp._id, field_name: 'stage', old_value: oldStage, new_value: body.stage, timestamp: new Date()
-    });
   }
 
   // Probability Engine Logic
@@ -259,6 +249,32 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
 
   await opp.save();
   invalidateServerCache(`crm-analytics-live:${session.user.tenantId}:`);
+
+  // Log the transition only after its stage and history are durably saved, so
+  // the activity timeline and audit trail can never claim an unsaved move.
+  if (stageTransition) {
+    await CrmActivity.create({
+      tenantId: session.user.tenantId,
+      type: 'Note',
+      subject: `Stage changed: ${stageTransition.from} → ${stageTransition.to}`,
+      description: `Opportunity stage changed from ${stageTransition.from} to ${stageTransition.to}.`,
+      activity_date: stageTransition.at,
+      linked_opportunity_id: opp._id,
+      createdBy: session.user.id,
+      performed_by_id: session.user.id,
+    });
+    await CrmAuditLog.create({
+      tenantId: session.user.tenantId,
+      user_id: session.user.id,
+      action: 'status_changed',
+      record_type: 'Opportunity',
+      record_id: opp._id,
+      field_name: 'stage',
+      old_value: stageTransition.from,
+      new_value: stageTransition.to,
+      timestamp: stageTransition.at,
+    });
+  }
 
   await CrmAuditLog.create({
     tenantId: session.user.tenantId, user_id: session.user.id, action: 'updated', record_type: 'Opportunity', record_id: opp._id, timestamp: new Date()

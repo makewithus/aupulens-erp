@@ -381,6 +381,57 @@ export function StructuredErpView({ data, onAction, className, fallbackText }: S
       );
     }
 
+    case "sales_period_summary": {
+      const money = (value: number) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+      const metrics = [
+        {
+          label: "Recognized revenue",
+          value: money(data.revenue),
+          detail: `${data.invoiceCount.toLocaleString("en-IN")} issued ${data.invoiceCount === 1 ? "invoice" : "invoices"} · excluding GST · by invoice date`,
+          valueClass: "text-emerald-400",
+        },
+        {
+          label: "Payments received",
+          value: money(data.paymentsReceived),
+          detail: `${data.paymentCount.toLocaleString("en-IN")} recorded ${data.paymentCount === 1 ? "payment" : "payments"} · by payment date`,
+          valueClass: "text-sky-400",
+        },
+        ...(data.receivables !== undefined ? [{
+          label: "Customer receivables",
+          value: money(data.receivables),
+          detail: "Outstanding across all issued invoices",
+          valueClass: "text-amber-400",
+        }] : []),
+      ];
+
+      return (
+        <section aria-label={`Sales summary for ${data.period}`} className={cn("overflow-hidden rounded-xl border border-border/70 bg-card/70 shadow-sm", className)}>
+          <header className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <span>Sales summary</span>
+            </div>
+            <span className="rounded-full border border-border/60 bg-muted/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+              {data.period}
+            </span>
+          </header>
+          <div className="divide-y divide-border/40 px-4">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="flex items-start justify-between gap-4 py-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-muted-foreground">{metric.label}</div>
+                  <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{metric.detail}</div>
+                </div>
+                <div className={cn("shrink-0 pt-0.5 text-right font-mono text-sm font-bold tabular-nums sm:text-base", metric.valueClass)}>
+                  {metric.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
     case "receivables_portfolio_summary": {
       const money = (value: number) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
       return (

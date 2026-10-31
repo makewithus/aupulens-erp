@@ -8,7 +8,7 @@ import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import React, { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus, Image as ImageIcon, Brain, Trash2, Check, ArrowLeft } from "lucide-react";
+import { X, Send, Sparkles, Maximize2, Minimize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus, Image as ImageIcon, Brain, Trash2, Check, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAiChatStore, type AiChatMessage } from "@/store/aiChatStore";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
@@ -58,6 +58,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const input = useAiChatStore((s) => s.draft);
   const setInput = useAiChatStore((s) => s.setDraft);
   const setConversationId = useAiChatStore((s) => s.setConversationId);
+  const isExpanded = useAiChatStore((s) => s.isExpanded);
+  const setExpanded = useAiChatStore((s) => s.setExpanded);
   const newChat = useAiChatStore((s) => s.newChat);
   const pendingNavigation = useRef<{ route: string; openingText: string; completedText: string } | null>(null);
   const previousIdentity = useRef<string | null>(null);
@@ -1040,9 +1042,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   return (
     <aside
       className={cn(
-        "flex flex-col flex-shrink-0 animate-in slide-in-from-right duration-200 transition-all ease-in-out",
+        "flex min-h-0 flex-col flex-shrink-0 transition-all ease-in-out",
         isDark ? "shadow-2xl" : "shadow-none",
-        "absolute inset-y-0 right-0 z-50 h-full w-full max-w-[min(100vw,460px)] border-l xl:relative xl:w-[450px] xl:max-w-none",
+        isExpanded
+          ? "fixed inset-0 z-[100] h-dvh w-screen max-w-none border-0 duration-150"
+          : "absolute inset-y-0 right-0 z-50 h-full w-full max-w-[min(100vw,460px)] border-l animate-in slide-in-from-right duration-200 xl:relative xl:w-[450px] xl:max-w-none",
         isDark ? "bg-neutral-950 border-neutral-800" : "bg-white border-neutral-200"
       )}
     >
@@ -1108,20 +1112,15 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             <Clock className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => {
-              onClose();
-              const activeConversation = useAiChatStore.getState().conversationId;
-              router.push(activeConversation
-                ? `/admin/ai-assistant?conversationId=${encodeURIComponent(activeConversation)}`
-                : "/admin/ai-assistant");
-            }}
+            onClick={() => setExpanded(!isExpanded)}
             className={cn(
               "p-1.5 rounded transition-colors cursor-pointer",
               isDark ? "text-neutral-500 hover:text-white hover:bg-neutral-900" : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
             )}
-            title="Open Full Screen Aupulens AI"
+            title={isExpanded ? "Return to page" : "Expand chat"}
+            aria-label={isExpanded ? "Return chat to sidebar" : "Expand chat to full screen"}
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
           <button
             onClick={onClose}
@@ -1138,7 +1137,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
 
       {/* Conversation or Workspace Area */}
       <div className={cn(
-        "flex-1 overflow-y-auto youtube-scrollbar flex flex-col justify-start",
+        "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain youtube-scrollbar flex flex-col justify-start",
         isDark ? "bg-gradient-to-b from-neutral-950 to-neutral-950/40" : "bg-neutral-50/30"
       )}>
         {showHistory ? (

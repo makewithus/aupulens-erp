@@ -233,7 +233,7 @@ function LeadsPageInner() {
         if (proceed) return submitLead(true);
         return false;
       }
-      toast.warning("Duplicate lead detected — a lead with this email or phone already exists.");
+      toast.warning(data.message || "Duplicate lead detected — a lead with this email or phone already exists.");
       return false;
     }
 

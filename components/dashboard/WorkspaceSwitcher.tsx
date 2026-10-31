@@ -93,8 +93,8 @@ export function WorkspaceSwitcher({ mobileFullWidth = false }: { mobileFullWidth
           Your Workspaces
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {workspaces.map((ws) => (
-          <DropdownMenuItem key={ws.tenantId} asChild>
+        {workspaces.map((ws, index) => (
+          <DropdownMenuItem key={`${ws.tenantId || "workspace"}-${index}`} asChild>
             <a
               href={
                 ws.current

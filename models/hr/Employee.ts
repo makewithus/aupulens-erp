@@ -108,7 +108,14 @@ const EmployeeSchema = new Schema<IEmployee>(
   {
     tenantId: { type: String, required: true, index: true , immutable: true },
     userId: { type: Schema.Types.ObjectId, ref: "User" },
-    employeeCode: { type: String, required: true, trim: true },
+    employeeCode: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 7,
+      maxlength: 20,
+      match: /^EMP-\d{3,}$/i,
+    },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
     email: { type: String, required: true, lowercase: true, trim: true },

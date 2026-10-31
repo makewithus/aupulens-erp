@@ -10,6 +10,7 @@ import { requireRole } from "@/lib/crm/rbac";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
 import { applyDemoScope } from "@/lib/auth/scopeFilter";
+import { findDuplicateLead } from "@/lib/crm/leadDuplicate";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -84,17 +85,22 @@ export async function POST(req: NextRequest) {
     // value can't 500 — schema defaults / omit take over.
     sanitizeEnumFields(CrmLead, body);
 
-    // Fast, indexed exact-duplicate guard (email/phone) — a single quick lookup,
-    // enough to stop obvious re-submissions without any AI cost.
-    if (body.email || body.phone) {
-      const orConditions: any[] = [];
-      if (body.email) orConditions.push({ email: body.email });
-      if (body.phone) orConditions.push({ phone: body.phone });
+    body.email = String(body.email ?? "").trim().toLowerCase() || undefined;
+    body.phone = typeof body.phone === "string" ? body.phone.trim() : body.phone;
+    body.emailNormalized = body.email || undefined;
+    const normalizedPhone = String(body.phone ?? "").replace(/\D/g, "");
+    body.phoneNormalized = normalizedPhone.length >= 7 ? normalizedPhone : undefined;
 
-      const duplicate = await CrmLead.findOne({ tenantId: session.user.tenantId, $or: orConditions }).lean();
-      if (duplicate) {
-        return NextResponse.json({ success: false, duplicate: true, matches: [duplicate] }, { status: 409 });
-      }
+    // Stop repeat submissions using normalized email or phone. Phone matching
+    // ignores formatting differences such as spaces and hyphens.
+    const { duplicate, matchedBy } = await findDuplicateLead(session.user.tenantId, body);
+    if (duplicate) {
+      return NextResponse.json({
+        success: false,
+        duplicate: true,
+        message: `A lead already exists with this ${matchedBy}. Open the existing lead instead of creating another one.`,
+        matches: [duplicate],
+      }, { status: 409 });
     }
 
     body.tenantId = session.user.tenantId;
@@ -138,6 +144,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: lead });
   } catch (error: any) {
+    if (error?.code === 11000) {
+      return NextResponse.json({
+        success: false,
+        duplicate: true,
+        message: "A lead with this email or phone already exists. Open the existing lead instead of creating another one.",
+      }, { status: 409 });
+    }
     return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
   }
 }

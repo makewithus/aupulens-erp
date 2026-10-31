@@ -456,16 +456,16 @@ export function DashboardHeader({
                           className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-popover text-popover-foreground p-3 z-50 transform-gpu transition-all duration-300 ease-out origin-top-left shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar"
                         >
                           {m.config.map((section, si) => (
-                            <div key={si} className="mb-3 last:mb-0">
+                            <div key={`${section.title || "section"}-${si}`} className="mb-3 last:mb-0">
                               {section.title && (
                                 <div className="text-[10px] font-black tracking-widest uppercase text-muted-foreground px-2 mb-1">
                                   {section.title}
                                 </div>
                               )}
                               <div className="grid grid-cols-1 gap-0.5">
-                                {section.items.map((it: any) => (
+                                {section.items.map((it: any, itemIndex: number) => (
                                   <button
-                                    key={it.href}
+                                    key={`${it.href}-${it.title}-${itemIndex}`}
                                     onClick={() => {
                                       setActiveDropdown(null);
                                       router.push(it.href);
@@ -500,16 +500,16 @@ export function DashboardHeader({
                     {isModuleOpen && (
                       <div className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-popover text-popover-foreground p-3 z-50 transform-gpu shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar">
                         {sidebarConfig.map((section, si) => (
-                          <div key={si} className="mb-3 last:mb-0">
+                          <div key={`${section.title || "section"}-${si}`} className="mb-3 last:mb-0">
                             {section.title && (
                               <div className="text-[10px] font-black tracking-widest uppercase text-muted-foreground px-2 mb-1">
                                 {section.title}
                               </div>
                             )}
                             <div className="grid grid-cols-1 gap-0.5">
-                              {section.items.map((it: any) => (
+                              {section.items.map((it: any, itemIndex: number) => (
                                 <button
-                                  key={it.href}
+                                  key={`${it.href}-${it.title}-${itemIndex}`}
                                   onClick={() => {
                                     setIsModuleOpen(false);
                                     router.push(it.href);
@@ -629,18 +629,18 @@ export function DashboardHeader({
             ? currentPreviewConfig
             : sidebarConfig
           ).map((section, si) => (
-            <div key={si} className="mb-3">
+            <div key={`${section.title || "section"}-${si}`} className="mb-3">
               {section.title && (
                 <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2 px-2">
                   {section.title}
                 </div>
               )}
               <div className="flex flex-col gap-1">
-                {section.items.map((it: any) => {
+                {section.items.map((it: any, itemIndex: number) => {
                   const Icon = it.icon;
                   return (
                     <button
-                      key={it.href}
+                      key={`${it.href}-${it.title}-${itemIndex}`}
                       onClick={() => {
                         setIsMobileNavOpen(false);
                         router.push(it.href);
