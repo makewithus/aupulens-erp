@@ -50,11 +50,12 @@ export function Logo({
         onError={() => setHasError(true)}
         className={`${className || ""} print:hidden`}
       />
-      <img
+      <Image
         src="/logo-dark.png"
         alt="Aupulens"
         width={width}
         height={height}
+        unoptimized
         className={`${className || ""} hidden print:block`}
       />
     </>

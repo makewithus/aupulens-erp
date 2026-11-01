@@ -55,7 +55,7 @@ export function DashboardLayout(props: DashboardLayoutProps) {
   // Admin pages historically included their own shell. Under the new shared
   // admin layout, keep only the page body and report its header metadata upward.
   if (persistent && !persistentShell) {
-    return <DashboardPageContent details={details} children={children} />;
+    return <DashboardPageContent details={details}>{children}</DashboardPageContent>;
   }
 
   return <DashboardLayoutFrame {...props} />;
