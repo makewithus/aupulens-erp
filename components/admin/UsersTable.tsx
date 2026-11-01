@@ -83,7 +83,7 @@ export function UsersTable({
     <Card className="overflow-hidden border-border/40 shadow-none bg-background">
       {/* Header */}
       <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
-        <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="shrink-0">
             <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em]">
               All Users
@@ -94,7 +94,7 @@ export function UsersTable({
             </p>
           </div>
 
-          <div className="w-full max-w-3xl">
+          <div className="w-full min-w-0 flex-1">
             <UsersToolbar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}

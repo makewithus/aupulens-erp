@@ -1,0 +1,4 @@
+/** Keep in-module navigation visually continuous while the next route loads. */
+export default function SalesLoading() {
+  return null;
+}

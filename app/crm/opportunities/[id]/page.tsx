@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,52 +22,67 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
   const [updatingStage, setUpdatingStage] = useState<string | null>(null);
   const [selectedStage, setSelectedStage] = useState("");
   const [conversationSummaries, setConversationSummaries] = useState<any[]>([]);
+  const activeOpportunityId = useRef(params.id);
 
-  const fetchOpp = async () => {
+  const fetchOpp = async (opportunityId: string) => {
     try {
-      const res = await cachedFetch(`/api/crm/opportunities/${params.id}`);
+      const res = await cachedFetch(`/api/crm/opportunities/${opportunityId}`);
       const data = await res.json();
+      if (activeOpportunityId.current !== opportunityId) return;
       if (data.success) {
         setOpp(data.data);
         setSelectedStage(data.data.stage || "Prospecting");
         // AI enrichments are slower than the deal details. Load the record first,
         // then fill in the assessment and AI probability without blocking the page.
-        void fetch(`/api/crm/opportunities/${params.id}?insights=true`, { cache: "no-store" })
+        void fetch(`/api/crm/opportunities/${opportunityId}?insights=true`, { cache: "no-store" })
           .then((insightRes) => insightRes.json())
           .then((insightData) => {
-            if (insightData.success) setOpp((current: any) => current ? ({ ...current, ...insightData.data }) : current);
+            if (activeOpportunityId.current === opportunityId && insightData.success) {
+              setOpp((current: any) => current ? ({ ...current, ...insightData.data }) : current);
+            }
           })
           .catch(() => {});
       } else if (!opp) {
         setOpp(null);
       }
     } catch {
-      if (!opp) toast.error("Could not load this deal. Please try again.");
+      if (activeOpportunityId.current === opportunityId) toast.error("Could not load this deal. Please try again.");
     } finally {
-      setLoading(false);
+      if (activeOpportunityId.current === opportunityId) setLoading(false);
     }
   };
 
   useEffect(() => {
+    activeOpportunityId.current = params.id;
+    setOpp(null);
+    setSelectedStage("");
+    setUpdatingStage(null);
+    setLoading(true);
+    setConversationSummaries([]);
     try {
       const cachedRows = JSON.parse(sessionStorage.getItem("crm-opportunity-detail-cache") || "[]");
       const cached = Array.isArray(cachedRows) ? cachedRows.find((row: any) => String(row._id) === params.id) : null;
       if (cached) {
         setOpp(cached);
+        setSelectedStage(cached.stage || "Prospecting");
         setLoading(false);
       }
     } catch { /* continue with the database request */ }
-    void fetchOpp();
+    void fetchOpp(params.id);
   }, [params.id]);
 
   useEffect(() => {
-    cachedFetch(`/api/crm/conversation-summaries?recordType=Opportunity&recordId=${params.id}`)
+    const opportunityId = params.id;
+    cachedFetch(`/api/crm/conversation-summaries?recordType=Opportunity&recordId=${opportunityId}`)
       .then((res) => res.json())
-      .then((data) => { if (data.success) setConversationSummaries(data.data); });
+      .then((data) => {
+        if (activeOpportunityId.current === opportunityId && data.success) setConversationSummaries(data.data);
+      });
   }, [params.id]);
 
   const updateStage = async (newStage: string) => {
     if (updatingStage) return;
+    const opportunityId = params.id;
     if (opp?.stage === newStage) {
       toast.info(`This deal is already at ${newStage}`);
       return;
@@ -75,7 +90,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
 
     setUpdatingStage(newStage);
     try {
-      const res = await cachedFetch(`/api/crm/opportunities/${params.id}`, {
+      const res = await cachedFetch(`/api/crm/opportunities/${opportunityId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage: newStage })
@@ -87,6 +102,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
       }
 
       invalidateCache();
+      if (activeOpportunityId.current !== opportunityId) return;
       setOpp((current: any) => current ? ({
         ...current,
         stage: result.data.stage,
@@ -97,7 +113,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
       }) : result.data);
       setSelectedStage(result.data.stage);
       toast.success(newStage === "Proposal Sent" ? "Moved to Proposal" : `Stage moved to ${newStage}`);
-      void fetchOpp().catch(() => {});
+      void fetchOpp(opportunityId);
     } catch {
       toast.error("Could not update the deal stage. Please try again.");
     } finally {

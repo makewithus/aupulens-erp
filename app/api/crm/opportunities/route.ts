@@ -10,6 +10,7 @@ import { logSystemActivity } from "@/lib/crm/activityLogger";
 import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
 import { applyDemoScope } from "@/lib/auth/scopeFilter";
 import { invalidateServerCache } from "@/lib/api/serverCache";
+import { probabilityForOpportunityStage } from "@/lib/crm/opportunityStageProbability";
 import "@/models/crm/Account";
 
 export async function GET(req: NextRequest) {
@@ -77,7 +78,15 @@ export async function GET(req: NextRequest) {
         .lean(),
     ]);
 
-    return NextResponse.json({ success: true, data, total, page, totalPages: Math.ceil(total / limit) });
+    const normalizedData = data.map((opportunity: any) => {
+      const probability = probabilityForOpportunityStage(opportunity.stage, opportunity.probability);
+      return {
+        ...opportunity,
+        probability,
+        weighted_value: (opportunity.amount || 0) * (probability / 100),
+      };
+    });
+    return NextResponse.json({ success: true, data: normalizedData, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     console.error("GET Opportunities Error:", error);
     return NextResponse.json({ success: false, message: safeInternalErrorMessage() }, { status: 500 });
@@ -104,6 +113,7 @@ export async function POST(req: NextRequest) {
     body.owner_id = body.owner_id || session.user.id;
 
     body.stage = body.stage || 'Prospecting';
+    body.probability = probabilityForOpportunityStage(body.stage, body.probability);
     body.stage_history = [{ stage: body.stage, entered_at: new Date() }];
 
     const opp = await CrmOpportunity.create(body);

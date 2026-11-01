@@ -102,7 +102,6 @@ export function DashboardSidebar({
                 <Link
                   key={`${item.href}-${item.title}-${itemIndex}`}
                   href={item.disabled ? "#" : item.href}
-                  prefetch={false}
                   onPointerEnter={() => !item.disabled && router.prefetch(item.href)}
                   onFocus={() => !item.disabled && router.prefetch(item.href)}
                   className={cn(

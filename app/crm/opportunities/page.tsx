@@ -56,6 +56,7 @@ export default function OpportunitiesPage() {
 function OpportunitiesPageInner() {
   const searchParams = useSearchParams();
   const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [updatingClosedWon, setUpdatingClosedWon] = useState<Set<string>>(() => new Set());
   const [kpis, setKpis] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -159,7 +160,14 @@ function OpportunitiesPageInner() {
   };
 
   const toggleClosedWon = async (opportunityId: string, currentStage: string) => {
+    if (updatingClosedWon.has(opportunityId)) return;
     const newStage = currentStage === 'Closed Won' ? 'Prospecting' : 'Closed Won';
+    const nextProbability = newStage === 'Closed Won' ? 100 : 10;
+    const previous = opportunities.find((opportunity) => opportunity._id === opportunityId);
+    setUpdatingClosedWon((current) => new Set(current).add(opportunityId));
+    setOpportunities((current) => current.map((opportunity) => opportunity._id === opportunityId
+      ? { ...opportunity, stage: newStage, probability: nextProbability }
+      : opportunity));
     try {
       const res = await fetch(`/api/crm/opportunities/${opportunityId}`, {
         method: 'PUT',
@@ -169,14 +177,24 @@ function OpportunitiesPageInner() {
       const data = await res.json();
       if (data.success) {
         invalidateCache();
-        await fetchOpportunities(page);
         toast.success(`Opportunity stage updated to ${newStage}`);
-        fetchKpis();
+        // Refresh supporting totals in the background; the row itself has
+        // already updated optimistically, so checkbox feedback is immediate.
+        void fetchOpportunities(page);
+        void fetchKpis();
       } else {
+        if (previous) setOpportunities((current) => current.map((opportunity) => opportunity._id === opportunityId ? previous : opportunity));
         toast.error(data.message || "Failed to update opportunity stage.");
       }
     } catch {
+      if (previous) setOpportunities((current) => current.map((opportunity) => opportunity._id === opportunityId ? previous : opportunity));
       toast.error("Network error.");
+    } finally {
+      setUpdatingClosedWon((current) => {
+        const next = new Set(current);
+        next.delete(opportunityId);
+        return next;
+      });
     }
   };
 
@@ -513,8 +531,10 @@ function OpportunitiesPageInner() {
                       <input
                         type="checkbox"
                         checked={opp.stage === 'Closed Won'}
+                        disabled={updatingClosedWon.has(opp._id)}
                         onChange={() => toggleClosedWon(opp._id, opp.stage)}
-                        className="h-4 w-4 rounded-none border border-border/40 bg-white/[0.02] text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#8AE06C]"
+                        aria-label={`Mark ${opp.deal_name || opp.name || "opportunity"} ${opp.stage === 'Closed Won' ? "open" : "closed won"}`}
+                        className="h-4 w-4 rounded-none border border-border/40 bg-white/[0.02] text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#8AE06C] disabled:cursor-wait disabled:opacity-60"
                       />
                     </TableCell>
 

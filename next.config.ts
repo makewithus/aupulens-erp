@@ -47,7 +47,7 @@ const nextConfig: NextConfig = {
   experimental: {
     middlewareClientMaxBodySize: "100mb",
     // Bound build workers on development machines and small CI runners.
-    cpus: Number(process.env.AUP_BUILD_CPUS) || 2,
+    cpus: Number(process.env.AUP_BUILD_CPUS) || 1,
   },
 
   // Keep these Node-only document parsers and their native canvas dependency

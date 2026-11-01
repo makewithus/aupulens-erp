@@ -19,6 +19,7 @@ import "@/models/crm/Contact";
 import "@/models/crm/Account";
 import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 import { invalidateServerCache } from "@/lib/api/serverCache";
+import { probabilityForOpportunityStage } from "@/lib/crm/opportunityStageProbability";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   try {
@@ -134,6 +135,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       success: true,
       data: {
         ...(opp as any),
+        probability: probabilityForOpportunityStage((opp as any).stage, (opp as any).probability),
+        weighted_value: ((opp as any).amount || 0) * (probabilityForOpportunityStage((opp as any).stage, (opp as any).probability) / 100),
         dynamicRisk,
         healthFlags,
         aiAssessment,
@@ -216,26 +219,13 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
 
   }
 
-  // Probability Engine Logic
-  const PROBABILITY_MAP: Record<string, number> = {
-    'Prospecting': 10, 'Discovery': 20, 'Requirement Gathering': 35,
-    'Solution Fit': 50, 'Proposal Sent': 65, 'Negotiation': 80,
-    'Approval': 90, 'Closed Won': 100, 'Closed Lost': 0
-  };
-
-  if (body.stage && body.stage !== oldStage && body.probability === undefined) {
-    opp.probability = PROBABILITY_MAP[body.stage] ?? opp.probability;
-  }
+  // Stage is the source of truth: stale/manual values must not make the
+  // probability disagree with the deal's current pipeline status.
+  opp.probability = probabilityForOpportunityStage(opp.stage, opp.probability);
 
   // Update other fields safely
-  ['amount', 'expected_close_date', 'deal_name', 'probability', 'stakeholders', 'detailed_competitors', 'budget_confirmed', 'timeline_confirmed'].forEach(f => {
+  ['amount', 'expected_close_date', 'deal_name', 'stakeholders', 'detailed_competitors', 'budget_confirmed', 'timeline_confirmed'].forEach(f => {
     if (body[f] !== undefined) {
-      if (f === 'probability' && body.probability !== opp.probability) {
-        // Track override if manager changes probability manually
-         CrmAuditLog.create({
-           tenantId: session.user.tenantId, user_id: session.user.id, action: 'updated', record_type: 'Opportunity', record_id: opp._id, field_name: 'probability', old_value: opp.probability, new_value: body.probability, timestamp: new Date()
-         });
-      }
       (opp as any)[f] = body[f];
     }
   });
