@@ -11,7 +11,7 @@ export default function ExecutiveCommandCenter() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    cachedFetch("/api/crm/dashboard/summary", undefined, { force: true })
+    cachedFetch("/api/crm/dashboard/summary")
       .then((r) => r.json())
       .then((r) => r.success && setData(r.data.executive))
       .catch(() => {})

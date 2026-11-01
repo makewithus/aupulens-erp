@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ export default function SupportDashboard() {
 
   useEffect(() => {
     // One backend response supplies KPIs and recent cases under the same scope.
-    fetch('/api/crm/cases/kpi', { cache: "no-store" })
+    cachedFetch('/api/crm/cases/kpi')
       .then(res => res.json())
       .then((kpi) => {
         if (kpi.success && Array.isArray(kpi.data?.recentCases)) {

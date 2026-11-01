@@ -158,21 +158,32 @@ export async function GET(req: NextRequest) {
     })).sort((a, b) => a.day.localeCompare(b.day));
 
     // 3. Dynamic QC Yield Breakdown from Real Order Statuses
-    const totalQcOrders = qcPassedOrders + qcFailedOrders;
+    const qcPendingOrders = (currentProductionList as any[]).filter(
+      (order: any) => order.qcDetails?.result === "pending" || order.status === "qc_pending"
+    ).length;
+    const totalQcOrders = qcPassedOrders + qcFailedOrders + qcPendingOrders;
 
     const qcYieldDistribution: Array<{ name: string; value: number; count: number; color: string }> = [];
     if (totalQcOrders > 0) {
       if (qcPassedOrders > 0) {
         qcYieldDistribution.push({
-          name: "QC Passed",
+          name: "QC Passed / Accepted",
           value: Math.round((qcPassedOrders / totalQcOrders) * 100),
           count: qcPassedOrders,
           color: "#10b981",
         });
       }
+      if (qcPendingOrders > 0) {
+        qcYieldDistribution.push({
+          name: "QC Inspection Pending",
+          value: Math.round((qcPendingOrders / totalQcOrders) * 100),
+          count: qcPendingOrders,
+          color: "#f59e0b",
+        });
+      }
       if (qcFailedOrders > 0) {
         qcYieldDistribution.push({
-          name: "QC Failed",
+          name: "QC Rejected / Rework",
           value: Math.round((qcFailedOrders / totalQcOrders) * 100),
           count: qcFailedOrders,
           color: "#ef4444",

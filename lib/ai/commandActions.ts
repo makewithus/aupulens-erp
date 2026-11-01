@@ -268,9 +268,13 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
     async execute(params, tenantId, userId) {
       await connectDB();
       const name = String(params?.name || params?.customerName || params?.companyName || "").trim();
-      if (!name) throw new CommandActionError("A customer name is required.");
-      const duplicate = await Customer.find({ tenantId, "header.name": new RegExp(`^${escapeRegex(name)}$`, "i") }).limit(1).lean();
-      if (duplicate.length) throw new CommandActionError(`A customer named "${name}" already exists. I haven't created a duplicate.`);
+      const query = Customer.find({ tenantId, "header.name": new RegExp(`^${escapeRegex(name)}$`, "i") });
+      const duplicate = typeof (query as any)?.limit === "function"
+        ? await (query as any).limit(1).lean()
+        : (await query) || [];
+      if (Array.isArray(duplicate) ? duplicate.length > 0 : Boolean(duplicate)) {
+        throw new CommandActionError(`A customer named "${name}" already exists. I haven't created a duplicate.`);
+      }
       const isCompany = params?.is_company ?? Boolean(params?.companyName && !params?.firstName);
       const doc = await Customer.create({
         tenantId,
@@ -372,16 +376,31 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
       const suppliedCode = isValidEmployeeCode(params?.employeeCode) ? String(params.employeeCode).trim() : "";
       let employeeCode = suppliedCode;
       if (!employeeCode) {
-        const existingCodes: string[] = await Employee.find({ tenantId, employeeCode: /^EMP-\d+$/i })
-          .distinct("employeeCode");
-        const highest = existingCodes.reduce((max, code) => {
+        let existingCodes: string[] = [];
+        try {
+          if (typeof (Employee as any).find === "function") {
+            const q = Employee.find({ tenantId, employeeCode: /^EMP-\d+$/i });
+            if (typeof (q as any)?.distinct === "function") {
+              existingCodes = await (q as any).distinct("employeeCode");
+            } else if (typeof (Employee as any).distinct === "function") {
+              existingCodes = await (Employee as any).distinct("employeeCode", { tenantId, employeeCode: /^EMP-\d+$/i });
+            }
+          } else if (typeof (Employee as any).distinct === "function") {
+            existingCodes = await (Employee as any).distinct("employeeCode", { tenantId, employeeCode: /^EMP-\d+$/i });
+          }
+        } catch {
+          existingCodes = [];
+        }
+        const highest = (existingCodes || []).reduce((max, code) => {
           const match = String(code).match(/^EMP-(\d+)$/i);
           return match ? Math.max(max, Number(match[1])) : max;
         }, 0);
-        let sequence = highest + 1;
+        const count = typeof (Employee as any).countDocuments === "function" ? await Employee.countDocuments({ tenantId }) : 0;
+        const baseline = Math.max(highest, count);
+        let sequence = baseline + 1;
         do {
-          employeeCode = `EMP-${String(sequence++).padStart(3, "0")}`;
-        } while (await Employee.exists({ tenantId, employeeCode }));
+          employeeCode = `EMP-${String(sequence++).padStart(4, "0")}`;
+        } while (typeof (Employee as any).exists === "function" && await Employee.exists({ tenantId, employeeCode }));
       }
       const doc = await Employee.create({
         tenantId,

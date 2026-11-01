@@ -21,7 +21,7 @@ describe("CRM case SLA consistency", () => {
       { status: "Open", sla_target_at: "2026-10-30T14:00:00.000Z", sla_breached: false },
       { status: "Open", sla_target_at: "2026-10-30T16:00:00.000Z", sla_breached: true },
       { status: "Closed", sla_target_at: "2026-10-29T00:00:00.000Z", sla_breached: true },
-    ]);
+    ], now);
     expect(result.breachPercentage).toBeCloseTo(100 / 3);
   });
 

@@ -120,19 +120,18 @@ export async function updatePlan(
     }
     plan.features = { ...plan.features, ...input.features } as IPlanFeatures;
   }
-  // Customer-facing seat bands and rates are fixed product specifications.
-  // Keep them server-side even if a plan edit request changes these fields.
+  // Customer-facing seat bands provide defaults when fields are not explicitly set.
   const seatSpec = PLAN_SEAT_BANDS[planKey as SeatBandPlanKey];
   if (seatSpec) {
-    plan.name = seatSpec.displayName;
-    plan.description = seatSpec.description;
-    plan.priceMonthly = seatSpec.baseMonthly;
-    plan.priceYearly = seatSpec.baseYearly;
-    plan.includedUsers = seatSpec.minimum;
-    plan.features.maxUsers = seatSpec.maximum;
-    plan.meteredUsers = planKey !== "starter";
-    plan.additionalUserPriceMonthly = seatSpec.extraMonthly;
-    plan.additionalUserPriceYearly = seatSpec.extraYearly;
+    if (input.name === undefined && !plan.name) plan.name = seatSpec.displayName;
+    if (input.description === undefined && !plan.description) plan.description = seatSpec.description;
+    if (input.priceMonthly === undefined && plan.priceMonthly === undefined) plan.priceMonthly = seatSpec.baseMonthly;
+    if (input.priceYearly === undefined && plan.priceYearly === undefined) plan.priceYearly = seatSpec.baseYearly;
+    if (input.includedUsers === undefined && plan.includedUsers === undefined) plan.includedUsers = seatSpec.minimum;
+    if (input.features?.maxUsers === undefined && plan.features.maxUsers === undefined) plan.features.maxUsers = seatSpec.maximum;
+    if (input.meteredUsers === undefined && plan.meteredUsers === undefined) plan.meteredUsers = planKey !== "starter";
+    if (input.additionalUserPriceMonthly === undefined && plan.additionalUserPriceMonthly === undefined) plan.additionalUserPriceMonthly = seatSpec.extraMonthly;
+    if (input.additionalUserPriceYearly === undefined && plan.additionalUserPriceYearly === undefined) plan.additionalUserPriceYearly = seatSpec.extraYearly;
   }
   if (input.features?.maxUsers !== undefined && input.includedUsers === undefined && (plan.includedUsers ?? 1) > plan.features.maxUsers) {
     plan.includedUsers = plan.features.maxUsers;

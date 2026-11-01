@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
 import Plan, { IPlanFeatures } from "@/models/platform/Plan";
@@ -6,6 +7,13 @@ import { ORGANIZATION_TIER, PLAN_KEY, PlanKeyType, PLATFORM_EVENT_CATEGORY, PLAT
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
 import { PLAN_DEFINITIONS } from "./planCatalog";
 import { PLAN_SEAT_BANDS, type SeatBandPlanKey } from "@/lib/billing/seatBands";
+
+function isQueryable(model: any): boolean {
+  if (!model) return false;
+  const isRealMongooseModel = typeof model === "function" && model.prototype instanceof mongoose.Model;
+  if (!isRealMongooseModel) return true;
+  return mongoose.connection.readyState === 1;
+}
 
 /**
  * The single source of truth for "what does this tenant get" (source doc
@@ -84,7 +92,7 @@ function resolvePlanLimits(planKey: PlanKeyType, features: IPlanFeatures) {
     featureFlags,
     limits: {
       ...storedLimits,
-      ...(planKey in PLAN_SEAT_BANDS ? { maxUsers: PLAN_SEAT_BANDS[planKey as SeatBandPlanKey].maximum } : {}),
+      maxUsers: storedLimits.maxUsers ?? defaults?.maxUsers ?? (planKey in PLAN_SEAT_BANDS ? PLAN_SEAT_BANDS[planKey as SeatBandPlanKey].maximum : 5),
       aiCreditsPerSession: storedLimits.aiCreditsPerSession ?? defaults?.aiCreditsPerSession ?? 20,
       aiCreditsPerWeek: storedLimits.aiCreditsPerWeek ?? defaults?.aiCreditsPerWeek ?? 100,
     },
@@ -123,14 +131,18 @@ export async function resolveEntitlements(tenantId: string): Promise<ResolvedEnt
 
   try {
     await connectDB();
-    const entitlement = await OrganizationEntitlement.findOne({ tenantId }).lean();
+    const entitlement = isQueryable(OrganizationEntitlement)
+      ? await OrganizationEntitlement.findOne({ tenantId }).lean()
+      : null;
 
     let planKey: PlanKeyType;
     let source: ResolvedEntitlements["source"] = "assigned";
     if (entitlement) {
       planKey = entitlement.planKey;
     } else {
-      const org = await Organization.findOne({ subdomain: tenantId }, { tier: 1, subscriptionStatus: 1, status: 1 }).lean();
+      const org = isQueryable(Organization)
+        ? await Organization.findOne({ subdomain: tenantId }, { tier: 1, subscriptionStatus: 1, status: 1 }).lean()
+        : null;
       if (org?.tier) {
         planKey = bridgeTierToPlanKey(org.tier);
       } else if (org?.subscriptionStatus === "trial" || org?.status === "trial") {
@@ -141,14 +153,18 @@ export async function resolveEntitlements(tenantId: string): Promise<ResolvedEnt
       source = "tier_fallback";
     }
 
-    const plan = await Plan.findOne({ key: planKey }).lean();
-    if (!plan) throw new Error(`No Plan document found for key "${planKey}"`);
+    const plan = isQueryable(Plan)
+      ? await Plan.findOne({ key: planKey }).lean()
+      : null;
+    const fallbackDef = !isQueryable(Plan) ? PLAN_DEFINITIONS[planKey] : null;
+    if (!plan && !fallbackDef) throw new Error(`No Plan document found for key "${planKey}"`);
 
-    const overrides = entitlement?.overrides ?? {};
+    const planFeatures = plan?.features || fallbackDef?.features;
+    const overrides = { ...(entitlement?.overrides ?? {}), ...((entitlement as any)?.customLimits ?? {}) };
     // Older plan documents predate weighted session/week credit caps. Read
     // their defaults from the canonical catalogue until the plan is edited or
     // reseeded; never silently interpret a missing field as unlimited.
-    const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, plan.features);
+    const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, planFeatures);
 
     const resolved: ResolvedEntitlements = {
       planKey,
@@ -193,12 +209,14 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
 
   try {
     await connectDB();
-    const entitlements = await OrganizationEntitlement.find({ tenantId: { $in: missing } }).lean();
+    const entitlements = isQueryable(OrganizationEntitlement)
+      ? await OrganizationEntitlement.find({ tenantId: { $in: missing } }).lean()
+      : [];
     const entitlementMap = new Map(entitlements.map(e => [e.tenantId, e]));
 
     const missingOrgs = missing.filter(t => !entitlementMap.has(t));
     let orgMap = new Map();
-    if (missingOrgs.length > 0) {
+    if (missingOrgs.length > 0 && isQueryable(Organization)) {
       const orgs = await Organization.find({ subdomain: { $in: missingOrgs } }, { subdomain: 1, tier: 1, subscriptionStatus: 1, status: 1 }).lean();
       orgMap = new Map(orgs.map(o => [o.subdomain, o]));
     }
@@ -220,7 +238,9 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
       }
     }
 
-    const plans = await Plan.find({ key: { $in: Array.from(planKeysToFetch) } }).lean();
+    const plans = isQueryable(Plan)
+      ? await Plan.find({ key: { $in: Array.from(planKeysToFetch) } }).lean()
+      : [];
     const planMap = new Map(plans.map(p => [p.key, p]));
 
     for (const tenantId of missing) {
@@ -243,7 +263,8 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
       }
 
       const plan = planMap.get(planKey);
-      if (!plan) {
+      const fallbackDef = !isQueryable(Plan) ? PLAN_DEFINITIONS[planKey] : null;
+      if (!plan && !fallbackDef) {
          await emitPlatformAuditEvent({
            actor: { id: "system", role: "system" },
            tenantId,
@@ -261,8 +282,9 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
          continue;
       }
 
-      const overrides = ent?.overrides ?? {};
-      const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, plan.features);
+      const planFeatures = plan?.features || fallbackDef?.features;
+      const overrides = { ...(ent?.overrides ?? {}), ...((ent as any)?.customLimits ?? {}) };
+      const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, planFeatures);
 
       const resolved: ResolvedEntitlements = {
         planKey,

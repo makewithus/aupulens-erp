@@ -27,9 +27,13 @@ export async function findDuplicateLead(tenantId: string, input: Record<string, 
   }
   if (!conditions.length) return { duplicate: null, matchedBy };
 
-  const duplicate = await CrmLead.findOne({ tenantId, $or: conditions })
-    .select("_id lead_name company_name email phone")
-    .lean();
+  const rawQuery = CrmLead.findOne({ tenantId, $or: conditions });
+  const selectQuery = typeof (rawQuery as any)?.select === "function"
+    ? (rawQuery as any).select("_id lead_name company_name email phone")
+    : rawQuery;
+  const duplicate = typeof (selectQuery as any)?.lean === "function"
+    ? await (selectQuery as any).lean()
+    : await selectQuery;
   if (duplicate && email && normalizeEmail(duplicate.email) === email) matchedBy = "email";
   else if (duplicate && digits.length >= 7) matchedBy = "phone";
   return { duplicate, matchedBy };

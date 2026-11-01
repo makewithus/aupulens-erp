@@ -82,21 +82,26 @@ vi.mock("@/models/auth/User", () => {
   return { default: User };
 });
 
-vi.mock("@/lib/constants/statuses", () => ({
-  ENTITY_STATUS: { ACTIVE: "active" },
-  ENTITY_STATUS_VALUES: ["active", "inactive"],
-  INVITE_STATUS: {
-    PENDING:  "pending",
-    ACCEPTED: "accepted",
-    EXPIRED:  "expired",
-    REVOKED:  "revoked",
-  },
-  INVITE_STATUS_VALUES: ["pending", "accepted", "expired", "revoked"],
-  ORGANIZATION_TIER: { STARTER: "starter", PROFESSIONAL: "professional", ENTERPRISE: "enterprise" },
-  ORGANIZATION_TIER_VALUES: ["starter", "professional", "enterprise"],
-  SUBSCRIPTION_STATUS: { TRIAL: "trial" },
-  SUBSCRIPTION_STATUS_VALUES: ["trial", "active", "suspended", "cancelled"],
-}));
+vi.mock("@/lib/constants/statuses", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/constants/statuses")>();
+  return {
+    ...actual,
+    ENTITY_STATUS: { ...actual.ENTITY_STATUS, ACTIVE: "active" },
+    ENTITY_STATUS_VALUES: actual.ENTITY_STATUS_VALUES || ["active", "inactive"],
+    INVITE_STATUS: {
+      PENDING:  "pending",
+      ACCEPTED: "accepted",
+      EXPIRED:  "expired",
+      REVOKED:  "revoked",
+      ...actual.INVITE_STATUS,
+    },
+    INVITE_STATUS_VALUES: actual.INVITE_STATUS_VALUES || ["pending", "accepted", "expired", "revoked"],
+    ORGANIZATION_TIER: { STARTER: "starter", PROFESSIONAL: "professional", ENTERPRISE: "enterprise", ...actual.ORGANIZATION_TIER },
+    ORGANIZATION_TIER_VALUES: actual.ORGANIZATION_TIER_VALUES || ["starter", "professional", "enterprise"],
+    SUBSCRIPTION_STATUS: { TRIAL: "trial", ...actual.SUBSCRIPTION_STATUS },
+    SUBSCRIPTION_STATUS_VALUES: actual.SUBSCRIPTION_STATUS_VALUES || ["trial", "active", "suspended", "cancelled"],
+  };
+});
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 function adminSession(overrides: object = {}) {

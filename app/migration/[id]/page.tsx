@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, use, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, Play, AlertTriangle, DatabaseZap, Download, FileText } from "lucide-react";
@@ -332,10 +331,35 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
     }
   };
 
-  if (sessionStatus === "loading" || loading) return <AuthSplash />;
+  if (sessionStatus === "loading" || loading) {
+    return (
+      <DashboardLayout
+        sidebarSections={adminSidebarConfig}
+        dashboardTitle="Admin"
+        pageName="Migration Center"
+        breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: "Migration Center", href: "/migration" }]}
+        userName={session?.user?.name || ""}
+        userEmail={session?.user?.email || ""}
+        userRole={(session?.user as any)?.role}
+      >
+        <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground" aria-busy="true">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+        </div>
+      </DashboardLayout>
+    );
+  }
   if (!batch) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <DashboardLayout
+        sidebarSections={adminSidebarConfig}
+        dashboardTitle="Admin"
+        pageName="Migration Center"
+        breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: "Migration Center", href: "/migration" }]}
+        userName={session?.user?.name || ""}
+        userEmail={session?.user?.email || ""}
+        userRole={(session?.user as any)?.role}
+      >
+      <div className="flex min-h-[40vh] items-center justify-center bg-background p-6">
         <div className="max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
           <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-amber-500" />
           <h1 className="text-lg font-semibold">Migration batch unavailable</h1>
@@ -351,6 +375,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
           </button>
         </div>
       </div>
+      </DashboardLayout>
     );
   }
 

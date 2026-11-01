@@ -135,6 +135,8 @@ describe("Aupulens SaaS Subscription & Billing System — Master End-to-End Audi
           priceMonthly: def.priceMonthly,
           priceYearly: def.priceYearly,
           features: def.features,
+          active: true,
+          availableForPurchase: def.availableForPurchase ?? true,
         },
         { upsert: true }
       );

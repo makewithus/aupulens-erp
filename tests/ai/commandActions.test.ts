@@ -25,6 +25,8 @@ const h = vi.hoisted(() => {
     customerCreate: vi.fn(),
     employeeCreate: vi.fn(),
     employeeCount: vi.fn(),
+    employeeFind: vi.fn(),
+    employeeExists: vi.fn(),
     accountFind: vi.fn(),
     accountFindOne: vi.fn(),
     accountCreate: vi.fn(),
@@ -42,7 +44,7 @@ vi.mock("@/models/crm/Lead", () => ({ default: { create: h.leadCreate, findOne: 
 vi.mock("@/models/crm/Task", () => ({ default: { create: h.taskCreate } }));
 vi.mock("@/models/crm/CrmAuditLog", () => ({ default: { create: h.auditCreate } }));
 vi.mock("@/models/sales/Customer", () => ({ default: { find: h.customerFind, findOne: h.customerFindOne, create: h.customerCreate } }));
-vi.mock("@/models/hr/Employee", () => ({ default: { create: h.employeeCreate, countDocuments: h.employeeCount } }));
+vi.mock("@/models/hr/Employee", () => ({ default: { create: h.employeeCreate, countDocuments: h.employeeCount, find: h.employeeFind, exists: h.employeeExists } }));
 vi.mock("@/models/finance/Account", () => ({ default: { find: h.accountFind, findOne: h.accountFindOne, create: h.accountCreate, countDocuments: h.accountCount, deleteOne: h.accountDelete } }));
 vi.mock("@/models/finance/JournalEntry", () => ({ default: { create: h.jeCreate, exists: h.jeExists } }));
 vi.mock("@/lib/sales/invoiceNumbering", () => ({ generateInvoiceNumber: h.genInvoiceNumber }));
@@ -65,8 +67,15 @@ beforeEach(() => {
   h.auditCreate.mockResolvedValue({});
   h.leadCreate.mockResolvedValue({ _id: "lead-1" });
   h.customerCreate.mockResolvedValue({ _id: "cust-1" });
+  h.customerFind.mockImplementation(() => h.chain([]));
+  h.customerFindOne.mockImplementation(() => h.chain(null));
   h.employeeCreate.mockResolvedValue({ _id: "emp-1" });
   h.employeeCount.mockResolvedValue(0);
+  h.employeeFind.mockImplementation(() => ({
+    distinct: vi.fn().mockResolvedValue([]),
+    lean: vi.fn().mockResolvedValue([]),
+  }));
+  h.employeeExists.mockResolvedValue(null);
   h.accountCreate.mockResolvedValue({ _id: "acc-1" });
   h.accountCount.mockResolvedValue(0);
   h.accountDelete.mockResolvedValue({});

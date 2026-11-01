@@ -162,9 +162,21 @@ export default function ProfilePage() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted dark:bg-card">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
-      </div>
+      <DashboardLayout
+        sidebarSections={adminSidebarConfig}
+        companyName="Aupulens"
+        dashboardTitle="Admin Dashboard"
+        pageName="My Profile"
+        breadcrumbs={[{ label: 'Dashboard', href: '/admin/dashboard' }, { label: 'Profile' }]}
+        profilePath="/admin/profile"
+        userName={session?.user?.name || ''}
+        userEmail={session?.user?.email || ''}
+        userRole={session?.user?.role}
+      >
+        <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground" aria-busy="true">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
+        </div>
+      </DashboardLayout>
     );
   }
 

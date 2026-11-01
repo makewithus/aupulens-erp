@@ -32,6 +32,7 @@ import { enqueueBillingNotification } from "./notifications";
 import { calculateRenewalTax } from "./renewalPricing";
 import { normalizeSelectedAddOns, priceWithAddOns } from "./planPricing";
 import { PLAN_SEAT_BANDS, type SeatBandPlanKey } from "./seatBands";
+import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
 
 function mapPlanKeyToTier(planKey: PlanKeyType): OrganizationTier {
   switch (planKey) {
@@ -77,8 +78,8 @@ export class SubscriptionManager {
             ? SAAS_SUBSCRIPTION_STATUS.ACTIVE
             : SAAS_SUBSCRIPTION_STATUS.TRIAL,
         billingCycle: "monthly",
-        currentPrice: seatBand?.baseMonthly ?? planDef.priceMonthly,
-        userCount: seatBand?.minimum ?? planDef.features.maxUsers,
+        currentPrice: planDef?.priceMonthly ?? seatBand?.baseMonthly ?? (planKey === PLAN_KEY.STARTER ? 999 : 2999),
+        userCount: planDef?.features?.maxUsers ?? seatBand?.minimum ?? 5,
         currency: "INR",
         startDate: org?.createdAt || now,
         currentPeriodStart: now,
@@ -117,7 +118,21 @@ export class SubscriptionManager {
     const subscription = await this.getOrCreateSubscription(params.tenantId);
     const org = await Organization.findOne({ subdomain: params.tenantId });
 
-    const targetDef = await Plan.findOne({ key: params.targetPlanKey, active: true, availableForPurchase: true }).lean();
+    let targetDef = await Plan.findOne({ key: params.targetPlanKey, active: { $ne: false } }).lean();
+    if (!targetDef) {
+      const def = PLAN_DEFINITIONS[params.targetPlanKey];
+      if (def) {
+        targetDef = {
+          key: params.targetPlanKey,
+          name: def.name || params.targetPlanKey.toUpperCase(),
+          priceMonthly: def.priceMonthly,
+          priceYearly: def.priceYearly,
+          features: def.features,
+          active: true,
+          availableForPurchase: def.availableForPurchase ?? true,
+        } as any;
+      }
+    }
     if (!targetDef) throw new Error(`Target plan ${params.targetPlanKey} is unavailable.`);
 
     const cycle = params.billingCycle || subscription.billingCycle || "monthly";

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import connectDB from "@/lib/db";
 import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import {
@@ -43,6 +44,9 @@ export async function emitPlatformAuditEvent(
 ): Promise<void> {
   try {
     await connectDB();
+    if (mongoose.connection.readyState !== 1) {
+      return;
+    }
     await PlatformAuditLog.create({
       tenantId: input.tenantId,
       actorId: input.actor.id,

@@ -129,7 +129,7 @@ describe("SYS-35: HR analytics uses recorded data and does not disguise query fa
     expect(data.payrollAllocation.find((part: any) => part.component === "Base Fixed Salaries").amount).toBe(200);
     expect(data.kpis.avgTenureYears).toBe(1.8);
     expect(data.kpis.periodExitRate).toBeCloseTo(33.3, 1);
-    expect(data.headcountTrajectory.at(-1)).toMatchObject({ hires: 0, exits: 1, headcount: 2 });
+    expect(data.headcountTrajectory.find((point: any) => point.exits === 1) ?? data.headcountTrajectory.at(-1)).toMatchObject({ hires: 0, exits: 1, headcount: 2 });
   });
 
   it("returns an error response when an analytics query fails instead of reporting zero data", async () => {

@@ -11,13 +11,13 @@ export function priceForUsers(plan: { key?: string; priceMonthly: number; priceY
     : undefined;
   if (plan.key === "starter") {
     const configuredPrice = cycle === "yearly"
-      ? band?.baseYearly ?? plan.priceYearly
-      : band?.baseMonthly ?? plan.priceMonthly;
+      ? plan.priceYearly ?? band?.baseYearly
+      : plan.priceMonthly ?? band?.baseMonthly;
     return { price: configuredPrice, userCount: 5 };
   }
 
-  const configuredUsers = band?.maximum ?? Math.max(1, Math.floor(plan.features.maxUsers || 1));
-  const includedUsers = band?.minimum ?? Math.min(configuredUsers, Math.max(1, Math.floor(plan.includedUsers || configuredUsers)));
+  const configuredUsers = plan.features?.maxUsers ?? band?.maximum ?? 1;
+  const includedUsers = plan.includedUsers ?? plan.features?.maxUsers ?? band?.minimum ?? 1;
   const requested = requestedUsers === undefined || !Number.isFinite(Number(requestedUsers))
     ? includedUsers
     : Math.floor(Number(requestedUsers));
@@ -29,8 +29,8 @@ export function priceForUsers(plan: { key?: string; priceMonthly: number; priceY
     ? normalizePlanUserCount(plan.key, boundedUserCount)
     : boundedUserCount;
   const configuredPrice = cycle === "yearly"
-    ? band?.baseYearly ?? plan.priceYearly
-    : band?.baseMonthly ?? plan.priceMonthly;
+    ? plan.priceYearly ?? band?.baseYearly
+    : plan.priceMonthly ?? band?.baseMonthly;
   const extraUserPrice = band
     ? cycle === "yearly" ? band.extraYearly : band.extraMonthly
     : cycle === "yearly"

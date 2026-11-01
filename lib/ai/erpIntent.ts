@@ -495,12 +495,14 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
 
   // Customer outstanding balance / Total sales & receivables (SYS-07, SYS-27)
   const lastInvoiceFollowUp = /\b(?:last|latest|most recent)\s+invoice\b/i.test(q) && /\b(?:when|date|was|is|their|that|customer)\b/i.test(q);
-  const previousCustomerForFollowUp = (context?.lastErpQuery as any)?.type === "customer_receivables"
-    ? (context?.lastErpQuery as any)?.customer
-    : undefined;
+  const previousCustomerForFollowUp = (context?.lastErpQuery as any)?.customer;
   const hinglishCustomerPaymentPending = q.match(/^(.+?)\s+ka\s+kitna\s+(?:payment|bhugtan)\s+(?:pending|baki|baaki)\s+hai[?!.]?$/i);
   const hindiCustomerPaymentPending = q.match(/^(.+?)\s+का\s+कितना\s+(?:पेमेंट|भुगतान)\s+(?:पेंडिंग|बाकी|बकाया)\s+है[?।!]?$/u);
   const customerPaymentPending = hinglishCustomerPaymentPending || hindiCustomerPaymentPending;
+  if (customerPaymentPending) {
+    const custName = customerPaymentPending[1].trim().replace(/^customer\s+/i, "");
+    return { entity: "invoice", operation: "search", customer: custName, status: "unpaid" };
+  }
   if (lastInvoiceFollowUp && previousCustomerForFollowUp) {
     return { type: "customer_last_invoice", customer: previousCustomerForFollowUp };
   }
@@ -859,8 +861,12 @@ export function parseErpIntent(text: string, now = new Date(), context?: ErpInte
     }
   }
 
-  // Revenue queries
-  if (/\b(?:overdue|past due)\b/i.test(q) && /\b(?:invoice|invoices)\b/i.test(q) && /\b(?:total|amount|value|how many|count|number)\b/i.test(q)) {
+  // Revenue queries: overdue invoice financial summary when specifically asking for amount/value/worth
+  if (
+    /\b(?:overdue|past due)\b/i.test(q) &&
+    /\b(?:invoice|invoices)\b/i.test(q) &&
+    /\b(?:amount|value|worth)\b/i.test(q)
+  ) {
     return { type: "overdue_invoice_summary" };
   }
   if (

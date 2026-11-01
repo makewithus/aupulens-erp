@@ -19,7 +19,7 @@ function KPI({ title, value, sub, icon: Icon }: any) {
 
 export default function ManagerDashboard() {
   const [data, setData] = useState<any>(null);
-  useEffect(() => { cachedFetch("/api/crm/dashboard/summary", undefined, { force: true }).then((r) => r.json()).then((r) => r.success && setData(r.data.manager)).catch(() => {}); }, []);
+  useEffect(() => { cachedFetch("/api/crm/dashboard/summary").then((r) => r.json()).then((r) => r.success && setData(r.data.manager)).catch(() => {}); }, []);
   const n = (value: number | null | undefined) => value == null ? "—" : value.toLocaleString("en-IN");
   const money = (value: number | undefined) => value == null ? "—" : `₹${(value / 100000).toFixed(2)} L`;
   return (

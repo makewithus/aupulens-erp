@@ -71,7 +71,7 @@ function OpportunitiesPageInner() {
   // already uses them. This page's fetch is already debounced as a whole
   // (see the effect below), so no separate `debouncedSearch` seed is needed.
   const [search, setSearch] = useState(() => searchParams.get("search") || "");
-  const [stageFilter, setStageFilter] = useState(() => searchParams.get("stage") || "open");
+  const [stageFilter, setStageFilter] = useState(() => searchParams.get("stage") || "all");
   const [riskFilter, setRiskFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
@@ -81,7 +81,7 @@ function OpportunitiesPageInner() {
   // own doc for why the useState initializers alone aren't enough.
   useSyncStateFromSearchParams({
     search: () => setSearch(searchParams.get("search") || ""),
-    stageFilter: () => setStageFilter(searchParams.get("stage") || "open"),
+    stageFilter: () => setStageFilter(searchParams.get("stage") || "all"),
     dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
     dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
   });
@@ -161,9 +161,16 @@ function OpportunitiesPageInner() {
 
   const toggleClosedWon = async (opportunityId: string, currentStage: string) => {
     if (updatingClosedWon.has(opportunityId)) return;
-    const newStage = currentStage === 'Closed Won' ? 'Prospecting' : 'Closed Won';
-    const nextProbability = newStage === 'Closed Won' ? 100 : 10;
     const previous = opportunities.find((opportunity) => opportunity._id === opportunityId);
+    const wasClosed = currentStage === 'Closed Won' || currentStage === 'Closed Lost';
+    const newStage = wasClosed
+      ? [...(previous?.stage_history || [])].reverse().find((entry: any) => entry.stage !== 'Closed Won' && entry.stage !== 'Closed Lost')?.stage || 'Prospecting'
+      : 'Closed Won';
+    const stageProbabilities: Record<string, number> = {
+      Prospecting: 10, Discovery: 20, "Requirement Gathering": 30, "Solution Fit": 40,
+      "Proposal Sent": 60, Negotiation: 75, Approval: 90, "Closed Won": 100, "Closed Lost": 0,
+    };
+    const nextProbability = stageProbabilities[newStage] ?? 10;
     setUpdatingClosedWon((current) => new Set(current).add(opportunityId));
     setOpportunities((current) => current.map((opportunity) => opportunity._id === opportunityId
       ? { ...opportunity, stage: newStage, probability: nextProbability }
@@ -411,10 +418,10 @@ function OpportunitiesPageInner() {
             <div className="flex items-center gap-2">
               <Select value={stageFilter} onValueChange={setStageFilter}>
                 <SelectTrigger className="w-full sm:w-[160px] md:w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
-                  <SelectValue placeholder="Open Deals" />
+                  <SelectValue placeholder="All Deals" />
                 </SelectTrigger>
                 <SelectContent className="rounded-none border-border/40">
-                  <SelectItem value="all">All Stages</SelectItem>
+                  <SelectItem value="all">All Deals</SelectItem>
                   <SelectItem value="open">Open Deals</SelectItem>
                   {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>

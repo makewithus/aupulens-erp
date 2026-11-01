@@ -228,7 +228,7 @@ Errors: ${JSON.stringify(record.errors || [])}
 Return ONLY a JSON object containing corrected values for the same source column names. Do not include unmapped target field keys. Do not include markdown.`;
 
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
-      systemPrompt: "You repair ERP migration spreadsheet rows. Return raw JSON only. Use only existing source column names. Do not invent missing references, emails, phone numbers, product SKUs, invoice numbers, or business amounts.",
+      systemPrompt: "You repair ERP migration spreadsheet rows. Return raw JSON only. Use only existing source column names. Do not invent missing names, company names, references, emails, phone numbers, product SKUs, invoice numbers, or business amounts. If a required field is empty in the source row, leave it empty.",
       maxTokens: 700,
       feature: "data_migration",
     });
@@ -240,9 +240,21 @@ Return ONLY a JSON object containing corrected values for the same source column
     const allowed = new Set(Object.keys(sourceData));
     const repaired = { ...sourceData };
     for (const [key, value] of Object.entries(parsed)) {
-      if (allowed.has(key)) repaired[key] = value;
+      if (allowed.has(key)) {
+        const wasBlank = String(sourceData[key] ?? "").trim() === "";
+        const isNowFilled = String(value ?? "").trim() !== "";
+        if (wasBlank && isNowFilled) {
+          const mappedField = Object.entries(job.mapping || {}).find(([, col]) => col === key)?.[0];
+          const schemaField = schema.fields.find(f => f.key === mappedField);
+          if (schemaField?.required) {
+            continue;
+          }
+        }
+        repaired[key] = value;
+      }
     }
-    return { sourceData: repaired, aiUsed: true };
+    const wasActuallyModified = jsonStable(repaired) !== jsonStable(sourceData);
+    return { sourceData: repaired, aiUsed: wasActuallyModified };
   } catch {
     return { sourceData, aiUsed: false };
   }

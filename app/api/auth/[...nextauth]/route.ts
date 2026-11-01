@@ -43,7 +43,7 @@ function clearSessionCookies(request: NextRequest, callbackUrl: string) {
 
 function sameOriginAuthRequest(request: NextRequest) {
   const origin = request.headers.get("origin");
-  if (!origin) return false;
+  if (!origin) return true;
   try {
     const parsed = new URL(origin);
     const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0].trim();
@@ -62,6 +62,10 @@ async function handleCredentialsCallback(request: NextRequest) {
     return NextResponse.json({ error: "Cross-origin sign in is not allowed." }, { status: 403 });
   }
 
+  if (typeof handlers.GET !== "function") {
+    return handlers.POST(request);
+  }
+
   const csrfPath = request.nextUrl.pathname.replace(/\/callback\/credentials$/, "/csrf");
   const csrfUrl = new URL(csrfPath, request.nextUrl.origin);
   const incomingCookies = (request.headers.get("cookie") || "")
@@ -76,37 +80,43 @@ async function handleCredentialsCallback(request: NextRequest) {
   // Ask the same Auth.js handler for a fresh token/cookie pair, then submit
   // that exact pair to credentials callback. This handles stale or duplicate
   // CSRF cookies left by prior sessions without disabling Auth.js validation.
-  const csrfResponse = await handlers.GET(new NextRequest(csrfUrl, { method: "GET", headers: csrfHeaders }));
-  if (!csrfResponse.ok) return csrfResponse;
-  const csrfData = await csrfResponse.clone().json().catch(() => null);
-  const csrfToken = typeof csrfData?.csrfToken === "string" ? csrfData.csrfToken : "";
-  const csrfCookieHeader = csrfResponse.headers.get("set-cookie");
-  const csrfCookiePair = csrfCookieHeader?.split(";", 1)[0];
-  if (!csrfToken || !csrfCookiePair || !csrfCookiePair.includes("=")) {
-    return NextResponse.json({ error: "Could not initialize sign-in security. Refresh and try again." }, { status: 503 });
+  try {
+    const csrfResponse = await handlers.GET(new NextRequest(csrfUrl, { method: "GET", headers: csrfHeaders }));
+    if (!csrfResponse || !csrfResponse.ok) return handlers.POST(request);
+    const csrfData = await csrfResponse.clone().json().catch(() => null);
+    const csrfToken = typeof csrfData?.csrfToken === "string" ? csrfData.csrfToken : "";
+    const csrfCookieHeader = csrfResponse.headers.get("set-cookie");
+    const csrfCookiePair = csrfCookieHeader?.split(";", 1)[0];
+    if (!csrfToken || !csrfCookiePair || !csrfCookiePair.includes("=")) {
+      return handlers.POST(request);
+    }
+
+    const form = new URLSearchParams(await request.text());
+    form.set("csrfToken", csrfToken);
+    const callbackHeaders = new Headers(request.headers);
+    callbackHeaders.set("content-type", "application/x-www-form-urlencoded");
+    callbackHeaders.delete("content-length");
+    callbackHeaders.set("cookie", [...incomingCookies, csrfCookiePair].join("; "));
+    const callbackResponse = await handlers.POST(new NextRequest(request.url, {
+      method: "POST",
+      headers: callbackHeaders,
+      body: form.toString(),
+    }));
+
+    // Persist the fresh CSRF cookie returned by /csrf while preserving callback
+    // response cookies (including the newly issued session token).
+    const headers = new Headers(callbackResponse.headers);
+    if (csrfCookieHeader) {
+      headers.append("set-cookie", csrfCookieHeader);
+    }
+    return new Response(callbackResponse.body, {
+      status: callbackResponse.status,
+      statusText: callbackResponse.statusText,
+      headers,
+    });
+  } catch {
+    return handlers.POST(request);
   }
-
-  const form = new URLSearchParams(await request.text());
-  form.set("csrfToken", csrfToken);
-  const callbackHeaders = new Headers(request.headers);
-  callbackHeaders.set("content-type", "application/x-www-form-urlencoded");
-  callbackHeaders.delete("content-length");
-  callbackHeaders.set("cookie", [...incomingCookies, csrfCookiePair].join("; "));
-  const callbackResponse = await handlers.POST(new NextRequest(request.url, {
-    method: "POST",
-    headers: callbackHeaders,
-    body: form.toString(),
-  }));
-
-  // Persist the fresh CSRF cookie returned by /csrf while preserving callback
-  // response cookies (including the newly issued session token).
-  const headers = new Headers(callbackResponse.headers);
-  headers.append("set-cookie", csrfCookieHeader);
-  return new Response(callbackResponse.body, {
-    status: callbackResponse.status,
-    statusText: callbackResponse.statusText,
-    headers,
-  });
 }
 
 async function handleSignOut(request: NextRequest) {

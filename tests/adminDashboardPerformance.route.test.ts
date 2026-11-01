@@ -143,6 +143,7 @@ async function seedDashboardData() {
 
   await SaleOrder.create({
     tenantId,
+    status: DOCUMENT_STATUS.POSTED,
     header: { name: "SO-DASH", partnerId: customerId, dateOrder: monthDate(0) },
     orderLines: [{ name: "Item", productQty: 1, priceUnit: 100, priceSubtotal: 100 }],
     totals: { amountUntaxed: 100, amountTax: 0, amountTotal: 100 },

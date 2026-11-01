@@ -14,7 +14,7 @@ import {
   CanvasPieChart,
   CanvasComposedChart,
 } from "@/components/inventory/CanvasCharts";
-import { cachedFetch } from "@/lib/api/cachedFetch";
+import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { AnalyticsPageSkeleton } from "@/components/ui/loading-skeletons";
 import { toast } from "sonner";
 import {
@@ -54,16 +54,14 @@ export default function HrAnalyticsPage() {
     try {
       if (fresh) setIsRefreshing(true);
       else {
-        setIsLoading(true);
+        const cached = getInstantCachedData(`/api/hr/analytics?range=${timeRange}`);
+        if (cached) setData(cached);
+        setIsLoading(!cached);
         setLoadError(false);
       }
       const res = await cachedFetch(
         `/api/hr/analytics?range=${timeRange}${fresh ? "&fresh=true" : ""}`,
         fresh ? { cache: "no-store" } : undefined,
-        // Don't render a possibly stale browser/session-cache snapshot as if it
-        // were the completed analytics response. The API keeps its own
-        // tenant-scoped short cache, so this still benefits from fast repeats.
-        { noCache: true },
       );
       if (!res.ok) throw new Error(`HR analytics request failed (${res.status})`);
       const json = await res.json();
@@ -81,15 +79,12 @@ export default function HrAnalyticsPage() {
   }, [timeRange]);
 
   useEffect(() => {
-    setData(null);
-    setLoadError(false);
-    setIsLoading(true);
     loadData(false);
   }, [loadData, timeRange]);
 
   useEffect(() => {
     const handleRevalidate = (e: any) => {
-      if (e?.detail?.url?.includes("/api/hr")) {
+      if (e?.detail?.url === `/api/hr/analytics?range=${timeRange}`) {
         loadData(true);
       }
     };

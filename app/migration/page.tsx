@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
 import {
@@ -148,7 +147,15 @@ export default function MigrationCenterPage() {
     }
   };
 
-  if (status === "loading") return <AuthSplash />;
+  if (status === "loading") {
+    return (
+      <DashboardLayout sidebarSections={adminSidebarConfig} dashboardTitle="Admin" pageName="Data Migration Center">
+        <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground" aria-busy="true">
+          <Loader2 className="h-7 w-7 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -249,6 +256,8 @@ export default function MigrationCenterPage() {
                 <li key={batch._id}>
                   <button
                     onClick={() => router.push(`/migration/${batch._id}`)}
+                    onPointerEnter={() => router.prefetch(`/migration/${batch._id}`)}
+                    onFocus={() => router.prefetch(`/migration/${batch._id}`)}
                     className="w-full text-left rounded-lg border p-4 hover:bg-accent flex items-center justify-between transition-colors"
                   >
                     <div>

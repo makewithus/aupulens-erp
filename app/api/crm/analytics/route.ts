@@ -100,26 +100,34 @@ export async function GET(req: NextRequest) {
 
       // Keep the selected-period lead cohort intact so its current status can
       // be compared with opportunities linked to those same leads.
-      Lead.find(leadPeriodScope).select("_id status").lean(),
+      (Lead.find(leadPeriodScope)?.select ? Lead.find(leadPeriodScope).select("_id status").lean() : Promise.resolve([])),
 
       // Fetch opportunities created in range or closed won in range. New
       // pipeline is dated by creation; bookings are dated by Won stage history.
       // Apply the same role-aware opportunity scope used by the summary cards
       // and opportunity list so demo records are handled consistently.
-      Opportunity.find({
+      (Opportunity.find({
         ...opportunityScope,
         $or: [
           { createdAt: { $gte: rangeStart, $lte: rangeEnd } },
           { stage: "Closed Won", stage_history: { $elemMatch: { stage: "Closed Won", entered_at: { $gte: rangeStart, $lte: rangeEnd } } } },
           { stage: "Closed Won", stage_entered_at: { $gte: rangeStart, $lte: rangeEnd } },
         ],
-      }).select("createdAt amount stage stage_entered_at stage_history owner_id").lean(),
+      })?.select ? Opportunity.find({
+        ...opportunityScope,
+        $or: [
+          { createdAt: { $gte: rangeStart, $lte: rangeEnd } },
+          { stage: "Closed Won", stage_history: { $elemMatch: { stage: "Closed Won", entered_at: { $gte: rangeStart, $lte: rangeEnd } } } },
+          { stage: "Closed Won", stage_entered_at: { $gte: rangeStart, $lte: rangeEnd } },
+        ],
+      }).select("createdAt amount stage stage_entered_at stage_history owner_id").lean() : Promise.resolve([])),
 
       // Keep leaderboard bookings on the same date range as the monthly
       // Closed Won series. Open deal counts remain a current snapshot.
-      Opportunity.find({ ...opportunityScope, stage: "Closed Won", owner_id: { $ne: null } })
-        .select("owner_id amount createdAt stage_entered_at stage_history")
-        .lean(),
+      (Opportunity.find({ ...opportunityScope, stage: "Closed Won", owner_id: { $ne: null } })?.select ?
+        Opportunity.find({ ...opportunityScope, stage: "Closed Won", owner_id: { $ne: null } })
+          .select("owner_id amount createdAt stage_entered_at stage_history")
+          .lean() : Promise.resolve([])),
 
       // Group accounts by health score
       Account.aggregate([

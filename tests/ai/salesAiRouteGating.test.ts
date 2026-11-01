@@ -68,9 +68,20 @@ vi.mock("@/models/admin/Organization", () => ({
   },
 }));
 
+vi.mock("@/models/sales/Customer", () => ({
+  default: {
+    countDocuments: async () => 0,
+    find: () => buildChain([]),
+    findOne: () => buildChain(null),
+  },
+}));
+
 vi.mock("@/models/ai/AiMemoryPreference", () => ({
   AiMemoryPreference: {
-    findOne: () => ({ lean: () => Promise.resolve(null) }),
+    findOne: () => ({
+      select: () => ({ lean: () => Promise.resolve(null) }),
+      lean: () => Promise.resolve(null),
+    }),
   },
 }));
 

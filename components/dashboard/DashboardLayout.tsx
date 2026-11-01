@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { Children, Fragment, ReactNode, useMemo, useState, useRef, useEffect } from "react";
+import { Children, Fragment, ReactNode, useContext, useMemo, useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { DashboardHeader, BreadcrumbItem } from "./DashboardHeader";
@@ -13,6 +13,7 @@ import { useAiChatStore } from "@/store/aiChatStore";
 import { usePageActionsStore } from "@/store/pageActionsStore";
 import { filterSidebarSections } from "@/lib/modules/visibility";
 import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
+import { PersistentDashboardContext, type PersistentDashboardDetails } from "./PersistentDashboardContext";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -30,9 +31,37 @@ interface DashboardLayoutProps {
   className?: string;
   profilePath?: string;
   profileHref?: string; 
+  /** Keep this instance as the route-persistent dashboard shell in a module layout. */
+  persistentShell?: boolean;
 }
 
-export function DashboardLayout({
+function DashboardPageContent({ details, children }: { details: PersistentDashboardDetails; children: ReactNode }) {
+  const persistent = useContext(PersistentDashboardContext);
+  useEffect(() => {
+    if (persistent) persistent.refreshRef.current = details.onRefresh;
+  }, [persistent, details.onRefresh]);
+  useEffect(() => {
+    if (!persistent) return;
+    const { onRefresh: _onRefresh, onSignOut: _onSignOut, ...displayDetails } = details;
+    persistent.update(displayDetails);
+  }, [persistent, details.sidebarSections, details.companyName, details.dashboardTitle, details.pageName, details.breadcrumbs, details.userName, details.userEmail, details.userRole, details.profilePath]);
+  return <>{children}</>;
+}
+
+export function DashboardLayout(props: DashboardLayoutProps) {
+  const persistent = useContext(PersistentDashboardContext);
+  const { persistentShell = false, children, ...details } = props;
+
+  // Admin pages historically included their own shell. Under the new shared
+  // admin layout, keep only the page body and report its header metadata upward.
+  if (persistent && !persistentShell) {
+    return <DashboardPageContent details={details} children={children} />;
+  }
+
+  return <DashboardLayoutFrame {...props} />;
+}
+
+function DashboardLayoutFrame({
   children,
   sidebarSections,
   sidebarConfig,

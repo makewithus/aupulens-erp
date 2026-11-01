@@ -26,14 +26,14 @@ export function startOfIndiaBusinessDay(now = new Date()): Date {
   return new Date(Date.UTC(indiaNow.getUTCFullYear(), indiaNow.getUTCMonth(), indiaNow.getUTCDate()) - indiaOffsetMs);
 }
 
-export function computeSlaAnalytics(cases: any[]) {
+export function computeSlaAnalytics(cases: any[], now = new Date()) {
   let breachedCount = 0;
   let escalationCount = 0;
   let totalResolutionTime = 0;
   let resolvedCount = 0;
 
   cases.forEach(c => {
-    if (isSlaCurrentlyBreached(c)) breachedCount++;
+    if (isSlaCurrentlyBreached(c, now)) breachedCount++;
     if (c.escalation_level > 0) escalationCount++;
     if (['Resolved', 'Closed'].includes(c.status) && c.createdAt && (c.resolvedAt || c.updatedAt)) {
       const elapsed = new Date(c.resolvedAt || c.updatedAt).getTime() - new Date(c.createdAt).getTime();

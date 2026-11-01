@@ -164,7 +164,7 @@ function StockTrackingPageInner() {
       });
       if (statusFilter) params.set("status", statusFilter);
 
-      const res = await cachedFetch(`/api/sales/products?${params}`, undefined, { force: true });
+      const res = await cachedFetch(`/api/sales/products?${params}`);
       const data = await res.json();
 
       setProducts(data.items || []);

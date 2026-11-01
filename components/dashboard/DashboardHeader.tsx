@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Users,
   Menu,
-  ChevronLeft,
   FolderKanban,
 } from "lucide-react";
 
@@ -267,18 +266,6 @@ export function DashboardHeader({
     }
   };
 
-  const handleBack = () => {
-    try {
-      if (typeof window !== "undefined" && window.history.state && typeof window.history.state.idx === "number" && window.history.state.idx > 0) {
-        router.back();
-      } else {
-        const activeMod = MODULES.find((m) => pathname.startsWith(`/${m.id}`))?.id;
-        router.push(activeMod ? `/${activeMod}/dashboard` : "/admin/dashboard");
-      }
-    } catch {
-      router.push("/admin/dashboard");
-    }
-  };
 
   // Simplified header left content: Logo, Module dropdown, and top-level links
   const [isModuleOpen, setIsModuleOpen] = useState(false);
@@ -406,18 +393,6 @@ export function DashboardHeader({
                 className="h-7 w-[110px] object-contain transition-all duration-300 sm:h-8 sm:w-[125px]"
               />
             </Link>
-
-            {/* Back — so users don't have to return to a dashboard to move around. */}
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={handleBack}
-              title="Go back"
-              className="hidden h-9 w-9 shrink-0 rounded-none sm:inline-flex"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
 
             {/* Module Dropdown and Top-Links (desktop) - superseded by ModuleTabs below */}
             {/* <div className="hidden lg:flex items-center gap-1">

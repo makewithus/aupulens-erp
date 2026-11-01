@@ -10,6 +10,7 @@ import TenantWrapper from "@/components/providers/TenantWrapper";
 import { ConfirmProvider } from "@/providers/confirm-provider";
 import ConfirmRoot from "@/components/providers/ConfirmRoot";
 import { SessionTimeout } from "@/components/providers/SessionTimeout";
+import { AdminPortalShell } from "@/components/dashboard/AdminPortalShell";
 import { auth } from "@/auth";
 
 export const metadata: Metadata = {
@@ -46,7 +47,9 @@ export default async function RootLayout({
               <ConfirmRoot>
                 <SessionTimeout />
                 <TenantInitializer />
-                <TenantWrapper>{children}</TenantWrapper>
+                <TenantWrapper>
+                  <AdminPortalShell>{children}</AdminPortalShell>
+                </TenantWrapper>
               </ConfirmRoot>
             </ToastRoot>
           </ThemeProvider>

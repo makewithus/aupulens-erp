@@ -3,6 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { HrRouteDataPrefetcher } from "@/components/hr/HrRouteDataPrefetcher";
 
 export default function HrLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -17,6 +18,7 @@ export default function HrLayout({ children }: { children: React.ReactNode }) {
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth" })}
     >
+      <HrRouteDataPrefetcher />
       {children}
     </DashboardLayout>
   );

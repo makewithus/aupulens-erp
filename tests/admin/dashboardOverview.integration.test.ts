@@ -26,7 +26,8 @@ describe.runIf(process.env.AUPULENS_OVERVIEW_MONGO_TEST === "1")("overview with 
   beforeEach(() => invalidateServerCache("admin_dashboard:overview-test"));
 
   beforeAll(async () => {
-    await mongoose.connect(`mongodb://127.0.0.1:27129/${databaseName}`, { serverSelectionTimeoutMS: 5000 });
+    const port = process.env.QA_DISPOSABLE_MONGO_PORT || "27129";
+    await mongoose.connect(`mongodb://127.0.0.1:${port}/${databaseName}`, { serverSelectionTimeoutMS: 5000 });
     await Account.collection.insertMany([
       { _id: bank, tenantId: "overview-test", code: "1000", name: "Bank", internal_group: "asset" },
       { _id: revenue, tenantId: "overview-test", code: "4000", name: "Sales", internal_group: "income" },
@@ -57,12 +58,12 @@ describe.runIf(process.env.AUPULENS_OVERVIEW_MONGO_TEST === "1")("overview with 
     await mongoose.disconnect();
   });
 
-  it("shows the posted net income before costs are posted and counts real activity", async () => {
+  it("keeps profit unavailable before costs are posted and counts real activity", async () => {
     const response = await GET();
     expect(response.status).toBe(200);
     const { summary } = await response.json();
-    expect(summary.finance).toMatchObject({ totalRevenue: 1000, totalExpenses: 0, netIncome: 1000,
-      profitAvailable: true, totalTransactions: 1, totalPayments: 1 });
+    expect(summary.finance).toMatchObject({ totalRevenue: 1000, totalExpenses: 0, netIncome: null,
+      profitAvailable: false, totalTransactions: 1, totalPayments: 1 });
     expect(summary.inventory.totalStockTransfers).toBe(1);
   });
 

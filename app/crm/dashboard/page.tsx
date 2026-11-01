@@ -106,8 +106,8 @@ export default function CRMDashboardPage() {
     try {
       if (fresh) setIsRefreshing(true);
       const [pipe, health, churn, renewal, exp, opps] = await Promise.all([
-        fetchJson("/api/crm/pipeline/analytics", true),
-        fetchJson("/api/crm/health", true),
+        fetchJson("/api/crm/pipeline/analytics", fresh),
+        fetchJson("/api/crm/health", fresh),
         fetchJson("/api/crm/churn", fresh),
         fetchJson("/api/crm/renewals", fresh),
         fetchJson("/api/crm/expansion", fresh),

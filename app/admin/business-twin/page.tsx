@@ -77,12 +77,6 @@ export default function BusinessTwinPage() {
     onSignOut: () => signOut({ callbackUrl: "/auth" }),
   };
 
-  if (loading) return (
-    <DashboardLayout {...layoutProps}>
-      <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Building the twin…</div>
-    </DashboardLayout>
-  );
-
   return (
     <DashboardLayout {...layoutProps}>
     <div className="max-w-6xl mx-auto space-y-6">
@@ -90,6 +84,8 @@ export default function BusinessTwinPage() {
         <h1 className="text-2xl font-bold flex items-center gap-2"><Network className="h-6 w-6 text-indigo-500" /> Digital Business Twin</h1>
         <p className="text-sm text-muted-foreground mt-1">Live money-flow graph + cash-flow simulation, from your real data.</p>
       </div>
+
+      {loading && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Building the twin…</div>}
 
       {data && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -100,9 +96,10 @@ export default function BusinessTwinPage() {
       )}
 
       <div className="border-2 rounded-xl overflow-hidden" style={{ height: 420 }}>
-        <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}>
+        {!data && !loading && <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Twin data could not be loaded.</div>}
+        {data && <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}>
           <Background /><Controls /><MiniMap className="!bg-card" />
-        </ReactFlow>
+        </ReactFlow>}
       </div>
 
       {/* Cash-flow simulation */}

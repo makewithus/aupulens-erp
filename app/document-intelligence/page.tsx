@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
 import {
@@ -120,7 +119,15 @@ export default function DocIntelPage() {
     await load();
   };
 
-  if (status === "loading") return <AuthSplash />;
+  if (status === "loading") {
+    return (
+      <DashboardLayout sidebarSections={adminSidebarConfig} dashboardTitle="Admin" pageName="Document Intelligence">
+        <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground" aria-busy="true">
+          <Loader2 className="h-7 w-7 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -169,8 +176,11 @@ export default function DocIntelPage() {
 
       <div className="grid gap-6 md:grid-cols-[300px_1fr]">
         {/* List */}
-        <div className="rounded-xl border bg-card p-3">
-          <h2 className="font-semibold mb-2 px-1">Processed</h2>
+        <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
+          <div className="mb-3 flex items-center justify-between gap-2 px-1">
+            <h2 className="font-semibold">Processed documents</h2>
+            {!loading && <span className="text-xs tabular-nums text-muted-foreground">{docs.length}</span>}
+          </div>
           {loading ? (
             <div className="p-3 text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
           ) : docs.length === 0 ? (
@@ -178,17 +188,28 @@ export default function DocIntelPage() {
           ) : (
             <ul className="space-y-1">
               {docs.map((d) => (
-                <li key={d._id} className="flex items-center gap-1">
-                  <button onClick={() => open(d._id)} className={`flex-1 text-left rounded-md px-3 py-2 text-sm hover:bg-accent ${active?.id === d._id ? "bg-accent" : ""}`}>
-                    <span className="flex items-center gap-2">
-                      <FileText className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                      <span className="truncate">{d.fileName}</span>
+                <li key={d._id} className="flex min-w-0 items-start gap-1 rounded-md">
+                  <button
+                    onClick={() => open(d._id)}
+                    title={d.fileName}
+                    aria-label={`Open document ${d.fileName}`}
+                    className={`min-w-0 flex-1 rounded-md px-3 py-2.5 text-left hover:bg-accent ${active?.id === d._id ? "bg-accent" : ""}`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <FileText className="h-4 w-4 shrink-0 opacity-60" />
+                      <span className="block min-w-0 flex-1 truncate text-sm font-medium" dir="auto">{d.fileName}</span>
                     </span>
-                    <span className="block text-xs text-muted-foreground ml-5">
-                      {d.status === "confirmed" ? "✓ bill created" : `${d.aiConfidence}% conf`}
+                    <span className="ml-6 mt-1 flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span className="shrink-0">{d.status === "confirmed" ? "Bill created" : `${d.aiConfidence}% confidence`}</span>
+                      <time className="truncate text-right" dateTime={d.createdAt}>{new Date(d.createdAt).toLocaleDateString()}</time>
                     </span>
                   </button>
-                  <button onClick={() => del(d._id)} className="text-muted-foreground hover:text-red-500 px-1" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+                  <button
+                    onClick={() => del(d._id)}
+                    className="mt-2 shrink-0 rounded p-2 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+                    title={`Delete ${d.fileName}`}
+                    aria-label={`Delete document ${d.fileName}`}
+                  ><Trash2 className="h-3.5 w-3.5" /></button>
                 </li>
               ))}
             </ul>

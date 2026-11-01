@@ -19,7 +19,7 @@ function KPI({ title, value, sub, icon: Icon }: any) {
 
 export default function SupportDashboard() {
   const [data, setData] = useState<any>(null);
-  useEffect(() => { cachedFetch("/api/crm/dashboard/summary", undefined, { force: true }).then((r) => r.json()).then((r) => r.success && setData(r.data.support)).catch(() => {}); }, []);
+  useEffect(() => { cachedFetch("/api/crm/dashboard/summary").then((r) => r.json()).then((r) => r.success && setData(r.data.support)).catch(() => {}); }, []);
   const n = (value: number | undefined) => value == null ? "—" : value.toLocaleString("en-IN");
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">

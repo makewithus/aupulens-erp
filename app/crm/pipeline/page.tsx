@@ -43,8 +43,8 @@ export default function PipelinePage() {
 
   const fetchPipeline = async () => {
     const [res, anRes] = await Promise.all([
-      cachedFetch('/api/crm/pipeline', undefined, { force: true }),
-      cachedFetch('/api/crm/pipeline/analytics', undefined, { force: true }),
+      cachedFetch('/api/crm/pipeline'),
+      cachedFetch('/api/crm/pipeline/analytics'),
     ]);
     if (!res.ok || !anRes.ok) throw new Error("Could not refresh the opportunity pipeline");
     const [data, anData] = await Promise.all([res.json(), anRes.json()]);

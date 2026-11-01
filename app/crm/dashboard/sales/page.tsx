@@ -19,7 +19,7 @@ function KPI({ title, value, sub, icon: Icon }: any) {
 
 export default function SalesDashboard() {
   const [data, setData] = useState<any>(null);
-  useEffect(() => { cachedFetch("/api/crm/dashboard/summary", undefined, { force: true }).then((r) => r.json()).then((r) => r.success && setData(r.data.sales)).catch(() => {}); }, []);
+  useEffect(() => { cachedFetch("/api/crm/dashboard/summary").then((r) => r.json()).then((r) => r.success && setData(r.data.sales)).catch(() => {}); }, []);
   const n = (value: number | undefined) => value == null ? "—" : value.toLocaleString("en-IN");
   const money = (value: number | undefined) => value == null ? "—" : `₹${value.toLocaleString("en-IN")}`;
   return (

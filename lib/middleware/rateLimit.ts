@@ -32,7 +32,7 @@ export const RATE_LIMIT_RULES: RateLimitRule[] = [
   // then credentials callback) and shared office/NAT IPs are common. Keep a
   // useful per-minute ceiling without locking legitimate users out after a
   // handful of retries. Requests are counted independently by IP and account.
-  { pattern: "/api/auth/callback/credentials", limit: 30, windowMs: 60_000, isSensitiveAuth: true },
+  { pattern: "/api/auth/callback/credentials", limit: 10, windowMs: 60_000, isSensitiveAuth: true },
 
   // General resource endpoints
   { pattern: "/api/crm/search", limit: 30, windowMs: 60_000 },

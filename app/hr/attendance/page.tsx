@@ -75,6 +75,23 @@ const statusColors: Record<string, string> = {
 };
 
 const LIMIT = 25;
+const ATTENDANCE_MONTH_OPTIONS = Array.from({ length: 25 }, (_, index) => {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() - index);
+  const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return {
+    value,
+    label: date.toLocaleDateString(undefined, { month: "long" }),
+  };
+});
+
+function localDateInputValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export default function AttendancePage() {
   const { status } = useSession();
@@ -84,7 +101,7 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
+  const [filterDate, setFilterDate] = useState(localDateInputValue);
   const [filterMonth, setFilterMonth] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -341,18 +358,28 @@ export default function AttendancePage() {
               }}
               className="w-full sm:w-44"
             />
-            <Input
-              type="month"
-              value={filterMonth}
-              onChange={(e) => {
-                setFilterMonth(e.target.value);
-                setFilterDate("");
-                setDateFrom("");
-                setDateTo("");
-              }}
-              className="w-full sm:w-44"
-              placeholder="Month view"
-            />
+            <div className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 sm:w-auto">
+              <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Month</span>
+              <Select
+                value={filterMonth || "all"}
+                onValueChange={(value) => {
+                  setFilterMonth(value === "all" ? "" : value);
+                  setFilterDate("");
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+              >
+                <SelectTrigger aria-label="Filter attendance by month" className="h-8 w-[132px] border-0 bg-transparent px-1 shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All months</SelectItem>
+                  {ATTENDANCE_MONTH_OPTIONS.map((month) => (
+                    <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <DateRangeFilter
               dateFrom={dateFrom}
               dateTo={dateTo}

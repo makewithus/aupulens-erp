@@ -42,6 +42,8 @@ const HEADER_ALIASES: Record<string, Record<string, string>> = {
     companyname: "account_name",
     account: "account_name",
     accountname: "account_name",
+    companyaccountname: "account_name",
+    accountcompanyname: "account_name",
   },
   Account: {
     name: "company_name",
@@ -58,6 +60,8 @@ const HEADER_ALIASES: Record<string, Record<string, string>> = {
     value: "amount",
     company: "account_name",
     companyname: "account_name",
+    companyaccountname: "account_name",
+    accountcompanyname: "account_name",
     account: "account_name",
     accountname: "account_name",
     stage: "stage",

@@ -161,9 +161,9 @@ function CustomersPageInner() {
       if (dateTo) params.set("dateTo", dateTo);
       if (amountMin) params.set("amountMin", amountMin);
       if (amountMax) params.set("amountMax", amountMax);
-      // Filters must always be evaluated against the server's current result;
-      // a cached response for a previously-used URL can otherwise hide changes.
-      const res = await cachedFetch(`/api/sales/customers?${params.toString()}`, undefined, { force: true });
+      // Show the most recently loaded result immediately, then let cachedFetch
+      // refresh stale entries in the background.
+      const res = await cachedFetch(`/api/sales/customers?${params.toString()}`);
       const json = await res.json();
       if (loadId !== latestLoadId.current) return;
       setCustomers(json.items || []);
