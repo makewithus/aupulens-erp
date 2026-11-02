@@ -57,6 +57,24 @@ const nextConfig: NextConfig = {
   // then fails. Marking them external makes them load as normal Node modules.
   serverExternalPackages: ["pdf-parse", "mammoth", "@napi-rs/canvas"],
 
+  // pdf.js resolves its Node worker dynamically relative to pdf.mjs. Next's
+  // output file tracer cannot see that runtime import, so include the worker
+  // explicitly in every serverless route that parses uploaded PDFs.
+  outputFileTracingIncludes: {
+    "/api/document-intelligence/extract": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
+    "/api/admin/ai-assistant": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
+    "/api/ai/prefill": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
+    "/api/inventory/ai-assistant": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
+  },
+
   images: {
     unoptimized: true,
   },

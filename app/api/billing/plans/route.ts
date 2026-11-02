@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest) {
       // seat pricing is adjustable. Older catalog rows may contain a stale
       // explicit false value from before metered pricing was introduced.
       meteredUsers: PLAN_DEFINITIONS[plan.key]?.meteredUsers ?? plan.meteredUsers ?? false,
-      includedUsers: PLAN_SEAT_BANDS[plan.key as SeatBandPlanKey]?.minimum ?? PLAN_DEFINITIONS[plan.key]?.includedUsers ?? plan.includedUsers ?? plan.features.maxUsers,
+      includedUsers: PLAN_DEFINITIONS[plan.key]?.includedUsers ?? plan.includedUsers ?? plan.features.maxUsers,
       additionalUserPriceMonthly: PLAN_DEFINITIONS[plan.key]?.additionalUserPriceMonthly ?? plan.additionalUserPriceMonthly ?? 0,
       additionalUserPriceYearly: PLAN_DEFINITIONS[plan.key]?.additionalUserPriceYearly ?? plan.additionalUserPriceYearly ?? 0,
       availableForPurchase: Boolean(plan.availableForPurchase),

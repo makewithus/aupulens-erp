@@ -20,13 +20,14 @@ export function priceForUsers(plan: { key?: string; priceMonthly: number; priceY
   // limits can be lower (for example, older Growth/Scale catalog rows), but
   // must not clamp a seat count that the pricing UI and checkout accept.
   const configuredUsers = band?.maximum ?? plan.features?.maxUsers ?? 1;
-  const includedUsers = band?.minimum ?? plan.includedUsers ?? plan.features?.maxUsers ?? 1;
+  const includedUsers = plan.includedUsers ?? plan.features?.maxUsers ?? band?.minimum ?? 1;
+  const minimumUsers = band?.minimum ?? 1;
   const requested = requestedUsers === undefined || !Number.isFinite(Number(requestedUsers))
     ? includedUsers
     : Math.floor(Number(requestedUsers));
   const userMetered = plan.meteredUsers || ["starter", "growth", "pro"].includes(plan.key || "");
   const boundedUserCount = userMetered
-    ? Math.min(configuredUsers, Math.max(includedUsers, requested))
+    ? Math.min(configuredUsers, Math.max(Math.min(minimumUsers, includedUsers), requested))
     : configuredUsers;
   const userCount = plan.key === "pro"
     ? normalizePlanUserCount(plan.key, boundedUserCount)

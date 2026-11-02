@@ -737,7 +737,7 @@ export default function CustomerBillingPortal() {
                 const isCurrent = currentKey === p.key.toLowerCase();
                 const seatBand = p.key in PLAN_SEAT_BANDS ? PLAN_SEAT_BANDS[p.key as SeatBandPlanKey] : undefined;
                 const isFixedStarter = p.key.toLowerCase() === "starter";
-                const includedUsers = seatBand?.minimum ?? Math.min(p.features.maxUsers, Math.max(1, p.includedUsers ?? p.features.maxUsers));
+                const includedUsers = p.includedUsers ?? seatBand?.minimum ?? Math.min(p.features.maxUsers, Math.max(1, p.features.maxUsers));
                 const requestedUsers = isFixedStarter ? (seatBand?.minimum ?? 5) : p.meteredUsers
                   ? Math.min(p.features.maxUsers, Math.max(includedUsers, planUserCounts[p.key] ?? (isCurrent ? subscription?.userCount ?? includedUsers : includedUsers)))
                   : p.features.maxUsers;
