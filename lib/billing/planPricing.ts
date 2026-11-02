@@ -16,8 +16,11 @@ export function priceForUsers(plan: { key?: string; priceMonthly: number; priceY
     return { price: configuredPrice, userCount: 5 };
   }
 
-  const configuredUsers = plan.features?.maxUsers ?? band?.maximum ?? 1;
-  const includedUsers = plan.includedUsers ?? plan.features?.maxUsers ?? band?.minimum ?? 1;
+  // The customer-facing seat bands are the pricing authority. Entitlement
+  // limits can be lower (for example, older Growth/Scale catalog rows), but
+  // must not clamp a seat count that the pricing UI and checkout accept.
+  const configuredUsers = band?.maximum ?? plan.features?.maxUsers ?? 1;
+  const includedUsers = band?.minimum ?? plan.includedUsers ?? plan.features?.maxUsers ?? 1;
   const requested = requestedUsers === undefined || !Number.isFinite(Number(requestedUsers))
     ? includedUsers
     : Math.floor(Number(requestedUsers));
@@ -70,7 +73,7 @@ export function priceWithAddOns(plan: Parameters<typeof priceForUsers>[0], cycle
   const band = plan.key && plan.key in PLAN_SEAT_BANDS
     ? PLAN_SEAT_BANDS[plan.key as SeatBandPlanKey]
     : undefined;
-  const addOnSeats = band?.minimum ?? Math.max(1, Math.floor(plan.includedUsers || plan.features.maxUsers || 1));
+  const addOnSeats = base.userCount;
   const addOnMonthly = (PLAN_ADD_ONS[(plan as any).key] || [])
     .filter((addOn) => selectedAddOns.includes(addOn.key))
     .reduce((sum, addOn) => sum + addOn.monthlyPerUser * addOnSeats, 0);
