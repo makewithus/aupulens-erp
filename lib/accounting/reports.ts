@@ -879,7 +879,7 @@ export async function buildPostedCashFlowTotals({
   for (const entry of entries) {
     for (const line of entry.lineIds || []) {
       const account = line.accountId as any;
-      if (account?.account_type !== "asset_cash") continue;
+      if (!account || resolveAccountGroupAndType(account).accountType !== "asset_cash") continue;
 
       totals.inflow += Number(line.debit) || 0;
       totals.outflow += Number(line.credit) || 0;
@@ -924,7 +924,7 @@ export async function buildPostedCashFlowSeries({
     const target = byDate.get(key)!;
     for (const line of entry.lineIds || []) {
       const account = line.accountId as any;
-      if (account?.account_type !== "asset_cash") continue;
+      if (!account || resolveAccountGroupAndType(account).accountType !== "asset_cash") continue;
 
       target.inflow += Number(line.debit) || 0;
       target.outflow += Number(line.credit) || 0;
@@ -1013,13 +1013,15 @@ export async function buildPostedIncomeExpenseSeries({
     const target = byDate.get(key)!;
     for (const line of entry.lineIds || []) {
       const account = line.accountId as any;
+      if (!account) continue;
+      const { internalGroup } = resolveAccountGroupAndType(account);
       const debit = Number(line.debit) || 0;
       const credit = Number(line.credit) || 0;
 
-      if (account?.internal_group === "income") {
+      if (internalGroup === "income") {
         target.revenue += credit - debit;
       }
-      if (account?.internal_group === "expense") {
+      if (internalGroup === "expense") {
         target.expenses += debit - credit;
       }
     }

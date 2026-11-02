@@ -162,29 +162,38 @@ function OpportunitiesPageInner() {
   const toggleClosedWon = async (opportunityId: string, currentStage: string) => {
     if (updatingClosedWon.has(opportunityId)) return;
     const previous = opportunities.find((opportunity) => opportunity._id === opportunityId);
-    const wasClosed = currentStage === 'Closed Won' || currentStage === 'Closed Lost';
-    const newStage = wasClosed
-      ? [...(previous?.stage_history || [])].reverse().find((entry: any) => entry.stage !== 'Closed Won' && entry.stage !== 'Closed Lost')?.stage || 'Prospecting'
-      : 'Closed Won';
+    // The checkbox represents the Closed Won state. The server restores the
+    // last open stage from persisted stage history when it is unchecked.
+    const closedWon = currentStage !== 'Closed Won';
+    const newStage = closedWon ? 'Closed Won' : [...(previous?.stage_history || [])]
+      .reverse().find((entry: any) => entry.stage !== 'Closed Won' && entry.stage !== 'Closed Lost')?.stage
+      || currentStage;
     const stageProbabilities: Record<string, number> = {
       Prospecting: 10, Discovery: 20, "Requirement Gathering": 30, "Solution Fit": 40,
       "Proposal Sent": 60, Negotiation: 75, Approval: 90, "Closed Won": 100, "Closed Lost": 0,
     };
     const nextProbability = stageProbabilities[newStage] ?? 10;
     setUpdatingClosedWon((current) => new Set(current).add(opportunityId));
-    setOpportunities((current) => current.map((opportunity) => opportunity._id === opportunityId
-      ? { ...opportunity, stage: newStage, probability: nextProbability }
-      : opportunity));
+    if (closedWon) {
+      setOpportunities((current) => current.map((opportunity) => opportunity._id === opportunityId
+        ? { ...opportunity, stage: newStage, probability: nextProbability }
+        : opportunity));
+    }
     try {
       const res = await fetch(`/api/crm/opportunities/${opportunityId}`, {
         method: 'PUT',
-        body: JSON.stringify({ stage: newStage }),
+        body: JSON.stringify({ closedWon }),
         headers: { 'Content-Type': 'application/json' }
       });
       const data = await res.json();
       if (data.success) {
+        if (data.data) {
+          setOpportunities((current) => current.map((opportunity) => opportunity._id === opportunityId
+            ? { ...opportunity, ...data.data }
+            : opportunity));
+        }
         invalidateCache();
-        toast.success(`Opportunity stage updated to ${newStage}`);
+        toast.success(`Opportunity stage updated to ${data.data?.stage || newStage}`);
         // Refresh supporting totals in the background; the row itself has
         // already updated optimistically, so checkbox feedback is immediate.
         void fetchOpportunities(page);

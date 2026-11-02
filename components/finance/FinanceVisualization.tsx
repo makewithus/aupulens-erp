@@ -58,31 +58,6 @@ const COLORS = [
   '#88C2FF', // Light Blue
 ];
 
-function getDemoFinanceData(type: string, rangeDays: number): VisualizationDataPoint[] {
-  if (type.includes('breakdown') || type.includes('status') || type.includes('receivables-payables')) {
-    return [
-      { name: 'Direct Sales Revenue', value: 1850000 },
-      { name: 'Subscription ARR', value: 1240000 },
-      { name: 'Operating Expenses', value: 820000 },
-      { name: 'Vendor Payables', value: 560000 },
-      { name: 'Tax Provisions (GST/TDS)', value: 340000 },
-    ];
-  }
-  const count = Math.min(365, Math.max(7, rangeDays || 30));
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (count - 1 - i));
-    const dateStr = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: '2-digit' });
-    const wave = 65000 + 35000 * Math.sin(i / 5.2) + ((i * 1234) % 25000);
-    return {
-      date: dateStr,
-      value: Math.round(wave),
-      revenue: Math.round(wave),
-      expenses: Math.round(wave * 0.65),
-    };
-  });
-}
-
 export function FinanceVisualization({
   availableDataTypes,
   defaultDataType,
@@ -98,30 +73,32 @@ export function FinanceVisualization({
   const [dateRange, setDateRange] = useState('30');
   const [groupBy, setGroupBy] = useState('day');
 
-  const [visualizationData, setVisualizationData] = useState<VisualizationDataPoint[]>(() =>
-    getDemoFinanceData(defaultDataType || availableDataTypes[0]?.value || '', 30)
-  );
+  const [visualizationData, setVisualizationData] = useState<VisualizationDataPoint[]>([]);
   const [isLoadingViz, setIsLoadingViz] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchVisualizationData = useCallback(async () => {
     if (!selectedDataType) return;
     
     try {
       setIsLoadingViz(true);
+      setFetchError(null);
+      setVisualizationData([]);
       const res = await fetch(
         `/api/finance/visualization?type=${selectedDataType}&dateRange=${dateRange}&groupBy=${groupBy}`
       );
       if (!res.ok) throw new Error('Failed to fetch visualization data');
 
       const result = await res.json();
-      if (result.data && result.data.length > 0) {
-        setVisualizationData(result.data);
-      } else {
-        setVisualizationData(getDemoFinanceData(selectedDataType, parseInt(dateRange) || 30));
-      }
+      const rows = Array.isArray(result.data) ? result.data : [];
+      setVisualizationData(rows.map((row: VisualizationDataPoint) => ({
+        ...row,
+        value: Number(row.value ?? row.revenue ?? row.debit ?? row.inflow ?? 0),
+      })));
     } catch (err) {
-      console.warn('Finance visualization endpoint unavailable, using demonstration seed data:', err);
-      setVisualizationData(getDemoFinanceData(selectedDataType, parseInt(dateRange) || 30));
+      console.error('Finance visualization request failed:', err);
+      setVisualizationData([]);
+      setFetchError('Unable to load finance analytics. Please refresh to try again.');
     } finally {
       setIsLoadingViz(false);
     }
@@ -137,9 +114,7 @@ export function FinanceVisualization({
 
   const isTimeSeriesData = !isPieChartData;
 
-  const displayData = visualizationData.length > 0 
-    ? visualizationData 
-    : getDemoFinanceData(selectedDataType, parseInt(dateRange) || 30);
+  const displayData = visualizationData;
 
   return (
     <Card className={cn(
@@ -259,6 +234,10 @@ export function FinanceVisualization({
           <div className="flex justify-center items-center h-96">
             <Loader2 className="h-8 w-8 animate-spin text-foreground/70" />
           </div>
+        ) : fetchError ? (
+          <div role="alert" className="flex h-96 items-center justify-center text-sm text-destructive">{fetchError}</div>
+        ) : displayData.length === 0 ? (
+          <div className="flex h-96 items-center justify-center text-sm text-muted-foreground">No recorded data is available for this selection.</div>
         ) : (
           <div className="w-full">
             {selectedChartType === 'pie' ? (

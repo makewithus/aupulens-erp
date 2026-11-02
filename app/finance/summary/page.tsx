@@ -58,9 +58,9 @@ interface AgingBucket {
 }
 
 interface FinanceSummary {
-  revenue: { current: number; previous: number; monthToDate?: number; change: number };
-  expenses: { current: number; previous: number; monthToDate?: number; change: number };
-  netIncome: { current: number; previous: number; monthToDate?: number; change: number };
+  revenue: { current: number; previous: number; last30Days?: number; change: number };
+  expenses: { current: number; previous: number; last30Days?: number; change: number };
+  netIncome: { current: number; previous: number; last30Days?: number; change: number };
   cashFlow: { current: number; previous: number; change: number };
   accountsReceivable: {
     total: number;
@@ -84,6 +84,7 @@ interface FinanceSummary {
     cashRunwayStatus?: string;
     cashRunwayReason?: string;
     ebitda: number | null;
+    netIncome?: number | null;
     avgCollectionPeriod: number;
     payablesTurnover: number;
     effectiveCash: number;
@@ -144,33 +145,25 @@ export default function FinanceSummaryPage() {
   const { theme } = useThemeStore();
   const isDark = theme !== "light";
 
-  const [summary, setSummary] = useState<FinanceSummary | null>(() => {
-    if (typeof window !== "undefined") {
-      const cached = getInstantCachedData<{ summary: FinanceSummary }>("/api/finance/summary", { allowPreHydration: true });
-      return cached?.summary || null;
-    }
-    return null;
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const cached = getInstantCachedData<{ summary: FinanceSummary }>("/api/finance/summary", { allowPreHydration: true });
-      return !cached?.summary;
-    }
-    return true;
-  });
+  // Keep the server render and the browser's first render identical. Cached
+  // data is applied in an effect after hydration, then refreshed from the API.
+  const [summary, setSummary] = useState<FinanceSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchSummary = useCallback(async (force = false) => {
+    if (force) setIsLoading(true);
     try {
-      const res = await cachedFetch("/api/finance/summary", undefined, { force });
+      const url = force ? "/api/finance/summary?fresh=true" : "/api/finance/summary";
+      const res = await cachedFetch(url, force ? { cache: "no-store" } : undefined, force ? { force: true } : undefined);
       if (!res.ok) throw new Error("Failed to fetch summary");
       const data = await res.json();
-      if (data?.summary) {
-        setSummary(data.summary);
-      }
+      if (!data?.summary) throw new Error("Finance summary response is incomplete");
+      setSummary(data.summary);
       setError("");
     } catch (err) {
       console.error("Error fetching summary:", err);
+      setError("Unable to fetch the latest finance ledger data. Refresh to try again.");
     } finally {
       setIsLoading(false);
     }
@@ -222,7 +215,8 @@ export default function FinanceSummaryPage() {
     return formatCurrency(value);
   };
 
-  const getMetricVariant = (change: number, reverse: boolean = false) => {
+  const getMetricVariant = (change: number | null, reverse: boolean = false) => {
+    if (change == null) return null;
     if (change === 0) return { color: "text-muted-foreground", bg: "bg-muted/10", icon: Activity };
     const positive = change > 0;
     const isGood = reverse ? !positive : positive;
@@ -241,25 +235,25 @@ export default function FinanceSummaryPage() {
         value: summary.revenue?.current ?? 0,
         previous: summary.revenue?.previous ?? 0,
         change: summary.revenue?.change ?? 0,
-        subtitle: summary.revenue?.monthToDate !== undefined ? `MTD: ${formatCurrency(summary.revenue.monthToDate)} · 100% Posted` : undefined,
+        subtitle: summary.revenue?.last30Days !== undefined ? `Last 30 days: ${formatCurrency(summary.revenue.last30Days)} · Posted ledger` : undefined,
         icon: DollarSign,
         visual: <UsersGraph />,
         reverse: false,
-        badgeLabel: "Ledger Verified",
+        badgeLabel: "30d Change",
       },
       {
         title: "Total Operating Expenses",
         value: summary.expenses?.current ?? 0,
         previous: summary.expenses?.previous ?? 0,
         change: summary.expenses?.change ?? 0,
-        subtitle: "COGS · Balanced Ledger",
+        subtitle: "Posted expense entries",
         icon: CreditCard,
         visual: <ActivePulse />,
         reverse: true,
-        badgeLabel: "OpEx Costs",
+        badgeLabel: "30d Change",
       },
       {
-        title: "Net Operating Income",
+        title: "Net Income",
         value: summary.netIncome?.current ?? 0,
         previous: summary.netIncome?.previous ?? 0,
         change: summary.netIncome?.change ?? 0,
@@ -269,20 +263,18 @@ export default function FinanceSummaryPage() {
         icon: Wallet,
         visual: <UsersGraph />,
         reverse: false,
-        badgeLabel: summary.matrices?.profitMargin != null
-          ? `${summary.matrices.profitMargin}% Margin`
-          : (summary.matrices?.profitUnavailableReason ? "Incomplete" : "0% Margin"),
+        badgeLabel: "30d Change",
       },
       {
-        title: "Liquid Cash & Reserves",
+        title: "Cash & Bank Balance",
         value: summary.matrices?.effectiveCash ?? summary.cashFlow?.current ?? 0,
         previous: summary.cashFlow?.previous ?? 0,
-        change: summary.cashFlow?.change ?? 0,
-        subtitle: "Verified Bank & Cash Accounts",
+        change: null,
+        subtitle: "Cash and bank account balance",
         icon: Landmark,
         visual: <ActivePulse />,
         reverse: false,
-        badgeLabel: "Audited Reserves",
+        badgeLabel: "Ledger Balance",
       },
     ];
   }, [summary]);
@@ -322,7 +314,7 @@ export default function FinanceSummaryPage() {
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth" })}
-      onRefresh={fetchSummary}
+      onRefresh={() => fetchSummary(true)}
       profilePath="/finance/profile"
     >
       <div className="space-y-8 font-mono min-w-0 max-w-full">
@@ -332,20 +324,20 @@ export default function FinanceSummaryPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live Ledger Telemetry
+                Posted Ledger Data
               </span>
               <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                IFRS / Ind-AS Compliant
+                Tenant Ledger
               </span>
               <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                Audit Grade Ledger
+                Journal Entry Based
               </span>
             </div>
             <h1 className="text-3xl md:text-5xl font-black tracking-tight text-foreground">
               Financial Intelligence Dashboard
             </h1>
             <p className="text-xs text-muted-foreground">
-              Consolidated financial run-rate, cash flow dynamics, liquidity ratios, and real-time ledger intelligence.
+              Revenue, expenses, cash balances, and ratios calculated from this workspace’s posted journal entries.
             </p>
           </div>
 
@@ -439,15 +431,17 @@ export default function FinanceSummaryPage() {
               const variant = getMetricVariant(w.change, w.reverse);
               const rightContent = (
                 <div className="flex flex-col items-end gap-1">
-                  <span className={cn(
-                    "flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border rounded-none",
-                    variant.bg,
-                    variant.color,
-                    "border-border/20"
-                  )}>
-                    <variant.icon className="h-3 w-3" />
-                    {Math.abs(w.change).toFixed(1)}%
-                  </span>
+                  {variant && (
+                    <span className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border rounded-none",
+                      variant.bg,
+                      variant.color,
+                      "border-border/20"
+                    )}>
+                      <variant.icon className="h-3 w-3" />
+                      {Math.abs(w.change!).toFixed(1)}%
+                    </span>
+                  )}
                   <span className="text-[9px] text-muted-foreground uppercase tracking-widest">
                     {w.badgeLabel}
                   </span>
@@ -488,7 +482,7 @@ export default function FinanceSummaryPage() {
                 Consolidated Financial Velocity & Timeline Analytics
               </div>
               <div className="text-xs text-muted-foreground">
-                Interactive 2-year run-rate, monthly brick throughput, and OpEx allocation charts.
+                Posted ledger trends and expense allocation for the last 12 months.
               </div>
             </div>
           </div>
@@ -538,7 +532,7 @@ export default function FinanceSummaryPage() {
             >
               <div className="flex justify-between items-start">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  Net Working Capital
+                  Receivables Less Payables
                 </span>
                 <span
                   className="w-2.5 h-2.5 rounded-full"
@@ -553,7 +547,7 @@ export default function FinanceSummaryPage() {
                   Receivables less Payables
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                  Solvent
+                  {(summary?.matrices?.workingCapital ?? 0) >= 0 ? "Positive" : "Negative"}
                 </span>
               </div>
             </Card>
@@ -632,7 +626,7 @@ export default function FinanceSummaryPage() {
             >
               <div className="flex justify-between items-start">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  Operating Profit Margin
+                  Net Profit Margin
                 </span>
                 <span
                   className="w-2.5 h-2.5 rounded-full"
@@ -644,7 +638,7 @@ export default function FinanceSummaryPage() {
               </div>
               <div className="flex items-center justify-between mt-2 text-xs">
                 <span className="text-[11px] text-muted-foreground">
-                  EBITDA: {formatCompactCurrency(summary?.matrices?.ebitda)}
+                  Net income: {formatCompactCurrency(summary?.matrices?.netIncome)}
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
                   {summary?.matrices?.profitStatus === "available" ? (Number(summary.matrices.operatingMargin) >= 0 ? "Profitable" : "Loss-making") : "Insufficient data"}

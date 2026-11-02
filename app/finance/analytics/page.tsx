@@ -31,18 +31,21 @@ export default function FinanceAnalyticsPage() {
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [data, setData] = useState<any>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const fetchAnalytics = useCallback(async () => {
+  const fetchAnalytics = useCallback(async (forceFresh = false) => {
+    setIsLoading(true);
+    setLoadError(null);
     try {
-      const res = await cachedFetch("/api/finance/summary");
-      if (res.ok) {
-        const json = await res.json();
-        if (json?.summary) {
-          setData(json.summary);
-        }
-      }
+      const url = forceFresh ? "/api/finance/summary?fresh=true" : "/api/finance/summary";
+      const res = await cachedFetch(url, forceFresh ? { cache: "no-store" } : undefined, forceFresh ? { force: true } : undefined);
+      if (!res.ok) throw new Error(`Finance summary returned ${res.status}`);
+      const json = await res.json();
+      if (!json?.summary) throw new Error("Finance summary response is incomplete");
+      setData(json.summary);
     } catch (err) {
       console.error("Error fetching finance analytics:", err);
+      setLoadError("Unable to load financial analytics. Please refresh to try again.");
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +90,7 @@ export default function FinanceAnalyticsPage() {
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth" })}
-      onRefresh={fetchAnalytics}
+      onRefresh={() => fetchAnalytics(true)}
       profilePath="/finance/profile"
     >
       <div className="space-y-6 font-mono min-w-0 max-w-full p-4 sm:p-6 lg:p-8">
@@ -99,14 +102,14 @@ export default function FinanceAnalyticsPage() {
                 Visual Analytics
               </span>
               <span className="px-2 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                2-Year Historical Run-Rate
+                12-Month Ledger Data
               </span>
             </div>
             <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words leading-none">
               Financial Analytics
             </h1>
             <p className="text-xs text-muted-foreground">
-              Deep continuous ledger velocity, periodic brick distribution, and capital allocation visualizations.
+              Charts use posted ledger activity and recorded expense accounts for this workspace.
             </p>
           </div>
 
@@ -123,7 +126,7 @@ export default function FinanceAnalyticsPage() {
               </Link>
             </Button>
             <Button
-              onClick={fetchAnalytics}
+              onClick={() => fetchAnalytics(true)}
               variant="outline"
               size="sm"
               className="text-xs font-mono h-9 gap-1.5 border-border/60 px-3"
@@ -141,11 +144,11 @@ export default function FinanceAnalyticsPage() {
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                 <h2 className="text-base sm:text-lg font-bold tracking-tight uppercase">
-                  Consolidated Financial Velocity & Runway (2-Year Interactive Timeline)
+                  Posted Cash Flow (12-Month Interactive Timeline)
                 </h2>
               </div>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Interactive historical timeline with mouse-wheel zoom, drag-to-pan, and timeframe presets.
+                Posted cash inflows over the last 12 months, with mouse-wheel zoom and drag-to-pan.
               </p>
             </div>
           </div>
@@ -157,17 +160,23 @@ export default function FinanceAnalyticsPage() {
             )}
           >
             <CardContent className="p-0">
-              <TradingLineChart
-                title="CONSOLIDATED FINANCIAL RUN-RATE & CASH VELOCITY (2-YEAR TIMELINE)"
-                metricLabel="Financial Inflow"
-                currencyPrefix="₹"
-                colorTheme="violet"
-                isDark={isDark}
-                height={420}
-                data={data?.revenueTimeline}
-                valueKey="value"
-                dateKey="date"
-              />
+              {loadError ? (
+                <div role="alert" className="flex h-[420px] items-center justify-center text-sm text-destructive">{loadError}</div>
+              ) : isLoading && !data ? (
+                <div className="flex h-[420px] items-center justify-center text-sm text-muted-foreground">Loading posted ledger data…</div>
+              ) : (
+                <TradingLineChart
+                  title="POSTED CASH INFLOW (12-MONTH TIMELINE)"
+                  metricLabel="Cash Inflow"
+                  currencyPrefix="₹"
+                  colorTheme="violet"
+                  isDark={isDark}
+                  height={420}
+                  data={data?.revenueTimeline || []}
+                  valueKey="value"
+                  dateKey="date"
+                />
+              )}
             </CardContent>
           </Card>
         </div>
@@ -192,7 +201,7 @@ export default function FinanceAnalyticsPage() {
                       </CardTitle>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Solid bars visualizing periodic billing intake and cash realization.
+                      Monthly revenue totals from posted journal entries.
                     </p>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
@@ -201,17 +210,23 @@ export default function FinanceAnalyticsPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-4 flex-1">
-                <DailyBrickBarChart
+                {loadError ? (
+                  <div role="alert" className="flex h-[320px] items-center justify-center text-sm text-destructive">{loadError}</div>
+                ) : isLoading && !data ? (
+                  <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">Loading posted ledger data…</div>
+                ) : (
+                  <DailyBrickBarChart
                   metricLabel="Monthly Net Revenue"
                   valueKey="value"
                   dateKey="date"
                   colorTheme="violet"
                   isDark={isDark}
                   height={320}
-                  data={data?.monthlyPerformance}
+                  data={data?.monthlyPerformance || []}
                   yAxisFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
                   tooltipValueFormatter={(v) => formatCurrency(v)}
-                />
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -243,7 +258,11 @@ export default function FinanceAnalyticsPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-4 flex-1 flex flex-col justify-center items-center min-h-[320px]">
-                {data?.expenseBreakdown && data.expenseBreakdown.length > 0 ? (
+                {loadError ? (
+                  <div role="alert" className="text-center py-12 text-xs text-destructive">{loadError}</div>
+                ) : isLoading && !data ? (
+                  <div className="text-center py-12 text-xs text-muted-foreground">Loading recorded expense data…</div>
+                ) : data?.expenseBreakdown && data.expenseBreakdown.length > 0 ? (
                   <CanvasPieChart
                     data={data.expenseBreakdown}
                     nameKey="name"

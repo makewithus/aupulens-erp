@@ -168,6 +168,43 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   const oldStage = opp.stage;
   let stageTransition: { from: string; to: string; at: Date } | null = null;
 
+  // The list checkbox is a Closed Won toggle, not a stage selector. Resolve
+  // reopening from persisted history here so every client gets the same,
+  // tenant-authoritative prior stage.
+  if (typeof body.closedWon === 'boolean') {
+    if (body.closedWon) {
+      body.stage = 'Closed Won';
+    } else if (opp.stage === 'Closed Won') {
+      const history = Array.isArray(opp.stage_history) ? opp.stage_history : [];
+      // Older seeded opportunities did not have stage_history. Their
+      // immutable transition audit still records the stage they had when
+      // marked won, so use that to repair the restore target as well.
+      const firstClosedWonTransition = await CrmAuditLog.findOne({
+        tenantId: session.user.tenantId,
+        record_type: 'Opportunity',
+        record_id: opp._id,
+        field_name: 'stage',
+        new_value: 'Closed Won',
+      }).sort({ timestamp: 1 }).lean();
+      const auditedPriorStage = firstClosedWonTransition?.old_value;
+      const priorOpenStage = (auditedPriorStage && auditedPriorStage !== 'Closed Won' && auditedPriorStage !== 'Closed Lost'
+        ? auditedPriorStage
+        : undefined) || [...history].reverse()
+        .find((entry: any) => entry.stage !== 'Closed Won' && entry.stage !== 'Closed Lost')?.stage;
+      if (!priorOpenStage) {
+        return NextResponse.json({
+          success: false,
+          message: 'This opportunity has no saved open stage to restore. Update its stage from the opportunity details first.',
+        }, { status: 409 });
+      }
+      body.stage = priorOpenStage;
+    } else {
+      // An unchecked opportunity has nothing to reopen; avoid turning a
+      // repeated/stale uncheck into an unrelated stage change.
+      delete body.stage;
+    }
+  }
+
   if (body.stage && body.stage !== oldStage) {
     const { valid, message } = await validateOpportunityStage(opp, body.stage);
     if (!valid) return NextResponse.json({ success: false, message: message }, { status: 422 });
@@ -186,6 +223,14 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     );
     const transitionAt = new Date();
     stageTransition = { from: oldStage, to: body.stage, at: transitionAt };
+    // Seed the transition's source stage when legacy/demo data has no history
+    // (or history does not end at the persisted stage). Otherwise reopening a
+    // newly closed seeded Negotiation deal would lose its actual prior stage.
+    if (!history.length) {
+      history.push({ stage: oldStage, entered_at: (opp as any).stage_entered_at || transitionAt });
+    } else if (history[history.length - 1]?.stage !== oldStage) {
+      history.push({ stage: oldStage, entered_at: (opp as any).stage_entered_at || transitionAt });
+    }
     if (history[history.length - 1]?.stage !== body.stage) {
       if (history.length > 0) history[history.length - 1].exited_at = transitionAt;
       history.push({ stage: body.stage, entered_at: transitionAt });

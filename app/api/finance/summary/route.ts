@@ -1,5 +1,5 @@
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/accounting/reports";
 import { getCachedData, setCachedData } from "@/lib/api/serverCache";
 
-export async function GET() {
+export async function GET(request?: NextRequest) {
   try {
     const session = await auth();
     if (
@@ -29,9 +29,12 @@ export async function GET() {
     const tenantId = (session.user as any).tenantId;
 
     const cacheKey = `finance_summary:${tenantId}`;
-    const cached = getCachedData<any>(cacheKey);
-    if (cached) {
-      return NextResponse.json(cached);
+    const forceFresh = request?.nextUrl.searchParams.get("fresh") === "true";
+    if (!forceFresh) {
+      const cached = getCachedData<any>(cacheKey);
+      if (cached) {
+        return NextResponse.json(cached);
+      }
     }
 
     // Time ranges for tracking both authoritative all-time financial ledger metrics
@@ -46,6 +49,8 @@ export async function GET() {
 
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
+    const sixMonthStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
     const [
       allTimeJournalReport,
       currentJournalReport,
@@ -57,6 +62,7 @@ export async function GET() {
       payableAging,
       monthlySeries,
       dailyCashSeries,
+      sixMonthJournalReport,
     ] = await Promise.all([
       buildPostedJournalReport({
         tenantId,
@@ -101,6 +107,10 @@ export async function GET() {
         tenantId,
         startDate: twelveMonthsAgo,
         groupBy: "day",
+      }),
+      buildPostedJournalReport({
+        tenantId,
+        startDate: sixMonthStart,
       }),
     ]);
 
@@ -212,18 +222,12 @@ export async function GET() {
       .reduce((s: number, a: any) => s + (a.amount || 0), 0) + payables.total;
 
     const workingCapital = Math.round(receivables.total - payables.total);
-    const currentRatio =
-      totalCurrentLiabilities > 0
-        ? Number((totalCurrentAssets / totalCurrentLiabilities).toFixed(2))
-        : payables.total > 0
-          ? Number((receivables.total / payables.total).toFixed(2))
-          : null;
-    const quickRatio =
-      totalCurrentLiabilities > 0
-        ? Number(((effectiveCash + receivables.total) / totalCurrentLiabilities).toFixed(2))
-        : payables.total > 0
-          ? Number(((effectiveCash + receivables.total) / payables.total).toFixed(2))
-          : null;
+    const currentRatio = totalCurrentLiabilities > 0
+      ? Number((totalCurrentAssets / totalCurrentLiabilities).toFixed(2))
+      : null;
+    const quickRatio = totalCurrentLiabilities > 0
+      ? Number(((effectiveCash + receivables.total) / totalCurrentLiabilities).toFixed(2))
+      : null;
     const hasRecordedCosts = allTimeExpenses > 0;
     const profitAvailable = allTimeRevenue > 0 && hasRecordedCosts;
     const profitMargin = profitAvailable
@@ -248,7 +252,8 @@ export async function GET() {
       allTimeExpenses > 0
         ? Number((allTimeExpenses / (payables.total || 1)).toFixed(2))
         : 0;
-    const monthlyBurn = allTimeExpenses > 0 ? Math.round(allTimeExpenses / 6) : 0;
+    const sixMonthExpenses = sixMonthJournalReport.expense.total;
+    const monthlyBurn = sixMonthExpenses > 0 ? Math.round(sixMonthExpenses / 6) : 0;
     const runwayAvailable = monthlyBurn > 0 && effectiveCash > 0;
     const cashRunway = runwayAvailable ? Number((effectiveCash / monthlyBurn).toFixed(1)) : null;
     const cashRunwayStatus = runwayAvailable ? "available" : "unavailable";
@@ -259,8 +264,13 @@ export async function GET() {
             ? "Insufficient historical expense burn to calculate runway"
             : "No liquid cash reserves available")
       : undefined;
-    const ebitda = profitAvailable ? allTimeNetIncome : null;
-    const operatingMargin = profitMargin;
+    const ebitda = null;
+    const netIncome = profitAvailable ? allTimeNetIncome : null;
+    const statementRevenue = allTimeJournalReport.statementSummary?.revenue || 0;
+    const statementOperatingIncome = allTimeJournalReport.statementSummary?.operatingIncome || 0;
+    const operatingMargin = profitAvailable && statementRevenue > 0
+      ? Number(((statementOperatingIncome / statementRevenue) * 100).toFixed(1))
+      : null;
 
 
     // Authentic Expense Breakdown from posted ledger accounts
@@ -300,19 +310,19 @@ export async function GET() {
         revenue: {
           current: allTimeRevenue,
           previous: prevRevenue,
-          monthToDate: m30Revenue,
+          last30Days: m30Revenue,
           change: calcChange(m30Revenue, prevRevenue),
         },
         expenses: {
           current: allTimeExpenses,
           previous: prevExpenses,
-          monthToDate: m30Expenses,
+          last30Days: m30Expenses,
           change: calcChange(m30Expenses, prevExpenses),
         },
         netIncome: {
           current: allTimeNetIncome,
           previous: prevNetIncome,
-          monthToDate: m30NetIncome,
+          last30Days: m30NetIncome,
           change: calcChange(m30NetIncome, prevNetIncome),
         },
         cashFlow: {
@@ -334,6 +344,7 @@ export async function GET() {
           cashRunwayStatus,
           cashRunwayReason,
           ebitda,
+          netIncome,
           avgCollectionPeriod,
           payablesTurnover,
           effectiveCash,

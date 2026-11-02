@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/store/themeStore";
 
@@ -950,10 +951,7 @@ export function CanvasPieChart({
       </div>`;
 
       tooltip.style.display = "block";
-      const tipWidth = tooltip.offsetWidth || 140;
-      const tipX = mx + 16;
-      tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
-      tooltip.style.top = Math.max(10, my - 50) + "px";
+      positionTooltip(tooltip, e.clientX, e.clientY);
       draw(matchedIdx);
     };
 
@@ -1025,10 +1023,7 @@ export function CanvasPieChart({
       </div>`;
 
       tooltip.style.display = "block";
-      const tipWidth = tooltip.offsetWidth || 140;
-      const tipX = mx + 16;
-      tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
-      tooltip.style.top = Math.max(10, my - 50) + "px";
+      positionTooltip(tooltip, touch.clientX, touch.clientY);
       draw(matchedIdx);
     };
 
@@ -1091,6 +1086,22 @@ export function CanvasPieChart({
 
   const totalVal = data ? data.reduce((sum, item) => sum + (Number(item[valueKey]) || 0), 0) : 0;
 
+  function positionTooltip(tooltip: HTMLDivElement, clientX: number, clientY: number) {
+    const margin = 12;
+    const gap = 14;
+    const width = tooltip.offsetWidth;
+    const height = tooltip.offsetHeight;
+    const left = clientX + gap + width <= window.innerWidth - margin
+      ? clientX + gap
+      : Math.max(margin, clientX - width - gap);
+    const top = Math.min(
+      Math.max(margin, clientY - height - gap),
+      window.innerHeight - height - margin,
+    );
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
+
   return (
     <div className="w-full flex flex-col items-center chart-animate-in">
       <div
@@ -1099,16 +1110,20 @@ export function CanvasPieChart({
         className="w-full relative"
       >
         <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
+      </div>
+
+      {typeof document !== "undefined" && createPortal(
         <div
           ref={tooltipRef}
           className={cn(
-            "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-md",
+            "fixed pointer-events-none hidden z-[10000] w-max max-w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border px-3.5 py-3 font-sans text-sm shadow-2xl backdrop-blur-xl",
             isDark
-              ? "bg-[#161616]/95 border-[#272727] text-white shadow-2xl"
-              : "bg-white/95 border-slate-300 text-slate-900 shadow-xl"
+              ? "bg-zinc-950/95 border-zinc-700 text-zinc-50 shadow-black/50"
+              : "bg-white/95 border-slate-200 text-slate-900 shadow-slate-900/20"
           )}
-        ></div>
-      </div>
+        />,
+        document.body,
+      )}
 
       {showLegend && data && data.length > 0 && (
         <div className="mt-3 w-full flex flex-col gap-1.5 font-mono text-xs">
