@@ -113,6 +113,26 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async redirects() {
+    return [
+      {
+        source: "/globaladmin",
+        destination: "/platform/waitlist",
+        permanent: false,
+      },
+      {
+        source: "/globaladmin/waitlist",
+        destination: "/platform/waitlist",
+        permanent: false,
+      },
+      {
+        source: "/globaladmin/:path*",
+        destination: "/platform/:path*",
+        permanent: false,
+      },
+    ];
+  },
+
   async rewrites() {
     return [
       {

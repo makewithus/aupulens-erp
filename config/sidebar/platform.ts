@@ -1,4 +1,4 @@
-import { Activity, Building2, CreditCard, KeyRound, LayoutDashboard, MonitorSmartphone, ScrollText, Search, Settings, Shield, ShieldAlert, Users, LucideIcon } from "lucide-react";
+import { Activity, Building2, ClipboardList, CreditCard, KeyRound, LayoutDashboard, MonitorSmartphone, ScrollText, Search, Settings, Shield, ShieldAlert, Users, LucideIcon } from "lucide-react";
 
 export interface PlatformSidebarItem {
   title: string;
@@ -25,6 +25,10 @@ export const platformSidebarConfig: PlatformSidebarSection[] = [
       { title: "Dashboard", href: "/platform", icon: LayoutDashboard },
       { title: "Search", href: "/platform/search", icon: Search },
     ],
+  },
+  {
+    title: "Waitlist",
+    items: [{ title: "Waitlist", href: "/platform/waitlist", icon: ClipboardList }],
   },
   {
     title: "Organisations",

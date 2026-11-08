@@ -41,3 +41,4 @@ import "@/models/sales/Customer";
 import "@/models/inventory/Product";
 import "@/models/hr/Employee";
 import "@/models/hr/Department";
+import "@/models/platform/Waitlist";

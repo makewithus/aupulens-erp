@@ -2519,3 +2519,16 @@ export const PLATFORM_SEVERITY_COLORS: Record<
   },
 };
 
+// ============================================================
+//  WAITLIST / PROSPECTS (Landing page waitlist & demo requests)
+// ============================================================
+export const WAITLIST_STATUS = {
+  NEW: "New",
+  CONTACTED: "Contacted",
+  APPROVED: "Approved",
+  ONBOARDED: "Onboarded",
+  REJECTED: "Rejected",
+} as const;
+export const WAITLIST_STATUS_VALUES = Object.values(WAITLIST_STATUS);
+export type WaitlistStatus = (typeof WAITLIST_STATUS)[keyof typeof WAITLIST_STATUS];
+

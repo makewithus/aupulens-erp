@@ -5,6 +5,7 @@ export interface EmailMessage {
   subject: string;
   body: string;
   html?: string;
+  replyTo?: string;
 }
 
 export interface EmailSendResult {
@@ -23,21 +24,31 @@ class NodemailerEmailService implements EmailService {
   async init() {
     if (this.transporter) return;
     
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
-    const smtpHost = process.env.SMTP_HOST || (smtpUser?.includes("@gmail.com") ? "smtp.gmail.com" : "");
+    const smtpUser = process.env.SMTP_USER?.trim();
+    const smtpPass = (process.env.SMTP_PASS || process.env.SMTP_PASSWORD || "").replace(/\s+/g, "");
+    const smtpHost = process.env.SMTP_HOST?.trim() || (smtpUser?.includes("@gmail.com") ? "smtp.gmail.com" : "");
     const smtpPort = Number(process.env.SMTP_PORT) || 587;
 
-    if (smtpHost && smtpUser && smtpPass) {
-      this.transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpPort === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-      });
+    if (smtpUser && smtpPass) {
+      if (smtpUser.includes("@gmail.com") && !process.env.SMTP_HOST) {
+        this.transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+        });
+      } else if (smtpHost) {
+        this.transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpPort === 465,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+        });
+      }
     } else {
       throw new Error("SMTP is not configured.");
     }
@@ -46,20 +57,24 @@ class NodemailerEmailService implements EmailService {
   async send(message: EmailMessage): Promise<EmailSendResult> {
     try {
       await this.init();
+      const smtpUser = process.env.SMTP_USER;
+      const fromAddress = process.env.SMTP_FROM || (smtpUser ? `"Aupulens" <${smtpUser}>` : '"Aupulens" <contact@aupulens.com>');
       const info = await this.transporter!.sendMail({
-        from: '"Aupulens ERP" <noreply@aupulens.online>',
+        from: fromAddress,
         to: message.to,
         subject: message.subject,
         text: message.body,
         ...(message.html && { html: message.html }),
+        ...(message.replyTo && { replyTo: message.replyTo }),
       });
 
       return { success: true, provider: "smtp", message: "Email sent successfully" };
-    } catch {
+    } catch (error: any) {
+      console.error("[email] Delivery failure:", error?.message || error);
       return {
         success: false,
         provider: "smtp",
-        message: this.transporter ? "Email delivery failed." : "Email delivery is not configured.",
+        message: error?.message || (this.transporter ? "Email delivery failed." : "Email delivery is not configured."),
       };
     }
   }

@@ -40,6 +40,7 @@ export const RATE_LIMIT_RULES: RateLimitRule[] = [
   { pattern: "/api/tax/hsn-sac-lookup", limit: 20, windowMs: 60_000 },
   { pattern: "/api/crm/accounts", limit: 60, windowMs: 60_000 },
   { pattern: "/api/finance/assets/compute", limit: 20, windowMs: 60_000 },
+  { pattern: "/api/public/waitlist", limit: 15, windowMs: 60_000 },
   { pattern: "/ai-assistant", isSuffix: true, limit: 20, windowMs: 60_000 },
 ];
 

@@ -188,7 +188,12 @@ export default auth(async (req) => {
 
   // Recovery endpoints must remain reachable with an expired tenant cookie.
   // Platform sessions are independent of tenant sessions.
-  const isPlatformRoute = pathname === "/platform" || pathname.startsWith("/platform/") || isPlatformApi;
+  const isPlatformRoute =
+    pathname === "/platform" ||
+    pathname.startsWith("/platform/") ||
+    pathname === "/globaladmin" ||
+    pathname.startsWith("/globaladmin/") ||
+    isPlatformApi;
   if (isStaleTenantSession && !isAuthApi && !isPlatformRoute) {
     if (pathname.startsWith("/auth") || pathname.startsWith("/onboarding")) {
       return clearTenantAuthCookies(NextResponse.next({ request: { headers: requestHeaders } }));
@@ -345,7 +350,11 @@ export default auth(async (req) => {
   // handler (Node runtime), matching this repo's existing convention that
   // every protected surface self-checks auth rather than trusting
   // middleware alone.
-  if (pathname.startsWith("/platform") || pathname.startsWith("/api/platform")) {
+  if (
+    pathname.startsWith("/platform") ||
+    pathname.startsWith("/api/platform") ||
+    pathname.startsWith("/globaladmin")
+  ) {
     // The login/MFA pages and their APIs must stay reachable while signed out.
     const isPlatformAuthPath =
       pathname.startsWith("/platform/login") || pathname.startsWith("/api/platform/auth");
