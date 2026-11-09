@@ -28,8 +28,11 @@ export async function GET(request: Request) {
       }
     }
 
-    const accountTypes = await AccountType.find({ tenantId }).sort({ segment: 1, name: 1 });
-    return NextResponse.json({ accountTypes });
+    const accountTypes = await AccountType.find({ tenantId }).sort({ segment: 1, name: 1 }).lean();
+    return NextResponse.json(
+      { accountTypes },
+      { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } },
+    );
   } catch (error) {
     console.error("AccountType GET Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -19,8 +19,9 @@ if (!globalThis.mongoose) {
 const connectionOptions = {
   bufferCommands: false,
   // Keep the pool modest for local development and serverless invocations.
-  maxPoolSize: Number(process.env.MONGODB_MAX_POOL_SIZE) || 20,
-  minPoolSize: Number(process.env.MONGODB_MIN_POOL_SIZE) || 2,
+  // In serverless environments, minPoolSize should be 0 to avoid holding idle sockets.
+  maxPoolSize: Number(process.env.MONGODB_MAX_POOL_SIZE) || (process.env.VERCEL ? 10 : 20),
+  minPoolSize: Number(process.env.MONGODB_MIN_POOL_SIZE) || 0,
   serverSelectionTimeoutMS: 15_000,
   connectTimeoutMS: 15_000,
   socketTimeoutMS: 45_000,
@@ -84,9 +85,11 @@ if (!globalThis._mongoListenersAttached) {
   });
 }
 
-async function connectDB() {
-  await ensureModelsRegistered();
-
+/**
+ * Connects to MongoDB without eagerly importing or compiling the 35+ Mongoose models.
+ * Used for lightweight endpoints (e.g. waitlist, health checks, rate limiting).
+ */
+export async function connectBaseDB(): Promise<typeof mongoose> {
   if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }
@@ -109,6 +112,14 @@ async function connectDB() {
   }
 
   return cached.conn;
+}
+
+/**
+ * Standard database connection helper that ensures all registered models are compiled.
+ */
+async function connectDB(): Promise<typeof mongoose> {
+  await ensureModelsRegistered();
+  return connectBaseDB();
 }
 
 export default connectDB;

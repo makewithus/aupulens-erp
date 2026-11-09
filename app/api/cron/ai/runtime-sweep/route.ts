@@ -23,7 +23,7 @@ async function handler(req: NextRequest) {
   }
 
   bootstrapAiRuntime();
-  const result = await sweepPendingEvents();
+  const result = await sweepPendingEvents(50, 45000);
 
   // Continuous-sweep trigger (docs/ai/BRIEF-02-BATCH-A.md B.2) — for workflows like AI-03
   // that must re-check state even when nothing new was imported (e.g. an ageing unmatched

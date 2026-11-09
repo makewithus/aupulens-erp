@@ -158,15 +158,6 @@ export async function getAdminActorFromRequest(request: Request): Promise<AdminA
     ip: forwardedFor?.split(",")[0]?.trim(),
     userAgent: request.headers.get("user-agent") ?? undefined,
   });
-  // Phase 10 Part 0.3 item 3: fire-and-forget only, on the platform surface
-  // only — every /api/platform/** route calls this function, and no
-  // tenant-facing route does. Never awaited, so it can never add latency to
-  // (or fail) this request. See lib/platform/scheduler/opportunistic.ts.
-  if (actor) {
-    import("@/lib/platform/scheduler/opportunistic")
-      .then((m) => m.maybeTriggerOpportunisticRun())
-      .catch(() => {});
-  }
   return actor;
 }
 

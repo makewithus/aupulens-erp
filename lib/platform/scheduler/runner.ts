@@ -182,9 +182,10 @@ async function runOneJob(
 /** Part 0.3 item 5: a PlatformAlert when a job is overdue past
  *  OVERDUE_ALERT_MULTIPLIER × its own interval. Deduped like every other
  *  alert condition (lib/platform/alerts/conditions.ts) — one standing
- *  alert per job, auto-resolved once it runs again. */
-async function raiseStaleAlerts(): Promise<void> {
-  const statuses = await getJobStatuses();
+ *  alert per job, auto-resolved once it runs again.
+ *  Accepts existingStatuses to eliminate redundant DB lookups. */
+async function raiseStaleAlerts(existingStatuses?: JobStatus[]): Promise<void> {
+  const statuses = existingStatuses ?? await getJobStatuses();
   for (const status of statuses) {
     const dedupeKey = `scheduler-stale:${status.jobId}`;
     if (status.isStale) {
@@ -236,7 +237,7 @@ export async function runDueJobs(
     }
   }
 
-  await raiseStaleAlerts();
+  await raiseStaleAlerts(statuses);
   await checkSystemErrorSpike().catch(() => undefined); // never let an alert check fail the scheduler run itself
 
   return { ran, skipped, failed };

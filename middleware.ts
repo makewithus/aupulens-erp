@@ -504,14 +504,17 @@ export default auth(async (req) => {
   // Subscription/trial enforcement + tier/module gating share one cached
   // org-data fetch. Applied after role checks so it only ever narrows access
   // a role check already granted, never widens it.
+  // PHASE 2 OPTIMIZATION: If orgModuleData is embedded in the NextAuth JWT session,
+  // use it directly, completely bypassing the /api/internal/org-tier network hop.
   const userTenantIdForOrgCheck = (user as any)?.tenantId as string | undefined;
   const needsOrgCheck =
     !!user &&
     !!userTenantIdForOrgCheck &&
     user.role !== "master-admin" &&
     !isPathAllowlisted(pathname);
+  const userOrgModuleData = (user as any)?.orgModuleData as OrgModuleInfo | undefined;
   const orgData = needsOrgCheck
-    ? await getOrgModuleData(userTenantIdForOrgCheck, req.nextUrl.origin)
+    ? (userOrgModuleData ?? await getOrgModuleData(userTenantIdForOrgCheck, req.nextUrl.origin))
     : null;
 
   if (orgData && isSubscriptionBlocked(orgData)) {
@@ -554,6 +557,7 @@ export const config = {
     "/hr/:path*",
     "/master-admin/:path*",
     "/platform/:path*",
-    "/((?!api/auth|_next/static|_next/image|favicon.ico).*)",
+    // Exclude static assets and next internal assets to eliminate avoidable Edge invocations
+    "/((?!api/auth|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|txt|xml|json|map)$).*)",
   ],
 };

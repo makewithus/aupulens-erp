@@ -24,7 +24,10 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .lean();
 
-  return NextResponse.json({ success: true, data: rules });
+  return NextResponse.json(
+    { success: true, data: rules },
+    { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } },
+  );
 }
 
 export async function POST(req: NextRequest) {

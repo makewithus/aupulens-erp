@@ -69,7 +69,10 @@ export async function GET(req: NextRequest) {
       employeeCount: countMap[d._id.toString()] || 0,
     }));
 
-    return NextResponse.json({ items: enriched });
+    return NextResponse.json(
+      { items: enriched },
+      { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } },
+    );
   } catch (error: any) {
     return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
   }

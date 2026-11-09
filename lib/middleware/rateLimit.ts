@@ -107,8 +107,66 @@ export class HttpRateLimitStore implements RateLimitStore {
   }
 }
 
+export class UpstashRedisRateLimitStore implements RateLimitStore {
+  constructor(private url: string, private token: string) {}
+
+  async increment(key: string, windowMs: number): Promise<RateLimitResult> {
+    const redisKey = `rl:${key}`;
+    const cleanUrl = this.url.replace(/\/+$/, "");
+    const response = await fetch(`${cleanUrl}/pipeline`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([
+        ["INCR", redisKey],
+        ["PTTL", redisKey],
+      ]),
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    });
+
+    if (!response.ok) throw new Error("Upstash Redis rate limit backend unavailable");
+    const data = await response.json();
+    const count = Number(data[0]?.result ?? 1);
+    let pttl = Number(data[1]?.result ?? -1);
+
+    if (pttl <= 0) {
+      await fetch(`${cleanUrl}/pexpire/${encodeURIComponent(redisKey)}/${windowMs}`, {
+        headers: { Authorization: `Bearer ${this.token}` },
+        cache: "no-store",
+      }).catch(() => {});
+      pttl = windowMs;
+    }
+
+    const resetAt = Date.now() + pttl;
+    return {
+      allowed: true,
+      count,
+      remaining: Math.max(0, 0),
+      resetAt,
+    };
+  }
+
+  async reset(key?: string): Promise<void> {
+    if (!key) return;
+    const cleanUrl = this.url.replace(/\/+$/, "");
+    await fetch(`${cleanUrl}/del/${encodeURIComponent(`rl:${key}`)}`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+      cache: "no-store",
+    }).catch(() => {});
+  }
+}
+
 function configuredStore(): RateLimitStore {
   if (activeStore) return activeStore;
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return new UpstashRedisRateLimitStore(
+      process.env.UPSTASH_REDIS_REST_URL,
+      process.env.UPSTASH_REDIS_REST_TOKEN,
+    );
+  }
   if (process.env.RATE_LIMIT_STORE === "mongo") {
     const endpoint = process.env.RATE_LIMIT_INTERNAL_URL;
     const secret = process.env.MIDDLEWARE_INTERNAL_SECRET;

@@ -27,8 +27,11 @@ export async function GET(request: Request) {
     if (country && country !== "All") query.country = country;
     if (state && state !== "All") query.state = state;
 
-    const accountants = await Accountant.find(query).sort({ name: 1 });
-    return NextResponse.json({ accountants });
+    const accountants = await Accountant.find(query).sort({ name: 1 }).lean();
+    return NextResponse.json(
+      { accountants },
+      { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } },
+    );
   } catch (error) {
     console.error("Accountant GET Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
