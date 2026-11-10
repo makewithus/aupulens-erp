@@ -226,9 +226,9 @@ export default function PricelistPage() {
                 </p>
               </div>
 
-              <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+              <div className="w-full lg:w-auto flex flex-col gap-3 lg:flex-row lg:flex-wrap xl:flex-nowrap lg:items-center lg:justify-end">
                 {/* Search input */}
-                <div className="w-full max-w-sm">
+                <div className="w-full max-w-sm xl:w-72 xl:shrink-0">
                   <SearchInput
                     value={query}
                     onChange={setQuery}

@@ -781,6 +781,10 @@ export function CanvasPieChart({
   useEffect(() => {
     setLegendPage(1);
   }, [data]);
+  // The tooltip portal must not exist during hydration: the server never renders it, so rendering it on the
+  // first client pass changes the child list and forces React to discard the server HTML.
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1082,7 +1086,7 @@ export function CanvasPieChart({
       window.removeEventListener("resize", resize);
       ro.disconnect();
     };
-  }, [data, palette, nameKey, valueKey, isDark]);
+  }, [data, palette, nameKey, valueKey, isDark, portalReady]);
 
   const totalVal = data ? data.reduce((sum, item) => sum + (Number(item[valueKey]) || 0), 0) : 0;
 
@@ -1112,7 +1116,7 @@ export function CanvasPieChart({
         <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
       </div>
 
-      {typeof document !== "undefined" && createPortal(
+      {portalReady && createPortal(
         <div
           ref={tooltipRef}
           className={cn(
