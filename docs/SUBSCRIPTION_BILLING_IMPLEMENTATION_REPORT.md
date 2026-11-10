@@ -10,7 +10,7 @@ This is the implementation record for the subscription and billing remediation b
 
 - Branch: `main`; existing worktree changes from the prior audit were present and are being preserved.
 - Billing DB tests use an opt-in disposable loopback MongoDB replica-set port, unique per-run databases, and a guard before fixture writes. The hosted Atlas database is excluded from tests.
-- Current implementation, test, and acceptance evidence is inventoried in `SUBSCRIPTION_BILLING_ACCEPTANCE_MATRIX.md` and `SUBSCRIPTION_BILLING_E2E_REPORT.md`.
+- Current implementation, test, and acceptance evidence is inventoried in `AUPULENS_SUBSCRIPTION_BILLING_ACCEPTANCE_REPORT.md` and `SUBSCRIPTION_BILLING_E2E_REPORT.md`.
 
 ## Implementation plan
 
