@@ -14,6 +14,7 @@
  */
 
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 
 export interface ParsedSource {
   columns: string[];
@@ -42,26 +43,39 @@ function deriveColumns(rows: Record<string, unknown>[]): string[] {
 }
 
 function parseSpreadsheet(buffer: Buffer): ParsedSource {
-  const workbook = xlsx.read(buffer, { type: "buffer", cellDates: true });
+  const workbook = safeReadSpreadsheet(buffer, {
+    maxSizeBytes: 25 * 1024 * 1024,
+    maxUncompressedBytes: 100 * 1024 * 1024,
+    cellDates: true,
+  });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!worksheet) return { columns: [], rows: [] };
-  const rows = xlsx.utils.sheet_to_json(worksheet, {
+  const rows = safeSheetToJson<Record<string, unknown>>(worksheet, {
+    maxRows: 50000,
+    maxCols: 200,
     raw: true,
     defval: "",
-  }) as Record<string, unknown>[];
+  });
   const normalizedRows = normalizeRows(rows);
   return { columns: deriveColumns(normalizedRows), rows: normalizedRows };
 }
 
 export function parseSpreadsheetSheets(buffer: Buffer): { sheetName: string; parsed: ParsedSource }[] {
-  const workbook = xlsx.read(buffer, { type: "buffer", cellDates: true });
+  const workbook = safeReadSpreadsheet(buffer, {
+    maxSizeBytes: 25 * 1024 * 1024,
+    maxUncompressedBytes: 100 * 1024 * 1024,
+    maxSheets: 50,
+    cellDates: true,
+  });
   return workbook.SheetNames.map((sheetName) => {
     const worksheet = workbook.Sheets[sheetName];
     if (!worksheet) return { sheetName, parsed: { columns: [], rows: [] } };
-    const rows = xlsx.utils.sheet_to_json(worksheet, {
+    const rows = safeSheetToJson<Record<string, unknown>>(worksheet, {
+      maxRows: 50000,
+      maxCols: 200,
       raw: true,
       defval: "",
-    }) as Record<string, unknown>[];
+    });
     const normalizedRows = normalizeRows(rows);
     return {
       sheetName,

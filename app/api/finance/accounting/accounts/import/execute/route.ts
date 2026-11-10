@@ -5,6 +5,7 @@ import connectDB from "@/lib/db";
 import Account from "@/models/finance/Account";
 import AccountType from "@/models/finance/AccountType";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
@@ -32,12 +33,12 @@ const tenantIdGuard = requireTenantId(session);
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const workbook = xlsx.read(buffer, { type: "buffer" });
+    const workbook = safeReadSpreadsheet(buffer, { fileName: file.name });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
 
     // Convert sheet to json (array of objects)
-    const rawData = xlsx.utils.sheet_to_json(worksheet) as any[];
+    const rawData = safeSheetToJson<any>(worksheet);
     
     let imported = 0;
     let skipped = 0;

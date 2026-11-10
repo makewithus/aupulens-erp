@@ -15,6 +15,7 @@ import "@/models/hr/Department";
 import bcrypt from "bcryptjs";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { updateDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { canAccessDemoDoc } from "@/lib/auth/scopeFilter";
 
 import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
@@ -181,7 +182,12 @@ const existing = await Employee.findOne({ _id: id, tenantId });
       );
     }
 
-    await safeEmitEvent(tenantId, "master_data.changed", { model: "Employee", id: String(employee._id), tenantId });
+    await safeEmitEvent(
+      tenantId,
+      "master_data.changed",
+      { model: "Employee", id: String(employee._id), tenantId },
+      { dedupeKey: updateDedupeKey(employee._id, (employee as any).updatedAt || Date.now()) },
+    );
 
     // ── Sync fields back to linked User ──
     if (employee.userId) {

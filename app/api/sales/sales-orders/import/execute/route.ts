@@ -8,6 +8,7 @@ import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateSaleOrderNumber } from "@/lib/sales/saleOrderNumbering";
 import { SALES_ORDER_STATUS, SALES_ORDER_SHIPMENT_STATUS, SALES_ORDER_INVOICING_STATUS } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
@@ -36,8 +37,8 @@ const tenantIdGuard = requireTenantId(session);
     const bytes = await file.arrayBuffer();
     // raw:false — see subscriptions import's fix: prevents date columns from
     // arriving as raw Excel serial numbers that `new Date()` would misread.
-    const workbook = xlsx.read(Buffer.from(bytes), { type: "buffer" });
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false }) as any[];
+    const workbook = safeReadSpreadsheet(Buffer.from(bytes), { fileName: file.name, raw: false });
+    const rows = safeSheetToJson<any>(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
 
     let imported = 0;
     let skipped = 0;

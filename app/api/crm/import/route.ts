@@ -10,6 +10,7 @@ import "@/models/crm/Lead";
 import "@/models/crm/Contact";
 import "@/models/crm/Opportunity";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 
 const ALLOWED_EXTENSIONS = ["csv", "tsv", "xls", "xlsx"];
@@ -162,10 +163,10 @@ export async function POST(req: NextRequest) {
 
     let workbook;
     try {
-      workbook = xlsx.read(Buffer.from(await file.arrayBuffer()), { type: "buffer" });
-    } catch {
+      workbook = safeReadSpreadsheet(Buffer.from(await file.arrayBuffer()), { fileName: file.name, raw: false });
+    } catch (readErr: any) {
       return NextResponse.json(
-        { success: false, message: "Could not parse file — is it a valid CSV/TSV/XLS(X) file?" },
+        { success: false, message: readErr?.message || "Could not parse file — is it a valid CSV/TSV/XLS(X) file?" },
         { status: 400 },
       );
     }
@@ -178,7 +179,7 @@ export async function POST(req: NextRequest) {
     }
     // raw:false avoids Excel serial-number dates/numbers arriving unformatted
     // (same fix applied to the Sales import routes elsewhere in this repo).
-    const parsedRows = xlsx.utils.sheet_to_json(sheet, { raw: false }) as Record<string, any>[];
+    const parsedRows = safeSheetToJson<Record<string, any>>(sheet, { raw: false });
     rawRecords = parsedRows.map((row) => mapRecord(row, entityType));
   } else {
     const body = stripProtectedFields(await req.json());

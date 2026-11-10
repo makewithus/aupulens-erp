@@ -5,6 +5,7 @@ import connectDB from "@/lib/db";
 import Customer from "@/models/sales/Customer";
 import { IMPORT_DUPLICATE_HANDLING } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
@@ -31,8 +32,8 @@ const tenantIdGuard = requireTenantId(session);
 
     const mapping = JSON.parse(mappingStr) as Record<string, string>;
     const bytes = await file.arrayBuffer();
-    const workbook = xlsx.read(Buffer.from(bytes), { type: "buffer" });
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]) as any[];
+    const workbook = safeReadSpreadsheet(Buffer.from(bytes), { fileName: file.name });
+    const rows = safeSheetToJson<any>(workbook.Sheets[workbook.SheetNames[0]]);
 
     let imported = 0;
     let skipped = 0;

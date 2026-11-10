@@ -10,6 +10,7 @@ import { validateAllocations, applyAllocationsToInvoices } from "@/lib/sales/pay
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
@@ -39,8 +40,8 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     // raw:false — prevents date columns from arriving as raw Excel serial
     // numbers that `new Date()` would misread.
-    const workbook = xlsx.read(Buffer.from(bytes), { type: "buffer" });
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false }) as any[];
+    const workbook = safeReadSpreadsheet(Buffer.from(bytes), { fileName: file.name, raw: false });
+    const rows = safeSheetToJson<any>(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
 
     let imported = 0;
     let skipped = 0;

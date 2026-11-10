@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/sales/Customer";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { updateDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { validateCustomerInput } from "@/lib/sales/customerValidation";
 
 import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
@@ -111,7 +112,12 @@ const body = stripProtectedFields(await request.json());
       );
     }
 
-    await safeEmitEvent(tenantId, "master_data.changed", { model: "Customer", id: String(customer._id), tenantId });
+    await safeEmitEvent(
+      tenantId,
+      "master_data.changed",
+      { model: "Customer", id: String(customer._id), tenantId },
+      { dedupeKey: updateDedupeKey(customer._id, (customer as any).updatedAt || Date.now()) },
+    );
 
     return NextResponse.json({ customer });
 

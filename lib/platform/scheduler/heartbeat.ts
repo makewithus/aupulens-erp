@@ -5,9 +5,9 @@ import { emitPlatformAlert } from "@/lib/platform/alerts/emit";
 import { resolveAlertsForKey } from "@/lib/platform/alerts/conditions";
 import { PLATFORM_ALERT_TYPE, PLATFORM_SEVERITY } from "@/lib/constants/statuses";
 
-/** The GitHub workflow fires every 15 min; one missed run is jitter, three is an outage. */
+/** The GitHub workflow fires every 15 min. Real-world GitHub Actions queue latency can create up to ~39m gaps; 4 intervals (60m) provides a safe 21m margin against false alerts while promptly catching real outages. */
 export const TRIGGER_EXPECTED_INTERVAL_MS = 15 * 60_000;
-export const TRIGGER_STALE_AFTER_MS = 3 * TRIGGER_EXPECTED_INTERVAL_MS;
+export const TRIGGER_STALE_AFTER_MS = 4 * TRIGGER_EXPECTED_INTERVAL_MS;
 const ALERT_KEY = "scheduler-trigger-gap";
 
 /** Called at the start of every authenticated run-due call. Raises a gap alert if the previous trigger was too long ago, resolves it otherwise. */

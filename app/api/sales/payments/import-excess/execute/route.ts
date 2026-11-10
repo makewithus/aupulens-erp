@@ -8,6 +8,7 @@ import { applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 import { withAccountingTransaction } from "@/lib/accounting/transaction";
 
@@ -38,8 +39,8 @@ export async function POST(request: Request) {
 
     const mapping = JSON.parse(mappingStr) as Record<string, string>;
     const bytes = await file.arrayBuffer();
-    const workbook = xlsx.read(Buffer.from(bytes), { type: "buffer" });
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false }) as any[];
+    const workbook = safeReadSpreadsheet(Buffer.from(bytes), { fileName: file.name, raw: false });
+    const rows = safeSheetToJson<any>(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
 
     let imported = 0;
     let skipped = 0;

@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import BankAccount from "@/models/finance/BankAccount";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { updateDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -35,7 +36,12 @@ try {
       await BankAccount.updateMany({ tenantId: session.user.tenantId, _id: { $ne: doc._id } }, { $set: { isPrimary: false } });
     }
 
-    await safeEmitEvent(session.user.tenantId, "master_data.changed", { model: "BankAccount", id: String(doc._id), tenantId: session.user.tenantId });
+    await safeEmitEvent(
+      session.user.tenantId,
+      "master_data.changed",
+      { model: "BankAccount", id: String(doc._id), tenantId: session.user.tenantId },
+      { dedupeKey: updateDedupeKey(doc._id, (doc as any).updatedAt || Date.now()) },
+    );
 
     return NextResponse.json({ success: true, data: doc });
   } catch (error: any) {

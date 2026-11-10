@@ -48,14 +48,14 @@ describe("outbox reconciliation of creation events lost after a committed busine
     expect((ev[0].payload as any).actingUserId).toBe("u1"); // producer's richer payload preserved
   });
 
-  it("is tenant-scoped, ignores documents older than the lookback and sources it does not own (vendor bills)", async () => {
+  it("is tenant-scoped, reconciles vendor bills and customer invoices, and ignores documents older than lookback", async () => {
     await insert(Invoice, { _id: oid(60_000), tenantId: "t1", moveType: "out_invoice" });
     await insert(Invoice, { _id: oid(60_000), tenantId: "t2", moveType: "out_invoice" });
     await insert(Invoice, { _id: oid(10 * 3600_000), tenantId: "t1", moveType: "out_invoice" }); // older than 3h
-    await insert(Invoice, { _id: oid(60_000), tenantId: "t1", moveType: "in_invoice" }); // bill.created is not reconciled
+    await insert(Invoice, { _id: oid(60_000), tenantId: "t1", moveType: "in_invoice" }); // bill.created is now reconciled
     await insert(Expense, { _id: oid(60_000), tenantId: "t1" });
     const r = await reconcileMissingCreationEvents(["t1"]);
-    expect(r.byEvent).toEqual({ "invoice.created": 1, "expense.submitted": 1 });
+    expect(r.byEvent).toEqual({ "invoice.created": 1, "bill.created": 1, "expense.submitted": 1 });
     expect(await AiEvent.countDocuments({ tenantId: "t2" })).toBe(0);
   });
 

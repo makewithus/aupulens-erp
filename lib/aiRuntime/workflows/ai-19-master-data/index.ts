@@ -197,7 +197,7 @@ export const ai19MasterData: WorkflowDefinition<Ai19Raw, Ai19Extracted, Ai19Prop
         alerts.push({ entityRef: { model: extracted.model, id: extracted.recordId }, field: d.field, oldMasked: d.oldMasked, newMasked: d.newMasked, riskFactors, holdPlaced: true, holdRef: holdResult.holdId });
 
         findings.push({
-          id: `ai19-bank-change-${extracted.recordId}-${d.field}-${Date.now()}`,
+          id: `ai19-bank-change-${extracted.recordId}-${d.field}`,
           type: AI_FINDING_TYPE.EXCEPTION,
           severity: AI_FINDING_SEVERITY.CRITICAL,
           title: `Bank detail changed: ${extracted.model} ${extracted.recordId}`,

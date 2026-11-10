@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 // Generic file -> rows parser. No business logic here — shared by the
@@ -20,10 +21,10 @@ export async function POST(request: Request) {
     if (fileError) return NextResponse.json({ error: fileError }, { status: 400 });
 
     const bytes = await file.arrayBuffer();
-    const workbook = xlsx.read(Buffer.from(bytes), { type: "buffer" });
+    const workbook = safeReadSpreadsheet(Buffer.from(bytes), { fileName: file.name, raw: false });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    const rawData = xlsx.utils.sheet_to_json(worksheet, { header: 1, raw: false }) as any[];
+    const rawData = safeSheetToJson<any[]>(worksheet, { header: 1, raw: false });
     if (rawData.length === 0) {
       return NextResponse.json({ error: "Empty file" }, { status: 400 });
     }

@@ -8,6 +8,7 @@ import { generateSubscriptionNumber } from "@/lib/sales/subscriptionNumbering";
 import { computeInitialSchedule } from "@/lib/sales/subscriptionBilling";
 import { SUBSCRIPTION_BILLING_FREQUENCY, SUBSCRIPTION_BILLING_FREQUENCY_VALUES, SALES_SUBSCRIPTION_STATUS } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
@@ -33,7 +34,7 @@ const tenantId = session.user.tenantId;
 
     const mapping = JSON.parse(mappingStr) as Record<string, string>;
     const bytes = await file.arrayBuffer();
-    const workbook = xlsx.read(Buffer.from(bytes), { type: "buffer" });
+    const workbook = safeReadSpreadsheet(Buffer.from(bytes), { fileName: file.name, raw: false });
     // raw:false forces every cell to its displayed string form. Without it,
     // xlsx returns date-like cells (Start Date) as raw Excel serial-day
     // numbers for real .xls/.xlsx files; `new Date(serialNumber)` then
@@ -41,7 +42,7 @@ const tenantId = session.user.tenantId;
     // producing a bogus ~1970 date instead of the real one. Numeric fields
     // (Quantity/Rate/Trial Days/Billing Cycles) still parse fine as strings
     // via Number(...) below.
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false }) as any[];
+    const rows = safeSheetToJson<any>(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
 
     let imported = 0;
     let skipped = 0;

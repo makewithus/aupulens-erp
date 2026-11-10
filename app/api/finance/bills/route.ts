@@ -18,6 +18,8 @@ import {
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
 import { comparePurchaseLineTax } from "@/lib/tax/purchaseTaxCompare";
 import { getStartOfCurrentDay, isInvoiceOverdue } from "@/lib/sales/invoiceStatus";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 
 function serializeBill(bill: any) {
   const partner = bill.partnerId;
@@ -395,6 +397,13 @@ let partnerId = body.partnerId;
       tenantId,
       createdBy: session.user.id,
     });
+
+    await safeEmitEvent(
+      tenantId,
+      "bill.created",
+      { invoiceId: String(bill._id), actingUserId: session.user.id },
+      { dedupeKey: creationDedupeKey(bill._id) },
+    );
 
     if (bill.poReference) {
       try {

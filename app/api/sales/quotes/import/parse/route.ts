@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
@@ -15,8 +16,8 @@ export async function POST(request: Request) {
     const fileError = validateSpreadsheetFile(file);
     if (fileError) return NextResponse.json({ error: fileError }, { status: 400 });
 
-    const workbook = xlsx.read(Buffer.from(await file.arrayBuffer()), { type: "buffer" });
-    const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: false }) as any[];
+    const workbook = safeReadSpreadsheet(Buffer.from(await file.arrayBuffer()), { fileName: file.name, raw: false });
+    const rawData = safeSheetToJson<any[]>(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: false });
     if (rawData.length === 0) return NextResponse.json({ error: "Empty file" }, { status: 400 });
 
     const columns = rawData[0] as string[];

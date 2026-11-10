@@ -8,6 +8,7 @@ import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateQuoteNumber } from "@/lib/sales/quoteNumbering";
 import { QUOTE_STATUS } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
@@ -32,8 +33,8 @@ const tenantIdGuard = requireTenantId(session);
 
     const mapping = JSON.parse(mappingStr) as Record<string, string>;
 
-    const workbook = xlsx.read(Buffer.from(await file.arrayBuffer()), { type: "buffer" });
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false }) as any[];
+    const workbook = safeReadSpreadsheet(Buffer.from(await file.arrayBuffer()), { fileName: file.name, raw: false });
+    const rows = safeSheetToJson<any>(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
 
     // Group rows into quotes: rows sharing a Quote Number become line items of
     // the same quote (unless auto-generating, where every row is its own quote).

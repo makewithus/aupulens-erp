@@ -6,6 +6,15 @@
  */
 export const creationDedupeKey = (id: unknown) => `created:${String(id)}`;
 
+/**
+ * Deterministic update dedupe key tying an event to a specific document state revision (by timestamp or version).
+ * Prevents duplicate events for the same revision on retry.
+ */
+export const updateDedupeKey = (id: unknown, ts: unknown = Date.now()) => {
+  const t = ts instanceof Date ? ts.getTime() : typeof ts === "number" ? ts : String(ts);
+  return `updated:${String(id)}:${t}`;
+};
+
 export interface ReconciledSource {
   eventKey: string;
   model: string; // registered mongoose model name
@@ -15,6 +24,7 @@ export interface ReconciledSource {
 
 export const RECONCILED_SOURCES: ReconciledSource[] = [
   { eventKey: "invoice.created", model: "Invoice", filter: { moveType: "out_invoice" }, payload: (d) => ({ invoiceId: String(d._id), moveType: d.moveType }) },
+  { eventKey: "bill.created", model: "Invoice", filter: { moveType: "in_invoice" }, payload: (d) => ({ invoiceId: String(d._id), moveType: d.moveType }) },
   { eventKey: "expense.submitted", model: "Expense", payload: (d) => ({ expenseId: String(d._id) }) },
   { eventKey: "bank.transaction.imported", model: "BankStatement", payload: (d) => ({ bankStatementId: String(d._id) }) },
   { eventKey: "document.received", model: "ExtractedDocument", payload: (d) => ({ extractedDocumentId: String(d._id) }) },

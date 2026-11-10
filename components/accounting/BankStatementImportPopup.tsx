@@ -21,6 +21,7 @@ import { DOCUMENT_STATUS, DocumentStatus } from "@/lib/constants/statuses";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
 import * as xlsx from "xlsx";
+import { safeReadSpreadsheet, safeSheetToJson } from "@/lib/security/safeSpreadsheet";
 import {
   Table,
   TableHeader,
@@ -209,9 +210,9 @@ export function BankStatementImportPopup({
       // SheetJS parses real CSV/TSV/XLS/XLSX uniformly (quoted-comma-safe for
       // CSV, native binary parsing for XLS/XLSX) — raw:false so date/number
       // cells arrive pre-formatted instead of Excel serial numbers.
-      const workbook = xlsx.read(buffer, { type: "array" });
+      const workbook = safeReadSpreadsheet(buffer, { fileName: file.name, raw: false });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = xlsx.utils.sheet_to_json(sheet, { raw: false }) as Record<string, any>[];
+      const rows = safeSheetToJson<Record<string, any>>(sheet, { raw: false });
 
       if (rows.length === 0) {
         toast.error("The file has no data rows.");

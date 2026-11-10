@@ -1,4 +1,4 @@
-import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
+import { creationDedupeKey, updateDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -108,7 +108,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
     }
 
-    await safeEmitEvent(tenantId, "master_data.changed", { model: "Vendor", id: String(vendor._id), tenantId });
+    await safeEmitEvent(
+      tenantId,
+      "master_data.changed",
+      { model: "Vendor", id: String(vendor._id), tenantId },
+      { dedupeKey: updateDedupeKey(vendor._id, (vendor as any).updatedAt || Date.now()) },
+    );
 
     return NextResponse.json({ vendor });
   } catch (error) {
