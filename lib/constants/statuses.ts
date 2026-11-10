@@ -2356,6 +2356,10 @@ export const PLATFORM_ALERT_TYPE = {
   // days would have been six minutes."
   SCHEDULER_JOB_STALE: "scheduler_job_stale",
   SCHEDULER_JOB_FAILED: "scheduler_job_failed",
+  // Resource-optimization remediation: AI outbox health + scheduler trigger heartbeat.
+  AI_OUTBOX_BACKLOG: "ai_outbox_backlog",
+  AI_OUTBOX_STALE: "ai_outbox_stale",
+  SCHEDULER_TRIGGER_STALE: "scheduler_trigger_stale",
   // Phase 12 Part 0.2 — distinct from SCHEDULER_JOB_FAILED (one alert per
   // individual job failure, pre-existing): this fires when the COUNT of
   // jobs simultaneously in a failed state reaches a configurable threshold
