@@ -1,3 +1,4 @@
+import { NO_STORE_HEADERS } from "@/lib/api/noStore";
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
@@ -8,7 +9,7 @@ import BankingRule from "@/models/finance/BankingRule";
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId)
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
 
   await connectDB();
   const tenantId = session.user.tenantId;
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(
     { success: true, data: rules },
-    { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } },
+    { headers: NO_STORE_HEADERS },
   );
 }
 

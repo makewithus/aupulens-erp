@@ -1,3 +1,4 @@
+import { NO_STORE_HEADERS } from "@/lib/api/noStore";
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
     const tenantIdGuard = requireTenantId(session);
@@ -71,10 +72,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { items: enriched },
-      { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } },
+      { headers: NO_STORE_HEADERS },
     );
   } catch (error: any) {
-    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500 });
+    return NextResponse.json({ error: safeInternalErrorMessage() }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 

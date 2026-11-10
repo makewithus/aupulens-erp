@@ -1,3 +1,4 @@
+import { NO_STORE_HEADERS } from "@/lib/api/noStore";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -8,7 +9,7 @@ import AccountType from "@/models/finance/AccountType";
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
     await connectDB();
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -31,11 +32,11 @@ export async function GET(request: Request) {
     const accountTypes = await AccountType.find({ tenantId }).sort({ segment: 1, name: 1 }).lean();
     return NextResponse.json(
       { accountTypes },
-      { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } },
+      { headers: NO_STORE_HEADERS },
     );
   } catch (error) {
     console.error("AccountType GET Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
