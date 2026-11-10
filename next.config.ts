@@ -46,6 +46,11 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   experimental: {
     middlewareClientMaxBodySize: "100mb",
+    // Every route is dynamic (root layout calls auth()), and Next 15 defaults the client router cache for
+    // dynamic pages to 0s, so each click/back/revisit paid a full server round-trip. Page data is fetched
+    // client-side (cachedFetch), so a short cache of the RSC payload cannot show stale records. Trade-off:
+    // middleware gating (e.g. suspension) is re-checked after at most this window on cached navigations.
+    staleTimes: { dynamic: 30, static: 180 },
     // Bound build workers on development machines and small CI runners.
     cpus: Number(process.env.AUP_BUILD_CPUS) || 1,
   },
