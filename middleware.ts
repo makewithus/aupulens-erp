@@ -362,9 +362,10 @@ export default auth(async (req) => {
     // The login/MFA pages and their APIs must stay reachable while signed out.
     const isPlatformAuthPath =
       pathname.startsWith("/platform/login") || pathname.startsWith("/api/platform/auth");
-    // The external cron trigger must be exempted from the browser session check
-    // (it authenticates itself via a Bearer CRON_SECRET token checked in the route handler).
-    const isPlatformCronPath = pathname === "/api/platform/scheduler/run-due";
+    // The external cron trigger and its read-only health probe must be exempted from the browser session
+    // check (both authenticate themselves via a Bearer CRON_SECRET token checked in the route handler).
+    const isPlatformCronPath =
+      pathname === "/api/platform/scheduler/run-due" || pathname === "/api/platform/scheduler/health";
 
     if (isPlatformAuthPath || isPlatformCronPath) {
       return NextResponse.next({ request: { headers: requestHeaders } });

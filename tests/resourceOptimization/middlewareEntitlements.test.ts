@@ -83,3 +83,15 @@ describe("G4 — middleware enforces entitlement freshness", () => {
     expect(res.status).not.toBe(503);
   });
 });
+
+describe("scheduler endpoints reach their own Bearer check without a browser session", () => {
+  it.each(["/api/platform/scheduler/run-due", "/api/platform/scheduler/health"])("%s is not blocked by the admin-session gate", async (path) => {
+    const res = await call(path, null);
+    expect(res.headers.get("x-middleware-next")).toBe("1"); // handled by the route (CRON_SECRET), not rejected here
+  });
+
+  it("other platform APIs still require an admin session", async () => {
+    const res = await call("/api/platform/scheduler/jobs", null);
+    expect(res.status).toBe(401);
+  });
+});

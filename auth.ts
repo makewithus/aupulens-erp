@@ -1,3 +1,4 @@
+import { buildOrgModuleData } from "@/lib/auth/orgModuleData";
 import NextAuth, { DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
@@ -227,15 +228,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               // Gracefully fall back to standard org tier
             }
 
-            orgModuleData = {
-              tier: activeTier,
-              enabledModules: org.settings?.enabledModules ?? [],
-              subscriptionStatus: org.subscriptionStatus ?? "trial",
-              trialEndDate: org.trialEndDate ? org.trialEndDate.toISOString() : null,
-              resolvedModules,
-              entitlementVersion: org.entitlementVersion ?? 0,
-              isActive: org.isActive !== false,
-            };
+            orgModuleData = buildOrgModuleData(org, activeTier, resolvedModules);
           }
 
           return {
