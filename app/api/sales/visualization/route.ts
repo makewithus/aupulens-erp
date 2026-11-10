@@ -5,7 +5,6 @@ import connectDB from "@/lib/db";
 import SaleOrder from "@/models/sales/SaleOrder";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
-import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { issuedInvoiceFilter, invoiceRevenueFromDocument } from "@/lib/sales/invoiceEligibility";
 import { REAL_ORDER_MATCH } from "@/lib/sales/orderEligibility";
 

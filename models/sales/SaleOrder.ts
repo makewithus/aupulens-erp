@@ -1,22 +1,6 @@
 import mongoose, { Schema, models, model, Model } from "mongoose";
 import { MessageSchema, LogisticsSchema } from "../shared/Common";
-import {
-  DOCUMENT_STATUS_VALUES,
-  DOCUMENT_STATUS,
-  type DocumentStatus,
-  Q2C_STATUS_VALUES,
-  Q2C_STATUS,
-  type Q2CStatus,
-  SALES_ORDER_STATUS_VALUES,
-  SALES_ORDER_STATUS,
-  type SalesOrderStatus,
-  SALES_ORDER_SHIPMENT_STATUS_VALUES,
-  SALES_ORDER_SHIPMENT_STATUS,
-  type SalesOrderShipmentStatus,
-  SALES_ORDER_INVOICING_STATUS_VALUES,
-  SALES_ORDER_INVOICING_STATUS,
-  type SalesOrderInvoicingStatus,
-} from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS_VALUES, DOCUMENT_STATUS, type DocumentStatus, Q2C_STATUS_VALUES, Q2C_STATUS, type Q2CStatus, SALES_ORDER_STATUS_VALUES, type SalesOrderStatus, SALES_ORDER_SHIPMENT_STATUS_VALUES, type SalesOrderShipmentStatus, SALES_ORDER_INVOICING_STATUS_VALUES, type SalesOrderInvoicingStatus } from "@/lib/constants/statuses";
 
 export interface ISaleOrderLine {
   productId?: mongoose.Types.ObjectId;

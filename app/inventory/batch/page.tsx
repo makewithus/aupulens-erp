@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, BarChart3, Search, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, CheckCircle2 } from 'lucide-react';
 import { DraggableVisualization } from '@/components/finance/DraggableVisualization';
 import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import { StatCard } from '@/components/admin/StatCard';

@@ -11,17 +11,7 @@ import ApprovalTimeline from "@/components/crm/ApprovalTimeline";
 import DocumentManager from "@/components/crm/DocumentManager";
 import Link from "next/link";
 import { cachedFetch } from "@/lib/api/cachedFetch";
-import {
-  ChevronLeft,
-  Download,
-  Send,
-  CheckCircle2,
-  XCircle,
-  RotateCcw,
-  Copy,
-  ExternalLink,
-  Loader2,
-} from "lucide-react";
+import { ChevronLeft, Download, Send, CheckCircle2, XCircle, RotateCcw, ExternalLink, Loader2 } from "lucide-react";
 
 // ─── Status colour ────────────────────────────────────────────────────────────
 

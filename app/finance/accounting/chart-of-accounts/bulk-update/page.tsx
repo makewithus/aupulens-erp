@@ -6,12 +6,12 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { AccountingSubNav } from "@/components/finance/accounting/AccountingSubNav";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle, FileStack, Filter, Search } from "lucide-react";
+import { AlertCircle, FileStack, Filter } from "lucide-react";
 
 export default function BulkUpdatePage() {
   const { data: session } = useSession();

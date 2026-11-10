@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, Plane, Plus, BarChart3, Clock, MapPin, Pencil, Trash2, Sparkles } from 'lucide-react';
+import { Loader2, Plane, Plus, BarChart3, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { StatCard } from '@/components/admin/StatCard';
 import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
 import { ActivePulse } from '@/components/admin/graphics/ActivePulse';

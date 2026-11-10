@@ -9,7 +9,6 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
 
 export function WarehousePopupContent({ formData, setFormData }: any) {
   return (

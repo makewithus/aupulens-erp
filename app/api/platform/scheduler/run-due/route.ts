@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { runDueJobs } from "@/lib/platform/scheduler/runner";
+import { recordTriggerResult, recordTriggerStart } from "@/lib/platform/scheduler/heartbeat";
 
 /**
  * Phase 10 Part 0.3 item 2 — the integration point for any external
@@ -21,8 +22,18 @@ async function handler(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
+  // Heartbeat first: it is what lets a monitor (and the gap alert) see that the external trigger is alive.
+  await recordTriggerStart().catch((err) => console.error("[scheduler] heartbeat start failed", err));
+
   after(async () => {
-    await runDueJobs("run-due");
+    try {
+      const outcome = await runDueJobs("run-due");
+      const failed = outcome?.failed ?? [];
+      await recordTriggerResult(failed.length === 0, failed.length ? `jobs failed: ${failed.join(", ")}` : undefined);
+    } catch (err) {
+      console.error("[scheduler] run-due failed", err);
+      await recordTriggerResult(false, err instanceof Error ? err.message : String(err)).catch(() => {});
+    }
   });
 
   return NextResponse.json({ success: true, message: "Scheduler jobs dispatched to background" });

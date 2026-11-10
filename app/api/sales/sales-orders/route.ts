@@ -15,7 +15,7 @@ import {
   SALES_ORDER_SHIPMENT_STATUS,
   SALES_ORDER_INVOICING_STATUS,
 } from "@/lib/constants/statuses";
-import { normalizeSalesOrderStatus, getEquivalentSalesOrderStatuses } from "@/lib/sales/salesOrderDiagnostics";
+import { getEquivalentSalesOrderStatuses } from "@/lib/sales/salesOrderDiagnostics";
 import "@/models/sales/Customer";
 import "@/models/auth/User";
 

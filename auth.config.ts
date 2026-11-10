@@ -72,6 +72,11 @@ export const authConfig = {
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.permissions = user.permissions;
+        if ((user as any).orgModuleData) {
+          token.orgModuleData = (user as any).orgModuleData;
+          token.entitlementVersion = (user as any).entitlementVersion;
+          token.entitlementCheckedAt = (user as any).entitlementCheckedAt;
+        }
         token.sessionPolicyVersion = getTenantSessionPolicyVersion();
         token.sessionStale = false;
         token.authenticatedAt = Math.floor(Date.now() / 1000);
@@ -88,6 +93,11 @@ export const authConfig = {
         session.user.role = token.role as string;
         session.user.tenantId = token.tenantId as string;
         session.user.permissions = token.permissions;
+        if (token.orgModuleData) {
+          (session.user as any).orgModuleData = token.orgModuleData;
+          (session.user as any).entitlementVersion = token.entitlementVersion;
+          (session.user as any).entitlementCheckedAt = token.entitlementCheckedAt;
+        }
         session.user.sessionPolicyVersion = token.sessionPolicyVersion as string | undefined;
         session.user.sessionStale = token.sessionStale === true;
       }

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import * as xlsx from "xlsx";
 import { PipelineTrendChart } from "@/components/crm/PipelineTrendChart";
 import { RevenueTrendChart } from "@/components/crm/RevenueTrendChart";
 import { CampaignROIChart } from "@/components/crm/CampaignROIChart";

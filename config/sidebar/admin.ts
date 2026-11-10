@@ -1,31 +1,4 @@
-import {
-  LayoutDashboard,
-  Users,
-  Settings,
-  FileText,
-  BarChart3,
-  Package,
-  ShoppingCart,
-  Briefcase,
-  Factory,
-  DollarSign,
-  UserCog,
-  User as UserIcon,
-  Activity,
-  Sparkles,
-  CheckSquare,
-  Truck,
-  CreditCard,
-  CalendarDays,
-  Building2,
-  Network,
-  Store,
-  DatabaseZap,
-  Plug,
-  ScanText,
-  Workflow,
-  Zap,
-} from "lucide-react";
+import { LayoutDashboard, Users, Settings, FileText, User as UserIcon, Activity, Sparkles, CreditCard, CalendarDays, Building2, Network, Store, DatabaseZap, Plug, ScanText, Workflow, Zap } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
 export const adminSidebarConfig: SidebarSection[] = [

@@ -20,36 +20,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Wallet,
-  Receipt,
-  CreditCard,
-  ArrowUpRight,
-  ArrowDownRight,
-  Activity,
-  Calendar,
-  FileText,
-  Undo2,
-  Users,
-  ShieldCheck,
-  Scale,
-  RefreshCw,
-  Plus,
-  Landmark,
-  ArrowRight,
-  ExternalLink,
-  PieChart as PieChartIcon,
-  BarChart3,
-  Layers,
-} from "lucide-react";
+import { DollarSign, Wallet, Receipt, CreditCard, ArrowUpRight, ArrowDownRight, Activity, FileText, Undo2, Users, Scale, RefreshCw, Plus, Landmark, ArrowRight, BarChart3 } from "lucide-react";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 import { useThemeStore } from "@/store/themeStore";
-import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
+import { BRAND_COLORS } from "@/lib/constants/brandColors";
 
 interface AgingBucket {
   label: string;

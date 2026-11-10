@@ -47,7 +47,7 @@ const body = stripProtectedFields(await req.json());
         query.amountTotal = { $gte: amount };
       }
 
-      const invoices = await Invoice.find(query).limit(10);
+      const invoices = await Invoice.find(query).limit(10).lean();
 
       return NextResponse.json({
         response: `Found ${invoices.length} unpaid invoices${amount > 0 ? ` over ${amount}` : ''}`,
@@ -88,8 +88,8 @@ const body = stripProtectedFields(await req.json());
         query.name = { $regex: vendorMatch[1], $options: 'i' };
       }
 
-      const bills = await Invoice.find(query).populate('partnerId', 'header.name').limit(10);
-      const totalPayable = bills.reduce((sum, bill) => sum + (Number(bill.amountResidual) || 0), 0);
+      const bills = await Invoice.find(query).populate('partnerId', 'header.name').limit(10).lean();
+      const totalPayable = bills.reduce((sum, bill: any) => sum + (Number(bill.amountResidual) || 0), 0);
 
       return NextResponse.json({
         response: `Outstanding payables: ₹${totalPayable.toLocaleString('en-IN')} across ${bills.length} bills`,
@@ -102,7 +102,8 @@ const body = stripProtectedFields(await req.json());
         status: DOCUMENT_STATUS.POSTED,
       })
         .sort({ 'header.date': -1 })
-        .limit(10);
+        .limit(10)
+        .lean();
 
       return NextResponse.json({
         response: `Showing ${transactions.length} recent posted journal entries`,

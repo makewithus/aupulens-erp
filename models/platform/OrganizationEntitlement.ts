@@ -31,5 +31,18 @@ const OrganizationEntitlementSchema = new Schema<IOrganizationEntitlement>(
   { timestamps: true },
 );
 
+// G4: a plan assignment / override change alters effective access for the tenant, so it bumps the
+// owning Organization's entitlementVersion (the entitlement row lives in a separate collection).
+async function bumpFor(tenantId: unknown) {
+  const Organization = (await import("@/models/admin/Organization")).default;
+  const filter = typeof tenantId === "string" ? { subdomain: tenantId } : {};
+  await Organization.updateMany(filter, { $inc: { entitlementVersion: 1 } });
+}
+OrganizationEntitlementSchema.post("save", async function (doc) { await bumpFor(doc.tenantId); });
+OrganizationEntitlementSchema.post(
+  ["updateOne", "updateMany", "findOneAndUpdate", "findOneAndDelete", "deleteOne", "deleteMany"] as any,
+  async function (this: any) { await bumpFor(this.getFilter?.()?.tenantId); },
+);
+
 export default (mongoose.models.OrganizationEntitlement as Model<IOrganizationEntitlement>) ||
   mongoose.model<IOrganizationEntitlement>("OrganizationEntitlement", OrganizationEntitlementSchema);

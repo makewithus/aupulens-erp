@@ -4,6 +4,7 @@ import connectDB from "@/lib/db";
 import Project from "@/models/shared/Project";
 import { PROJECT_STATUS_VALUES } from "@/lib/constants/statuses";
 import { getCachedData, setCachedData, invalidateCache } from "@/lib/api/serverCache";
+import { paginateKeyset, parsePageRequest } from "@/lib/api/pagination";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -18,8 +19,15 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") || "all";
 
+  // Opt-in cursor pagination (?limit=&cursor=). Without those params the complete legacy response is
+  // returned unchanged, so existing consumers (dashboard KPIs, list page) keep working until migrated.
+  const pageReq = parsePageRequest(searchParams);
+  if (pageReq.requested && "error" in pageReq) {
+    return NextResponse.json({ success: false, message: pageReq.error }, { status: 400 });
+  }
+
   const cacheKey = `projects-list:${tenantId}:${status}`;
-  const cached = getCachedData<any>(cacheKey);
+  const cached = pageReq.requested ? null : getCachedData<any>(cacheKey);
   if (cached) {
     return NextResponse.json(cached);
   }
@@ -28,6 +36,11 @@ export async function GET(req: NextRequest) {
 
   const query: any = { tenantId };
   if (status && (PROJECT_STATUS_VALUES as readonly string[]).includes(status)) query.status = status;
+
+  if (pageReq.requested && "limit" in pageReq) {
+    const { items, page } = await paginateKeyset(Project, query, pageReq, { field: "createdAt", direction: -1 });
+    return NextResponse.json({ success: true, data: items, pagination: page });
+  }
 
   const projects = await Project.find(query).sort({ createdAt: -1 }).lean();
   const payload = { success: true, data: projects };

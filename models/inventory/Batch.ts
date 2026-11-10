@@ -1,11 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import {
-  BATCH_STATUS,
-  BATCH_STATUS_VALUES,
-  BATCH_CUSTOMS_STATUS,
-  BATCH_CUSTOMS_STATUS_VALUES,
-  type BatchStatus,
-} from '@/lib/constants/statuses';
+import { BATCH_STATUS, BATCH_STATUS_VALUES, BATCH_CUSTOMS_STATUS_VALUES, type BatchStatus } from '@/lib/constants/statuses';
 
 export interface IBatch extends Document {
   tenantId: string;

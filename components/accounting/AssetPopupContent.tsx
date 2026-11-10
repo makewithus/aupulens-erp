@@ -1,14 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  Plus,
-  Calendar as CalendarIcon,
-  FileText,
-  Landmark,
-  Calculator,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Calendar as CalendarIcon, FileText, Landmark, Calculator } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {

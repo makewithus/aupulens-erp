@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
 import { Badge } from "@/components/ui/badge";

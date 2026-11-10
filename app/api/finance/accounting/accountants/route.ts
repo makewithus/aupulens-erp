@@ -1,3 +1,4 @@
+import { NO_STORE_HEADERS } from "@/lib/api/noStore";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -7,7 +8,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     await connectDB();
@@ -27,10 +28,13 @@ export async function GET(request: Request) {
     if (country && country !== "All") query.country = country;
     if (state && state !== "All") query.state = state;
 
-    const accountants = await Accountant.find(query).sort({ name: 1 });
-    return NextResponse.json({ accountants });
+    const accountants = await Accountant.find(query).sort({ name: 1 }).lean();
+    return NextResponse.json(
+      { accountants },
+      { headers: NO_STORE_HEADERS },
+    );
   } catch (error) {
     console.error("Accountant GET Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

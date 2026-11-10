@@ -8,27 +8,8 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { manufacturingSidebarConfig } from "@/config/sidebar/manufacturing";
 import { Button } from "@/components/ui/button";
-import {
-  Plus,
-  Search,
-  Filter,
-  MoreHorizontal,
-  FileText,
-  Loader2,
-  RefreshCcw,
-  Eye,
-  Edit3,
-  Trash2,
-} from "lucide-react";
+import { Plus, Search, FileText, Loader2, RefreshCcw, Eye, Edit3, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";

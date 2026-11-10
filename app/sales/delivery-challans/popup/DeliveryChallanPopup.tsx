@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Plus, X, Trash2, Tag, Truck, Info, Calendar } from "lucide-react";
+import { Plus, Trash2, Tag, Truck, Info } from "lucide-react";
 import { SelectSearchAdd } from "@/components/dashboard/SelectSearchAdd";
 
 export function DeliveryChallanPopupContent({

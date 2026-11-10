@@ -19,23 +19,7 @@ import {
 import { AnalyticsPageSkeleton } from "@/components/ui/loading-skeletons";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { toast } from "sonner";
-import {
-  Factory,
-  BarChart3,
-  TrendingUp,
-  Cpu,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  Truck,
-  Layers,
-  Download,
-  Filter,
-  Sparkles,
-  ChevronRight,
-  ShieldCheck,
-  RefreshCw,
-} from "lucide-react";
+import { Factory, TrendingUp, Cpu, AlertTriangle, Truck, Layers, Download, Sparkles, ChevronRight, ShieldCheck, RefreshCw } from "lucide-react";
 
 export default function ManufacturingAnalyticsPage() {
   const { data: session } = useSession();

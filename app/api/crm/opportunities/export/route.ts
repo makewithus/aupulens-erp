@@ -6,7 +6,6 @@ import dbConnect from "@/lib/db";
 import CrmOpportunity from "@/models/crm/Opportunity";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { requireRole } from "@/lib/crm/rbac";
-import * as xlsx from "xlsx";
 import { Parser } from "@json2csv/plainjs";
 
 export async function POST(req: NextRequest) {

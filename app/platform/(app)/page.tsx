@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
-import { formatShortId } from "@/lib/platform/formatting/idFormatter";
 import { CopyableId } from "@/components/platform/CopyableId";
 import { StatCard } from "@/components/admin/StatCard";
 import { toast } from "sonner";

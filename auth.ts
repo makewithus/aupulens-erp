@@ -1,3 +1,4 @@
+import { buildOrgModuleData } from "@/lib/auth/orgModuleData";
 import NextAuth, { DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
@@ -5,7 +6,6 @@ import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import { headers } from "next/headers";
 import { consumeOnboardingToken } from "@/lib/auth/consumeOnboardingToken";
 import bcrypt from "bcryptjs";
-import mongoose from "mongoose";
 import connectDB from "@/lib/db";
 import User from "@/models/auth/User";
 import Organization from "@/models/admin/Organization";
@@ -20,6 +20,9 @@ declare module "next-auth" {
       role: string;
       tenantId: string;
       permissions?: string[];
+      orgModuleData?: any;
+      entitlementVersion?: number;
+      entitlementCheckedAt?: number;
       sessionPolicyVersion?: string;
       sessionStale?: boolean;
     } & DefaultSession["user"];
@@ -28,6 +31,9 @@ declare module "next-auth" {
     role: string;
     tenantId: string;
     permissions?: string[];
+    orgModuleData?: any;
+    entitlementVersion?: number;
+    entitlementCheckedAt?: number;
     sessionPolicyVersion?: string;
     sessionStale?: boolean;
   }
@@ -39,6 +45,9 @@ declare module "@auth/core/jwt" {
     role?: string;
     tenantId?: string;
     permissions?: string[];
+    orgModuleData?: any;
+    entitlementVersion?: number;
+    entitlementCheckedAt?: number;
     sessionPolicyVersion?: string;
     sessionStale?: boolean;
     authenticatedAt?: number;
@@ -140,8 +149,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           // Security Check 2: Organization Active Status
+          let org: any = null;
           if (user.tenantId !== "default") {
-            const org = await Organization.findOne({
+            org = await Organization.findOne({
               subdomain: user.tenantId,
             });
             if (org && !org.isActive) {
@@ -198,6 +208,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             throw new Error("Your user account has been deactivated.");
           }
 
+          // Resolve orgModuleData to embed in JWT to eliminate middleware internal HTTP fetch
+          let orgModuleData: any = undefined;
+          if (org) {
+            let resolvedModules: string[] | undefined;
+            let activeTier = org.tier ?? "starter";
+            try {
+              const OrganizationEntitlement = (await import("@/models/platform/OrganizationEntitlement")).default;
+              const hasEntitlement = await OrganizationEntitlement.exists({ tenantId: user.tenantId });
+              if (hasEntitlement) {
+                const { resolveEntitlements } = await import("@/lib/platform/entitlements/resolve");
+                const resolved = await resolveEntitlements(user.tenantId);
+                if (resolved.source !== "permissive_default") {
+                  resolvedModules = resolved.modules;
+                  activeTier = resolved.planKey;
+                }
+              }
+            } catch {
+              // Gracefully fall back to standard org tier
+            }
+
+            orgModuleData = buildOrgModuleData(org, activeTier, resolvedModules);
+          }
+
           return {
             id: String(user._id),
             name: user.name,
@@ -208,6 +241,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // array (class instance) that structuredClone can't clone during
             // JWT encoding, which crashes login with DataCloneError.
             permissions: user.permissions ? [...user.permissions] : [],
+            orgModuleData,
+            entitlementVersion: org?.entitlementVersion ?? 0,
+            // Stamped at issue time; middleware trusts the claims for at most ENTITLEMENT_MAX_AGE_MS.
+            entitlementCheckedAt: orgModuleData ? Date.now() : undefined,
           };
         } catch (error: any) {
           console.error(`[auth] authorize threw exception:`, error);

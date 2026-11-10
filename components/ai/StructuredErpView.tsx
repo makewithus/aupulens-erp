@@ -2,29 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import {
-  Users,
-  FileText,
-  ExternalLink,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
-  Receipt,
-  Package,
-  Calendar,
-  Check,
-  X,
-  CreditCard,
-  ShieldAlert,
-  ArrowRight,
-  TrendingUp,
-  TrendingDown,
-  UserCheck,
-  ShieldCheck,
-  UserPlus,
-  Clock,
-  Info,
-} from "lucide-react";
+import { Users, FileText, ExternalLink, CheckCircle2, AlertCircle, Sparkles, Receipt, Package, Calendar, Check, X, CreditCard, ShieldAlert, ArrowRight, TrendingUp, TrendingDown, ShieldCheck, UserPlus, Clock, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ErpStructuredResponse, ErpRecordItem } from "@/lib/ai/erpTypes";
 

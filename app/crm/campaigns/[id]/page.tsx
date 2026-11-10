@@ -4,10 +4,7 @@ import { useState, useEffect, use } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import {
-  Megaphone, DollarSign, Target, TrendingUp, Users, Activity, ExternalLink, Loader2
-} from "lucide-react";
-import Link from "next/link";
+import { Megaphone, DollarSign, Target, TrendingUp, Users, Activity, Loader2 } from "lucide-react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const STATUS_COLOR: Record<string, string> = {

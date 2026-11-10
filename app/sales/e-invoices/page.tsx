@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock3, Link2, Search, RefreshCw, FileText } from "lucide-react";
+import { Clock3, Link2, Search, RefreshCw } from "lucide-react";
 import { EInvoiceConnectWizard } from "@/components/sales/einvoices/EInvoiceConnectWizard";
 import { EINVOICE_STATUS } from "@/lib/constants/statuses";
 import { cachedFetch } from "@/lib/api/cachedFetch";

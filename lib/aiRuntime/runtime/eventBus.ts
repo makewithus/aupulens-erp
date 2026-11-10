@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import connectDB from "@/lib/db";
 import AiEvent from "@/models/ai/AiEvent";
-import { AI_EVENT_STATUS } from "@/lib/constants/statuses";
+import { AI_EVENT_STATUS, type AiEventStatus } from "@/lib/constants/statuses";
 import { getWorkflowsForEventKey } from "@/lib/aiRuntime/runtime/registry";
 import { isWorkflowEnabled } from "@/lib/aiRuntime/runtime/killSwitch";
 import { runWorkflow } from "@/lib/aiRuntime/runtime/executor";
@@ -26,7 +26,21 @@ import type { TriggerEvent } from "@/lib/aiRuntime/workflows/types";
  * workflow is deliberately off).
  */
 
-const MAX_ATTEMPTS = 5;
+export const MAX_ATTEMPTS = 5;
+
+/** Tunables (env-overridable). Lease must comfortably exceed the longest single workflow run. */
+export function outboxConfig() {
+  return {
+    leaseMs: Number(process.env.AI_EVENT_LEASE_MS) || 5 * 60_000,
+    backoffBaseMs: Number(process.env.AI_EVENT_BACKOFF_BASE_MS) || 30_000,
+    backoffMaxMs: Number(process.env.AI_EVENT_BACKOFF_MAX_MS) || 60 * 60_000,
+  };
+}
+
+/** Exponential retry delay after the Nth failed attempt, capped. */
+export function computeBackoffMs(attempts: number, cfg = outboxConfig()): number {
+  return Math.min(cfg.backoffMaxMs, cfg.backoffBaseMs * 2 ** Math.max(0, attempts - 1));
+}
 
 function isDuplicateKeyError(err: unknown): boolean {
   return typeof err === "object" && err !== null && (err as { code?: number }).code === 11000;
@@ -79,18 +93,67 @@ export async function emitEvent(
   return { eventId: String(event._id), deduped: false };
 }
 
-/** Dispatches one AiEvent to every workflow registered for its eventKey.
- *  Used both by emitEvent()'s inline attempt and by the cron sweep's retry. */
-export async function dispatchEvent(eventId: string): Promise<void> {
+function claimableFilter(now: Date, leaseMs: number) {
+  const staleLegacy = new Date(now.getTime() - leaseMs);
+  return {
+    $or: [
+      // pending / failed and past their backoff
+      {
+        status: { $in: [AI_EVENT_STATUS.PENDING, AI_EVENT_STATUS.FAILED] },
+        attempts: { $lt: MAX_ATTEMPTS },
+        $or: [{ nextAttemptAt: { $exists: false } }, { nextAttemptAt: null }, { nextAttemptAt: { $lte: now } }],
+      },
+      // crashed worker: lease expired
+      { status: AI_EVENT_STATUS.PROCESSING, attempts: { $lt: MAX_ATTEMPTS }, leaseUntil: { $lte: now } },
+      // rows stranded in `processing` before leases existed
+      { status: AI_EVENT_STATUS.PROCESSING, attempts: { $lt: MAX_ATTEMPTS }, leaseUntil: { $exists: false }, updatedAt: { $lte: staleLegacy } },
+    ],
+  };
+}
+
+/**
+ * Atomically claims ONE eligible event (optionally a specific one): a single findOneAndUpdate
+ * flips it to `processing`, stamps the worker + lease and increments attempts, so two workers can
+ * never hold the same event. Returns null when nothing is claimable.
+ */
+export async function claimEvent(opts: { workerId: string; eventId?: string; now?: Date }) {
   await connectDB();
-  const event = await AiEvent.findById(eventId);
-  if (!event) return;
-  if (event.status === AI_EVENT_STATUS.PROCESSED) return;
+  const now = opts.now ?? new Date();
+  const { leaseMs } = outboxConfig();
+  return AiEvent.findOneAndUpdate(
+    { ...(opts.eventId ? { _id: opts.eventId } : {}), ...claimableFilter(now, leaseMs) },
+    {
+      $set: {
+        status: AI_EVENT_STATUS.PROCESSING,
+        workerId: opts.workerId,
+        leaseUntil: new Date(now.getTime() + leaseMs),
+        processingStartedAt: now,
+      },
+      $inc: { attempts: 1 },
+    },
+    { sort: { createdAt: 1 }, new: true },
+  );
+}
 
-  event.status = AI_EVENT_STATUS.PROCESSING;
-  event.attempts += 1;
-  await event.save();
+/** Events whose lease expired after the final attempt can never be retried: dead-letter them. */
+export async function deadLetterExhausted(now = new Date()): Promise<number> {
+  await connectDB();
+  const { leaseMs } = outboxConfig();
+  const res = await AiEvent.updateMany(
+    {
+      status: AI_EVENT_STATUS.PROCESSING,
+      attempts: { $gte: MAX_ATTEMPTS },
+      $or: [{ leaseUntil: { $lte: now } }, { leaseUntil: { $exists: false }, updatedAt: { $lte: new Date(now.getTime() - leaseMs) } }],
+    },
+    { $set: { status: AI_EVENT_STATUS.DEAD_LETTER, deadLetteredAt: now, lastError: "lease expired after final attempt" } },
+  );
+  return res.modifiedCount;
+}
 
+type ClaimedEvent = NonNullable<Awaited<ReturnType<typeof claimEvent>>>;
+
+/** Runs every registered workflow for an already-claimed event and records the outcome, fenced on the lease owner. */
+async function runClaimedEvent(event: ClaimedEvent, now = () => new Date()): Promise<AiEventStatus> {
   const workflows = getWorkflowsForEventKey(event.eventKey);
   const triggerEvent: TriggerEvent = {
     id: String(event._id),
@@ -116,19 +179,8 @@ export async function dispatchEvent(eventId: string): Promise<void> {
     }
 
     const enabled = await isWorkflowEnabled(event.tenantId, workflow.id).catch(() => false);
-    // Phase 10 Addendum A Part 0: the exemption used to be based on
-    // declared AUTONOMY LEVEL (OBSERVE/RECOMMEND exempt, everything above
-    // gated) on the assumption those levels never have side effects. A
-    // registry-wide audit (docs/ai/audits/KILLSWITCH_AUDIT.md) found 9 of 30
-    // workflows — all OBSERVE/RECOMMEND — writing real internal_state
-    // records while exempt: turning their kill switch off did not stop
-    // them. The exemption is now based on whether the workflow CAN WRITE AT
-    // ALL (`performsWrites`, a workflow-declared field —
-    // tests/ai/aiRuntime/killSwitchCoverage.test.ts structurally asserts no
-    // workflow calling a write-capable tool omits it), never on autonomy
-    // level. A workflow that never declares performsWrites is unaffected —
-    // this changes behaviour for exactly the 9 audited workflows, not for
-    // every OBSERVE/RECOMMEND-level one.
+    // Phase 10 Addendum A Part 0: the kill-switch exemption is based on whether the workflow CAN
+    // WRITE AT ALL (`performsWrites`), never on autonomy level — see docs/ai/audits/KILLSWITCH_AUDIT.md.
     if (!enabled && workflow.performsWrites) {
       // A disabled workflow that can write must not run at all — fail closed (Hard Rule 6).
       continue;
@@ -141,44 +193,86 @@ export async function dispatchEvent(eventId: string): Promise<void> {
     }
   }
 
+  const finished = now();
+  const durationMs = event.processingStartedAt ? finished.getTime() - event.processingStartedAt.getTime() : undefined;
+  let set: Record<string, unknown>;
+  let finalStatus: AiEventStatus;
   if (anyFailed) {
-    event.status = event.attempts >= MAX_ATTEMPTS ? AI_EVENT_STATUS.DEAD_LETTER : AI_EVENT_STATUS.FAILED;
-    event.lastError = lastError;
+    if (event.attempts >= MAX_ATTEMPTS) {
+      finalStatus = AI_EVENT_STATUS.DEAD_LETTER;
+      set = { status: finalStatus, lastError, deadLetteredAt: finished };
+    } else {
+      finalStatus = AI_EVENT_STATUS.FAILED;
+      set = { status: finalStatus, lastError, nextAttemptAt: new Date(finished.getTime() + computeBackoffMs(event.attempts)) };
+    }
   } else {
-    event.status = AI_EVENT_STATUS.PROCESSED;
-    event.processedAt = new Date();
+    finalStatus = AI_EVENT_STATUS.PROCESSED;
+    set = { status: finalStatus, processedAt: finished };
   }
-  await event.save();
+  if (durationMs !== undefined) set.lastDurationMs = durationMs;
+
+  // Fenced: only the worker that still owns the lease may record the outcome.
+  const res = await AiEvent.updateOne(
+    { _id: event._id, status: AI_EVENT_STATUS.PROCESSING, workerId: event.workerId },
+    { $set: set, $unset: { leaseUntil: "", workerId: "" } },
+  );
+  return res.matchedCount === 1 ? finalStatus : AI_EVENT_STATUS.PROCESSING;
 }
 
-/** Drains every pending/failed (under the retry cap) event — called by the
- *  cron sweep route on an hourly schedule. This is the retry-with-backoff +
- *  dead-letter mechanism: "backoff" here is simply "next hourly sweep,"
- *  matching the granularity of every other cron in this codebase. */
-export async function sweepPendingEvents(limit = 200, timeBudgetMs = 240000): Promise<{ processed: number; deadLettered: number }> {
+/**
+ * Dispatches one AiEvent (inline attempt from emitEvent, or targeted retry). The event is claimed
+ * atomically; if another worker owns it, or it is not yet eligible (backoff), this is a no-op.
+ */
+export async function dispatchEvent(eventId: string): Promise<void> {
+  const claimed = await claimEvent({ workerId: `inline:${process.pid}:${crypto.randomUUID()}`, eventId });
+  if (!claimed) return;
+  await runClaimedEvent(claimed);
+}
+
+export interface SweepResult {
+  processed: number;
+  deadLettered: number;
+  failed: number;
+  claimed: number;
+  timedOut: boolean;
+}
+
+/**
+ * Drains eligible events (pending, failed past backoff, crashed-lease) one atomic claim at a time
+ * until `limit` events or `timeBudgetMs` is reached. Safe to run concurrently from several workers.
+ */
+export async function sweepPendingEvents(
+  limit = 200,
+  timeBudgetMs = 240000,
+  opts?: { workerId?: string },
+): Promise<SweepResult> {
   await connectDB();
-  const events = await AiEvent.find({
-    status: { $in: [AI_EVENT_STATUS.PENDING, AI_EVENT_STATUS.FAILED] },
-    attempts: { $lt: MAX_ATTEMPTS },
-  })
-    .limit(limit)
-    .lean();
-
-  let processed = 0;
-  let deadLettered = 0;
+  const workerId = opts?.workerId ?? `sweep:${process.pid}:${crypto.randomUUID()}`;
   const startTime = Date.now();
+  const result: SweepResult = { processed: 0, deadLettered: 0, failed: 0, claimed: 0, timedOut: false };
 
-  for (const event of events) {
+  result.deadLettered += await deadLetterExhausted();
+
+  while (result.claimed < limit) {
     if (Date.now() - startTime > timeBudgetMs) {
-      console.warn(`[scheduler] sweepPendingEvents time budget of ${timeBudgetMs}ms reached, aborting sweep early.`);
+      result.timedOut = true;
+      console.warn(`[ai-outbox] sweep time budget of ${timeBudgetMs}ms reached after ${result.claimed} events; remaining events stay queued.`);
       break;
     }
-    
-    await dispatchEvent(String(event._id));
-    const after = await AiEvent.findById(event._id).lean();
-    if (after?.status === AI_EVENT_STATUS.PROCESSED) processed += 1;
-    if (after?.status === AI_EVENT_STATUS.DEAD_LETTER) deadLettered += 1;
+    const claimed = await claimEvent({ workerId });
+    if (!claimed) break;
+    result.claimed += 1;
+    let status: AiEventStatus;
+    try {
+      status = await runClaimedEvent(claimed);
+    } catch (err) {
+      // An infrastructure error while recording the outcome: leave the lease to expire; it will be reclaimed.
+      console.error("[ai-outbox] failed to finalise event; lease will expire and the event be retried", { eventId: String(claimed._id), err: err instanceof Error ? err.message : String(err) });
+      continue;
+    }
+    if (status === AI_EVENT_STATUS.PROCESSED) result.processed += 1;
+    else if (status === AI_EVENT_STATUS.DEAD_LETTER) result.deadLettered += 1;
+    else if (status === AI_EVENT_STATUS.FAILED) result.failed += 1;
   }
-
-  return { processed, deadLettered };
+  return result;
 }

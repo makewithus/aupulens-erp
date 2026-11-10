@@ -25,7 +25,8 @@ const tenantIdGuard = requireTenantId(session);
 
     const accounts = await Account.find(query)
       .populate("accountType", "name segment")
-      .sort({ accountName: 1 });
+      .sort({ accountName: 1 })
+      .lean();
 
     const csvData = [
       ["Account Name", "Account Code", "Account Type", "Segment", "Description", "Status"]

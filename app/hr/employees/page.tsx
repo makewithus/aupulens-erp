@@ -7,13 +7,7 @@ import { useRouter } from "next/navigation";
 import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Users as UsersIcon,
-  UserPlus,
-  Link2,
-  UserCheck,
-  UserX,
-} from "lucide-react";
+import { UserPlus, Link2, UserCheck, UserX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";

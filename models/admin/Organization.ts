@@ -1,18 +1,7 @@
 import type { AiWindowPolicy } from "@/lib/ai/usagePolicy";
+import { ENTITLEMENT_FIELDS, updateTouchesEntitlement, withVersionBump } from "@/lib/platform/entitlements/version";
 import mongoose, { Schema, Document, Model } from "mongoose";
-import {
-  SUBSCRIPTION_STATUS,
-  SUBSCRIPTION_STATUS_VALUES,
-  type SubscriptionStatus,
-  ORGANIZATION_TIER,
-  ORGANIZATION_TIER_VALUES,
-  type OrganizationTier,
-  ORGANIZATION_STATUS,
-  ORGANIZATION_STATUS_VALUES,
-  type OrganizationStatus,
-  ORGANIZATION_TYPE_VALUES,
-  type OrganizationTypeKey,
-} from "@/lib/constants/statuses";
+import { SUBSCRIPTION_STATUS, SUBSCRIPTION_STATUS_VALUES, type SubscriptionStatus, ORGANIZATION_TIER, ORGANIZATION_TIER_VALUES, type OrganizationTier, ORGANIZATION_STATUS_VALUES, type OrganizationStatus, ORGANIZATION_TYPE_VALUES, type OrganizationTypeKey } from "@/lib/constants/statuses";
 
 export interface IOrganization extends Document {
   name: string;
@@ -20,6 +9,8 @@ export interface IOrganization extends Document {
   domain?: string;
   ownerUserId: mongoose.Types.ObjectId;
   isActive: boolean;
+  /** Monotonic counter bumped by model hooks on every access-affecting change (G4). */
+  entitlementVersion: number;
   subscriptionStatus: SubscriptionStatus;
   trialEndDate?: Date;
   // Subscription tier — controls feature gating and usage limits
@@ -111,6 +102,7 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
     },
     ownerUserId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     isActive: { type: Boolean, default: true },
+    entitlementVersion: { type: Number, default: 0 },
     subscriptionStatus: {
       type: String,
       enum: SUBSCRIPTION_STATUS_VALUES,
@@ -184,6 +176,18 @@ OrganizationSchema.index({ isActive: 1 });
 OrganizationSchema.index({ tier: 1 });
 OrganizationSchema.index({ status: 1 });
 OrganizationSchema.index({ organizationType: 1 });
+
+// G4: centralised entitlement versioning — see lib/platform/entitlements/version.ts.
+OrganizationSchema.pre("save", function () {
+  if (this.isNew) return;
+  if (ENTITLEMENT_FIELDS.some((f) => this.isModified(f))) {
+    this.entitlementVersion = (this.entitlementVersion ?? 0) + 1;
+  }
+});
+OrganizationSchema.pre(["updateOne", "updateMany", "findOneAndUpdate"], function () {
+  const update = this.getUpdate();
+  if (updateTouchesEntitlement(update)) withVersionBump(update as Record<string, any>);
+});
 
 const Organization: Model<IOrganization> =
   (mongoose.models.Organization as Model<IOrganization>) ||

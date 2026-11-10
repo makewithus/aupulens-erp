@@ -1,5 +1,4 @@
 import connectDB from "@/lib/db";
-import mongoose from "mongoose";
 import PurchaseOrder from "@/models/finance/PurchaseOrder";
 import Invoice from "@/models/finance/Invoice";
 import Customer from "@/models/sales/Customer";

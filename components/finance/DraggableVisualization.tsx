@@ -4,18 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Maximize2, Minimize2, BarChart3, LineChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  BarChart,
-  Bar,
-  LineChart as RechartsLineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
 import { DailyBrickBarChart } from '@/components/charts/DailyBrickBarChart';
 import { TradingLineChart } from '@/components/charts/TradingLineChart';
 import { useThemeStore } from '@/store/themeStore';

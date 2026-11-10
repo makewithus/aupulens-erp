@@ -12,7 +12,6 @@ import { MIGRATION_ENTITY } from "@/lib/migration/constants";
 import { after } from "next/server";
 import { dedupeProductsForTenant } from "@/lib/migration/productDedupe";
 import { productionMigrationError } from "@/lib/migration/errors";
-import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
 import { computeMigrationReviewSummary } from "@/lib/migration/summary";
 import { deterministicMapping as buildDeterministicMapping } from "@/lib/migration/deterministicMapping";
 import { checkJournalAccountDependencies } from "@/lib/migration/dependencyCheck";

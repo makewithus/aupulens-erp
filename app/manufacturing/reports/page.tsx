@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, BarChart3, Download, TrendingUp, TrendingDown, FileSpreadsheet, FileText } from 'lucide-react';
+import { BarChart3, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { StatCard } from '@/components/admin/StatCard';
 import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
 import { ActivePulse } from '@/components/admin/graphics/ActivePulse';

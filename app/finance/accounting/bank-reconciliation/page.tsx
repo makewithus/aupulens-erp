@@ -12,15 +12,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import {
-  Check,
-  Link as LinkIcon,
-  Upload,
-  ArrowRightLeft,
-  Search,
-  Building,
-  Plus,
-} from "lucide-react";
+import { Check, Link as LinkIcon, Upload, ArrowRightLeft, Building } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { BankStatementImportPopup } from "@/components/accounting/BankStatementImportPopup";
 

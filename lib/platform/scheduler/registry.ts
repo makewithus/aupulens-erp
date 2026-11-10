@@ -7,7 +7,6 @@ import CrmTask from "@/models/crm/Task";
 import CrmActivity from "@/models/crm/Activity";
 import CrmCase from "@/models/crm/Case";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
-import AiSchedule, { AI_SCHEDULE_STATUS } from "@/models/ai/AiSchedule";
 import { triggerAutomation } from "@/lib/crm/automationEngine";
 import { sendCaseNotification } from "@/lib/crm/caseNotifications";
 import { evaluateInvoiceReminders, evaluateBillReminders } from "@/lib/sales/reminderEngine";
@@ -15,7 +14,6 @@ import { runSubscriptionBilling } from "@/lib/sales/subscriptionBillingRunner";
 import { processDunningRetries } from "@/lib/sales/dunningEngine";
 import { generateBusinessHealthSummary } from "@/lib/ai/businessHealth";
 import { bootstrapAiRuntime } from "@/lib/aiRuntime/bootstrap";
-import { emitEvent, sweepPendingEvents } from "@/lib/aiRuntime/runtime/eventBus";
 import { listWorkflows } from "@/lib/aiRuntime/runtime/registry";
 import { computeAndPersistTenantMetrics } from "@/lib/aiRuntime/metrics/computeMetrics";
 import { checkDrift } from "@/lib/aiRuntime/metrics/drift";
@@ -253,41 +251,13 @@ export const JOB_REGISTRY: JobDefinition[] = [
   },
   {
     jobId: "ai-runtime-sweep",
-    description: "Sweep pending AI-runtime events, emit hourly/period-horizon triggers, dispatch due schedules.",
+    description: "Drain the AI event outbox (atomic claims, lease recovery, backoff) and emit deduped time-based triggers.",
     owner: "ai",
-    scheduleLabel: "hourly",
-    intervalMinutes: 60,
+    scheduleLabel: "every scheduler tick (≤15 min)",
+    intervalMinutes: 5,
     handler: async () => {
-      bootstrapAiRuntime();
-      const result = await sweepPendingEvents();
-      await connectDB();
-      const orgs = await Organization.find({ isActive: true }, "subdomain").lean();
-      const now = new Date();
-      const hourKey = now.toISOString().substring(0, 13); // e.g., "2026-09-14T13"
-      
-      for (const org of orgs) {
-        await emitEvent((org as { subdomain: string }).subdomain, "ai.sweep.hourly", {}, { dedupeKey: hourKey, dispatchInline: false });
-      }
-      const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-      const currentPeriodEnd = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59),
-      ).toISOString();
-      for (const org of orgs) {
-        await emitEvent((org as { subdomain: string }).subdomain, "period.horizon.reached", {
-          period: currentPeriod,
-          periodEnd: currentPeriodEnd,
-        }, { dedupeKey: hourKey, dispatchInline: false });
-      }
-      const dueSchedules = await AiSchedule.find({
-        status: AI_SCHEDULE_STATUS.APPROVED,
-        nextRunDate: { $lte: new Date() },
-      })
-        .select("_id tenantId")
-        .lean();
-      for (const schedule of dueSchedules) {
-        await emitEvent(schedule.tenantId, "schedule.due", { scheduleId: String(schedule._id) }, { dispatchInline: false });
-      }
-      return { ...result, tenantsSwept: orgs.length, schedulesDue: dueSchedules.length };
+      const { runAiRuntimeSweep } = await import("@/lib/aiRuntime/runtime/sweepJob");
+      return { ...(await runAiRuntimeSweep()) };
     },
   },
   {

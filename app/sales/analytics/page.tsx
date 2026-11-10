@@ -9,24 +9,10 @@ import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  BarChart3,
-  Calendar,
-  PieChart as PieChartIcon,
-  RefreshCw,
-  TrendingUp,
-  ShoppingBag,
-  Layers,
-  ArrowRight,
-  GitBranch,
-  Activity,
-  DollarSign,
-  Truck,
-  Users,
-} from "lucide-react";
+import { BarChart3, Calendar, PieChart as PieChartIcon, RefreshCw, TrendingUp, Layers, ArrowRight, GitBranch } from "lucide-react";
 import { TradingLineChart } from "@/components/charts/TradingLineChart";
 import { DailyBrickBarChart, plainNumberFmtY, plainNumberFmtTooltip } from "@/components/charts/DailyBrickBarChart";
-import { CanvasPieChart, CanvasBarChart } from "@/components/inventory/CanvasCharts";
+import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { SalesVisualization } from "@/components/sales/SalesVisualization";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";

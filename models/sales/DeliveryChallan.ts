@@ -1,9 +1,4 @@
 import mongoose, { Schema, models, model, Model } from "mongoose";
-import {
-  DOCUMENT_STATUS_VALUES,
-  DOCUMENT_STATUS,
-  type DocumentStatus,
-} from "@/lib/constants/statuses";
 
 export interface IDeliveryChallan extends mongoose.Document {
   tenantId: string;

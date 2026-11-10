@@ -1,29 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { projectsSidebarConfig } from "@/config/sidebar/projects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  FolderKanban,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  TrendingUp,
-  ArrowRight,
-  Plus,
-  Activity,
-  Layers,
-  Calendar,
-  DollarSign,
-  Users,
-  Target,
-  ShieldAlert,
-} from "lucide-react";
+import { FolderKanban, CheckCircle2, AlertTriangle, TrendingUp, Plus, Target, ShieldAlert } from "lucide-react";
 import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";

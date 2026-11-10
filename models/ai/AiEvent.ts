@@ -26,6 +26,15 @@ export interface IAiEvent extends Document {
   attempts: number;
   lastError?: string;
   processedAt?: Date;
+  /** Worker that currently holds the lease (atomic claim). */
+  workerId?: string;
+  /** While status=processing: when the lease expires and another worker may reclaim the event. */
+  leaseUntil?: Date;
+  /** Not eligible for retry before this time (exponential backoff). */
+  nextAttemptAt?: Date;
+  processingStartedAt?: Date;
+  deadLetteredAt?: Date;
+  lastDurationMs?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +49,12 @@ const AiEventSchema: Schema<IAiEvent> = new Schema(
     attempts: { type: Number, default: 0 },
     lastError: { type: String },
     processedAt: { type: Date },
+    workerId: { type: String },
+    leaseUntil: { type: Date },
+    nextAttemptAt: { type: Date },
+    processingStartedAt: { type: Date },
+    deadLetteredAt: { type: Date },
+    lastDurationMs: { type: Number },
   },
   { timestamps: true },
 );
@@ -60,6 +75,8 @@ AiEventSchema.index(
   { unique: true, partialFilterExpression: { dedupeKey: { $exists: true } } },
 );
 AiEventSchema.index({ status: 1, createdAt: 1 });
+AiEventSchema.index({ status: 1, nextAttemptAt: 1, createdAt: 1 });
+AiEventSchema.index({ status: 1, leaseUntil: 1 });
 
 const AiEvent: Model<IAiEvent> =
   (mongoose.models.AiEvent as Model<IAiEvent>) ||

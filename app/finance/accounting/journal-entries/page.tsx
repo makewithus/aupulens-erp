@@ -31,35 +31,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Search,
-  Plus,
-  BookOpen,
-  Eye,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Trash2,
-  ChevronRight,
-  FileText,
-  ShieldCheck,
-  Send,
-  Ban,
-} from "lucide-react";
+import { Search, Plus, BookOpen, Eye, CheckCircle2, Trash2 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { JournalEntryPopupContent } from "@/components/accounting/JournalEntryPopupContent";
-import {
-  VOUCHER_STATUS,
-  VOUCHER_STATUS_LABELS,
-  VOUCHER_STATUS_COLORS,
-  VOUCHER_STATUS_VALUES,
-  VOUCHER_FLOW_STEPS,
-  VOUCHER_TYPE_LABELS,
-  VOUCHER_TYPE_COLORS,
-  VOUCHER_TYPE_VALUES,
-  type VoucherStatus,
-  type VoucherType,
-} from "@/lib/constants/statuses";
+import { VOUCHER_STATUS_LABELS, VOUCHER_STATUS_COLORS, VOUCHER_STATUS_VALUES, VOUCHER_TYPE_LABELS, VOUCHER_TYPE_COLORS, VOUCHER_TYPE_VALUES, type VoucherStatus, type VoucherType } from "@/lib/constants/statuses";
 
 const LIMIT = 10;
 

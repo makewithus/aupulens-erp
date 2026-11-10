@@ -7,7 +7,6 @@ import { SessionProvider } from "next-auth/react";
 import ToastRoot from "@/components/providers/ToastRoot";
 import TenantInitializer from "@/components/providers/TenantInitializer";
 import TenantWrapper from "@/components/providers/TenantWrapper";
-import { ConfirmProvider } from "@/providers/confirm-provider";
 import ConfirmRoot from "@/components/providers/ConfirmRoot";
 import { SessionTimeout } from "@/components/providers/SessionTimeout";
 import { AdminPortalShell } from "@/components/dashboard/AdminPortalShell";

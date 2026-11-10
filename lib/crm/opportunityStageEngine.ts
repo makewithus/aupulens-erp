@@ -1,4 +1,3 @@
-import CrmOpportunity from "@/models/crm/Opportunity";
 
 export async function validateOpportunityStage(opportunity: any, newStage: string) {
   const stages = ['Prospecting','Discovery','Requirement Gathering','Solution Fit','Proposal Sent','Negotiation','Approval','Closed Won','Closed Lost'];

@@ -1,5 +1,5 @@
 import type { ErpStructuredResponse, ErpRecordItem, ErpFinancialTotalSummary } from "./erpTypes";
-import { formatSalesDate, formatSalesCurrency } from "@/lib/sales/formatters";
+import { formatSalesDate } from "@/lib/sales/formatters";
 
 /**
  * Parses unformatted or legacy plain-text ERP answers into strongly-typed structures.

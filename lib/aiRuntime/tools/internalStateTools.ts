@@ -1,4 +1,3 @@
-import { registerTool } from "@/lib/aiRuntime/tools/registry";
 
 /**
  * `internal_state`-category tools (docs/ai/BRIEF-05-BATCH-D.md Part 0.3) whose home is this file

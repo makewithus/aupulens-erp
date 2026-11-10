@@ -23,7 +23,6 @@
 
 import type { AiWindowPolicy } from "@/lib/ai/usagePolicy";
 import { getWindowUsage, incrementWindowUsage } from "@/lib/ai/windowUsage";
-import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
 import { getTierLimits } from "@/lib/constants/tiers";
 import {

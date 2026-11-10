@@ -8,7 +8,7 @@ import TransactionLock from "@/models/finance/TransactionLock";
 import PeriodClosing from "@/models/finance/PeriodClosing";
 import ExtractedDocument from "@/models/ai/ExtractedDocument";
 import Account from "@/models/finance/Account";
-import { AI_AUTONOMY_LEVEL, AI_TOOL_SIDE_EFFECT, DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { AI_AUTONOMY_LEVEL, AI_TOOL_SIDE_EFFECT } from "@/lib/constants/statuses";
 import { registerTool } from "@/lib/aiRuntime/tools/registry";
 import { findDuplicates } from "@/lib/docIntel/duplicateCheck";
 import { loadExistingBills } from "@/lib/docIntel/billCreate";

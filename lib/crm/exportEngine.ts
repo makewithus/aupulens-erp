@@ -1,6 +1,5 @@
 import { objectsToStyledXlsx } from "@/lib/export/styledWorkbook";
 import { Parser } from "@json2csv/plainjs";
-import * as xlsx from "xlsx";
 import dbConnect from "@/lib/db";
 import mongoose from "mongoose";
 

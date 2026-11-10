@@ -14,17 +14,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import {
-  Plus,
-  Calculator,
-  History,
-  Trash2,
-  Calendar,
-  HardDrive,
-  CheckCircle2,
-  Eye,
-  Pencil,
-} from "lucide-react";
+import { Plus, Calculator, Trash2, HardDrive, CheckCircle2, Eye, Pencil } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { AssetPopupContent } from "@/components/accounting/AssetPopupContent";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";

@@ -7,15 +7,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  BarChart3,
-  Calendar,
-  PieChart as PieChartIcon,
-  RefreshCw,
-  TrendingUp,
-  ArrowRight,
-  ArrowLeft,
-} from "lucide-react";
+import { BarChart3, PieChart as PieChartIcon, RefreshCw, ArrowLeft } from "lucide-react";
 import { TradingLineChart } from "@/components/charts/TradingLineChart";
 import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";

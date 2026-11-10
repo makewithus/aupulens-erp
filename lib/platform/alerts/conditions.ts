@@ -14,7 +14,6 @@ import {
 } from "@/lib/constants/statuses";
 import { emitPlatformAlert } from "./emit";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
-import { getAiPeriod } from "@/lib/ai/usage";
 
 /**
  * Source doc §28, Phase 9 Addendum C Part 3: "a configurable threshold

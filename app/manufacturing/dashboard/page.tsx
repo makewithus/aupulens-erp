@@ -8,23 +8,9 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { manufacturingSidebarConfig } from "@/config/sidebar/manufacturing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Factory,
-  Package,
-  FileText,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Plus,
-  ArrowRight,
-  TrendingUp,
-  BarChart3,
-  Truck,
-  RotateCcw,
-  RefreshCw,
-} from "lucide-react";
+import { Factory, Package, FileText, Plus, ArrowRight, BarChart3, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
+import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";

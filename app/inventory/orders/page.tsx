@@ -37,16 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Plus,
-  ShoppingCart,
-  Package,
-  Clock,
-  CheckCircle2,
-  BarChart3,
-  X,
-  Search,
-} from "lucide-react";
+import { Plus, CheckCircle2, X, Search } from "lucide-react";
 import { DraggableVisualization } from "@/components/finance/DraggableVisualization";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { StatCard } from "@/components/admin/StatCard";

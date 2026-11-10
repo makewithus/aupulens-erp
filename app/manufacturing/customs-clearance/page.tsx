@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
-import { Loader2, FileText, Plus, BarChart3, Edit, Trash2 } from 'lucide-react';
+import { Plus, BarChart3, Edit, Trash2 } from 'lucide-react';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

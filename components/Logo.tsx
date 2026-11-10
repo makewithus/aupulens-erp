@@ -25,7 +25,7 @@ export function Logo({
   }, []);
 
   // Use a stable default during server rendering and hydration.
-  // Since the default theme is dark, use logo-white(1).png.
+  // Since the default theme is dark, use logo-white.png.
   const isDark = !mounted || theme === "dark";
   const [hasError, setHasError] = useState(false);
   const logoSrc = isDark ? "/logo-white.png" : "/logo-dark.png";

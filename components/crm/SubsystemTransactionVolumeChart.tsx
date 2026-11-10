@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useThemeStore } from "@/store/themeStore";
 import { cn } from "@/lib/utils";
-import { BRAND_COLORS, ERP_MODULE_PALETTE } from "@/lib/constants/brandColors";
-import { Activity, Layers, BarChart2 } from "lucide-react";
+import { ERP_MODULE_PALETTE } from "@/lib/constants/brandColors";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export interface SubsystemTransactionVolumeChartProps {

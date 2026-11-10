@@ -4,7 +4,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import BillOfMaterial from "@/models/manufacturing/BillOfMaterial";
-import Product from "@/models/inventory/Product"; // Ensure registration
+ // Ensure registration
 import { validateObjectId, handleRouteError } from "@/lib/api/validateId";
 
 export async function GET(

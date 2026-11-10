@@ -31,19 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
-import {
-  Search,
-  Plus,
-  Trash2,
-  Eye,
-  Edit,
-  Clock,
-  Lock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Building2,
-} from "lucide-react";
+import { Search, Plus, Trash2, Eye, Edit, Clock, Lock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 interface AttendanceRecord {
   _id: string;

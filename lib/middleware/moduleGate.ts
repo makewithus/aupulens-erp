@@ -17,6 +17,10 @@ export interface OrgModuleInfo {
   // field existed. Populated by app/api/internal/org-tier/route.ts, which
   // is the only place with a live Mongoose connection to check for the row.
   resolvedModules?: string[];
+  /** Monotonic counter bumped on every access-affecting change (G4). */
+  entitlementVersion?: number;
+  /** false when the organisation itself has been deactivated. */
+  isActive?: boolean;
 }
 
 // Maps route path prefixes to the module name used in TIER_LIMITS.enabledModules.
@@ -132,6 +136,7 @@ export function isModuleAccessible(
 // with no active paid subscription behind it. "active" never blocks, even
 // if trialEndDate is set/past (a stale field from before they upgraded).
 export function isSubscriptionBlocked(org: OrgModuleInfo): boolean {
+  if (org.isActive === false) return true;
   if (org.subscriptionStatus === "suspended" || org.subscriptionStatus === "cancelled") {
     return true;
   }

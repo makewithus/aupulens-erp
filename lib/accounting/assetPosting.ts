@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import JournalEntry from "@/models/finance/JournalEntry";
 import Account from "@/models/finance/Account";
 import { DOCUMENT_STATUS, VOUCHER_STATUS, VOUCHER_TYPE } from "@/lib/constants/statuses";

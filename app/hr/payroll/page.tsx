@@ -6,11 +6,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import {
@@ -28,22 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Search,
-  Plus,
-  Trash2,
-  Eye,
-  Play,
-  Lock,
-  Calculator,
-  ClipboardCheck,
-  CheckCircle2,
-  Banknote,
-  BookOpen,
-  ArrowRight,
-  IndianRupee,
-  Users,
-} from "lucide-react";
+import { Search, Plus, Play, Lock, Calculator, ClipboardCheck, CheckCircle2, Banknote, BookOpen, ArrowRight } from "lucide-react";
 import { PayrollList } from "@/components/hr/payroll/PayrollList";
 import { PAYROLL_STATUS } from "@/lib/constants/statuses";
 

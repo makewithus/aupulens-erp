@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { ChartCard } from "./ChartCard";
 import { useThemeStore } from "@/store/themeStore";
-import { Send, BarChart3, TrendingUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DashboardChartsProps {

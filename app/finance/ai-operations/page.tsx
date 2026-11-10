@@ -28,21 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Sparkles,
-  Bell,
-  FolderClosed,
-  ShieldCheck,
-  Clock,
-  CircleAlert,
-  CheckCircle2,
-  Ban,
-  MinusCircle,
-  FileText,
-  Plus,
-  Trash2,
-  TrendingUp,
-} from "lucide-react";
+import { Sparkles, Bell, FolderClosed, ShieldCheck, CircleAlert, CheckCircle2, Ban, MinusCircle, FileText, Plus, Trash2, TrendingUp } from "lucide-react";
 import { AI_WORKFLOW_LABELS } from "@/lib/aiRuntime/workflows/catalog";
 import { AI_AUTONOMY_LEVEL_ORDER } from "@/lib/constants/statuses";
 

@@ -1,9 +1,7 @@
 'use client';
 
 import React from "react";
-import { 
-  Megaphone, UserPlus, Target, FileText, FileCheck, ArrowRight, CheckCircle2 
-} from "lucide-react";
+import { Megaphone, UserPlus, Target, FileText, FileCheck, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 

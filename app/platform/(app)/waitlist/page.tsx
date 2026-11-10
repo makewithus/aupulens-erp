@@ -2,23 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  AlertCircle,
-  Building2,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Filter,
-  Info,
-  Mail,
-  Phone,
-  RefreshCw,
-  Search,
-  Sparkles,
-  User,
-  Users,
-  XCircle,
-} from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, Clock, Info, RefreshCw, Search, User, Users, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

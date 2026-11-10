@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
+import User from "@/models/auth/User";
 import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 
@@ -14,13 +15,13 @@ export async function GET(req: NextRequest) {
   const secret = process.env.MIDDLEWARE_INTERNAL_SECRET;
   if (process.env.NODE_ENV === "production" || secret) {
     if (!secret || req.headers.get("x-middleware-secret") !== secret) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "Cache-Control": "no-store, max-age=0" } });
     }
   }
 
   const tenantId = req.nextUrl.searchParams.get("tenantId");
   if (!tenantId) {
-    return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+    return NextResponse.json({ error: "tenantId required" }, { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 
   try {
@@ -28,16 +29,18 @@ export async function GET(req: NextRequest) {
 
     const org = await Organization.findOne(
       { subdomain: tenantId },
-      { tier: 1, "settings.enabledModules": 1, subscriptionStatus: 1, trialEndDate: 1 }
+      { tier: 1, "settings.enabledModules": 1, subscriptionStatus: 1, trialEndDate: 1, isActive: 1, entitlementVersion: 1 }
     ).lean<{
       tier?: string;
       settings?: { enabledModules?: string[] };
       subscriptionStatus?: string;
       trialEndDate?: Date;
+      isActive?: boolean;
+      entitlementVersion?: number;
     }>();
 
     if (!org) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "no-store, max-age=0" } });
     }
 
   // docs/admin/BRIEF-PHASE-9a-ADDENDUM.md Part 1.2's resolution order: an
@@ -62,8 +65,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Optional per-user liveness (G4): lets middleware revoke a deactivated user within the freshness window.
+    const userId = req.nextUrl.searchParams.get("userId");
+    let userActive: boolean | undefined;
+    if (userId && /^[a-f0-9]{24}$/i.test(userId)) {
+      const u = await User.findOne({ _id: userId, tenantId }, { status: 1 }).lean<{ status?: string }>();
+      userActive = u ? u.status === "active" : false;
+    }
+
     return NextResponse.json({
       tier: activeTier,
+      entitlementVersion: org.entitlementVersion ?? 0,
+      entitlementCheckedAt: Date.now(),
+      isActive: org.isActive !== false,
+      userActive,
       enabledModules: org.settings?.enabledModules ?? [],
       subscriptionStatus: org.subscriptionStatus ?? "trial",
       trialEndDate: org.trialEndDate ?? null,

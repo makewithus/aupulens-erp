@@ -42,7 +42,6 @@ import {
 import { ExportCustomersDialog } from "@/components/sales/customers/ExportCustomersDialog";
 import { ExportCurrentViewDialog } from "@/components/sales/customers/ExportCurrentViewDialog";
 import { AVAILABLE_CUSTOMER_COLUMNS } from "@/lib/sales/customerViews";
-import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 import { formatSalesCurrency } from "@/lib/sales/formatters";
 

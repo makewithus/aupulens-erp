@@ -4,18 +4,7 @@ import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
-import {
-  FileText,
-  Download,
-  BarChart,
-  RefreshCw,
-  CheckCircle2,
-  Printer,
-  FileBarChart,
-  TrendingUp,
-  Package,
-  Factory,
-} from "lucide-react";
+import { FileText, BarChart, RefreshCw, CheckCircle2, Printer, FileBarChart, TrendingUp, Package, Factory } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {

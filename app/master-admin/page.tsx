@@ -18,21 +18,7 @@ import {
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { masterAdminSidebarConfig } from "@/config/sidebar/master-admin";
-import {
-  Plus,
-  Trash2,
-  Edit,
-  Globe,
-  Activity,
-  Building2,
-  Users,
-  ShieldCheck,
-  Search,
-  ExternalLink,
-  Check,
-  X,
-  Loader2,
-} from "lucide-react";
+import { Plus, Trash2, Edit, Globe, Activity, Building2, ShieldCheck, Search, ExternalLink, Check, X, Loader2 } from "lucide-react";
 import { APP_ROOT_DOMAIN, buildTenantUrl } from "@/lib/config";
 
 export default function MasterAdminPage() {

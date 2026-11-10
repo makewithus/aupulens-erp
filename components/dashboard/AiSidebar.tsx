@@ -26,8 +26,6 @@ import { NAV_DESTINATIONS } from "@/lib/ai/navRoutes";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useThemeStore } from "@/store/themeStore";
 import { useTenantStore } from "@/store/useTenantStore";
 import {

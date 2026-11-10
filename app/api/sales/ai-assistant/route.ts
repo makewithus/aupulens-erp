@@ -9,8 +9,6 @@ import connectDB from '@/lib/db';
 import { randomUUID } from 'crypto';
 import SaleOrder from '@/models/sales/SaleOrder';
 import Customer from '@/models/sales/Customer';
-import SalesQuotation from '@/models/sales/SalesQuotation';
-import DeliveryChallan from '@/models/sales/DeliveryChallan';
 import Organization from '@/models/admin/Organization';
 import mongoose from 'mongoose';
 import { type ChatTurn } from '@/lib/ai/claude';

@@ -6,16 +6,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
-import {
-  Plus, Search, AlertTriangle, CheckCircle2, Clock, XCircle,
-  RefreshCw, TrendingUp, Loader2,
-} from "lucide-react";
+import { Plus, Search, AlertTriangle, CheckCircle2, Clock, RefreshCw, Loader2 } from "lucide-react";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";
 

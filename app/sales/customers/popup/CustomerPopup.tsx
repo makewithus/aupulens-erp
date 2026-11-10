@@ -11,18 +11,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import {
-  Check,
-  ChevronsUpDown,
-  Plus,
-  User,
-  Mail,
-  Phone,
-  Globe,
-  MapPin,
-  Briefcase,
-  FileText,
-} from "lucide-react";
+import { Check, ChevronsUpDown, Plus, User, Mail, Phone, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";

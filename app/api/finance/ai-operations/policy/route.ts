@@ -1,5 +1,5 @@
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";

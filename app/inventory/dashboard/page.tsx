@@ -9,23 +9,7 @@ import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Package,
-  Warehouse,
-  AlertTriangle,
-  ArrowDownToLine,
-  Truck,
-  Layers,
-  ArrowUpRight,
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
-  Boxes,
-  Plus,
-  RefreshCw,
-  ShieldAlert,
-  ArrowLeftRight,
-} from "lucide-react";
+import { Package, Warehouse, AlertTriangle, Truck, ArrowUpRight, TrendingUp, Boxes, Plus, ShieldAlert, ArrowLeftRight } from "lucide-react";
 import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";

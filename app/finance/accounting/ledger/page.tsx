@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, ArrowUpDown, FileStack } from "lucide-react";
+import { Search, Filter, FileStack } from "lucide-react";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 const LIMIT = 10;

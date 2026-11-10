@@ -13,7 +13,6 @@ import { evaluateOpportunityHealth } from "@/lib/crm/opportunityHealth";
 import { getLlmCrmInsight } from "@/lib/crm/ai/llmInsight";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 import { calculateWinProbability, estimateWinProbabilityWithAi } from "@/lib/crm/winProbability";
-import CrmCase from "@/models/crm/Case";
 import { canAccessDemoDoc } from "@/lib/auth/scopeFilter";
 import "@/models/crm/Contact";
 import "@/models/crm/Account";

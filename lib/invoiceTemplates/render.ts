@@ -1,4 +1,4 @@
-import type { ComputedLine, HsnSummaryRow } from "@/lib/sales/invoiceMath";
+import type { HsnSummaryRow } from "@/lib/sales/invoiceMath";
 import type { TemplateDefinition, TemplateRenderContext } from "./types";
 import { escapeHtml, fmtNum, fmtQty, money, dateStr } from "./helpers";
 

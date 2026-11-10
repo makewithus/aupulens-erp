@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Palette, FileText, Settings, Hash, MessageSquare, Save, Plus, Trash2, Upload, Loader2 } from "lucide-react";
+import { Palette, FileText, Hash, MessageSquare, Save, Plus, Trash2, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 

@@ -34,7 +34,7 @@ import { GlobalSearch } from "./GlobalSearch";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { ModuleTabs } from "./ModuleTabs";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { moduleForHref, normalizeModuleKey } from "@/lib/modules/visibility";
+import { normalizeModuleKey } from "@/lib/modules/visibility";
 import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
 
 // Master Admin Module Switching

@@ -8,7 +8,6 @@ import SalesView from "@/models/sales/SalesView";
 import { createSalesQuote } from "@/lib/sales/createQuote";
 import { ErpToolError } from "@/lib/ai/erpQuery";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/quoteViews";
-import { QUOTE_STATUS_VALUES } from "@/lib/constants/statuses";
 import Customer from "@/models/sales/Customer";
 
 export async function GET(request: NextRequest) {

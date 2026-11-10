@@ -18,20 +18,8 @@ import {
   TableCell,
 } from "@/components/shared/Table";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
-import {
-  Plus,
-  Users,
-  Calendar,
-  BarChart3,
-  ArrowRight,
-  TrendingUp,
-  AlertCircle,
-  Briefcase,
-  ShieldAlert,
-  RefreshCw,
-} from "lucide-react";
+import { Plus, Users, Calendar, BarChart3, ShieldAlert, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 function CrmDashboardSkeleton() {
   return (

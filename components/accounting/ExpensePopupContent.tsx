@@ -1,21 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  FileText,
-  Calendar,
-  User,
-  CreditCard,
-  Building,
-  DollarSign,
-  Briefcase,
-  AlertCircle,
-  Hash,
-  Wallet,
-  Receipt,
-  MessageSquare,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { FileText, Calendar, User, CreditCard, Building, AlertCircle, Hash, Receipt, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {

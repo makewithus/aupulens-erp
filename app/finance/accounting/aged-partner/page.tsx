@@ -21,7 +21,6 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SearchInput } from "@/components/SearchInput";
-import { Clock, FileWarning, ArrowRight } from "lucide-react";
 
 export default function AgedPartnerReportPage() {
   const { data: session, status } = useSession();

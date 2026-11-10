@@ -5,7 +5,6 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import { randomUUID } from 'crypto';
 import InventoryItem from '@/models/inventory/InventoryItem';
-import Batch from '@/models/inventory/Batch';
 import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';

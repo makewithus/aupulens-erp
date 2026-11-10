@@ -23,21 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Search,
-  Plus,
-  Eye,
-  Trash2,
-  ChevronRight,
-  FileText,
-  CheckCircle2,
-  ShieldCheck,
-  Send,
-  BookOpen,
-  Ban,
-  RotateCcw,
-  Minus,
-} from "lucide-react";
+import { Search, Plus, Eye, Trash2, ChevronRight, FileText, CheckCircle2, ShieldCheck, Send, BookOpen, Ban, RotateCcw } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { JournalEntryPopupContent } from "@/components/accounting/JournalEntryPopupContent";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
@@ -48,18 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  VOUCHER_TYPE,
-  VOUCHER_TYPE_VALUES,
-  VOUCHER_TYPE_LABELS,
-  VOUCHER_TYPE_COLORS,
-  VOUCHER_STATUS,
-  VOUCHER_STATUS_LABELS,
-  VOUCHER_STATUS_COLORS,
-  VOUCHER_FLOW_STEPS,
-  type VoucherType,
-  type VoucherStatus,
-} from "@/lib/constants/statuses";
+import { VOUCHER_TYPE_VALUES, VOUCHER_TYPE_LABELS, VOUCHER_TYPE_COLORS, VOUCHER_STATUS, VOUCHER_STATUS_LABELS, VOUCHER_FLOW_STEPS, type VoucherType, type VoucherStatus } from "@/lib/constants/statuses";
 
 /* ------------------------------------------------------------------ */
 /*  Flow Progress Stepper                                              */

@@ -6,7 +6,6 @@ import connectDB from "@/lib/db";
 import { randomUUID } from "crypto";
 import Employee from "@/models/hr/Employee";
 import Payroll from "@/models/hr/Payroll";
-import Attendance from "@/models/hr/Attendance";
 import LeaveRequest from "@/models/hr/LeaveRequest";
 import Department from "@/models/hr/Department";
 import { type ChatTurn } from "@/lib/ai/claude";

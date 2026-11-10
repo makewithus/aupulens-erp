@@ -1,18 +1,4 @@
-import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  DollarSign,
-  Clock,
-  UserPlus,
-  UserMinus,
-  Building2,
-  FileText,
-  Sparkles,
-  CalendarCheck,
-  BarChart3,
-  ClipboardList,
-} from "lucide-react";
+import { LayoutDashboard, Users, Calendar, DollarSign, UserPlus, UserMinus, Building2, FileText, CalendarCheck, BarChart3 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
 export const hrSidebarConfig: SidebarSection[] = [

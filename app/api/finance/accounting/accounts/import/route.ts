@@ -29,8 +29,8 @@ const tenantIdGuard = requireTenantId(session);
     let errors = [];
 
     // Pre-fetch account types to map names to IDs
-    const types = await AccountType.find({ tenantId });
-    const typeMap = new Map(types.map(t => [t.name.toLowerCase(), t._id]));
+    const types = await AccountType.find({ tenantId }).lean();
+    const typeMap = new Map(types.map((t: any) => [t.name.toLowerCase(), t._id]));
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];

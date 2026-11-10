@@ -4,16 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { employeeCodeForDisplay } from "@/lib/hr/employeeValidation";
-import {
-  Mail,
-  Phone,
-  Building2,
-  Link2,
-  UserX,
-  Eye,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Mail, Phone, Link2, UserX, Eye, Pencil, Trash2 } from "lucide-react";
 
 interface Employee {
   _id: string;

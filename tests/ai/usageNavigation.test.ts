@@ -3,7 +3,9 @@ import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ default: () => ({ auth: (handler: unknown) => handler }) }));
 vi.mock("@/auth.config", () => ({ authConfig: {} }));
-vi.mock("@/lib/middleware/orgTierCache", () => ({ createOrgTierCache: () => ({ get: vi.fn().mockResolvedValue(null) }) }));
+// Entitlements are fail-closed (G4): the lookup must resolve for a tenant request to proceed, so this navigation
+// test supplies a healthy organisation. Fail-closed behaviour itself is covered in tests/resourceOptimization.
+vi.mock("@/lib/middleware/orgTierCache", () => ({ createOrgTierCache: () => ({ get: vi.fn().mockResolvedValue({ tier: "enterprise", enabledModules: [], subscriptionStatus: "active", userActive: true }) }) }));
 import middleware from "@/middleware";
 
 async function visit(headers: Record<string, string>, role: string | null = "admin", path = "/api/ai/usage") {

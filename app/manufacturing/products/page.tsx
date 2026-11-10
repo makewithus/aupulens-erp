@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,34 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  Loader2,
-  Plus,
-  Package,
-  X,
-  Search,
-  Edit3,
-  Trash2,
-  CheckCircle2,
-  History,
-  Eye,
-} from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Plus, Package, Search, Edit3, Trash2, CheckCircle2, History, Eye } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { SelectSearchAdd } from "@/components/dashboard/SelectSearchAdd";
-import { CURRENCIES } from "@/config/currencies";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { ProductPopupContent } from "@/app/sales/products/popup/ProductPopup";
 import { PricelistPopupContent } from "@/app/sales/pricelist/popup/PricelistPopup";

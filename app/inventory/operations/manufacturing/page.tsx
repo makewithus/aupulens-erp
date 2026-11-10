@@ -27,14 +27,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Search,
-  Plus,
-  RefreshCw,
-  Eye,
-  CheckCircle2,
-  ArrowRight,
-} from "lucide-react";
+import { Search, Plus, Eye, CheckCircle2, ArrowRight } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { ManufacturingOrderPopup } from "@/app/inventory/operations/popups/ManufacturingOrderPopup";

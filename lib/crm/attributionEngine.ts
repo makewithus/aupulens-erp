@@ -3,7 +3,6 @@ import CrmLead from "@/models/crm/Lead";
 import CrmOpportunity from "@/models/crm/Opportunity";
 import CrmContract from "@/models/crm/Contract";
 import CrmCampaign from "@/models/crm/Campaign";
-import mongoose from "mongoose";
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
