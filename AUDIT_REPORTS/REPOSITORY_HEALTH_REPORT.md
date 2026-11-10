@@ -3,14 +3,14 @@
 ## Metrics (tracked files only; before = `30de35b1`, after = `002cc421`)
 | Metric | Before | After |
 |---|---|---|
-| Tracked files | 2,382 | 2,352 (−36 deleted, +6 added: 3 audit scripts, `orphans.mjs`, a model, a lib file… see `git diff --name-status 30de35b1 HEAD`) |
+| Tracked files | 2,382 | 2,352 (−36 deleted; +12 added = 6 audit reports, 3 audit scripts, `lib/auth/orgModuleData.ts`, 2 regression tests) |
 | Directories with tracked files | 1,064 | 1,056 |
 | TS/TSX lines | 372,543 | 368,051 (−4,492) |
 | Dependencies / devDependencies | 59 / 17 | 54 / 16 |
 | `package-lock.json` lines | 16,595 | 16,432 |
 | `.git` size | 78 MB | unchanged (history kept) |
 | Production build output | 2.1 GB dist dir (before and after; the build cache dominates, so no size improvement is claimed) | |
-Files modified by the cleanup commits: 177 modified, 36 deleted, 6 added (code fixes + audit scripts); 175 of the modified are source files, 172 of them only for unused-import removal. **No CPU, memory, latency or cold-start improvement is claimed — none was measured.**
+Files changed since `30de35b1`: 177 modified, 36 deleted, 12 added (code fixes + audit scripts); 175 of the modified are source files, 172 of them only for unused-import removal. **No CPU, memory, latency or cold-start improvement is claimed — none was measured.**
 
 ## Structure
 `app` 853 files (pages + 500+ API routes) · `lib` ~500 · `components` ~236 · `models` 211 · `tests` ~395 · `scripts` 66 · `config` 11 · small: `store`, `providers`, `types`, `electron`, `hsn`, `graph`, `public`. Multi-tenant Next.js (App Router) + Mongoose + Auth.js; AI runtime in `lib/aiRuntime`; platform/scheduler in `lib/platform`; GitHub Actions is the scheduler trigger.
