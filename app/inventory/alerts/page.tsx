@@ -26,13 +26,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import {
-  RefreshCw,
-  Search,
-  Truck,
-  CheckCircle2,
-  AlertCircle
-} from 'lucide-react';
+import { RefreshCw, Search, Truck, CheckCircle2 } from 'lucide-react';
 import { StatCard } from '@/components/admin/StatCard';
 import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
 import { ActivePulse } from '@/components/admin/graphics/ActivePulse';

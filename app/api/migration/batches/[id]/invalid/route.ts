@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import MigrationRecord from "@/models/admin/MigrationRecord";
-import MigrationJob from "@/models/admin/MigrationJob";
 import MigrationBatch from "@/models/admin/MigrationBatch";
 import { moveDuplicateWriteErrorsToReview } from "@/lib/migration/duplicateReview";
 

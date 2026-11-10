@@ -30,23 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ModularModal } from "@/components/dashboard/ModularModal";
-import {
-  Lock,
-  BookOpen,
-  CheckCircle2,
-  CalendarDays,
-  Plus,
-  Eye,
-  Trash2,
-  ChevronRight,
-  Unlock,
-  Calculator,
-  Scale,
-  FolderClosed,
-  FileSpreadsheet,
-  ArrowRight,
-  Search,
-} from "lucide-react";
+import { Lock, CheckCircle2, CalendarDays, Plus, Eye, Trash2, ChevronRight, Unlock, Calculator, Scale, FolderClosed, FileSpreadsheet, ArrowRight, Search } from "lucide-react";
 import {
   PERIOD_CLOSING_STATUS,
   PERIOD_CLOSING_STATUS_LABELS,

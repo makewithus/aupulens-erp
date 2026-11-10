@@ -1,4 +1,3 @@
-import { ReactNode } from "react";
 
 export function TableContainer({ children, className = "", ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (

@@ -20,14 +20,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { signOut, useSession } from "next-auth/react";
-import { Lightbulb } from "lucide-react";
 import { DateField } from "@/components/finance/accounting/DateField";
 import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 import { AccountPicker } from "@/components/finance/accounting/AccountPicker";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
-import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 

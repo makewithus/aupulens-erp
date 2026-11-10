@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
-import connectDB from "@/lib/db";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 

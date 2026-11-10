@@ -7,7 +7,6 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { AuthSplash } from '@/components/dashboard/AuthSplash';
 import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { TrackingSearch } from '@/components/manufacturing/tracking/TrackingSearch';
 import { ShipmentOverview } from '@/components/manufacturing/tracking/ShipmentOverview';

@@ -5,7 +5,6 @@ import CrmOpportunity from "@/models/crm/Opportunity";
 import CrmAccount from "@/models/crm/Account";
 import CrmLead from "@/models/crm/Lead";
 import CrmAIInsight from "@/models/crm/AIInsight";
-import CrmActivity from "@/models/crm/Activity";
 import { evaluateOpportunityHealth } from "@/lib/crm/opportunityHealth";
 import { calculateForecast } from "@/lib/crm/forecast";
 import { analyzeLeadCompleteness } from "@/lib/crm/dataCompletion";

@@ -1,20 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import {
-  Trash2,
-  Plus,
-  PackagePlus,
-  ChevronDown,
-  ChevronUp,
-  Info,
-  AlertTriangle,
-  CheckCircle2,
-} from "lucide-react";
+import { Trash2, Plus, PackagePlus, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   calculateQuoteTotals,
   discountApprovalTier,

@@ -1,19 +1,7 @@
 import type { AiWindowPolicy } from "@/lib/ai/usagePolicy";
 import { ENTITLEMENT_FIELDS, updateTouchesEntitlement, withVersionBump } from "@/lib/platform/entitlements/version";
 import mongoose, { Schema, Document, Model } from "mongoose";
-import {
-  SUBSCRIPTION_STATUS,
-  SUBSCRIPTION_STATUS_VALUES,
-  type SubscriptionStatus,
-  ORGANIZATION_TIER,
-  ORGANIZATION_TIER_VALUES,
-  type OrganizationTier,
-  ORGANIZATION_STATUS,
-  ORGANIZATION_STATUS_VALUES,
-  type OrganizationStatus,
-  ORGANIZATION_TYPE_VALUES,
-  type OrganizationTypeKey,
-} from "@/lib/constants/statuses";
+import { SUBSCRIPTION_STATUS, SUBSCRIPTION_STATUS_VALUES, type SubscriptionStatus, ORGANIZATION_TIER, ORGANIZATION_TIER_VALUES, type OrganizationTier, ORGANIZATION_STATUS_VALUES, type OrganizationStatus, ORGANIZATION_TYPE_VALUES, type OrganizationTypeKey } from "@/lib/constants/statuses";
 
 export interface IOrganization extends Document {
   name: string;

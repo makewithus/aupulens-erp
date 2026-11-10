@@ -1,23 +1,4 @@
-import {
-  LayoutDashboard,
-  FileText,
-  Package,
-  ClipboardList,
-  Truck,
-  FileSpreadsheet,
-  Settings,
-  BarChart3,
-  Sparkles,
-  Tag,
-  Users,
-  GitBranch,
-  Banknote,
-  FileMinus,
-  Repeat,
-  CreditCard,
-  Palette,
-  CalendarDays,
-} from "lucide-react";
+import { LayoutDashboard, FileText, Package, ClipboardList, Truck, FileSpreadsheet, BarChart3, Tag, Users, GitBranch, Palette, CalendarDays } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
 export const salesSidebarConfig: SidebarSection[] = [

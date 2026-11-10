@@ -9,7 +9,7 @@ import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { MultiAccountPicker, type PickerAccount } from "@/components/finance/accounting/AccountPicker";
 import { classifyBudgetSegment, getFiscalYearOptions, getCurrentFiscalYear, getPeriodLabels } from "@/lib/accounting/budgetSegments";
 import type { BudgetSegment } from "@/lib/constants/statuses";

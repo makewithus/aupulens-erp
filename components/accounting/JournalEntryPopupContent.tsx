@@ -1,23 +1,10 @@
 "use client";
 
 import * as React from "react";
-import {
-  Plus,
-  Trash2,
-  Calendar as CalendarIcon,
-  FileText,
-  User,
-} from "lucide-react";
+import { Plus, Trash2, Calendar as CalendarIcon, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SelectSearchAdd } from "@/components/dashboard/SelectSearchAdd";
 import { toast } from "sonner";
 import { ModularModal } from "@/components/dashboard/ModularModal";

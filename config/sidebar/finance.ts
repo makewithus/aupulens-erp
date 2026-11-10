@@ -1,27 +1,4 @@
-import {
-  LayoutDashboard,
-  Receipt,
-  TrendingUp,
-  CreditCard,
-  FileText,
-  Building,
-  CircleDollarSign,
-  Wallet,
-  Settings,
-  Activity,
-  Sparkles,
-  BookOpen,
-  PieChart,
-  BarChart3,
-  History,
-  Clock,
-  Landmark,
-  Shuffle,
-  FileCheck,
-  CalendarDays,
-  Scale,
-  Package,
-} from "lucide-react";
+import { LayoutDashboard, Receipt, TrendingUp, CreditCard, FileText, Building, CircleDollarSign, Wallet, Sparkles, BookOpen, PieChart, BarChart3, Clock, Landmark, Shuffle, FileCheck, CalendarDays, Scale, Package } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
 export const financeSidebarConfig: SidebarSection[] = [

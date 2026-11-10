@@ -5,7 +5,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Stock from "@/models/inventory/Stock";
-import Product from "@/models/inventory/Product"; // Ensure Product model is registered
+ // Ensure Product model is registered
 import InventoryItem from "@/models/inventory/InventoryItem";
 import { checkNegativeStockGuard } from "@/lib/inventory/stockGuard";
 

@@ -6,22 +6,8 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  TrendingUp,
-  TrendingDown,
-  Package,
-  AlertCircle,
-  ShoppingCart,
-  Warehouse,
-  ArrowUpRight,
-} from "lucide-react";
-import {
-  StatsRowSkeleton,
-  TableSkeleton,
-  FullPageLoadingSkeleton,
-} from "@/components/ui/loading-skeletons";
-import { AIAssistantWidget } from "@/components/dashboard/AIAssistantWidget";
+import { ArrowUpRight } from "lucide-react";
+import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 

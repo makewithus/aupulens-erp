@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { PlatformDashboardLayout } from "./PlatformDashboardLayout";
 import { AdminRoleType } from "@/lib/constants/statuses";
 

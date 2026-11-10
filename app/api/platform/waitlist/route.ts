@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Waitlist from "@/models/platform/Waitlist";
 import { getAdminActorFromRequest } from "@/lib/platform/auth/adminSession";
-import { WAITLIST_STATUS_VALUES, WaitlistStatus } from "@/lib/constants/statuses";
+import { WAITLIST_STATUS_VALUES } from "@/lib/constants/statuses";
 
 export async function GET(request: NextRequest) {
   const actor = await getAdminActorFromRequest(request);

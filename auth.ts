@@ -5,7 +5,6 @@ import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import { headers } from "next/headers";
 import { consumeOnboardingToken } from "@/lib/auth/consumeOnboardingToken";
 import bcrypt from "bcryptjs";
-import mongoose from "mongoose";
 import connectDB from "@/lib/db";
 import User from "@/models/auth/User";
 import Organization from "@/models/admin/Organization";

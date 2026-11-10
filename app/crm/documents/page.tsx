@@ -12,16 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import DocumentManager from "@/components/crm/DocumentManager";
-import {
-  Search,
-  FileText,
-  Filter,
-  LayoutList,
-  LayoutGrid,
-  Clock,
-  Download,
-} from "lucide-react";
+import { Search, FileText, Download } from "lucide-react";
 import { toast } from "sonner";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 

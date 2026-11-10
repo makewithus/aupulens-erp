@@ -1,18 +1,4 @@
-import {
-  LayoutDashboard,
-  Truck,
-  Package,
-  Ship,
-  Plane,
-  FileText,
-  Globe,
-  MapPin,
-  BarChart3,
-  Settings,
-  Activity,
-  Factory,
-  Tag,
-} from "lucide-react";
+import { LayoutDashboard, Truck, Package, Ship, Plane, FileText, Globe, MapPin, BarChart3, Activity, Factory, Tag } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
 export const manufacturingSidebarConfig: SidebarSection[] = [

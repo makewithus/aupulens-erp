@@ -1,33 +1,4 @@
-import {
-  LayoutDashboard,
-  BarChart3,
-  Users,
-  Briefcase,
-  FileText,
-  Activity,
-  CheckSquare,
-  LifeBuoy,
-  Megaphone,
-  FileSignature,
-  PieChart,
-  CheckCircle,
-  Settings,
-  ClipboardList,
-  MessageSquare,
-  Bell,
-  Zap,
-  Sparkles,
-  UserCheck,
-  HelpCircle,
-  ShieldCheck,
-  FolderOpen,
-  Upload,
-  Link2,
-  UserPlus,
-  Smartphone,
-  TrendingUp,
-  HeartPulse,
-} from "lucide-react";
+import { LayoutDashboard, BarChart3, Users, Briefcase, FileText, Activity, CheckSquare, LifeBuoy, Megaphone, FileSignature, MessageSquare, Bell, UserCheck, HelpCircle, FolderOpen, Upload, Link2, UserPlus } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
 export const crmSidebarConfig: SidebarSection[] = [

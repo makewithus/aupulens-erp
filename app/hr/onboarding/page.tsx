@@ -8,12 +8,8 @@ import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Search,
-  UserPlus,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import { WorkflowCard } from "@/components/hr/workflow/WorkflowCard";
 
 interface OnboardingEmployee {

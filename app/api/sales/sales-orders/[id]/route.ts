@@ -4,15 +4,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/sales/SaleOrder";
 import InventoryItem from "@/models/inventory/InventoryItem";
-import {
-  SALES_ORDER_STATUS,
-  SALES_ORDER_STATUS_VALUES,
-  SALES_ORDER_SHIPMENT_STATUS,
-  SALES_ORDER_SHIPMENT_STATUS_VALUES,
-  STOCK_LEVEL_STATUS,
-  Q2C_STATUS,
-  DOCUMENT_STATUS,
-} from "@/lib/constants/statuses";
+import { SALES_ORDER_STATUS, SALES_ORDER_STATUS_VALUES, SALES_ORDER_SHIPMENT_STATUS, SALES_ORDER_SHIPMENT_STATUS_VALUES, Q2C_STATUS, DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import Product from "@/models/inventory/Product";
 import Stock from "@/models/inventory/Stock";
 import DeliveryChallan from "@/models/sales/DeliveryChallan";

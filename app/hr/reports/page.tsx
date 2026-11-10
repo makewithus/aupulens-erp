@@ -9,17 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import {
-  BarChart3,
-  Users,
-  Building2,
-  Clock,
-  CalendarDays,
-  TrendingUp,
-  Download,
-  IndianRupee,
-} from "lucide-react";
+import { Users, Building2, Clock, CalendarDays, TrendingUp, Download, IndianRupee } from "lucide-react";
 import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 
 export default function HRReportsPage() {

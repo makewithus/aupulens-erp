@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import crypto from "crypto";
 import { connectBaseDB } from "@/lib/db";
-import Waitlist, { IWaitlist } from "@/models/platform/Waitlist";
+import Waitlist from "@/models/platform/Waitlist";
 import { sendWaitlistNotificationEmail } from "@/lib/email/waitlistNotification";
 
 // In-memory rate limiting map for edge/route protection: IP -> { count, resetAt }

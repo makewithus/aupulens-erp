@@ -13,20 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Download,
-  Search,
-  Filter,
-  CreditCard,
-  TrendingUp,
-  RefreshCcw,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  ArrowUpRight,
-  DollarSign,
-  Users,
-} from "lucide-react";
+import { Download, Search, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 
 interface KpiCard {

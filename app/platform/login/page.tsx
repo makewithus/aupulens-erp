@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ShieldCheck, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 import { AuthLayout } from "@/components/auth/AuthLayout";

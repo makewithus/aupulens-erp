@@ -1,11 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import {
-  SUBSCRIPTION_EVENT_TYPE,
-  SUBSCRIPTION_EVENT_TYPE_VALUES,
-  type SubscriptionEventType,
-  ORGANIZATION_TIER_VALUES,
-  type OrganizationTier,
-} from "@/lib/constants/statuses";
+import { SUBSCRIPTION_EVENT_TYPE_VALUES, type SubscriptionEventType, ORGANIZATION_TIER_VALUES, type OrganizationTier } from "@/lib/constants/statuses";
 
 export interface ISubscriptionEvent extends Document {
   tenantId: string;

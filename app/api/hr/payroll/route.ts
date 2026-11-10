@@ -6,7 +6,6 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Payroll from "@/models/hr/Payroll";
 import Employee from "@/models/hr/Employee";
-import Attendance from "@/models/hr/Attendance";
 import { currentEmployeeFilter } from "@/lib/hr/employeeLifecycle";
 import { applyDemoScope } from "@/lib/auth/scopeFilter";
 

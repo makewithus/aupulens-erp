@@ -10,9 +10,8 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Plus, X, Trash2, Tag, Calendar, Layers } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Plus, Trash2, Tag, Calendar, Layers } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { SelectSearchAdd } from "@/components/dashboard/SelectSearchAdd";
 
 export function PricelistPopupContent({

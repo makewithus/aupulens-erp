@@ -1,5 +1,4 @@
 import { getAccountingSession, withAccountingTransaction } from "@/lib/accounting/transaction";
-import mongoose from "mongoose";
 import Organization from "@/models/admin/Organization";
 import Customer from "@/models/sales/Customer";
 import SalesQuotation from "@/models/sales/SalesQuotation";

@@ -8,22 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import {
-  CreditCard,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowRight,
-  ShieldCheck,
-  Calendar,
-  Zap,
-  Download,
-  RotateCcw,
-  XCircle,
-  Clock,
-  FileText,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
+import { CreditCard, AlertTriangle, ArrowRight, Download, RotateCcw, XCircle, Clock, FileText, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { PLAN_ADD_ONS, priceWithAddOns } from "@/lib/billing/planPricing";
 import { PLAN_SEAT_BANDS, normalizePlanUserCount, type SeatBandPlanKey } from "@/lib/billing/seatBands";

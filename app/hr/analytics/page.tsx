@@ -17,23 +17,7 @@ import {
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 import { AnalyticsPageSkeleton } from "@/components/ui/loading-skeletons";
 import { toast } from "sonner";
-import {
-  Users,
-  BarChart3,
-  TrendingUp,
-  UserCheck,
-  CalendarCheck,
-  DollarSign,
-  Briefcase,
-  Award,
-  Download,
-  Clock,
-  Sparkles,
-  ChevronRight,
-  ShieldCheck,
-  HeartPulse,
-  RefreshCw,
-} from "lucide-react";
+import { TrendingUp, CalendarCheck, DollarSign, Briefcase, Award, Download, Clock, Sparkles, ChevronRight, RefreshCw } from "lucide-react";
 
 function formatCurrency(val: number) {
   return new Intl.NumberFormat("en-IN", {

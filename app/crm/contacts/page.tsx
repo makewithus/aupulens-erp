@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { Loader2, Plus, Download, Users, Star, UserCheck, Calendar, FolderKanban } from "lucide-react";
+import { Loader2, Plus, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { cachedFetch, invalidateCache } from "@/lib/api/cachedFetch";

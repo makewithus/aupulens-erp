@@ -3,7 +3,6 @@
 import { RefreshCw, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { UserNav } from "./UserNav";
 import { cn } from "@/lib/utils";
 

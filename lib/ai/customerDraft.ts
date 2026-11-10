@@ -1,7 +1,7 @@
 import Customer from "@/models/sales/Customer";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
-import { ErpToolError, escapeRegex, requireSalesAccess, resolveCustomer, customerName } from "./erpQuery";
+import { ErpToolError, requireSalesAccess, resolveCustomer, customerName } from "./erpQuery";
 import { normalizeErpText } from "./erpIntent";
 import { AI_ACTION_STATUS as A } from "@/lib/constants/statuses";
 

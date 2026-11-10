@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, Suspense, useMemo, useRef } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { signIn, getProviders } from "next-auth/react";
 
 type OAuthProvider = NonNullable<Awaited<ReturnType<typeof getProviders>>>[string];

@@ -3,20 +3,7 @@
 import { computeBillTotals } from "@/lib/accounting/billMath";
 import { INDIAN_STATES } from "@/lib/constants/indianStates";
 import React, { useState, useEffect } from "react";
-import {
-  Receipt,
-  Building,
-  FileText,
-  Calendar,
-  CreditCard,
-  MessageSquare,
-  AlertCircle,
-  Plus,
-  Trash2,
-  Package,
-  Calculator,
-  ArrowRightLeft,
-} from "lucide-react";
+import { Receipt, Building, Calendar, CreditCard, AlertCircle, Plus, Trash2, Calculator, ArrowRightLeft } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,7 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectSearchAdd } from "../dashboard/SelectSearchAdd";
 import { Chatter } from "../dashboard/Chatter";

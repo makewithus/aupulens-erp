@@ -6,7 +6,6 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Invoice from "@/models/finance/Invoice";
 import SaleOrder from "@/models/sales/SaleOrder";
-import Product from "@/models/inventory/Product";
 import Customer from "@/models/sales/Customer";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 

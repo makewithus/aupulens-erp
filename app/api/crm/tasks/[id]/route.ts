@@ -5,7 +5,6 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmTask from "@/models/crm/Task";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
-import mongoose from "mongoose";
 import { validateObjectId, handleRouteError, stripProtectedFields } from "@/lib/api/validateId";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {

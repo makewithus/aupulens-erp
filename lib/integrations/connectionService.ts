@@ -9,7 +9,7 @@
  */
 
 import crypto from "node:crypto";
-import Integration, { INTEGRATION_STATUS, type IIntegration } from "@/models/shared/Integration";
+import { INTEGRATION_STATUS, type IIntegration } from "@/models/shared/Integration";
 import IntegrationEvent, {
   INTEGRATION_EVENT_DIRECTION,
   INTEGRATION_EVENT_STATUS,

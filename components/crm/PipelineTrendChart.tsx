@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { Loader2, Calendar } from "lucide-react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import { Loader2 } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
 import { TradingLineChart, LineDataPoint } from "@/components/charts/TradingLineChart";
 import { cn } from "@/lib/utils";

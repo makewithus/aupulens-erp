@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Building2, Mail, Phone, Trash2, Edit, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Building2, Mail, Phone, Trash2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

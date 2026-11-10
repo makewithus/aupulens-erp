@@ -10,10 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { Button } from "@/components/ui/button";
-import {
-  Users as UsersIcon,
-  UserPlus,
-} from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { getUserRoleOption } from "@/lib/admin/roleModules";
 import { AddUserDialog } from "@/components/admin/AddUserDialog";
 import { EditUserDialog } from "@/components/admin/EditUserDialog";

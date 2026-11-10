@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import CrmActivity from "@/models/crm/Activity";
 
 type AutoActivityProps = {

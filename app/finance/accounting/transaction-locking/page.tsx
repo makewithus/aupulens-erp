@@ -9,7 +9,6 @@ import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { AccountingSubNav } from "@/components/finance/accounting/AccountingSubNav";
 import { FindAccountantsSheet } from "@/components/finance/accounting/FindAccountantsSheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Lock, Unlock, Users, Info, ShoppingCart, Landmark, Receipt, UserCog, ArrowRight } from "lucide-react";

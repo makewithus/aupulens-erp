@@ -1,37 +1,21 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  ShoppingCart,
-  FileText,
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  Plus,
-  Users,
-  Layers,
-  ArrowUpRight,
-  BarChart3,
-  GitBranch,
-} from "lucide-react";
+import { ShoppingCart, ArrowRight, Plus, BarChart3, GitBranch } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
 import { useThemeStore } from "@/store/themeStore";
-import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
+import { BRAND_COLORS } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
 import { cachedFetch, getInstantCachedData } from "@/lib/api/cachedFetch";
 

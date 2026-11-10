@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmQuote from "@/models/crm/Quote";
 import CrmApprovalRequest from "@/models/crm/ApprovalRequest";
-import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { approveQuote } from "@/lib/crm/approvalEngine";
 import { logSystemActivity } from "@/lib/crm/activityLogger";
 

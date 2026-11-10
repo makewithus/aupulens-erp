@@ -4,7 +4,6 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmQuote from "@/models/crm/Quote";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
-import CrmApprovalRequest from "@/models/crm/ApprovalRequest";
 import { processQuoteApproval } from "@/lib/crm/approvalEngine";
 import { logSystemActivity } from "@/lib/crm/activityLogger";
 import { requireRole } from "@/lib/crm/rbac";

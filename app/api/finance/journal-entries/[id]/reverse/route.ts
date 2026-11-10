@@ -3,7 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import JournalEntry from "@/models/finance/JournalEntry";
-import { DOCUMENT_STATUS, VOUCHER_STATUS } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import mongoose from "mongoose";
 import { handleRouteError } from "@/lib/api/validateId";

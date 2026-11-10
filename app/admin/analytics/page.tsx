@@ -5,7 +5,6 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { adminSidebarConfig } from '@/config/sidebar/admin';
-import { ChevronDown } from 'lucide-react';
 import { useThemeStore } from '@/store/themeStore';
 import { AnalyticsPageSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
@@ -16,18 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import { DailyBrickBarChart, generateZeroDailyData } from '@/components/charts/DailyBrickBarChart';
 import { TradingLineChart } from '@/components/charts/TradingLineChart';
-import { cachedFetch, getInstantCachedData } from '@/lib/api/cachedFetch';
+import { cachedFetch } from '@/lib/api/cachedFetch';
 
 type Tab = 'overview' | 'finance' | 'sales' | 'inventory' | 'manufacturing';
 

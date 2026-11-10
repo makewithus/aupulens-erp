@@ -32,7 +32,6 @@ import {
   CheckCircle2,
   Printer,
 } from 'lucide-react';
-import * as xlsx from 'xlsx';
 
 const reportTypes = [
   {

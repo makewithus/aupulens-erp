@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
-import { TrendingUp, BarChart3, AlertCircle, ShieldAlert, Target, Users } from "lucide-react";
+import { BarChart3, ShieldAlert, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export default function ExecutiveCommandCenter() {
   const [data, setData] = useState<any>(null);

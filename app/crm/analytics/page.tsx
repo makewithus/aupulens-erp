@@ -16,24 +16,7 @@ import {
 } from "@/components/inventory/CanvasCharts";
 import { toast } from "sonner";
 import { cachedFetch } from "@/lib/api/cachedFetch";
-import {
-  BarChart3,
-  TrendingUp,
-  Users,
-  Target,
-  ArrowUpRight,
-  ArrowDownRight,
-  Download,
-  Calendar,
-  Layers,
-  Filter,
-  Clock,
-  Briefcase,
-  ShieldCheck,
-  ChevronRight,
-  Sparkles,
-  RefreshCw,
-} from "lucide-react";
+import { TrendingUp, Users, Target, Download, Layers, Clock, ShieldCheck, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
 
 function AnalyticsPageSkeleton() {
   return (

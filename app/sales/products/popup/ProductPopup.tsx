@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Plus, X, Loader2, History, CheckCircle2, Package } from "lucide-react";
+import { Plus, X, Loader2, Package } from "lucide-react";
 import { SelectSearchAdd } from "@/components/dashboard/SelectSearchAdd";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
