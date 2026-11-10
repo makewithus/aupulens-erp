@@ -6,7 +6,7 @@ import { cachedFetch } from "@/lib/api/cachedFetch";
 // Each entry is that page's initial, unfiltered request (cachedFetch keys on the exact URL), so warming it on
 // hover/focus/touch lets the destination render from cache. Date-dependent first requests (balance-sheet date,
 // GST period) are left out on purpose: a URL that doesn't match the page's own request would be wasted work.
-const PREFETCH_REQUESTS: Record<string, string[]> = {
+export const PREFETCH_REQUESTS: Record<string, string[]> = {
   "/finance/summary": ["/api/finance/summary"],
   "/finance/analytics": ["/api/finance/summary"],
   "/finance/accounting/aged-partner": ["/api/admin/org-settings", "/api/finance/reports/aged?type=receivable"],

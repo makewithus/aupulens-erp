@@ -3,14 +3,14 @@
 import { useEffect } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 
-const PREFETCH_REQUESTS: Record<string, string[]> = {
+export const PREFETCH_REQUESTS: Record<string, string[]> = {
   "/hr": ["/api/hr/summary", "/api/hr/leave?status=pending&limit=5"],
-  "/hr/dashboard": ["/api/hr/summary", "/api/hr/leave?status=pending&limit=5"],
+  "/hr/dashboard": ["/api/admin/org-settings", "/api/hr/summary", "/api/hr/leave?status=pending&limit=5"],
   "/hr/analytics": ["/api/hr/analytics?range=1y"],
   "/hr/employees": ["/api/hr/employees?page=1&limit=25", "/api/hr/departments"],
   "/hr/departments": ["/api/hr/departments", "/api/hr/employees"],
   "/hr/onboarding": ["/api/hr/employees?lifecycle=onboarding,candidate"],
-  "/hr/exit": ["/api/hr/employees?lifecycle=on_notice,exit_initiated,clearance"],
+  "/hr/exit": ["/api/admin/org-settings", "/api/hr/employees?lifecycle=on_notice,exit_initiated,clearance"],
   "/hr/attendance": ["/api/hr/attendance?page=1&limit=25", "/api/hr/employees"],
   "/hr/leave": ["/api/hr/leave?page=1&limit=25", "/api/hr/employees"],
   "/hr/payroll": ["/api/hr/payroll?"],

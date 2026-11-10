@@ -5,7 +5,7 @@ import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // Each entry is that page's initial, unfiltered request set (cachedFetch keys on the exact URL), so warming it
 // on hover/focus/touch lets the destination render from cache. Captured from the pages' real first load.
-const PREFETCH_REQUESTS: Record<string, string[]> = {
+export const PREFETCH_REQUESTS: Record<string, string[]> = {
   "/manufacturing/dashboard": ["/api/admin/org-settings", "/api/manufacturing/summary"],
   "/manufacturing/analytics": ["/api/manufacturing/analytics?range=30d"],
   "/manufacturing/items": ["/api/manufacturing/items?page=1&limit=10", "/api/accounting/accounts", "/api/admin/vendors"],

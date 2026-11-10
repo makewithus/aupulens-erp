@@ -5,7 +5,7 @@ import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // Keep these URLs aligned with each page's initial, unfiltered request. The
 // shared request cache lets the destination render its first data immediately.
-const PREFETCH_REQUESTS: Record<string, string[]> = {
+export const PREFETCH_REQUESTS: Record<string, string[]> = {
   "/sales": ["/api/sales/summary"],
   "/sales/dashboard": [
     "/api/sales/summary",

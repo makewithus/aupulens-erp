@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 
-const PREFETCH_REQUESTS: Record<string, string[]> = {
+export const PREFETCH_REQUESTS: Record<string, string[]> = {
   "/inventory": ["/api/inventory/summary"],
   "/inventory/dashboard": [
     "/api/inventory/summary",

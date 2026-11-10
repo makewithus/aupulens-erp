@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { warmRouteData } from "@/lib/api/warmRouteData";
 
 interface Module {
   id: string;
@@ -37,8 +38,8 @@ export function ModuleTabs({
             key={module.id}
             href={module.href}
             prefetch={false}
-            onPointerEnter={() => router.prefetch(module.href)}
-            onFocus={() => router.prefetch(module.href)}
+            onPointerEnter={() => { router.prefetch(module.href); warmRouteData(module.href); }}
+            onFocus={() => { router.prefetch(module.href); warmRouteData(module.href); }}
             className={cn(
               "group relative flex items-center py-3 transition-all duration-300",
               isActive
