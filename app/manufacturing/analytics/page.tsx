@@ -77,19 +77,27 @@ export default function ManufacturingAnalyticsPage() {
     inProductionUnits: 0,
     onTimeDispatchRate: null,
     qcFirstPassYield: null,
+    scheduleAttainment: null,
+    onTimeCompletionRate: null,
+    overallEfficiency: null,
+    openOrders: 0,
+    wipUnits: 0,
     totalBoms: 0,
     totalShipments: 0,
   };
+  const meta = data?.meta || {};
+  const fmtPct = (value: number | null | undefined) => (value == null ? "No data" : `${value}%`);
   const dailyOutput = data?.dailyOutput || [];
   const qcYieldDistribution = data?.qcYieldDistribution || [];
-  const workCenters = data?.workCenters || [];
+  const wipStages = data?.wipStages || [];
   const bomMaterialVariance = data?.bomMaterialVariance || [];
   const freightLogistics = data?.freightLogistics || [];
 
   // Composed Chart Data: Daily Actual Output (Bars) vs Target Output (Line)
   const outputChartData = useMemo(() => {
     return dailyOutput.map((d: any) => ({
-      name: d.day,
+      // "2026-11-10" -> "10 Nov": full ISO dates were truncated to "2…" on the axis.
+      name: new Date(`${d.day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" }),
       "Actual Output": d.actual,
       "Target Output": d.target,
     }));
@@ -98,14 +106,16 @@ export default function ManufacturingAnalyticsPage() {
   const exportCsv = () => {
     const headers = ["Metric", "Value"];
     const rows = [
-      ["Overall OEE (%)", kpis.overallOee == null ? "Unavailable" : `${kpis.overallOee}%`],
-      ["Machine Availability (%)", kpis.availability == null ? "Unavailable" : `${kpis.availability}%`],
-      ["Line Performance Rate (%)", kpis.performance == null ? "Unavailable" : `${kpis.performance}%`],
-      ["Quality Pass Rate (%)", kpis.qualityRate == null ? "Unavailable" : `${kpis.qualityRate}%`],
+      ["Overall Production Efficiency (%)", fmtPct(kpis.overallEfficiency)],
+      ["Schedule Attainment (%)", fmtPct(kpis.scheduleAttainment)],
+      ["On-Time Completion (%)", fmtPct(kpis.onTimeCompletionRate)],
+      ["Quality Yield (%)", fmtPct(kpis.qualityRate)],
       ["Total Output (Units)", kpis.totalProductionOutput],
       ["In-Production (Units)", kpis.inProductionUnits],
-      ["First-Pass QC Yield (%)", kpis.qcFirstPassYield == null ? "Unavailable" : `${kpis.qcFirstPassYield}%`],
-      ["On-Time Dispatch (%)", kpis.onTimeDispatchRate == null ? "Unavailable" : `${kpis.onTimeDispatchRate}%`],
+      ["Work in Progress (Units)", kpis.wipUnits],
+      ["Open Orders", kpis.openOrders],
+      ["First-Pass QC Yield (%)", fmtPct(kpis.qcFirstPassYield)],
+      ["On-Time Dispatch (%)", fmtPct(kpis.onTimeDispatchRate)],
     ];
     const csvContent = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -149,10 +159,10 @@ export default function ManufacturingAnalyticsPage() {
               </span>
             </div>
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground break-words leading-none">
-              Manufacturing Analytics & OEE Visualizations
+              Manufacturing Analytics & Efficiency
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              Overall Equipment Effectiveness, real-time throughput velocity, QC pass yields, work center loads, and BOM variance telemetry.
+              Production efficiency, throughput, QC pass yields, work in progress and material variance, from recorded orders and shipments.
             </p>
           </div>
 
@@ -216,10 +226,16 @@ export default function ManufacturingAnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
-              title="Overall OEE"
-              value={kpis.overallOee == null ? "Unavailable" : `${kpis.overallOee}%`}
+              title="Production Efficiency"
+              value={fmtPct(kpis.overallEfficiency)}
               visual={<ActivePulse />}
-              subtitle="Requires machine runtime and cycle-time readings"
+              subtitle={kpis.overallEfficiency != null
+                ? "Plan × timeliness × QC"
+                : kpis.scheduleAttainment == null
+                  ? "No orders scheduled in this period"
+                  : kpis.onTimeCompletionRate == null
+                    ? "No scheduled orders finished in this period"
+                    : "No QC inspections in this period"}
             />
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
@@ -227,31 +243,35 @@ export default function ManufacturingAnalyticsPage() {
               title="Completed Output"
               value={kpis.totalProductionOutput.toLocaleString("en-IN")}
               visual={<UsersGraph />}
-              subtitle="Units finished this cycle"
+              subtitle={`Units finished, last ${timeRange}`}
             />
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="First-Pass QC Yield"
-              value={kpis.qcFirstPassYield == null ? "Unavailable" : `${kpis.qcFirstPassYield}%`}
+              value={fmtPct(kpis.qcFirstPassYield)}
               visual={<InactiveOrbit />}
-              subtitle="Based on recorded QC results"
+              subtitle={kpis.qcFirstPassYield != null
+                ? `${(meta.qcPassedUnits || 0).toLocaleString("en-IN")}/${(meta.qcInspectedUnits || 0).toLocaleString("en-IN")} units passed`
+                : meta.qcPendingOrders ? `${meta.qcPendingOrders} orders awaiting QC` : "No QC inspections in this period"}
             />
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
-              title="Work Center Capacity"
-              value="Not configured"
+              title="Work in Progress"
+              value={`${(kpis.wipUnits || 0).toLocaleString("en-IN")} units`}
               visual={<UsersGraph />}
-              subtitle="No work center capacity records are configured"
+              subtitle={`${kpis.openOrders || 0} open production orders`}
             />
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md p-1 shadow-xs hover:border-primary/40 transition-all">
             <StatCard
               title="On-Time Dispatch"
-              value={kpis.onTimeDispatchRate == null ? "Unavailable" : `${kpis.onTimeDispatchRate}%`}
+              value={fmtPct(kpis.onTimeDispatchRate)}
               visual={<ActivePulse />}
-              subtitle={`${kpis.totalShipments || 0} shipments recorded`}
+              subtitle={kpis.onTimeDispatchRate != null
+                ? `${meta.onTimeShipments || 0} of ${meta.dueShipments || 0} due on time`
+                : `${kpis.totalShipments || 0} shipped, none due yet`}
             />
           </div>
         </div>
@@ -265,59 +285,61 @@ export default function ManufacturingAnalyticsPage() {
                 <div>
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <Cpu className="w-4 h-4 text-primary" />
-                    OEE Performance Breakdown
+                    Production Efficiency Breakdown
                   </CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Availability × Performance × Quality metrics.
+                    Schedule attainment × on-time completion × quality yield.
                   </p>
                 </div>
                 <Badge variant="outline" className="font-mono text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                    {kpis.overallOee == null ? "OEE unavailable" : `${kpis.overallOee}% Overall`}
+                    {kpis.overallEfficiency == null ? "No data yet" : `${kpis.overallEfficiency}% Overall`}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-3 space-y-4 font-mono text-xs">
-              {/* Availability */}
-              <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-foreground">Machine Availability</span>
-                  <span className="text-emerald-400 font-bold">{kpis.availability == null ? "Unavailable" : `${kpis.availability}%`}</span>
+              {[
+                {
+                  label: "Schedule Attainment",
+                  value: kpis.scheduleAttainment,
+                  color: "bg-emerald-500",
+                  text: "text-emerald-400",
+                  note: kpis.scheduleAttainment == null
+                    ? "No orders scheduled in this period"
+                    : `${(meta.plannedFinishedUnits || 0).toLocaleString("en-IN")} of ${(meta.plannedUnits || 0).toLocaleString("en-IN")} planned units finished`,
+                },
+                {
+                  label: "On-Time Completion",
+                  value: kpis.onTimeCompletionRate,
+                  color: "bg-primary",
+                  text: "text-primary",
+                  note: kpis.onTimeCompletionRate == null
+                    ? "No scheduled orders finished in this period"
+                    : `${meta.finishedOnTime || 0} of ${meta.finishedWithSchedule || 0} finished orders on schedule`,
+                },
+                {
+                  label: "Quality Yield",
+                  value: kpis.qualityRate,
+                  color: "bg-primary",
+                  text: "text-primary",
+                  note: kpis.qualityRate == null
+                    ? "No QC inspections in this period"
+                    : `${(meta.qcPassedUnits || 0).toLocaleString("en-IN")} of ${(meta.qcInspectedUnits || 0).toLocaleString("en-IN")} inspected units passed`,
+                },
+              ].map((pillar) => (
+                <div key={pillar.label} className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-foreground">{pillar.label}</span>
+                    <span className={`${pillar.text} font-bold`}>{fmtPct(pillar.value)}</span>
+                  </div>
+                  <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
+                    <div className={`h-full ${pillar.color} rounded-full`} style={{ width: `${Math.min(100, pillar.value || 0)}%` }} />
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">{pillar.note}</div>
                 </div>
-                <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${kpis.availability || 0}%` }} />
-                </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Requires recorded machine runtime</span>
-                </div>
-              </div>
-
-              {/* Performance */}
-              <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-foreground">Line Performance Rate</span>
-                  <span className="text-primary font-bold">{kpis.performance == null ? "Unavailable" : `${kpis.performance}%`}</span>
-                </div>
-                <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full" style={{ width: `${kpis.performance || 0}%` }} />
-                </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Requires ideal cycle-time data</span>
-                </div>
-              </div>
-
-              {/* Quality */}
-              <div className="p-3 rounded-lg border border-border/40 bg-muted/15 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-foreground">Output Quality Factor</span>
-                  <span className="text-primary font-bold">{kpis.qualityRate == null ? "Unavailable" : `${kpis.qualityRate}%`}</span>
-                </div>
-                <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full" style={{ width: `${kpis.qualityRate || 0}%` }} />
-                </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Based on recorded QC inspection outcomes</span>
-                </div>
-              </div>
+              ))}
+              <p className="text-[11px] text-muted-foreground font-sans">
+                Machine-level OEE needs runtime and cycle-time readings, which production orders do not record.
+              </p>
             </CardContent>
           </Card>
 
@@ -408,20 +430,20 @@ export default function ManufacturingAnalyticsPage() {
                 <div>
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <Factory className="w-4 h-4 text-primary" />
-                    Work Center Load & Machine Capacity
+                    Work in Progress by Stage
                   </CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Utilization rate across automated assembly lines.
+                    Share of open production units at each stage.
                   </p>
                 </div>
                 <Badge variant="outline" className="font-mono text-xs bg-primary/10 text-primary border-primary/20">
-                  {workCenters.length} Work Centers
+                  {wipStages.length} {wipStages.length === 1 ? "Stage" : "Stages"}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-3 space-y-3 font-mono text-xs">
-              {workCenters.length === 0 && <p className="text-muted-foreground">No work center capacity data is recorded.</p>}
-              {workCenters.map((wc: any) => {
+              {wipStages.length === 0 && <p className="text-muted-foreground">No open production orders right now.</p>}
+              {wipStages.map((wc: any) => {
                 const isHeavy = wc.load >= 90;
                 return (
                   <div key={wc.name} className="p-3 rounded-lg border border-border/40 bg-muted/10 space-y-2">
@@ -431,7 +453,7 @@ export default function ManufacturingAnalyticsPage() {
                         {isHeavy && <AlertTriangle className="w-3.5 h-3.5 text-amber-400 inline" />}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-muted-foreground">{wc.activeJobs} jobs active</span>
+                        <span className="text-[11px] text-muted-foreground">{wc.activeJobs} {wc.activeJobs === 1 ? "order" : "orders"} · {Number(wc.units).toLocaleString("en-IN")} units</span>
                         <span
                           className={`text-xs font-bold px-2 py-0.5 rounded ${
                             isHeavy
@@ -439,7 +461,7 @@ export default function ManufacturingAnalyticsPage() {
                               : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25"
                           }`}
                         >
-                          {wc.load}% Load
+                          {wc.load}% of WIP
                         </span>
                       </div>
                     </div>
@@ -498,11 +520,13 @@ export default function ManufacturingAnalyticsPage() {
                   Bill of Materials (BOM) Material Consumption & Variance Audit
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Comparison between scheduled standard material consumption and actual floor issuance.
+                  Planned component quantities compared with consumption recorded on orders finished in this period.
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                Variance within ±4% Tolerance
+                {bomMaterialVariance.length === 0
+                  ? "No consumption recorded"
+                  : `${bomMaterialVariance.filter((row: any) => row.status === "Over plan").length} of ${bomMaterialVariance.length} materials over plan`}
               </Badge>
             </div>
           </CardHeader>
@@ -522,7 +546,7 @@ export default function ManufacturingAnalyticsPage() {
                   {bomMaterialVariance.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-muted-foreground font-sans">
-                        No active Bill of Materials variance records found.
+                        No component consumption recorded on orders finished in this period.
                       </td>
                     </tr>
                   ) : (

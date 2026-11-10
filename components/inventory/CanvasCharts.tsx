@@ -459,10 +459,16 @@ export function CanvasBarChart({
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.fillStyle = isDark ? "#94a3b8" : "#334155";
+        // When the slots are narrower than the labels, show every Nth label in full instead of
+        // truncating all of them to "1…".
+        const slotW = cW / data.length;
+        const widest = data.reduce((m, d) => Math.max(m, ctx.measureText(String(d[xAxisKey])).width), 0);
+        const labelStep = Math.max(1, Math.ceil((widest + 8) / slotW));
         data.forEach((d, i) => {
-          const x = cL + (i + 0.5) * (cW / data.length);
+          if (i % labelStep !== 0) return;
+          const x = cL + (i + 0.5) * slotW;
           const name = String(d[xAxisKey]);
-          const dispName = fitLabel(ctx, name, Math.max(0, cW / data.length - 8));
+          const dispName = fitLabel(ctx, name, Math.max(0, slotW * labelStep - 8));
           ctx.fillText(dispName, x, cB + 10);
         });
 

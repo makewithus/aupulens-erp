@@ -201,8 +201,8 @@ export default function ProductsPage() {
 
   const filtered = data.filter(
     (p) =>
-      p.header.name.toLowerCase().includes(query.toLowerCase()) ||
-      p.tab_general_information.default_code
+      (p.header?.name ?? "").toLowerCase().includes(query.toLowerCase()) ||
+      p.tab_general_information?.default_code
         ?.toLowerCase()
         .includes(query.toLowerCase()),
   );
@@ -351,7 +351,7 @@ export default function ProductsPage() {
     });
   };
 
-  const formatCurrency = (amount: number) =>
+  const formatCurrency = (amount: number = 0) =>
     `₹${amount.toLocaleString("en-IN")}`;
 
   const handleCreatePricelist = () => {
@@ -614,14 +614,14 @@ export default function ProductsPage() {
                                 {p.header.name}
                               </div>
                               <div className="text-[10px] text-muted-foreground">
-                                {p.tab_general_information.default_code ||
+                                {p.tab_general_information?.default_code ||
                                   "No Ref"}
                               </div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground capitalize">
-                          {p.tab_general_information.type}
+                          {p.tab_general_information?.type}
                         </TableCell>
                         <TableCell className="px-6 py-4 whitespace-nowrap">
                           {p.status === "published" ? (
@@ -641,11 +641,11 @@ export default function ProductsPage() {
                           )}
                         </TableCell>
                         <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {formatCurrency(p.tab_general_information.list_price)}
+                          {formatCurrency(p.tab_general_information?.list_price)}
                         </TableCell>
                         <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                           {formatCurrency(
-                            p.tab_general_information.standard_price,
+                            p.tab_general_information?.standard_price,
                           )}
                         </TableCell>
                         <TableCell className="px-6 py-4 whitespace-nowrap text-right">
