@@ -1,3 +1,4 @@
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { stripProtectedFields } from "@/lib/api/validateId";
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -230,7 +231,7 @@ const body = stripProtectedFields(await request.json());
     });
 
     // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
-    await safeEmitEvent(tenantId, "master_data.changed", { model: "Customer", id: String(customer._id), tenantId });
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Customer", id: String(customer._id), tenantId }, { dedupeKey: creationDedupeKey(customer._id) });
 
     return NextResponse.json({ customer }, { status: 201 });
 

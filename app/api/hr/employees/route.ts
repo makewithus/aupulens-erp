@@ -1,3 +1,4 @@
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { employeeCodeForDisplay, isValidEmployeeCode, sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
 import { allocateEmployeeCode } from "@/lib/hr/employeeCode";
@@ -315,7 +316,7 @@ const fieldErrors = validateEmployee(body);
     }
 
     // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
-    await safeEmitEvent(tenantId, "master_data.changed", { model: "Employee", id: String(employee._id), tenantId });
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Employee", id: String(employee._id), tenantId }, { dedupeKey: creationDedupeKey(employee._id) });
 
     // Populate for response
     const populated = await Employee.findOne({ _id: employee._id, tenantId })

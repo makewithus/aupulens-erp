@@ -270,3 +270,46 @@ describe("G6 — cron authentication", () => {
     } finally { if (saved !== undefined) process.env.CRON_SECRET = saved; }
   });
 });
+
+describe("G6 — a worker that crashed mid-run does not silently lose or silently replay the work", () => {
+  const KEY = "ro.interrupted";
+  beforeAll(() => { registerWorkflow({ ...smoke, id: "RO-OK", eventKeys: [KEY] }); });
+
+  async function interruptedRun(attempts: number) {
+    const ev = await AiEvent.create({ tenantId: T, eventKey: KEY, dedupeKey: `i${attempts}`, payload: {}, status: "pending" });
+    await eb.sweepPendingEvents(10, 10_000); // runs once normally => a run row exists for {RO-OK, event}
+    const run = await AiWorkflowRun.findOne({ workflowId: "RO-OK", triggerEventId: ev._id });
+    expect(run).toBeTruthy();
+    // simulate the crash: run stuck RUNNING long ago, event re-queued
+    await AiWorkflowRun.collection.updateOne({ _id: run!._id }, { $set: { status: "running", updatedAt: new Date(Date.now() - 3600_000) } });
+    await AiEvent.updateOne({ _id: ev._id }, { $set: { status: "pending", attempts, processedAt: null, nextAttemptAt: new Date(0) } });
+    return { ev, run: run! };
+  }
+
+  it("stale RUNNING run => run marked FAILED, event FAILED (retry scheduled) with an operator-readable error, not 'processed'", async () => {
+    const { ev, run } = await interruptedRun(1);
+    await eb.sweepPendingEvents(10, 10_000);
+    expect((await AiWorkflowRun.findById(run._id).lean())!.status).toBe("failed");
+    const after = await AiEvent.findById(ev._id).lean();
+    expect(after!.status).toBe("failed");
+    expect(after!.lastError).toMatch(/interrupted/i);
+  });
+
+  it("it is never re-executed: repeated failure exhausts attempts and dead-letters for an operator", async () => {
+    const { ev } = await interruptedRun(eb.MAX_ATTEMPTS - 1);
+    await eb.sweepPendingEvents(10, 10_000);
+    expect((await AiEvent.findById(ev._id).lean())!.status).toBe("dead_letter");
+    expect(await AiWorkflowRun.countDocuments({ workflowId: "RO-OK", triggerEventId: ev._id })).toBe(1); // no second run row
+  });
+
+  it("a RUNNING run that is NOT stale (another worker still working) is left alone", async () => {
+    const ev = await AiEvent.create({ tenantId: T, eventKey: KEY, dedupeKey: "fresh", payload: {}, status: "pending" });
+    await eb.sweepPendingEvents(10, 10_000);
+    const run = await AiWorkflowRun.findOne({ workflowId: "RO-OK", triggerEventId: ev._id });
+    await AiWorkflowRun.collection.updateOne({ _id: run!._id }, { $set: { status: "running", updatedAt: new Date() } });
+    await AiEvent.updateOne({ _id: ev._id }, { $set: { status: "pending", processedAt: null, nextAttemptAt: new Date(0) } });
+    await eb.sweepPendingEvents(10, 10_000);
+    expect((await AiWorkflowRun.findById(run!._id).lean())!.status).toBe("running");
+    expect((await AiEvent.findById(ev._id).lean())!.status).toBe("processed");
+  });
+});

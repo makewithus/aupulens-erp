@@ -3,6 +3,7 @@ import Organization from "@/models/admin/Organization";
 import AiSchedule, { AI_SCHEDULE_STATUS } from "@/models/ai/AiSchedule";
 import { bootstrapAiRuntime } from "@/lib/aiRuntime/bootstrap";
 import { emitEvent, sweepPendingEvents } from "@/lib/aiRuntime/runtime/eventBus";
+import { reconcileMissingCreationEvents } from "@/lib/aiRuntime/runtime/reconcile";
 import { checkOutboxHealth } from "@/lib/aiRuntime/runtime/outboxHealth";
 
 /**
@@ -51,6 +52,16 @@ export async function runAiRuntimeSweep(opts?: { limit?: number; budgetMs?: numb
     );
   }
 
+  // 1b. recover creation events lost between a committed business write and its outbox insert
+  let reconciled: { recovered: number } | null = null;
+  let reconcileError: string | null = null;
+  try {
+    reconciled = await reconcileMissingCreationEvents(orgs.map((o) => (o as { subdomain: string }).subdomain));
+  } catch (err) {
+    reconcileError = err instanceof Error ? err.message : String(err);
+    console.error(JSON.stringify({ level: "error", msg: "ai-outbox: reconciliation failed", error: reconcileError }));
+  }
+
   // 2. drain the outbox with the remaining budget
   const remaining = Math.max(1_000, budgetMs - (Date.now() - startedAt));
   const sweep = await sweepPendingEvents(limit, remaining);
@@ -61,6 +72,8 @@ export async function runAiRuntimeSweep(opts?: { limit?: number; budgetMs?: numb
   return {
     ...sweep,
     tenantsSwept: orgs.length,
+    reconciledEvents: reconciled?.recovered ?? 0,
+    reconcileError,
     schedulesDue: dueSchedules.length,
     backlog: health ? health.pending + health.failedAwaitingRetry : null,
     oldestPendingAgeMs: health?.oldestPendingAgeMs ?? null,

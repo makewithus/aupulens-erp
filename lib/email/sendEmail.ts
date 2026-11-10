@@ -19,7 +19,7 @@ export interface EmailService {
 }
 
 class NodemailerEmailService implements EmailService {
-  private transporter: nodemailer.Transporter | null = null;
+  private transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 
   async init() {
     if (this.transporter) return;

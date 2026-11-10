@@ -1,3 +1,4 @@
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
@@ -33,7 +34,7 @@ const statement = new BankStatement({
     await safeEmitEvent(tenantId, "bank.transaction.imported", {
       bankStatementId: String(statement._id),
       actingUserId: (session.user as any).id,
-    });
+    }, { dedupeKey: creationDedupeKey(statement._id) });
 
     return NextResponse.json(statement);
 

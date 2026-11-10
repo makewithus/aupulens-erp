@@ -1,3 +1,4 @@
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
@@ -90,7 +91,7 @@ try {
     }
 
     // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
-    await safeEmitEvent(tenantId, "master_data.changed", { model: "BankAccount", id: String(doc._id), tenantId });
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "BankAccount", id: String(doc._id), tenantId }, { dedupeKey: creationDedupeKey(doc._id) });
 
     return NextResponse.json({ success: true, data: doc }, { status: 201 });
   } catch (error: any) {

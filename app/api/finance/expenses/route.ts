@@ -1,3 +1,4 @@
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { safeInternalErrorMessage } from "@/lib/api/safeInternalErrorMessage";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
@@ -93,7 +94,7 @@ const expense = new Expense({
     await safeEmitEvent(tenantId, "expense.submitted", {
       expenseId: String(expense._id),
       actingUserId: session.user.id,
-    });
+    }, { dedupeKey: creationDedupeKey(expense._id) });
 
     return NextResponse.json({ success: true, expense });
 

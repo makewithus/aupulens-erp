@@ -1,3 +1,4 @@
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
-    await safeEmitEvent(tenantId, "master_data.changed", { model: "Vendor", id: String(vendor._id), tenantId });
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Vendor", id: String(vendor._id), tenantId }, { dedupeKey: creationDedupeKey(vendor._id) });
 
     return NextResponse.json({ vendor });
   } catch (error) {

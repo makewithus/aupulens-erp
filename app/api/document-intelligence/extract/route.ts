@@ -1,3 +1,4 @@
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
   await safeEmitEvent(session.user.tenantId, "document.received", {
     extractedDocumentId: String(doc._id),
     actingUserId: session.user.id,
-  });
+  }, { dedupeKey: creationDedupeKey(doc._id) });
 
   return NextResponse.json({
     success: true,

@@ -1,3 +1,4 @@
+import { creationDedupeKey } from "@/lib/aiRuntime/runtime/reconcileKeys";
 import { stripProtectedFields } from "@/lib/api/validateId";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
@@ -228,7 +229,7 @@ const body = stripProtectedFields(await req.json());
       invoiceId: String(invoice._id),
       moveType: invoice.moveType,
       actingUserId: session.user.id,
-    });
+    }, { dedupeKey: creationDedupeKey(invoice._id) });
 
     return NextResponse.json({ invoice }, { status: 201 });
 

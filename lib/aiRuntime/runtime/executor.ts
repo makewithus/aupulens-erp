@@ -28,6 +28,8 @@ import type {
   WorkflowDefinition,
 } from "@/lib/aiRuntime/workflows/types";
 
+const INTERRUPTED_RUN_PREFIX = "Interrupted";
+
 /**
  * The fixed 10-stage pipeline (Part 2.1). This is THE executor — no workflow
  * can skip a stage because every stage runs here, not inside workflow code.
@@ -51,7 +53,23 @@ export async function runWorkflow(
 
   if (event.id) {
     const existing = await AiWorkflowRun.findOne({ workflowId: workflow.id, triggerEventId: event.id });
-    if (existing) return toEnvelope(existing);
+    if (existing) {
+      // A run left RUNNING by a crashed worker may have applied part of its act() steps. Replaying would
+      // either hide it (event marked processed) or risk double-applying financial side effects, so it is
+      // marked FAILED and the error is thrown: the event retries with backoff, then dead-letters for an
+      // operator. It is never re-executed automatically.
+      const interrupted = existing.summary?.startsWith(INTERRUPTED_RUN_PREFIX);
+      const staleRunning =
+        existing.status === AI_RUN_STATUS.RUNNING && Date.now() - existing.updatedAt.getTime() > (Number(process.env.AI_RUN_STALE_MS) || 10 * 60_000);
+      if (staleRunning) {
+        await AiWorkflowRun.updateOne(
+          { _id: existing._id, status: AI_RUN_STATUS.RUNNING },
+          { $set: { status: AI_RUN_STATUS.FAILED, summary: `${INTERRUPTED_RUN_PREFIX}: worker stopped before the run finished`, finishedAt: new Date() } },
+        );
+      }
+      if (staleRunning || interrupted) throw new Error(`workflow run ${existing._id} was interrupted before completing; operator review required`);
+      return toEnvelope(existing);
+    }
   }
 
   // observe — Idempotent on event_id (Part 2.1). Runs before the run row
