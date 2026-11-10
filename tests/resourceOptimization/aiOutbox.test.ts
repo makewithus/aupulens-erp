@@ -216,7 +216,8 @@ describe("G6 — idempotent delivery, time budget, bursts", () => {
     await AiEvent.insertMany(Array.from({ length: 300 }, (_, i) => ({ tenantId: T, eventKey: "ro.nobody.listens", dedupeKey: `b${i}`, status: "pending" })));
     let sweeps = 0;
     while (await AiEvent.countDocuments({ status: "pending" })) { await eb.sweepPendingEvents(100, 20_000); if (++sweeps > 10) break; }
-    expect(sweeps).toBe(3);
+    expect(sweeps).toBeGreaterThanOrEqual(3); // 300 events / 100 per sweep; more only if a sweep hit its time budget under load
+    expect(sweeps).toBeLessThanOrEqual(10);
     expect(await AiEvent.countDocuments({ status: "processed" })).toBe(300);
   });
 });

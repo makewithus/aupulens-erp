@@ -24,6 +24,8 @@ class RejectedTransaction {
 /** No standalone-Mongo fallback: a failed write or error response aborts all writes. */
 export async function withAccountingTransaction<T>(work: () => Promise<T>): Promise<T> {
   if (context.getStore()) return work();
+  // The AI outbox row is written inside this transaction; its collection must exist beforehand (see outboxReady.ts).
+  await (await import("@/lib/aiRuntime/runtime/outboxReady")).ensureOutboxReady();
   let committed: (() => Promise<void>)[] = [];
   try {
     const result = await mongoose.connection.transaction(async session => {
