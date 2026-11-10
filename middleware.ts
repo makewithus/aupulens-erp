@@ -557,7 +557,9 @@ export const config = {
     "/hr/:path*",
     "/master-admin/:path*",
     "/platform/:path*",
-    // Exclude static assets and next internal assets to eliminate avoidable Edge invocations
-    "/((?!api/auth|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|txt|xml|json|map)$).*)",
+    // Exclude static assets and next internal assets to eliminate avoidable Edge invocations.
+    // The file-extension exclusion is deliberately NOT applied to /api/**: a dynamic API segment such
+    // as /api/sales/invoice-templates/x.json must still pass through auth, module and subscription gating.
+    "/((?!api/auth|_next/static|_next/image|favicon\\.ico|(?!api/).*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|txt|xml|json|map)$).*)",
   ],
 };
