@@ -11,7 +11,7 @@ export interface RateLimitResult {
 }
 
 export interface RateLimitStore {
-  increment(key: string, windowMs: number): Promise<RateLimitResult> | RateLimitResult;
+  increment(key: string, windowMs: number, limit?: number): Promise<RateLimitResult> | RateLimitResult;
   reset?(key?: string): Promise<void> | void;
 }
 
@@ -107,53 +107,62 @@ export class HttpRateLimitStore implements RateLimitStore {
   }
 }
 
-export class UpstashRedisRateLimitStore implements RateLimitStore {
-  constructor(private url: string, private token: string) {}
+/**
+ * Counter increment + expiry run as ONE Lua script (Redis executes scripts atomically), so a
+ * failed or skipped expiry call can never leave an immortal counter. The script also repairs a
+ * pre-existing key that has no TTL (PTTL < 0) instead of trusting it forever.
+ * Executed through Upstash's documented REST command API: POST / with ["EVAL", script, numkeys, ...].
+ */
+export const UPSTASH_RATE_LIMIT_SCRIPT = `
+local c = redis.call('INCR', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
+if c == 1 or ttl < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {c, ttl}
+`.trim();
 
-  async increment(key: string, windowMs: number): Promise<RateLimitResult> {
-    const redisKey = `rl:${key}`;
-    const cleanUrl = this.url.replace(/\/+$/, "");
-    const response = await fetch(`${cleanUrl}/pipeline`, {
+const MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export class UpstashRedisRateLimitStore implements RateLimitStore {
+  constructor(private url: string, private token: string) {
+    if (!/^https?:\/\//.test(url) || !token) throw new Error("Invalid Upstash Redis configuration");
+  }
+
+  async increment(key: string, windowMs: number, limit?: number): Promise<RateLimitResult> {
+    if (!Number.isInteger(windowMs) || windowMs <= 0 || windowMs > MAX_WINDOW_MS) {
+      throw new Error("Invalid rate limit window");
+    }
+    const response = await fetch(this.url.replace(/\/+$/, ""), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify([
-        ["INCR", redisKey],
-        ["PTTL", redisKey],
-      ]),
+      headers: { Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(["EVAL", UPSTASH_RATE_LIMIT_SCRIPT, 1, `rl:${key}`, String(windowMs)]),
       cache: "no-store",
       signal: AbortSignal.timeout(3000),
     });
-
     if (!response.ok) throw new Error("Upstash Redis rate limit backend unavailable");
     const data = await response.json();
-    const count = Number(data[0]?.result ?? 1);
-    let pttl = Number(data[1]?.result ?? -1);
-
-    if (pttl <= 0) {
-      await fetch(`${cleanUrl}/pexpire/${encodeURIComponent(redisKey)}/${windowMs}`, {
-        headers: { Authorization: `Bearer ${this.token}` },
-        cache: "no-store",
-      }).catch(() => {});
-      pttl = windowMs;
+    const [rawCount, rawTtl] = Array.isArray(data?.result) ? data.result : [];
+    const count = Number(rawCount);
+    const ttl = Number(rawTtl);
+    if (!Number.isInteger(count) || count < 1 || !Number.isFinite(ttl) || ttl <= 0) {
+      throw new Error("Invalid Upstash Redis rate limit response");
     }
-
-    const resetAt = Date.now() + pttl;
     return {
-      allowed: true,
+      allowed: limit === undefined ? true : count <= limit,
       count,
-      remaining: Math.max(0, 0),
-      resetAt,
+      remaining: limit === undefined ? 0 : Math.max(0, limit - count),
+      resetAt: Date.now() + ttl,
     };
   }
 
   async reset(key?: string): Promise<void> {
     if (!key) return;
-    const cleanUrl = this.url.replace(/\/+$/, "");
-    await fetch(`${cleanUrl}/del/${encodeURIComponent(`rl:${key}`)}`, {
-      headers: { Authorization: `Bearer ${this.token}` },
+    await fetch(this.url.replace(/\/+$/, ""), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(["DEL", `rl:${key}`]),
       cache: "no-store",
     }).catch(() => {});
   }
@@ -246,11 +255,11 @@ export async function checkRateLimit(req: Request, pathname: string, userId?: st
     }
     for (const identity of identities) {
       const key = await digest(`${rule.pattern}:${identity}`);
-      const result = await store.increment(key, rule.windowMs);
+      const result = await store.increment(key, rule.windowMs, rule.limit);
       if (result.count > rule.limit) {
         return NextResponse.json({ error: "Too many requests. Please try again shortly.", code: "RATE_LIMITED" }, {
           status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))),
-            "X-RateLimit-Limit": String(rule.limit), "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": String(Math.ceil(result.resetAt / 1000)) },
+            "X-RateLimit-Limit": String(rule.limit), "X-RateLimit-Remaining": String(Math.max(0, rule.limit - result.count)), "X-RateLimit-Reset": String(Math.ceil(result.resetAt / 1000)) },
         });
       }
     }
