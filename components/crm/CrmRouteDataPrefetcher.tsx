@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 
-const PREFETCH_REQUESTS: Record<string, string[]> = {
+export const PREFETCH_REQUESTS: Record<string, string[]> = {
   "/crm/dashboard": ["/api/crm/pipeline/analytics", "/api/crm/health", "/api/crm/churn", "/api/crm/renewals", "/api/crm/expansion", "/api/crm/opportunities?limit=5"],
   "/crm/analytics": ["/api/crm/analytics?range=all"],
-  "/crm/leads": ["/api/crm/leads?page=1&limit=25"],
-  "/crm/accounts": ["/api/crm/accounts?page=1&limit=25"],
-  "/crm/contacts": ["/api/crm/contacts?page=1&limit=25"],
+  "/crm/leads": ["/api/admin/org-settings", "/api/crm/leads?page=1&limit=25"],
+  "/crm/accounts": ["/api/admin/org-settings", "/api/crm/accounts?page=1&limit=25"],
+  "/crm/contacts": ["/api/admin/org-settings", "/api/crm/contacts?page=1&limit=25"],
   "/crm/opportunities": ["/api/crm/opportunities?page=1&limit=25", "/api/crm/opportunities/kpis", "/api/crm/accounts"],
   "/crm/pipeline": ["/api/crm/pipeline", "/api/crm/pipeline/analytics"],
   "/crm/quotes": ["/api/crm/quotes?page=1&limit=10", "/api/crm/accounts", "/api/users"],
@@ -18,13 +18,13 @@ const PREFETCH_REQUESTS: Record<string, string[]> = {
   "/crm/campaigns": ["/api/crm/campaigns?page=1&limit=25"],
   "/crm/campaigns/dashboard": ["/api/crm/reports/roi", "/api/crm/reports/campaigns"],
   "/crm/contracts": ["/api/crm/contracts?page=1&limit=25", "/api/crm/renewals"],
-  "/crm/activities": ["/api/crm/activities"],
+  "/crm/activities": ["/api/crm/activities?limit=15&page=1"],
   "/crm/documents": ["/api/crm/documents?"],
   "/crm/handoffs": ["/api/crm/handoffs", "/api/users"],
   "/crm/communications": ["/api/crm/communications"],
   "/crm/notifications": ["/api/crm/notifications"],
   "/crm/onboarding": ["/api/crm/onboarding"],
-  "/crm/support": ["/api/crm/cases/kpi", "/api/crm/cases?page=1&limit=10"],
+  "/crm/support": ["/api/admin/org-settings", "/api/crm/cases/kpi"],
   "/crm/workflows": ["/api/crm/automations"],
   "/crm/automations": ["/api/crm/automations"],
   "/crm/integrations": ["/api/crm/integrations"],

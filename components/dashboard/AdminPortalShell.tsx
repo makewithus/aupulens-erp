@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AdminRouteDataPrefetcher } from "@/components/admin/AdminRouteDataPrefetcher";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import {
   PersistentDashboardContext,
@@ -89,6 +90,7 @@ export function AdminPortalShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PersistentDashboardContext.Provider value={context}>
+      <AdminRouteDataPrefetcher />
       <DashboardLayout
         {...details}
         sidebarSections={adminSidebarConfig}

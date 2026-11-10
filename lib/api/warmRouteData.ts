@@ -6,8 +6,11 @@ import { PREFETCH_REQUESTS as INVENTORY } from "@/components/inventory/Inventory
 import { PREFETCH_REQUESTS as FINANCE } from "@/components/finance/FinanceRouteDataPrefetcher";
 import { PREFETCH_REQUESTS as MANUFACTURING } from "@/components/manufacturing/ManufacturingRouteDataPrefetcher";
 import { PREFETCH_REQUESTS as HR } from "@/components/hr/HrRouteDataPrefetcher";
+import { PREFETCH_REQUESTS as CRM } from "@/components/crm/CrmRouteDataPrefetcher";
+import { PREFETCH_REQUESTS as ADMIN } from "@/components/admin/AdminRouteDataPrefetcher";
+import { PREFETCH_REQUESTS as PROJECTS } from "@/components/projects/ProjectsRouteDataPrefetcher";
 
-const MAPS = [SALES, INVENTORY, FINANCE, MANUFACTURING, HR];
+const MAPS = [SALES, INVENTORY, FINANCE, MANUFACTURING, HR, CRM, ADMIN, PROJECTS];
 const warmed = new Set<string>();
 
 /**
