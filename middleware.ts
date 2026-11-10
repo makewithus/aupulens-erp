@@ -9,6 +9,7 @@ import {
 } from "@/lib/middleware/moduleGate";
 import { createOrgTierCache } from "@/lib/middleware/orgTierCache";
 import { checkRateLimit } from "@/lib/middleware/rateLimit";
+import { resolveEntitlements } from "@/lib/middleware/entitlementFreshness";
 import {
   extractAdminSessionCookie,
   verifyAdminSessionTokenEdge,
@@ -24,11 +25,12 @@ const { auth } = NextAuth(authConfig);
 // it used to run on nearly every navigation with only a 60s per-isolate TTL
 // and no de-duplication, the concrete root cause of "everything is slow at
 // first, then gets fast" reported across the whole system, not just login.
-async function fetchOrgModuleData(tenantId: string, origin: string): Promise<OrgModuleInfo | null> {
+async function fetchOrgModuleData(cacheKey: string, origin: string): Promise<OrgModuleInfo | null> {
   try {
+    const [tenantId, userId] = cacheKey.split("|");
     const secret = process.env.MIDDLEWARE_INTERNAL_SECRET;
     const res = await fetch(
-      `${origin}/api/internal/org-tier?tenantId=${encodeURIComponent(tenantId)}`,
+      `${origin}/api/internal/org-tier?tenantId=${encodeURIComponent(tenantId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`,
       {
         cache: "no-store",
         headers: {
@@ -44,8 +46,10 @@ async function fetchOrgModuleData(tenantId: string, origin: string): Promise<Org
   }
 }
 
-const orgTierCache = createOrgTierCache(fetchOrgModuleData);
-const getOrgModuleData = (tenantId: string, origin: string) => orgTierCache.get(tenantId, origin);
+// G4: staleMs is 0 on purpose — stale-while-revalidate would extend authorization past the
+// ENTITLEMENT_MAX_AGE_MS freshness bound. freshMs (30 s) <= that bound.
+const orgTierCache = createOrgTierCache(fetchOrgModuleData, { freshMs: 30_000, staleMs: 0 });
+const getOrgModuleData = (key: string, origin: string) => orgTierCache.get(key, origin);
 
 const TENANT_AUTH_COOKIE_NAMES = [
   "authjs.session-token",
@@ -512,10 +516,32 @@ export default auth(async (req) => {
     !!userTenantIdForOrgCheck &&
     user.role !== "master-admin" &&
     !isPathAllowlisted(pathname);
-  const userOrgModuleData = (user as any)?.orgModuleData as OrgModuleInfo | undefined;
-  const orgData = needsOrgCheck
-    ? (userOrgModuleData ?? await getOrgModuleData(userTenantIdForOrgCheck, req.nextUrl.origin))
-    : null;
+  // G4: embedded claims are trusted for at most ENTITLEMENT_MAX_AGE_MS; otherwise (and for legacy
+  // tokens without claims) entitlements are re-read from the server. If that is impossible we deny.
+  let orgData: OrgModuleInfo | null = null;
+  if (needsOrgCheck) {
+    const userId = (user as any)?.id as string | undefined;
+    const resolution = await resolveEntitlements(
+      {
+        orgModuleData: (user as any)?.orgModuleData as OrgModuleInfo | undefined,
+        entitlementVersion: (user as any)?.entitlementVersion,
+        entitlementCheckedAt: (user as any)?.entitlementCheckedAt,
+      },
+      () => getOrgModuleData(`${userTenantIdForOrgCheck}|${userId ?? ""}`, req.nextUrl.origin),
+    );
+    if (resolution.kind === "unavailable") {
+      return NextResponse.json(
+        { error: "Unable to verify your organization's entitlements right now. Please retry shortly.", code: "ENTITLEMENT_UNAVAILABLE" },
+        { status: 503, headers: { "Cache-Control": "private, no-store", "Retry-After": "5" } },
+      );
+    }
+    if (resolution.kind === "revoked") {
+      return isApiRoute
+        ? NextResponse.json({ error: "Your account has been deactivated.", code: "USER_REVOKED" }, { status: 401, headers: { "Cache-Control": "private, no-store" } })
+        : clearTenantAuthCookies(NextResponse.redirect(new URL("/auth", req.url)));
+    }
+    orgData = resolution.org;
+  }
 
   if (orgData && isSubscriptionBlocked(orgData)) {
     if (isApiRoute) {

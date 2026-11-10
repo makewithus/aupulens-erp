@@ -21,6 +21,8 @@ declare module "next-auth" {
       tenantId: string;
       permissions?: string[];
       orgModuleData?: any;
+      entitlementVersion?: number;
+      entitlementCheckedAt?: number;
       sessionPolicyVersion?: string;
       sessionStale?: boolean;
     } & DefaultSession["user"];
@@ -30,6 +32,8 @@ declare module "next-auth" {
     tenantId: string;
     permissions?: string[];
     orgModuleData?: any;
+    entitlementVersion?: number;
+    entitlementCheckedAt?: number;
     sessionPolicyVersion?: string;
     sessionStale?: boolean;
   }
@@ -42,6 +46,8 @@ declare module "@auth/core/jwt" {
     tenantId?: string;
     permissions?: string[];
     orgModuleData?: any;
+    entitlementVersion?: number;
+    entitlementCheckedAt?: number;
     sessionPolicyVersion?: string;
     sessionStale?: boolean;
     authenticatedAt?: number;
@@ -228,6 +234,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               subscriptionStatus: org.subscriptionStatus ?? "trial",
               trialEndDate: org.trialEndDate ? org.trialEndDate.toISOString() : null,
               resolvedModules,
+              entitlementVersion: org.entitlementVersion ?? 0,
+              isActive: org.isActive !== false,
             };
           }
 
@@ -242,6 +250,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // JWT encoding, which crashes login with DataCloneError.
             permissions: user.permissions ? [...user.permissions] : [],
             orgModuleData,
+            entitlementVersion: org?.entitlementVersion ?? 0,
+            // Stamped at issue time; middleware trusts the claims for at most ENTITLEMENT_MAX_AGE_MS.
+            entitlementCheckedAt: orgModuleData ? Date.now() : undefined,
           };
         } catch (error: any) {
           console.error(`[auth] authorize threw exception:`, error);
