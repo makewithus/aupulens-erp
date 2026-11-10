@@ -25,6 +25,10 @@ interface UserNavProps {
   profilePath?: string;
 }
 
+// Module-level so it survives the per-page remount of the dashboard shell.
+let lastPlan: { label: string; ts: number } | null = null;
+const PLAN_FRESH_MS = 30_000;
+
 export function UserNav({
   userName,
   userEmail,
@@ -32,8 +36,8 @@ export function UserNav({
   onSignOut,
   profilePath,
 }: UserNavProps) {
-  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
-  const [planLoading, setPlanLoading] = useState(Boolean(userRole && userRole !== "master-admin"));
+  const [currentPlan, setCurrentPlan] = useState<string | null>(lastPlan?.label ?? null);
+  const [planLoading, setPlanLoading] = useState(Boolean(userRole && userRole !== "master-admin" && !lastPlan));
 
   const refreshPlan = useCallback(async () => {
     if (userRole === "master-admin") return;
@@ -43,7 +47,9 @@ export function UserNav({
       const result = await response.json();
       const planKey = result?.data?.subscription?.planKey as PlanKeyType | undefined;
       if (planKey) {
-        setCurrentPlan(PLAN_KEY_LABELS[planKey] || planKey);
+        const label = PLAN_KEY_LABELS[planKey] || planKey;
+        lastPlan = { label, ts: Date.now() };
+        setCurrentPlan(label);
       }
     } catch {
       // Keep the last known plan visible during a temporary network failure.
@@ -55,11 +61,14 @@ export function UserNav({
   useEffect(() => {
     if (!userRole || userRole === "master-admin") return;
 
-    void refreshPlan();
+    // Page changes remount this component; reuse a recent value instead of re-running 3 DB reads per navigation.
+    if (!lastPlan || Date.now() - lastPlan.ts > PLAN_FRESH_MS) void refreshPlan();
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") void refreshPlan();
     };
-    const timer = window.setInterval(refreshPlan, 15000);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshPlan();
+    }, 60000);
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
