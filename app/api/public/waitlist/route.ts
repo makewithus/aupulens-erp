@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import crypto from "crypto";
-import connectDB from "@/lib/db";
+import { connectBaseDB } from "@/lib/db";
 import Waitlist, { IWaitlist } from "@/models/platform/Waitlist";
 import { sendWaitlistNotificationEmail } from "@/lib/email/waitlistNotification";
 
@@ -174,7 +174,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await connectDB();
+    // Only the Waitlist model is used here (no populate, no cross-model hooks), so the cheap connection is
+    // enough — it skips compiling the ~100 unrelated schemas on this public cold-start path.
+    await connectBaseDB();
 
     // Duplicate submission protection (within 60 seconds for same email and company)
     const recentDuplicate = await Waitlist.findOne({
