@@ -8,7 +8,12 @@ import mongoose, { Schema, Document, Model } from "mongoose";
  */
 export interface ISchedulerJobRun extends Document {
   jobId: string;
+  /** Last ATTEMPT (success or failure). */
   lastRunAt?: Date;
+  lastSuccessAt?: Date;
+  consecutiveFailures?: number;
+  /** Next eligible retry after a failure (bounded exponential backoff). */
+  nextRetryAt?: Date;
   lastRunStatus?: "success" | "error";
   lastRunDurationMs?: number;
   lastRunResult?: Record<string, unknown>;
@@ -23,6 +28,9 @@ const SchedulerJobRunSchema = new Schema<ISchedulerJobRun>(
   {
     jobId: { type: String, required: true, unique: true },
     lastRunAt: { type: Date },
+    lastSuccessAt: { type: Date },
+    consecutiveFailures: { type: Number, default: 0 },
+    nextRetryAt: { type: Date },
     lastRunStatus: { type: String, enum: ["success", "error"] },
     lastRunDurationMs: { type: Number },
     lastRunResult: { type: Schema.Types.Mixed },

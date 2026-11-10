@@ -42,9 +42,25 @@ export interface JobStatus {
   isStale: boolean; // overdue past OVERDUE_ALERT_MULTIPLIER × its interval
 }
 
-function computeNextDueAt(job: JobDefinition, lastRunAt?: Date): Date {
-  if (!lastRunAt) return new Date(0); // never run — immediately due
-  return new Date(lastRunAt.getTime() + job.intervalMinutes * 60 * 1000);
+/** Failed jobs retry sooner than their full interval, with bounded exponential backoff. */
+export const RETRY_BASE_MS = Number(process.env.SCHEDULER_RETRY_BASE_MS) || 5 * 60 * 1000;
+/** After this many consecutive failures the job falls back to its normal cadence (no infinite retry loop); the failure alert stays up. */
+export const MAX_CONSECUTIVE_RETRIES = 5;
+
+export function computeRetryDelayMs(job: JobDefinition, failures: number): number {
+  return Math.min(job.intervalMinutes * 60 * 1000, RETRY_BASE_MS * 2 ** Math.max(0, failures - 1));
+}
+
+function computeNextDueAt(
+  job: JobDefinition,
+  run?: { lastRunAt?: Date; lastRunStatus?: string; consecutiveFailures?: number; nextRetryAt?: Date },
+): Date {
+  if (!run?.lastRunAt) return new Date(0); // never run — immediately due
+  const failures = run.consecutiveFailures ?? (run.lastRunStatus === "error" ? 1 : 0);
+  if (run.lastRunStatus === "error" && failures > 0 && failures <= MAX_CONSECUTIVE_RETRIES) {
+    return run.nextRetryAt ?? new Date(run.lastRunAt.getTime() + computeRetryDelayMs(job, failures));
+  }
+  return new Date(run.lastRunAt.getTime() + job.intervalMinutes * 60 * 1000);
 }
 
 export async function getJobStatuses(): Promise<JobStatus[]> {
@@ -56,8 +72,12 @@ export async function getJobStatuses(): Promise<JobStatus[]> {
   return JOB_REGISTRY.map((job) => {
     const run = runByJobId.get(job.jobId);
     const lastRunAt = run?.lastRunAt;
-    const nextDueAt = computeNextDueAt(job, lastRunAt);
+    const nextDueAt = computeNextDueAt(job, run);
     const overdueThresholdMs = job.intervalMinutes * 60 * 1000 * OVERDUE_ALERT_MULTIPLIER;
+    // Staleness is measured from the last SUCCESS: a job that keeps failing is stale even though it keeps "running".
+    // (Legacy rows without lastSuccessAt fall back to lastRunAt when that run succeeded.)
+    const successAt = run?.lastSuccessAt ?? (run?.lastRunStatus === "success" ? lastRunAt : undefined);
+    const staleBase = successAt ? new Date(successAt.getTime() + job.intervalMinutes * 60 * 1000) : new Date(0);
     return {
       jobId: job.jobId,
       description: job.description,
@@ -71,7 +91,7 @@ export async function getJobStatuses(): Promise<JobStatus[]> {
       lastRunTrigger: run?.lastRunTrigger ?? null,
       nextDueAt: nextDueAt.toISOString(),
       isDue: nextDueAt.getTime() <= now,
-      isStale: now - nextDueAt.getTime() > overdueThresholdMs,
+      isStale: now - staleBase.getTime() > overdueThresholdMs,
     };
   });
 }
@@ -125,6 +145,22 @@ async function runOneJob(
   const locked = await acquireLock(job.jobId);
   if (!locked) return { jobId: job.jobId, ran: false };
 
+  // Double-checked locking: the caller's "due" decision came from a snapshot taken BEFORE the lock. A
+  // concurrent tick may have run (and released) this job in between; the lock alone only stops OVERLAPPING
+  // runs, not a sequential duplicate. Re-read the job's state under the lock and bail if it is no longer due.
+  if (trigger !== "manual") {
+    try {
+      const fresh = await SchedulerJobRun.findOne({ jobId: job.jobId }).lean();
+      if (computeNextDueAt(job, fresh ?? undefined).getTime() > Date.now()) {
+        await releaseLock(job.jobId);
+        return { jobId: job.jobId, ran: false };
+      }
+    } catch (err) {
+      await releaseLock(job.jobId);
+      throw err;
+    }
+  }
+
   const start = Date.now();
   const failedDedupeKey = `scheduler-failed:${job.jobId}`;
   try {
@@ -135,13 +171,15 @@ async function runOneJob(
       {
         $set: {
           lastRunAt: new Date(),
+          lastSuccessAt: new Date(),
+          consecutiveFailures: 0,
           lastRunStatus: "success",
           lastRunDurationMs: durationMs,
           lastRunResult: result,
           lastRunTrigger: trigger,
           lastRunActorId: actorId,
         },
-        $unset: { lastError: "" },
+        $unset: { lastError: "", nextRetryAt: "" },
       },
       { upsert: true },
     );
@@ -150,11 +188,16 @@ async function runOneJob(
   } catch (err) {
     const durationMs = Date.now() - start;
     const message = err instanceof Error ? err.message : String(err);
+    // Held lock => single writer, so read-then-write of the failure counter is safe.
+    const prior = await SchedulerJobRun.findOne({ jobId: job.jobId }, { consecutiveFailures: 1 }).lean();
+    const failures = (prior?.consecutiveFailures ?? 0) + 1;
     await SchedulerJobRun.findOneAndUpdate(
       { jobId: job.jobId },
       {
         $set: {
           lastRunAt: new Date(),
+          consecutiveFailures: failures,
+          nextRetryAt: new Date(Date.now() + computeRetryDelayMs(job, failures)),
           lastRunStatus: "error",
           lastRunDurationMs: durationMs,
           lastError: message,
@@ -217,7 +260,8 @@ export async function runDueJobs(
   const skipped: string[] = [];
   const failed: string[] = [];
   const startTime = Date.now();
-  const GLOBAL_TIME_BUDGET_MS = 240000; // 4 minutes
+  // Env-tunable. The platform's real function limit is NOT configured in-repo (vercel.json is empty) — set this at or below it.
+  const GLOBAL_TIME_BUDGET_MS = Number(process.env.SCHEDULER_TIME_BUDGET_MS) || 240000;
 
   for (const status of due) {
     if (Date.now() - startTime > GLOBAL_TIME_BUDGET_MS) {
@@ -237,7 +281,9 @@ export async function runDueJobs(
     }
   }
 
-  await raiseStaleAlerts(statuses);
+  // Alert on POST-run state: a job that was stale before this tick but just succeeded must clear its alert.
+  // (Re-read only when something actually ran, so the idle zero-due tick still costs a single status query.)
+  await raiseStaleAlerts(ran.length + failed.length > 0 ? await getJobStatuses() : statuses);
   await checkSystemErrorSpike().catch(() => undefined); // never let an alert check fail the scheduler run itself
 
   return { ran, skipped, failed };
