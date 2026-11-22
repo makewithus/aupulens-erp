@@ -1,0 +1,739 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Theme toggle: freeze every element's own transition-duration while the
+   class flip is in flight so nothing repaints a beat after everything else,
+   and give the View Transitions cross-fade (see ThemeProvider.tsx) a single
+   short, uniform duration for the whole page. */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: none !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 150ms;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-tertiary-foreground: var(--tertiary-foreground);
+  --font-sans: var(--font-roboto);
+  --font-mono: var(--font-roboto-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  /* Brand semantic accents (Aupulens guide §4; state mapping is an implementation convention). */
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-negative-text: var(--negative-text);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-ai: var(--ai);
+  /* Brand weights: Roboto 400, Roboto Mono 400/500 only (guide §3). Caps every
+     legacy font-semibold/bold/black utility app-wide in one place. */
+  --font-weight-semibold: 500;
+  --font-weight-bold: 500;
+  --font-weight-extrabold: 500;
+  --font-weight-black: 500;
+  /* Brand palette lock (guide §4, §8): every Tailwind hue utility resolves to the brand accent
+     that carries its meaning, so legacy bg-emerald-500 / text-rose-600 etc. across the app
+     render in brand colours. 50–100 become tints for backgrounds. Neutrals are untouched. */
+  --color-emerald-50: color-mix(in oklab, var(--positive) 12%, transparent);
+  --color-emerald-100: color-mix(in oklab, var(--positive) 18%, transparent);
+  --color-emerald-200: var(--positive);
+  --color-emerald-300: var(--positive);
+  --color-emerald-400: var(--positive);
+  --color-emerald-500: var(--positive);
+  --color-emerald-600: var(--positive);
+  --color-emerald-700: var(--positive);
+  --color-emerald-800: var(--positive);
+  --color-emerald-900: var(--positive);
+  --color-emerald-950: var(--positive);
+  --color-green-50: color-mix(in oklab, var(--positive) 12%, transparent);
+  --color-green-100: color-mix(in oklab, var(--positive) 18%, transparent);
+  --color-green-200: var(--positive);
+  --color-green-300: var(--positive);
+  --color-green-400: var(--positive);
+  --color-green-500: var(--positive);
+  --color-green-600: var(--positive);
+  --color-green-700: var(--positive);
+  --color-green-800: var(--positive);
+  --color-green-900: var(--positive);
+  --color-green-950: var(--positive);
+  --color-lime-50: color-mix(in oklab, var(--positive) 12%, transparent);
+  --color-lime-100: color-mix(in oklab, var(--positive) 18%, transparent);
+  --color-lime-200: var(--positive);
+  --color-lime-300: var(--positive);
+  --color-lime-400: var(--positive);
+  --color-lime-500: var(--positive);
+  --color-lime-600: var(--positive);
+  --color-lime-700: var(--positive);
+  --color-lime-800: var(--positive);
+  --color-lime-900: var(--positive);
+  --color-lime-950: var(--positive);
+  --color-amber-50: color-mix(in oklab, var(--warning) 12%, transparent);
+  --color-amber-100: color-mix(in oklab, var(--warning) 18%, transparent);
+  --color-amber-200: var(--warning);
+  --color-amber-300: var(--warning);
+  --color-amber-400: var(--warning);
+  --color-amber-500: var(--warning);
+  --color-amber-600: var(--warning);
+  --color-amber-700: var(--warning);
+  --color-amber-800: var(--warning);
+  --color-amber-900: var(--warning);
+  --color-amber-950: var(--warning);
+  --color-yellow-50: color-mix(in oklab, var(--warning) 12%, transparent);
+  --color-yellow-100: color-mix(in oklab, var(--warning) 18%, transparent);
+  --color-yellow-200: var(--warning);
+  --color-yellow-300: var(--warning);
+  --color-yellow-400: var(--warning);
+  --color-yellow-500: var(--warning);
+  --color-yellow-600: var(--warning);
+  --color-yellow-700: var(--warning);
+  --color-yellow-800: var(--warning);
+  --color-yellow-900: var(--warning);
+  --color-yellow-950: var(--warning);
+  --color-orange-50: color-mix(in oklab, var(--warning) 12%, transparent);
+  --color-orange-100: color-mix(in oklab, var(--warning) 18%, transparent);
+  --color-orange-200: var(--warning);
+  --color-orange-300: var(--warning);
+  --color-orange-400: var(--warning);
+  --color-orange-500: var(--warning);
+  --color-orange-600: var(--warning);
+  --color-orange-700: var(--warning);
+  --color-orange-800: var(--warning);
+  --color-orange-900: var(--warning);
+  --color-orange-950: var(--warning);
+  --color-blue-50: color-mix(in oklab, var(--info) 12%, transparent);
+  --color-blue-100: color-mix(in oklab, var(--info) 18%, transparent);
+  --color-blue-200: var(--info);
+  --color-blue-300: var(--info);
+  --color-blue-400: var(--info);
+  --color-blue-500: var(--info);
+  --color-blue-600: var(--info);
+  --color-blue-700: var(--info);
+  --color-blue-800: var(--info);
+  --color-blue-900: var(--info);
+  --color-blue-950: var(--info);
+  --color-sky-50: color-mix(in oklab, var(--info) 12%, transparent);
+  --color-sky-100: color-mix(in oklab, var(--info) 18%, transparent);
+  --color-sky-200: var(--info);
+  --color-sky-300: var(--info);
+  --color-sky-400: var(--info);
+  --color-sky-500: var(--info);
+  --color-sky-600: var(--info);
+  --color-sky-700: var(--info);
+  --color-sky-800: var(--info);
+  --color-sky-900: var(--info);
+  --color-sky-950: var(--info);
+  --color-cyan-50: color-mix(in oklab, var(--info) 12%, transparent);
+  --color-cyan-100: color-mix(in oklab, var(--info) 18%, transparent);
+  --color-cyan-200: var(--info);
+  --color-cyan-300: var(--info);
+  --color-cyan-400: var(--info);
+  --color-cyan-500: var(--info);
+  --color-cyan-600: var(--info);
+  --color-cyan-700: var(--info);
+  --color-cyan-800: var(--info);
+  --color-cyan-900: var(--info);
+  --color-cyan-950: var(--info);
+  --color-indigo-50: color-mix(in oklab, var(--info) 12%, transparent);
+  --color-indigo-100: color-mix(in oklab, var(--info) 18%, transparent);
+  --color-indigo-200: var(--info);
+  --color-indigo-300: var(--info);
+  --color-indigo-400: var(--info);
+  --color-indigo-500: var(--info);
+  --color-indigo-600: var(--info);
+  --color-indigo-700: var(--info);
+  --color-indigo-800: var(--info);
+  --color-indigo-900: var(--info);
+  --color-indigo-950: var(--info);
+  --color-teal-50: color-mix(in oklab, var(--info) 12%, transparent);
+  --color-teal-100: color-mix(in oklab, var(--info) 18%, transparent);
+  --color-teal-200: var(--info);
+  --color-teal-300: var(--info);
+  --color-teal-400: var(--info);
+  --color-teal-500: var(--info);
+  --color-teal-600: var(--info);
+  --color-teal-700: var(--info);
+  --color-teal-800: var(--info);
+  --color-teal-900: var(--info);
+  --color-teal-950: var(--info);
+  --color-purple-50: color-mix(in oklab, var(--ai) 12%, transparent);
+  --color-purple-100: color-mix(in oklab, var(--ai) 18%, transparent);
+  --color-purple-200: var(--ai);
+  --color-purple-300: var(--ai);
+  --color-purple-400: var(--ai);
+  --color-purple-500: var(--ai);
+  --color-purple-600: var(--ai);
+  --color-purple-700: var(--ai);
+  --color-purple-800: var(--ai);
+  --color-purple-900: var(--ai);
+  --color-purple-950: var(--ai);
+  --color-violet-50: color-mix(in oklab, var(--ai) 12%, transparent);
+  --color-violet-100: color-mix(in oklab, var(--ai) 18%, transparent);
+  --color-violet-200: var(--ai);
+  --color-violet-300: var(--ai);
+  --color-violet-400: var(--ai);
+  --color-violet-500: var(--ai);
+  --color-violet-600: var(--ai);
+  --color-violet-700: var(--ai);
+  --color-violet-800: var(--ai);
+  --color-violet-900: var(--ai);
+  --color-violet-950: var(--ai);
+  --color-fuchsia-50: color-mix(in oklab, var(--ai) 12%, transparent);
+  --color-fuchsia-100: color-mix(in oklab, var(--ai) 18%, transparent);
+  --color-fuchsia-200: var(--ai);
+  --color-fuchsia-300: var(--ai);
+  --color-fuchsia-400: var(--ai);
+  --color-fuchsia-500: var(--ai);
+  --color-fuchsia-600: var(--ai);
+  --color-fuchsia-700: var(--ai);
+  --color-fuchsia-800: var(--ai);
+  --color-fuchsia-900: var(--ai);
+  --color-fuchsia-950: var(--ai);
+  --color-red-50: color-mix(in oklab, var(--negative) 12%, transparent);
+  --color-red-100: color-mix(in oklab, var(--negative) 18%, transparent);
+  --color-red-200: var(--negative);
+  --color-red-300: var(--negative);
+  --color-red-400: var(--negative);
+  --color-red-500: var(--negative);
+  --color-red-600: var(--negative-text);
+  --color-red-700: var(--negative-text);
+  --color-red-800: var(--negative-text);
+  --color-red-900: var(--negative-text);
+  --color-red-950: var(--negative-text);
+  --color-rose-50: color-mix(in oklab, var(--negative) 12%, transparent);
+  --color-rose-100: color-mix(in oklab, var(--negative) 18%, transparent);
+  --color-rose-200: var(--negative);
+  --color-rose-300: var(--negative);
+  --color-rose-400: var(--negative);
+  --color-rose-500: var(--negative);
+  --color-rose-600: var(--negative-text);
+  --color-rose-700: var(--negative-text);
+  --color-rose-800: var(--negative-text);
+  --color-rose-900: var(--negative-text);
+  --color-rose-950: var(--negative-text);
+  --color-pink-50: color-mix(in oklab, var(--negative) 12%, transparent);
+  --color-pink-100: color-mix(in oklab, var(--negative) 18%, transparent);
+  --color-pink-200: var(--negative);
+  --color-pink-300: var(--negative);
+  --color-pink-400: var(--negative);
+  --color-pink-500: var(--negative);
+  --color-pink-600: var(--negative-text);
+  --color-pink-700: var(--negative-text);
+  --color-pink-800: var(--negative-text);
+  --color-pink-900: var(--negative-text);
+  --color-pink-950: var(--negative-text);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0rem;
+  --background: #f2f2f2; /* brand off-white (brandbook p.4) instead of pure white */
+  --foreground: oklch(0.145 0 0);
+  --tertiary-foreground: #525252;
+  --card: #fafafa;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: #fafafa;
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.145 0 0);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: #e8e8e8;
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: #e8e8e8;
+  --muted-foreground: #6b6b6b; /* AA (4.7:1) on #f2f2f2 */
+  --accent: #e8e8e8;
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #dcdcdc;
+  --input: #dcdcdc;
+  --ring: oklch(0.145 0 0);
+  /* Light theme: the brand accent hues, darkened to hold contrast on white
+     (implementation choice — the guide defines dark values only). */
+  --chart-1: #2e6f1f;
+  --chart-2: #8a6d00;
+  --chart-3: #e46a64;
+  --chart-4: #1f5fa8;
+  --chart-5: #6b46c9;
+  --positive: #2e6f1f;
+  --negative: #e46a64;
+  --negative-text: #b3261e;
+  --warning: #8a6d00;
+  --info: #1f5fa8;
+  --ai: #6b46c9;
+  --sidebar: #f2f2f2;
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.145 0 0);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: #e8e8e8;
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: #dcdcdc;
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #f2f2f2;
+  --card: #161616;
+  --card-foreground: #f2f2f2;
+  --popover: #161616;
+  --popover-foreground: #f2f2f2;
+  --primary: #f2f2f2;
+  --primary-foreground: #0a0a0a;
+  --secondary: #757575;
+  --secondary-foreground: #0a0a0a;
+  --muted: #161616;
+  --muted-foreground: #757575;
+  --tertiary-foreground: #525252;
+  --accent: #272727;
+  --accent-foreground: #f2f2f2;
+  --destructive: #f56868;
+  --border: #272727;
+  --input: #272727;
+  --ring: #f2f2f2;
+  --chart-1: #8ae06c; /* Green */
+  --chart-2: #f1df38; /* Yellow */
+  --chart-3: #f56868; /* Red */
+  --chart-4: #6cadf5; /* Blue */
+  --chart-5: #a77dff; /* Purple */
+  --positive: #8ae06c;
+  --negative: #f56868;
+  --negative-text: #f56868;
+  --warning: #f1df38;
+  --info: #6cadf5;
+  --ai: #a77dff;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #f2f2f2;
+  --sidebar-primary: #f2f2f2;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #161616;
+  --sidebar-accent-foreground: #f2f2f2;
+  --sidebar-border: #272727;
+  --sidebar-ring: #f2f2f2;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    width: 100%;
+    max-width: 100%;
+  }
+  /* Excludes .font-mono headings — several components (stat cards, big
+     numeric figures) deliberately opt a heading INTO Roboto Mono for a
+     tabular/monospaced number display. Without this exclusion, this rule's
+     !important silently swapped their font-family back to Roboto Sans (and
+     their weight back to 400) no matter what utility classes the component
+     applied, so a "font-mono font-bold" heading rendered as neither mono nor
+     bold — visibly not real Roboto Mono despite the class name saying so. */
+  h1:not(.font-mono), h2:not(.font-mono), h3:not(.font-mono), h4:not(.font-mono), h5:not(.font-mono), h6:not(.font-mono) {
+    font-family: var(--font-roboto), sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.05em !important;
+  }
+}
+
+/* Use the visible mobile viewport (excluding browser chrome) on full-screen
+   app/auth pages while retaining the 100vh fallback for older browsers. */
+@supports (height: 100dvh) {
+  .h-screen { height: 100dvh; }
+  .min-h-screen { min-height: 100dvh; }
+  .max-h-screen { max-height: 100dvh; }
+}
+
+@media (max-width: 639px) {
+  .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+
+  /* Pages use unprefixed grid utilities as their phone layout. Stack common
+     form/detail grids and keep larger KPI grids readable without forcing a
+     sideways page scroll. Responsive sm:/md:/lg: variants remain in control
+     at their normal breakpoints. */
+  .grid.grid-cols-2,
+  .grid.grid-cols-3 { grid-template-columns: minmax(0, 1fr); }
+  .grid.grid-cols-4,
+  .grid.grid-cols-5,
+  .grid.grid-cols-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  main .grid > * { min-width: 0; }
+}
+
+/* Shimmer Animation for Loading Skeletons */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Custom Sidebar Animations */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-track-transparent {
+    scrollbar-color: transparent transparent;
+  }
+
+  @keyframes sidebar-icon-bounce {
+    0%,
+    100% {
+      transform: scale(0.9) rotate(0deg);
+    }
+    50% {
+      transform: scale(1) rotate(3deg);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
+  .animate-icon-hover {
+    animation: sidebar-icon-bounce 0.3s ease-in-out;
+  }
+
+  /* Animated Blob Backgrounds for Auth Pages */
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+
+  /* Chart and Visualization Entrance Animations & Visual Effects */
+  @keyframes chartEntrance {
+    0% {
+      opacity: 0;
+      transform: translateY(16px) scale(0.99);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes chartShimmerGlow {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  @keyframes chartBeaconPulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.9;
+    }
+    50% {
+      transform: scale(1.35);
+      opacity: 0.4;
+    }
+  }
+
+  .chart-animate-in {
+    animation: chartEntrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .chart-delay-1 { animation-delay: 60ms; }
+  .chart-delay-2 { animation-delay: 130ms; }
+  .chart-delay-3 { animation-delay: 200ms; }
+  .chart-delay-4 { animation-delay: 280ms; }
+  .chart-delay-5 { animation-delay: 360ms; }
+  .chart-delay-6 { animation-delay: 440ms; }
+
+  .chart-shimmer-border {
+    position: relative;
+  }
+  .chart-shimmer-border::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(167, 125, 255, 0.6) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: chartShimmerGlow 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .chart-beacon {
+    animation: chartBeaconPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Interactive Grid Hover Effect */
+  .grid-hover-effect {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .grid-hover-effect::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.05) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .dark .grid-hover-effect::before {
+    background: linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0.05) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  @media (pointer: fine) {
+    .grid-hover-effect {
+      background-attachment: fixed;
+    }
+  }
+}
+/* Sidebar scrollbar behavior (YouTube style) */
+@layer utilities {
+  /* YouTube-style scrollbar - only visible when scrolling */
+  .youtube-scrollbar {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  /* WebKit browsers (Chrome, Safari, Edge) */
+  .youtube-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  @media (max-width: 640px) {
+    .youtube-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .youtube-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  }
+
+  .youtube-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .youtube-scrollbar::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 10px;
+    transition: background-color 0.3s ease;
+  }
+
+  /* Show scrollbar on hover */
+  .youtube-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border) / 0.4);
+  }
+
+  /* Show scrollbar while scrolling (brighter) */
+  .youtube-scrollbar.is-scrolling::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border) / 0.6);
+  }
+
+  /* Dark mode adjustments */
+  .dark .youtube-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .dark .youtube-scrollbar.is-scrolling::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Firefox */
+  .youtube-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .youtube-scrollbar:hover {
+    scrollbar-color: hsl(var(--border) / 0.4) transparent;
+  }
+
+  .dark .youtube-scrollbar:hover {
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  /* Legacy sidebar-scroll class for backwards compatibility */
+  .sidebar-scroll {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.3s ease, opacity 0.3s ease;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+  }
+
+  .sidebar-scroll:hover::-webkit-scrollbar-thumb,
+  .sidebar-scroll:active::-webkit-scrollbar-thumb {
+    background-color: rgba(127, 42, 242, 0.5);
+  }
+
+  .sidebar-scroll.scrolling::-webkit-scrollbar-thumb {
+    background-color: rgba(127, 42, 242, 0.6);
+  }
+}
+
+/* Recharts Dark Mode Visibility Fix */
+.dark .recharts-text {
+  fill: #f2f2f2 !important;
+}
+.dark .recharts-cartesian-axis-tick-value {
+  fill: #a3a3a3 !important;
+}
+.dark .recharts-cartesian-axis-tick-line {
+  stroke: #272727 !important;
+}
+.dark .recharts-cartesian-grid-horizontal line,
+.dark .recharts-cartesian-grid-vertical line {
+  stroke: #272727 !important;
+}
+.dark .recharts-legend-item-text {
+  color: #f2f2f2 !important;
+}
+.dark .recharts-default-tooltip {
+  background-color: #161616 !important;
+  border-color: #272727 !important;
+}
+.dark .recharts-tooltip-item-name,
+.dark .recharts-tooltip-item-value,
+.dark .recharts-tooltip-label {
+  color: #f2f2f2 !important;
+}
+
+/* Hide number input arrows globally */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+html,
+body {
+  scroll-behavior: auto;
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Custom browser autofill styling overrides to prevent style flash and match theme background/foreground */
+@layer base {
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--background) inset !important;
+    -webkit-text-fill-color: var(--foreground) !important;
+    caret-color: var(--foreground) !important;
+    transition: background-color 5000s ease-in-out 0s !important;
+  }
+}
+
+/* MarketChart: series draw in from the left on mount / range change (motion-safe only). */
+@keyframes au-reveal {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
