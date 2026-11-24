@@ -2,13 +2,15 @@
 
 // Developer reference: every shared container, navigation pattern and UI primitive used across the ERP,
 // rendered from the real components (not copies). Import paths are shown next to each demo.
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { toast } from "sonner";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
-  Boxes, Building2, ChevronRight, FileText, Inbox, LayoutDashboard, MoreHorizontal, Plus, Receipt,
-  Settings, ShoppingCart, TrendingUp, Users, Wallet,
+  Boxes, Building2, ChevronDown, ChevronRight, FileText, Inbox, LayoutDashboard, MoreHorizontal, Plus, Receipt,
+  RotateCcw, Settings, ShoppingCart, TrendingUp, Users, Wallet, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +66,10 @@ const TOC = [
   ["overlays", "Overlays & feedback"],
   ["data", "Data display"],
   ["charts", "Charts & analytics"],
+  ["pie", "Pie chart"],
+  ["motion", "Motion · entrance"],
+  ["interaction", "Motion · interaction"],
+  ["preloader", "Preloader"],
 ] as const;
 
 const SIDEBAR: SidebarSection[] = [
@@ -430,6 +436,32 @@ export default function UiKitPage() {
               <AnalyticsExplorerChart key={analyticsTab} defaultType={analyticsTab === "overview" ? "line" : analyticsTab === "flows" ? "area" : "bar"} />
             </Demo>
           </Section>
+
+          {/* ───────────────────────── Pie chart ───────────────────────── */}
+          <Section id="pie" title="Pie chart" note="Part-to-whole only, at most 5–6 slices; group the rest into “Others”. Colours come from --chart-1…5 so they switch with the theme. Always pair the chart with a legend that shows exact values.">
+            <Demo label="Donut with legend" path="recharts · PieChart + Pie + Cell · colours: var(--chart-1…5)" note="Hover a slice or a legend row to focus it.">
+              <ExpensePie />
+            </Demo>
+          </Section>
+
+          {/* ───────────────────────── Motion · entrance ───────────────────────── */}
+          <Section id="motion" title="Motion · entrance & status" note="CSS utilities from app/globals.css. Entrances use cubic-bezier(0.16, 1, 0.3, 1) over 750ms with 60–80ms staggers. Motion is skipped when the OS asks for reduced motion.">
+            <MotionEntrance />
+          </Section>
+
+          {/* ───────────────────────── Motion · interaction ───────────────────────── */}
+          <Section id="interaction" title="Motion · interaction" note="framer-motion for state changes. Keep UI transitions at 150–250ms; indicators use the ModuleTabs spring (stiffness 450, damping 36, mass 0.7). Wrapped in <MotionConfig reducedMotion=&quot;user&quot;>.">
+            <MotionConfig reducedMotion="user">
+              <MotionInteraction />
+            </MotionConfig>
+          </Section>
+
+          {/* ───────────────────────── Preloader ───────────────────────── */}
+          <Section id="preloader" title="Preloader" note="App start splash, shown once while the workspace boots. Fixed dark brand surface (like the brandbook plates): a blurred field of black/grey/white/blue pixels (with sparse purple) sweeps in left to right, the status line names the current step and a 1px bar tracks progress. With reduced motion it renders complete.">
+            <Demo label="Start-up splash" path="pattern (inline) · brand palette, not theme tokens">
+              <Preloader />
+            </Demo>
+          </Section>
         </main>
       </div>
     </div>
@@ -684,6 +716,229 @@ function ThemeTokens() {
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+// ───────────────────────── Pie chart ─────────────────────────
+const EXPENSES = [
+  { name: "Payroll", value: 1840000, color: "var(--chart-4)" },
+  { name: "Inventory", value: 1260000, color: "var(--chart-1)" },
+  { name: "Rent & utilities", value: 420000, color: "var(--chart-2)" },
+  { name: "Marketing", value: 310000, color: "var(--chart-5)" },
+  { name: "Logistics", value: 270000, color: "var(--chart-3)" },
+];
+const EXPENSE_TOTAL = EXPENSES.reduce((s, e) => s + e.value, 0);
+
+function ExpensePie() {
+  const [active, setActive] = useState<number | null>(null);
+  const reduce = useReducedMotion();
+  const dim = (i: number) => (active === null || active === i ? 1 : 0.3);
+  return (
+    <div className="grid items-center gap-6 border border-border bg-card p-6 lg:grid-cols-[280px_1fr]">
+      <div role="img" aria-label={`Expenses by category, total ${inr.format(EXPENSE_TOTAL)}`} className="relative mx-auto h-[260px] w-full max-w-[280px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={EXPENSES} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="92%" paddingAngle={1}
+              stroke="var(--card)" strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={!reduce}
+              onMouseEnter={(_, i) => setActive(i)} onMouseLeave={() => setActive(null)}>
+              {EXPENSES.map((e, i) => <Cell key={e.name} fill={e.color} fillOpacity={dim(i)} />)}
+            </Pie>
+            <Tooltip content={({ active: on, payload }) => on && payload?.[0] ? (
+              <div className="border border-border bg-card px-3 py-2 font-mono text-[13px] text-card-foreground">
+                <span className="text-muted-foreground">{payload[0].name}:</span> {inr.format(Number(payload[0].value))}
+              </div>
+            ) : null} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <p className="font-mono text-[11px] uppercase text-muted-foreground">Total · Nov</p>
+          <p className="font-mono text-lg font-medium tabular-nums">{inr.format(EXPENSE_TOTAL)}</p>
+        </div>
+      </div>
+      <ul className="font-mono text-[13px]" onMouseLeave={() => setActive(null)}>
+        {EXPENSES.map((e, i) => (
+          <li key={e.name} onMouseEnter={() => setActive(i)} style={{ opacity: dim(i) }}
+            className="grid grid-cols-[1fr_auto_auto] items-center gap-x-6 border-b border-border py-2.5 transition-opacity last:border-b-0">
+            <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0" style={{ background: e.color }} />{e.name}</span>
+            <span className="text-right tabular-nums text-muted-foreground">{((e.value / EXPENSE_TOTAL) * 100).toFixed(1)}%</span>
+            <span className="text-right tabular-nums">{inr.format(e.value)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ───────────────────────── Motion ─────────────────────────
+// Literal class names so the delays stay greppable next to app/globals.css.
+const DELAYS = ["chart-delay-1", "chart-delay-2", "chart-delay-3", "chart-delay-4", "chart-delay-5", "chart-delay-6"];
+
+function MotionEntrance() {
+  const [run, setRun] = useState(0);
+  const reduce = useReducedMotion();
+  return (
+    <>
+      <Demo label="Staggered entrance" path=".chart-animate-in + .chart-delay-1…6" note="Use for cards and charts on first paint, never on every re-render.">
+        <Button variant="outline" size="sm" onClick={() => setRun((r) => r + 1)}><RotateCcw className="mr-1.5 h-4 w-4" />Replay</Button>
+        <div key={run} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {DELAYS.map((d, i) => (
+            <div key={d} className={cn("border border-border bg-card p-4", !reduce && cn("chart-animate-in", d))}>
+              <p className="font-mono text-[11px] uppercase text-muted-foreground">Card {i + 1}</p>
+              <p className="mt-2 font-mono text-[11px] text-muted-foreground">{d}</p>
+            </div>
+          ))}
+        </div>
+      </Demo>
+      <div className="grid gap-8 lg:grid-cols-2">
+        <Demo label="Live status beacon" path=".chart-beacon">
+          <div className="flex items-center gap-3 border border-border bg-card px-4 py-3 font-mono text-sm">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className={cn("absolute inset-0 bg-(--positive)", !reduce && "chart-beacon")} />
+              <span className="relative h-2.5 w-2.5 bg-(--positive)" />
+            </span>
+            Bank feed syncing <span className="text-muted-foreground">— HDFC ••4021</span>
+          </div>
+        </Demo>
+        <Demo label="AI accent sweep" path=".chart-shimmer-border" note="Reserved for AI-generated content.">
+          <div className={cn("border border-border bg-card px-4 py-3 font-mono text-sm", !reduce && "chart-shimmer-border")}>
+            <span className="text-(--ai)">AI</span> <span className="text-muted-foreground">— Receivables are 3.1% lower than last month.</span>
+          </div>
+        </Demo>
+      </div>
+    </>
+  );
+}
+
+const SEGMENTS = ["Day", "Week", "Month", "Quarter"] as const;
+const SAMPLE_LINES = ["Cotton fabric · 120 m", "Zip fasteners · 500 pcs", "Packaging boxes · 80 pcs", "Thread spools · 40 pcs"];
+
+function MotionInteraction() {
+  const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>("Week");
+  const [lines, setLines] = useState([{ id: 1, item: SAMPLE_LINES[0] }, { id: 2, item: SAMPLE_LINES[1] }]);
+  const [open, setOpen] = useState(false);
+  const addLine = () => setLines((ls) => {
+    const id = Math.max(0, ...ls.map((l) => l.id)) + 1;
+    return [...ls, { id, item: SAMPLE_LINES[(id - 1) % SAMPLE_LINES.length] }];
+  });
+  return (
+    <>
+      <Demo label="Sliding indicator" path="framer-motion · layoutId (same spring as ModuleTabs)">
+        <div role="tablist" aria-label="Period" className="inline-flex border border-border font-mono text-[13px]">
+          {SEGMENTS.map((s) => (
+            <button key={s} type="button" role="tab" aria-selected={segment === s} onClick={() => setSegment(s)}
+              className={cn("relative px-4 py-2 transition-colors", segment === s ? "text-foreground" : "text-muted-foreground hover:text-foreground")}>
+              {segment === s && <motion.span layoutId="ui-kit-segment" className="absolute inset-x-0 bottom-0 h-[2px] bg-primary" transition={{ type: "spring", stiffness: 450, damping: 36, mass: 0.7 }} />}
+              {s}
+            </button>
+          ))}
+        </div>
+      </Demo>
+      <div className="grid gap-8 lg:grid-cols-2">
+        <Demo label="List enter / exit" path="framer-motion · AnimatePresence">
+          <div className="border border-border bg-card">
+            <ul className="font-mono text-[13px]">
+              <AnimatePresence initial={false}>
+                {lines.map((l) => (
+                  <motion.li key={l.id} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+                      <span>{l.item}</span>
+                      <button type="button" aria-label={`Remove ${l.item}`} onClick={() => setLines((ls) => ls.filter((x) => x.id !== l.id))}
+                        className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                    </div>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
+            </ul>
+            <div className="p-3"><Button variant="ghost" size="sm" onClick={addLine}><Plus className="mr-1.5 h-4 w-4" />Add line</Button></div>
+          </div>
+        </Demo>
+        <Demo label="Expand / collapse" path="framer-motion · height auto">
+          <div className="border border-border bg-card font-mono text-[13px]">
+            <button type="button" aria-expanded={open} aria-controls="ui-kit-collapse" onClick={() => setOpen((o) => !o)}
+              className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted">
+              <span>INV-2026-0141 · Kavya Textiles</span>
+              <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown className="h-4 w-4 text-muted-foreground" /></motion.span>
+            </button>
+            <AnimatePresence initial={false}>
+              {open && (
+                <motion.div id="ui-kit-collapse" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden">
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 border-t border-border px-4 py-3">
+                    <dt className="text-muted-foreground">Amount</dt><dd className="tabular-nums">{inr.format(96200)}</dd>
+                    <dt className="text-muted-foreground">Due</dt><dd className="text-(--negative-text)">Overdue by 8 days</dd>
+                  </dl>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </Demo>
+      </div>
+    </>
+  );
+}
+
+// ───────────────────────── Preloader ─────────────────────────
+const BOOT_STEPS = ["Initializing workspace…", "Reading preferences…", "Loading modules: Finance, Sales, CRM…", "Syncing ledgers…", "Connecting bank feeds…", "Ready"];
+const PX_COLS = 30, PX_ROWS = 20; // in the 360×420 portrait box each pixel is a tall ~12×21px rectangle
+const PX_RAMP = ["#0A0A0A", "#161616", "#272727", "#525252", "#757575", "#6CADF5", "#F2F2F2"]; // dark → light
+const SCAN_SPAN = 85; // the scan crosses the box over 0–85% progress; jitter fills the remaining 15%
+// Integer hash (murmur3 fmix) so server and client render identical pixels — Math.random would break hydration.
+const hash = (n: number) => {
+  n = Math.imul(n ^ (n >>> 16), 0x85ebca6b); n = Math.imul(n ^ (n >>> 13), 0xc2b2ae35);
+  return ((n ^ (n >>> 16)) >>> 0) / 2 ** 32;
+};
+const PIXELS = Array.from({ length: PX_COLS * PX_ROWS }, (_, i) => {
+  const x = i % PX_COLS, y = Math.floor(i / PX_COLS), r = hash(i + 1);
+  // A bright diagonal streak (white/blue core fading to grey/black) plus per-pixel noise, with sparse purple.
+  const light = 1 - Math.abs(x / PX_COLS - (y / PX_ROWS) * 0.4 - 0.4) * 2.2 + (r - 0.5) * 0.4;
+  const color = r < 0.06 ? "#A77DFF" : PX_RAMP[Math.min(PX_RAMP.length - 1, Math.max(0, Math.round(light * (PX_RAMP.length - 1))))];
+  return { color, at: scanAt(x, hash(i + 50_000)) };
+});
+const PX_GRID = "absolute inset-0 grid gap-px grid-cols-[repeat(30,minmax(0,1fr))] grid-rows-[repeat(20,minmax(0,1fr))]";
+function scanAt(x: number, jitter: number) { return (x / PX_COLS) * SCAN_SPAN + jitter * (100 - SCAN_SPAN); }
+
+function Preloader() {
+  const [p, setP] = useState(0);
+  const reduce = useReducedMotion();
+  const shown = reduce ? 100 : p;
+  useEffect(() => {
+    if (reduce || p >= 100) return;
+    const t = setTimeout(() => setP((v) => Math.min(100, v + 1)), 35);
+    return () => clearTimeout(t);
+  }, [p, reduce]);
+  const step = BOOT_STEPS[Math.floor((shown / 100) * (BOOT_STEPS.length - 1))];
+  return (
+    <div className="space-y-3">
+      <Button variant="outline" size="sm" onClick={() => setP(0)}><RotateCcw className="mr-1.5 h-4 w-4" />Replay</Button>
+      <div className="mx-auto max-w-[360px] border border-[#272727] bg-[#0A0A0A]">
+        <div className="relative h-[420px] overflow-hidden border-b border-[#272727]" aria-hidden>
+          {/* Pixels reveal left → right, flash white, then settle; scale-110 pushes the blur's soft edges outside the clip */}
+          <div className={cn(PX_GRID, "scale-110")} style={{ filter: "blur(6px)" }}>
+            {PIXELS.map((px, i) => (
+              <div key={i} className="transition-colors duration-300"
+                style={{ background: shown <= px.at ? "#0A0A0A" : shown - px.at < 3 ? "#F2F2F2" : px.color }} />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-6 p-6">
+          <div className="flex items-end justify-between gap-4">
+            <BrandLogo h={28} />
+            <p className="font-mono text-[11px] uppercase text-[#757575]">ERP · 2026.11</p>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between gap-4 font-mono text-[12px]">
+              <span className="truncate text-[#757575]" aria-live="polite">{step}</span>
+              <span className="tabular-nums text-[#F2F2F2]">{shown}%</span>
+            </div>
+            <div role="progressbar" aria-label="Starting Aupulens" aria-valuemin={0} aria-valuemax={100} aria-valuenow={shown} className="h-px bg-[#272727]">
+              <div className="h-px bg-[#F2F2F2]" style={{ width: `${shown}%` }} />
+            </div>
+          </div>
+          <p className="font-mono text-[11px] text-[#525252]">© 2026 Aupulens. Powering the planning systems.</p>
+        </div>
+      </div>
     </div>
   );
 }
